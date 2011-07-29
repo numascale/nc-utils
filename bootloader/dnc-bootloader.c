@@ -1504,7 +1504,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
     waitfor = RSP_SLAVE_READY;
     do_restart = 0;
 
-    printf("Waiting for other nodes...\n");
+    printf("Waiting for %d nodes...\n", cfg_nodes - 1);
 
     count = 0;
     backoff = 1;
@@ -1530,17 +1530,22 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    last_cmd = cmd.tid;
 	}
 
-	len = udp_read_state(handle, &rsp, sizeof(rsp));
-	if (!len && !do_restart) {
-	    tsc_wait(200);
-	    continue;
-	}
-	    
+	if (cfg_nodes > 1) {
+	    len = udp_read_state(handle, &rsp, sizeof(rsp));
+	    if (!len && !do_restart) {
+		tsc_wait(200);
+		continue;
+	    }
+	} else
+	    len = 0;
+
 	if (len == sizeof(rsp)) {
 	    int ours = 0;
 	    for (i = 0; i < cfg_nodes; i++)
-		if (cfg_nodelist[i].uuid == rsp.uuid)
+		if (cfg_nodelist[i].uuid == rsp.uuid) {
 		    ours = 1;
+		    break;
+		}
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
