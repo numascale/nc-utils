@@ -117,8 +117,13 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     /* only check for Target Abort if unable to check link */
     if (neigh == -1 || neigh_link == -1)
 	reboot = ret == 0xffffffff;
-    else
+    else {
 	reboot = link_error(neigh, neigh_link);
+	if (!reboot && ret == 0xffffffff) {
+	    printf("Warning: undetected link error (read 0xffffffff)\n");
+	    reboot = 1;
+	}
+    }
 
     if (reboot) {
 	printf("Link error while reading; resetting system...\n");
