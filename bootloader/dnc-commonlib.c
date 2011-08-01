@@ -870,7 +870,6 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
     u64 rval;
     u8 node;
     int dnc_ht_id;
-    u32 bar0;
 
     /* Set EnableCf8ExtCfg */
     rval = dnc_rdmsr(MSR_NB_CFG);
@@ -926,47 +925,48 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
     DNC_CSR_BASE = 0x3fff00000000ULL;
     DNC_CSR_LIM = 0x3fffffffffffULL;
 
-    bar0 = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                              H2S_CSR_F0_BASE_ADDRESS_REGISTER_0);
-    if (bar0 != 0) {
-        /* BAR0 is assigned, BIOS recognized our card and has set the maps for it already */
-        val = u32bswap(mem64_read32(bar0 | (1<<15) | H2S_CSR_G3_CSR_BASE_ADDRESS));
-	if ((val & 0xffff) != (DNC_CSR_BASE >> 32)) {
-            printf("Setting CSR_BASE_ADDRESS to %04llx using BAR\n", (DNC_CSR_BASE >> 32));
-            mem64_write32(bar0 | (1<<15) | H2S_CSR_G3_CSR_BASE_ADDRESS, u32bswap(DNC_CSR_BASE >> 32));
+    /* Check if BIOS has assigned a BAR0, if so clear it */
+    val = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+                             H2S_CSR_F0_STATUS_COMMAND_REGISTER);
+    printf("Command/Status: %08x\n", val);
+    if (val & (1 << 1)) {
+        cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+                            H2S_CSR_F0_STATUS_COMMAND_REGISTER, val & ~(1 << 1));
+        cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+                            H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0);
+        cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+                            H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
+    }
+
+    /* Check the expansion rom base address register if this has already been done. */
+    val = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+                             H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
+    if (val != 0 && !(val & 1)) {
+        if ((val & 0xffff0000) != (DNC_CSR_BASE >> 16)) {
+            printf("Mismatching CSR space hi addresses, warm-reset needed! (%04x != %04x).\n",
+                   (u32)(val >> 16), (u32)(DNC_CSR_BASE >> 32));
+            return -1;
         }
     }
     else {
-        /* Check the expansion rom base address register if this has already been done. */
-        val = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                                 H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
-        if (val != 0 && !(val & 1)) {
-            if ((val & 0xffff0000) != (DNC_CSR_BASE >> 16)) {
-                printf("Mismatching CSR space hi addresses, warm-reset needed! (%04x != %04x).\n",
-                       (u32)(val >> 16), (u32)(DNC_CSR_BASE >> 32));
-                return -1;
-            }
-        }
-        else {
 #ifdef __i386
-            /* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
-             * and set this value in expansion rom base address register. */
-            for (node = 0; node < dnc_ht_id; node++) {
-                printf("Setting default CSR maps for node %d\n", node);
-                add_extd_mmio_maps(0xfff0, node, 0, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
-            }
-            printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
-            mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1<<15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
-                          u32bswap(DNC_CSR_BASE >> 32));
-            cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                                H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS,
-                                (DNC_CSR_BASE >> 16)); // Put DNC_CSR_BASE[47:32] in the rom address register offset[31:16]
-#else
-            /* XXX: perhaps we could try default global map in userspace too ? */
-            printf("Unable to determine CSR space address.\n");
-            return -1;
-#endif
+        /* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
+         * and set this value in expansion rom base address register. */
+        for (node = 0; node < dnc_ht_id; node++) {
+            printf("Setting default CSR maps for node %d\n", node);
+            add_extd_mmio_maps(0xfff0, node, 0, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
         }
+        printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
+        mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1<<15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
+                      u32bswap(DNC_CSR_BASE >> 32));
+        cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+                            H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS,
+                            (DNC_CSR_BASE >> 16)); // Put DNC_CSR_BASE[47:32] in the rom address register offset[31:16]
+#else
+        /* XXX: perhaps we could try default global map in userspace too ? */
+        printf("Unable to determine CSR space address.\n");
+        return -1;
+#endif
     }
 
     for (node = 0; node < dnc_ht_id; node++) {
@@ -1305,9 +1305,8 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     } else if (asic_mode && (chip_rev == 1)) {
         // ERRATA #N20: Disable buffer 0-15 to ensure that HPrb and HReq have different
         // transIDs (HPrb: 0-15, HReq: 16-30)
-        // ERRATA #N22: Disable more HReq buffers. Only use 8 HReq buffers (16-23).
         val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-        dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1<<4) | (1<<2) | (1<<1) | (1<<0));
+        dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1<<4));
     }
 
     // Set LockControl=0 to enable HT Lock functionality and avoid data corruption on split transactions.
