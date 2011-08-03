@@ -45,9 +45,15 @@ int cht_config_use_extd_addressing = 0;
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
 u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
 
+extern void sleep(unsigned int);
+
 void reset_cf9(int mode, int last)
 {
     int i;
+
+    /* ensure last lines were sent from management controller */
+    sleep(500);
+
     for (i = 0; i <= last; i++) {
 	u32 val = cht_read_config(i, NB_FUNC_HT, 0x6c);
 	cht_write_config(i, NB_FUNC_HT, 0x6c, val | 0x20); /* BiosRstDet */
@@ -127,7 +133,7 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
 
     if (reboot) {
 	printf("Link error while reading; resetting system...\n");
-	reset_cf9(0xa, neigh);
+	reset_cf9(2, neigh);
     }
 
     return ret;
@@ -140,7 +146,7 @@ void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u
     /* only check for Target Abort if unable to check link */
     if (neigh != -1 && neigh_link != -1 && link_error(neigh, neigh_link)) {
 	printf("Link error while writing; resetting system...\n");
-	reset_cf9(0xa, neigh);
+	reset_cf9(2, neigh);
     }
 }
 
