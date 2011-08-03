@@ -510,7 +510,7 @@ static void perform_httest(int mode)
     print_phy_lanes("link phy DFE and DFR control", 0x4006, 0);
     print_phy_lanes("link phy DLL control", 0x400a, 0);
     print_phy_lanes("link phy transmit control", 0x6000, 1);
-    printf("link phy transmit clock phase control:\n- CLKOUT[ 0]=%08Xh\n- CLKOUT[ 1]=%08Xh\n", cht_read_phy(0x6884, 1), cht_read_phy(0x6984, 1));
+    printf("link phy transmit clock phase control:\n- CLKOUT[ 0]=%08Xh\n- CLKOUT[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, 0x6884, 1), get_phy_register(nc_neigh, nc_neigh_link, 0x6984, 1));
 
 /* these cause hangs
     print_phy_lanes("link phy receiver DLL control and test 5", 0x400f, 0);
@@ -566,6 +566,8 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     printf("HT#%d.%d Link Freq/Revision : %08x\n", neigh, link, val);
     val = cht_read_config(neigh, 0, 0x170 + link * 4);
     printf("HT#%d.%d Link Ext. Control  : %08x\n", neigh, link, val);
+    val = get_phy_register(nc_neigh, nc_neigh_link, 0xe0, 0); /* link phy compensation and calibration control 1 */
+    printf("HT#%d.%d Link Phy Settings  : RTT=%02x RON=%02x\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
 
     printf("Checking width/freq ");
 
@@ -809,6 +811,9 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         val = cht_read_config(i, NB_FUNC_HT, 0x40 + neigh * 4);
         cht_write_config(i, NB_FUNC_HT, 0x40 + nc * 4, val);
     }
+
+    printf("allowing link to stablise...\n");
+    sleep(2000);
 
     val = cht_read_config_nc(nc, 0, neigh, link,
                              H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
