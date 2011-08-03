@@ -479,15 +479,19 @@ static void print_phy_gangs(char *name, int base)
     printf("- CAD[15:8],CTL1,CLK1=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 0x10, 0));
 }
 
-static void print_phy_lanes(char *name, int base)
+static void print_phy_lanes(char *name, int base, int clk)
 {
     int i;
 
     printf("%s:\n", name);
     for (i = 0; i <= 15; i++)
-	printf("- CADIN[%2d]=%08Xh\n", i, get_phy_register(nc_neigh, nc_neigh_link, base + i * 0x80, 1));
-    printf("- CTLIN[ 0]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 16 * 0x80, 1));
-    printf("- CTLIN[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 18 * 0x80, 1));
+	printf("- CAD[%2d]=%08Xh\n", i, get_phy_register(nc_neigh, nc_neigh_link, base + i * 0x80, 1));
+    printf("- CTL[ 0]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 16 * 0x80, 1));
+    if (clk)
+	printf("- CLK[ 0]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 17 * 0x80, 1));
+    printf("- CTL[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 18 * 0x80, 1));
+    if (clk)
+	printf("- CLK[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 19 * 0x80, 1));
 }
 
 static void perform_httest(int mode)
@@ -503,14 +507,15 @@ static void perform_httest(int mode)
     printf("link phy PLL control: %08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, 0xe3, 0));
     printf("link BIST control: %08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, 0x100, 0));
 
-    print_phy_lanes("link phy DFE and DFR control", 0x4006);
-    print_phy_lanes("link phy DLL control", 0x400a);
-    print_phy_lanes("link phy transmit control", 0x6000);
-/* these cause hangs
-    print_phy_lanes("link phy receiver DLL control and test 5", 0x400f);
-    print_phy_lanes("link phy receiver process control", 0x4011);
+    print_phy_lanes("link phy DFE and DFR control", 0x4006, 0);
+    print_phy_lanes("link phy DLL control", 0x400a, 0);
+    print_phy_lanes("link phy transmit control", 0x6000, 1);
     printf("link phy transmit clock phase control:\n- CLKOUT[ 0]=%08Xh\n- CLKOUT[ 1]=%08Xh\n", cht_read_phy(0x6884, 1), cht_read_phy(0x6984, 1));
-    print_phy_lanes("link phy tx deemphasis and margin test control", 0x600c); */
+
+/* these cause hangs
+    print_phy_lanes("link phy receiver DLL control and test 5", 0x400f, 0);
+    print_phy_lanes("link phy receiver process control", 0x4011, 0);
+    print_phy_lanes("link phy tx deemphasis and margin test control", 0x600c, 1); */
 }
 
 static void ht_optimize_link(int nc, int rev, int asic_mode)
