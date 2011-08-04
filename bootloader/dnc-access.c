@@ -52,7 +52,7 @@ void reset_cf9(int mode, int last)
     int i;
 
     /* ensure last lines were sent from management controller */
-    sleep(500);
+    sleep(1000);
 
     for (i = 0; i <= last; i++) {
 	u32 val = cht_read_config(i, NB_FUNC_HT, 0x6c);

@@ -812,7 +812,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         cht_write_config(i, NB_FUNC_HT, 0x40 + nc * 4, val);
     }
 
-    printf("allowing link to stablise...\n");
+    printf("allowing link to stabilise...\n");
     sleep(2000);
 
     val = cht_read_config_nc(nc, 0, neigh, link,
