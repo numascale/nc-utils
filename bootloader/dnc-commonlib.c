@@ -428,14 +428,14 @@ static u32 get_phy_register(int node, int link, int idx, int direct)
 }
 
 #ifdef UNUSED
-static void set_phy_register(int node, int link, int idx, u32 val)
+static void set_phy_register(int node, int link, int idx, int direct, u32 val)
 {
 
     int base = 0x180 + link * 8;
     int i;
     u32 reg;
     cht_write_config(node, 4, base + 4, val);
-    cht_write_config(node, 4, base, idx | 0x40000000);
+    cht_write_config(node, 4, base, idx | (direct << 29) | (1 << 30));
     for (i = 0; i < 1000; i++) {
         reg = cht_read_config(node, 4, base);
         if (reg & 0x80000000)
