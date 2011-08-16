@@ -29,6 +29,8 @@
 
 #include "dnc-commonlib.h"
 
+extern unsigned char sleep(unsigned int msec);
+
 // -------------------------------------------------------------------------
 
 // Structs to hold DIMM configuration from SPD readout.

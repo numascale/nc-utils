@@ -45,7 +45,7 @@ int cht_config_use_extd_addressing = 0;
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
 u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
 
-extern void sleep(unsigned int);
+extern unsigned char sleep(unsigned int msec);
 
 void reset_cf9(int mode, int last)
 {
