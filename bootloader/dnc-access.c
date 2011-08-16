@@ -133,7 +133,8 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
 
     if (reboot) {
 	printf("Link error while reading; resetting system...\n");
-	reset_cf9(2, neigh);
+	/* cold reset, since warm doesn't always reset the link enough */
+	reset_cf9(0xa, neigh);
     }
 
     return ret;
@@ -146,7 +147,8 @@ void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u
     /* only check for Target Abort if unable to check link */
     if (neigh != -1 && neigh_link != -1 && link_error(neigh, neigh_link)) {
 	printf("Link error while writing; resetting system...\n");
-	reset_cf9(2, neigh);
+	/* cold reset, since warm doesn't always reset the link enough */
+	reset_cf9(0xa, neigh);
     }
 }
 
