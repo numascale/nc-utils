@@ -38,6 +38,8 @@
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
+int link_watchdog = 0;
+
 void wait_key(void)
 {
     char ch;

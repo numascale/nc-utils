@@ -1124,6 +1124,7 @@ static int parse_cmdline(const char *cmdline)
         {"self-test",   &parse_int, &enable_selftest},
         {"microcode",	&parse_string, &microcode_path},
         {"ht-testmode",	&parse_int, &ht_testmode},
+        {"link-watchdog", &parse_int, &link_watchdog},
     };
     char arg[256];
     int lstart, lend, aend, i;
@@ -1290,6 +1291,10 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     
     if (parse_cmdline(cmdline) < 0)
         return -1;
+
+#ifdef __i386
+    watchdog_setup();
+#endif
 
     ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
 

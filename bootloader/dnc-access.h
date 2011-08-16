@@ -33,6 +33,7 @@ extern u64 dnc_csr_lim;
 #define DEF_DNC_CSR_BASE 0xffff00000000ULL
 #define DEF_DNC_CSR_LIM  0xffffffffffffULL
 
+extern int link_watchdog;
 extern int cht_config_use_extd_addressing;
 
 static inline u32 u32bswap(u32 val)
@@ -41,6 +42,7 @@ static inline u32 u32bswap(u32 val)
     return val;
 }
 
+void watchdog_setup(void);
 void reset_cf9(int mode, int last);
 u32  cht_read_config(u8 node, u8 func, u16 reg);
 void cht_write_config(u8 node, u8 func, u16 reg, u32 val);

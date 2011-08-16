@@ -40,12 +40,58 @@
 //#define DEBUG(...) printf(__VA_ARGS__)
 #define DEBUG(...) do { } while (0)
 
+#define WATCHDOG_BASE (unsigned int *)0xfec000f0 /* AMD recommended */
+
+static volatile unsigned int *watchdog_ctl = WATCHDOG_BASE;
+static volatile unsigned int *watchdog_timer = WATCHDOG_BASE + 1;
+int link_watchdog = 0;
+
 int cht_config_use_extd_addressing = 0;
 
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
 u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
 
 extern unsigned char sleep(unsigned int msec);
+
+static void pmio_write(u8 offset, u8 val)
+{
+    outb(offset, 0xcd6 /* PMIO index */);
+    outb(val, 0xcd7 /* PMIO data */);
+}
+
+static u8 pmio_read(u8 offset)
+{
+    outb(offset, 0xcd6 /* PMIO index */);
+    return inb(0xcd7 /* PMIO data */);
+}
+
+static inline void watchdog_run(unsigned int counter)
+{
+    *watchdog_timer = counter;
+    *watchdog_ctl = (1 << 0 /*WatchDogRunStopB */) | (1 << 7 /* WatchDogTrigger */);
+}
+
+static inline void watchdog_stop(void)
+{
+    *watchdog_ctl = 0;
+}
+
+void watchdog_setup(void)
+{
+    unsigned int i;
+
+    /* enable watchdog timer */
+    u8 val = pmio_read(0x69);
+    pmio_write(0x69, val & ~1);
+
+    /* enable watchdog decode */
+    u32 val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
+    dnc_write_conf(0xfff0, 0, 20, 0, 0x41, val2 | (1 << 3));
+
+    /* write watchdog base address */
+    for (i = 0; i < sizeof(watchdog_ctl); i++)
+	pmio_write(0x6c + i, ((unsigned int)watchdog_ctl >> (i * 8)) & 0xff);
+}
 
 void reset_cf9(int mode, int last)
 {
@@ -118,7 +164,13 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     u32 ret;
     int reboot;
 
+    if (link_watchdog)
+	watchdog_run(100); /* 1s timeout if read hangs due to unstable link */
+
     ret = cht_read_config(node, func, reg);
+
+    if (link_watchdog)
+	watchdog_stop();
 
     /* only check for Target Abort if unable to check link */
     if (neigh == -1 || neigh_link == -1)
@@ -142,7 +194,13 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
 
 void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 val)
 {
+    if (link_watchdog)
+	watchdog_run(100); /* 1s timeout if write hangs due to unstable link */
+
     cht_write_config(node, func, reg, val);
+
+    if (link_watchdog)
+	watchdog_stop();
 
     /* only check for Target Abort if unable to check link */
     if (neigh != -1 && neigh_link != -1 && link_error(neigh, neigh_link)) {
