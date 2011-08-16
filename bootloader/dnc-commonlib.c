@@ -496,7 +496,7 @@ static void print_phy_lanes(char *name, int base, int clk)
 	printf("- CLK[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 19 * 0x80, 1));
 }
 
-static void perform_httest(int mode)
+static void print_htphys(void)
 {
     print_phy_gangs("link phy impedance", 0xc0);
     print_phy_gangs("link phy receiver loop filter", 0xc1);
@@ -1406,7 +1406,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     }
     
     if (ht_testmode > 0) {
-	perform_httest(ht_testmode);
+	print_htphys();
     }
      
     /* If init-only parameter is given, we stop here and return */
