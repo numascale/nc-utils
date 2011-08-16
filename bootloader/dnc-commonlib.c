@@ -649,12 +649,9 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 #endif
 }
 
+#ifdef __i386
 static void disable_probefilter(int nodes)
 {
-#ifndef __i386
-    printf("(Only disabling probe filter in 32-bit mode.)\n");
-    return;
-#else
     u32 val;
     u32 scrub[8];
     int i;
@@ -715,10 +712,8 @@ static void disable_probefilter(int nodes)
 	cht_write_config(i, NB_FUNC_MISC, 0x5c, val | 1);
     }
     printf("*\n");
-#endif
 }
 
-#ifdef __i386
 static void disable_link(int node, int link)
 {
     u32 val;
