@@ -1576,9 +1576,10 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
         for (i = 0; i < cfg_nodes; i++) {
             if (cfg_nodelist[i].uuid == info->uuid) /* Self */
                 continue;
-	    if (nodedata[cfg_nodelist[i].sciid] & 0x80)
-		continue;
-	    ready_pending = 1;
+	    if (!(nodedata[cfg_nodelist[i].sciid] & 0x80)) {
+		ready_pending = 1;
+		break;
+	    }
         }
 
 	if (!ready_pending || do_restart) {
