@@ -1826,9 +1826,8 @@ static int unify_all_nodes(void)
 			  0x80000000 | /* AutoInc */
 			  (0x08000000 << SCC_ATT_INDEX_RANGE) | /* Index Range */
 			  (addr/SCC_ATT_GRAN)); /* Start index for current node */
-	    printf("Node %03x ATT_INDEX: %x (%x, %x)\n", nc_node[i].sci_id, dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end);
+	    printf("Node %03x ATT_INDEX: %x (%x, %x) SCI %03x\n", nc_node[i].sci_id, dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end, nc_node[dnode].sci_id);
 	    while (addr < end) {
-		printf("Node %03x ATT_ENTRY: %x\n", nc_node[i].sci_id, nc_node[dnode].sci_id);
 		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[dnode].sci_id);
 		addr += SCC_ATT_GRAN;
 	    }
