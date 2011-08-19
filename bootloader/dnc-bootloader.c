@@ -1485,6 +1485,25 @@ int udp_read_state(int handle, void *buf, int len)
     }
 }
 
+static void wait_status(void)
+{
+    static int count = 0;
+
+    /* print once in 10 200ms loop timeouts */
+    if (count++ < 10)
+	return;
+
+    count = 0;
+    printf("waiting for ");
+
+    /* skip first node */
+    for (int i = 1; i < cfg_nodes; i++)
+	if (nodedata[cfg_nodelist[i].sciid] != 0x80)
+	    printf(" %d", i + 1);
+
+    printf("\n");
+}
+
 static void wait_for_slaves(struct node_info *info, struct part_info *part)
 {
     struct state_bcast cmd, rsp;
@@ -1533,6 +1552,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	if (cfg_nodes > 1) {
 	    len = udp_read_state(handle, &rsp, sizeof(rsp));
 	    if (!len && !do_restart) {
+		wait_status();
 		tsc_wait(200);
 		continue;
 	    }
@@ -1549,14 +1569,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%d) entered %d; waiting for", rsp.sciid, rsp.uuid, waitfor);
+			printf("Node 0x%03x (%d) entered %d\n", rsp.sciid, rsp.uuid, waitfor);
 			nodedata[rsp.sciid] = 0x80;
-
-			/* start at second node */
-			for (int j = 1; j < cfg_nodes; j++)
-			    if (nodedata[cfg_nodelist[j].sciid] != 0x80)
-				printf(" %d", j);
-			printf("\n");
 		    }
 		}
 		else if ((rsp.state == RSP_PHY_NOT_TRAINED) ||
