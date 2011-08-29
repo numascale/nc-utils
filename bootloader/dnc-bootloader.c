@@ -1566,11 +1566,18 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		    ours = 1;
 		    break;
 		}
+
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%d) entered %d\n", rsp.sciid, rsp.uuid, waitfor);
+			printf("Node 0x%03x (%d) entered %d; waiting for [", rsp.sciid, rsp.uuid, waitfor);
 			nodedata[rsp.sciid] = 0x80;
+
+			/* start at second node */
+			for (int j = 1; j < cfg_nodes; j++)
+			    if (nodedata[cfg_nodelist[j].sciid] != 0x80)
+				printf(" %d", j);
+			printf("]\n");
 		    }
 		}
 		else if ((rsp.state == RSP_PHY_NOT_TRAINED) ||
@@ -1630,7 +1637,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    for (i = 0; i < cfg_nodes; i++)
 		nodedata[cfg_nodelist[i].sciid] &= 0x7f;
 
-	    printf("Transition to %d, waiting for %d.\n", cmd.state, waitfor);
+	    printf("Transition to %d, desired response %d.\n", cmd.state, waitfor);
 	    cmd.tid++;
 	    count = 0;
 	    backoff = 1;
@@ -2139,7 +2146,7 @@ int main(void)
         if (use) {
             printf("No unrouted coherent links found.\n");
         } else {
-            printf("Node %d link %d is coherent and unrouted\n", neigh, link);
+            printf("HT#%d L%d is coherent and unrouted\n", neigh, link);
         }
 
         for (i=0; i<=max_ht_node; i++) {
@@ -2147,22 +2154,22 @@ int main(void)
                 val = cht_read_config(i, NB_FUNC_HT, 0x98 + link * 0x20);
                 if ((val & 3) != 3)
                     continue;
-                printf("HT#%d.%d Link Type        : %08x\n", i, link, val);
+                printf("HT#%d L%d Link Type        : %08x\n", i, link, val);
                 val = cht_read_config(i, NB_FUNC_HT, 0x84 + link * 0x20);
-                printf("HT#%d.%d Link Control     : %08x\n", i, link, val);
+                printf("HT#%d L%d Link Control     : %08x\n", i, link, val);
                 val = cht_read_config(i, NB_FUNC_HT, 0x88 + link * 0x20);
-                printf("HT#%d.%d Link Freq        : %08x\n", i, link, val);
+                printf("HT#%d L%d Link Freq        : %08x\n", i, link, val);
                 val = cht_read_config(i, NB_FUNC_HT, 0x170 + link * 0x4);
-                printf("HT#%d.%d Link Ext. Control: %08x\n", i, link, val);
+                printf("HT#%d L%d Link Ext. Control: %08x\n", i, link, val);
                 if (!(val & 1)) {
                     val = cht_read_config(i, NB_FUNC_LINK, 0x98 + link * 0x20);
-                    printf("HT#%d.%d.1 Link Type        : %08x\n", i, link, val);
+                    printf("HT#%d L%d.1 Link Type        : %08x\n", i, link, val);
                     val = cht_read_config(i, NB_FUNC_LINK, 0x84 + link * 0x20);
-                    printf("HT#%d.%d.1 Link Control     : %08x\n", i, link, val);
+                    printf("HT#%d L%d.1 Link Control     : %08x\n", i, link, val);
                     val = cht_read_config(i, NB_FUNC_LINK, 0x88 + link * 0x20);
-                    printf("HT#%d.%d.1 Link Freq        : %08x\n", i, link, val);
+                    printf("HT#%d L%d.1 Link Freq        : %08x\n", i, link, val);
                     val = cht_read_config(i, NB_FUNC_LINK, 0x180 + link * 0x4);
-                    printf("HT#%d.%d.1 Link Ext. Control: %08x\n", i, link, val);
+                    printf("HT#%d L%d.1 Link Ext. Control: %08x\n", i, link, val);
                 }
             }
             printf("------------------------------------------\n");

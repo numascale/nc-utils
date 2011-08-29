@@ -559,17 +559,17 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 
     ganged = cht_read_config(neigh, 0, 0x170 + link * 4) & 1;
     
-    printf("Found link to NC on HT#%d lnk#%d (%s)\n", neigh, link,
+    printf("Found link to NC on HT#%d L%d (%s)\n", neigh, link,
            ganged ? "GANGED" : "UNGANGED");
 
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
-    printf("HT#%d.%d Link Control       : %08x\n", neigh, link, val);
+    printf("HT#%d L%d Link Control       : %08x\n", neigh, link, val);
     val = cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20);
-    printf("HT#%d.%d Link Freq/Revision : %08x\n", neigh, link, val);
+    printf("HT#%d L%d Link Freq/Revision : %08x\n", neigh, link, val);
     val = cht_read_config(neigh, 0, 0x170 + link * 4);
-    printf("HT#%d.%d Link Ext. Control  : %08x\n", neigh, link, val);
+    printf("HT#%d L%d Link Ext. Control  : %08x\n", neigh, link, val);
     val = get_phy_register(nc_neigh, nc_neigh_link, 0xe0, 0); /* link phy compensation and calibration control 1 */
-    printf("HT#%d.%d Link Phy Settings  : RTT=%02x RON=%02x\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
+    printf("HT#%d L%d Link Phy Settings  : RTT=%02x RON=%02x\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
 
     printf("Checking width/freq ");
 
@@ -785,7 +785,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         return -1;
     }
 
-    printf("Node %d link %d is coherent and unrouted\n", neigh, link);
+    printf("HT#%d L%d is coherent and unrouted\n", neigh, link);
     if (disable_nc) {
 	printf("Disabling NC link.\n");
 	disable_link(neigh, link);
@@ -1734,7 +1734,7 @@ enum node_state enter_reset(struct node_info *info,
             _pic_reset_ctrl(2);
 	    tsc_wait(1000);
 	}
-	printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries);
+	/* printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries); */
 	tsc_wait(200);
 	if (tries++ > 16)
 	    tries = 0;
@@ -1747,8 +1747,8 @@ enum node_state enter_reset(struct node_info *info,
     tsc_wait(200);
     tries = 0;
     while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
-	printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
-	       val, tries);
+	/* printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
+	   val, tries); */
 	tsc_wait(200);
 	if (tries++ > 16)
 	    return enter_reset(info, part);

@@ -178,7 +178,8 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     else {
 	reboot = link_error(neigh, neigh_link);
 	if (!reboot && ret == 0xffffffff) {
-	    printf("Warning: undetected link error (read 0xffffffff)\n");
+	    printf("Warning: undetected link error (HT%d F%dx%02x read 0xffffffff)\n",
+		   node, func, reg);
 	    reboot = 1;
 	}
     }
