@@ -65,6 +65,7 @@ int read_config_file(char *file_name)
 	return -1;
     }
     len = read(fd, buf, sizeof(buf));
+    close(fd);
     if (buf <= 0) {
 	fprintf(stderr, "No config file contents?\n");
 	return -1;
