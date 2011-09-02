@@ -40,6 +40,7 @@
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest);
+void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx);
 
 int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline);
 int dnc_setup_fabric(struct node_info *info);
@@ -64,6 +65,7 @@ extern int dnc_asic_mode;
 extern char *next_label;
 extern int sync_mode;
 extern char *microcode_path;
+extern int disable_smm;
 
 extern u16 shadow_rtbll[7][256];
 extern u16 shadow_rtblm[7][256];

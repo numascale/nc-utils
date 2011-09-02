@@ -58,6 +58,7 @@ u16 apic_per_node;
 u16 ht_next_apic;
 u32 dnc_top_of_mem;       /* Top of mem, in 16MB chunks */
 u8 post_apic_mapping[256]; /* POST APIC assigments */
+int scc_started = 0;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
 u8 nodedata[4096];
@@ -88,6 +89,11 @@ IMPORT_RELOCATED(new_mpfp);
 IMPORT_RELOCATED(new_mptable);
 IMPORT_RELOCATED(new_mtrr_base);
 IMPORT_RELOCATED(new_mtrr_mask);
+IMPORT_RELOCATED(rem_topmem_msr);
+IMPORT_RELOCATED(rem_smm_base_msr);
+
+extern u8 smm_handler_start;
+extern u8 smm_handler_end;
 
 struct e820entry {
     u64 base;
@@ -889,6 +895,116 @@ static void setup_apic_atts(void)
     }
 }
     
+static void add_scc_hotpatch_att(u64 addr, u16 node)
+{
+    u64 val;
+    u32 base, lim;
+    int i;
+
+    if (scc_started) {
+	u32 att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
+	att_idx = (att_idx >> 27) & 0xf;
+	val = addr >> 20;
+	while (att_idx > 0) {
+	    val = val >> 4;
+	    att_idx = att_idx >> 1;
+	}
+	att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, (att_idx & 0x78000000) | (val & 0xfff));
+	if (val & ~0xfff) {
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
+	    if (val != node) {
+		printf("add_att: Existing ATT entry differs from given node! %08x != %08x\n",
+		       val, node);
+	    }
+	}
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
+    }
+    else {
+	/* Set local ATT */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX,
+		      (0x08000000 << 3) | /* Index Range (3 = 47:36) */
+		      (addr >> 36)); /* Start index */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
+
+	for (i = 0; i < 8; i++) {
+	    base = cht_read_config(0, NB_FUNC_MAPS, 0x40 + (8 * i));
+	    lim = cht_read_config(0, NB_FUNC_MAPS, 0x44 + (8 * i));
+	    if (base & 3) {
+		base = (base >> 8) | (base & 3);
+		lim = (lim >> 8) | (lim & 7);
+	    }
+	    else {
+		base = 0;
+		lim = 0;
+	    }
+
+	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
+	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+	}
+    }
+}
+
+static void disable_smm_handler(u64 smm_base)
+{
+    u64 val;
+    u64 smm_addr;
+    u16 node;
+    u32 sreq_ctrl;
+    int i;
+    u8 *cur;
+
+    if (!disable_smm)
+	return;
+
+    if (smm_base && (smm_base != ~0ULL))
+	smm_base += 0x8000;
+    else
+	return;
+
+    printf("Disabling SMM handler at %llx...\n", smm_base);
+    smm_addr = 0x200000000000ULL | smm_base;
+
+    val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+    node = (val >> 16) & 0xfff;
+
+    for (i = 0; i < dnc_master_ht_id; i++) {
+	add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+			   dnc_master_ht_id);
+    }
+
+    add_scc_hotpatch_att(smm_addr, node);
+
+    sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
+		  (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
+
+    /* val = mem64_read32(smm_addr);
+       printf("MEM %llx: %08lx\n", smm_base, val); */
+	
+    cur = &smm_handler_start;
+    while (cur + 4 <= &smm_handler_end) {
+	mem64_write32(smm_addr, *((u32 *)cur));
+	smm_addr += 4;
+	cur += 4;
+    }
+    if (cur + 2 <= &smm_handler_end) {
+	mem64_write16(smm_addr, *((u16 *)cur));
+	smm_addr += 2;
+	cur += 2;
+    }
+    if (cur < &smm_handler_end) {
+	mem64_write8(smm_addr, *cur);
+	smm_addr++;
+	cur++;
+    }
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
+
+    for (i = 0; i < dnc_master_ht_id; i++)
+	del_extd_mmio_maps(0xfff0, i, 7);
+}
+
 static void setup_other_cores(void)
 {
     u16 node = nc_node[0].sci_id;
@@ -934,6 +1050,8 @@ static void setup_other_cores(void)
 	    *REL(cpu_apic_renumber) = apicid;
 	    *REL(cpu_apic_hi)       = 0;
 	    *REL(cpu_init_finished) = 0;
+	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
+	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
 
 	    apic[0x310/4] = oldid << 24;
 	    *icr = 0x00004500;
@@ -960,10 +1078,17 @@ static void setup_other_cores(void)
 		    break;
 		tsc_wait(10);
 	    }
-	    if (*REL(cpu_init_finished))
+	    if (*REL(cpu_init_finished)) {
 		printf("apic %d reported done.\n", apicid);
-	    else
+		val = *((u64 *)REL(rem_topmem_msr));
+		printf("remote topmem: %llx\n", val);
+		val = *((u64 *)REL(rem_smm_base_msr));
+		printf("remote smm_base: %llx\n", val);
+		disable_smm_handler(val);
+	    }
+	    else {
 		printf("apic %d did not toggle init flag.\n", apicid);
+	    }
 	}
     }
 }
@@ -978,6 +1103,7 @@ static void setup_remote_cores(u16 num)
     u32 j;
     u32 val;
     u64 tom;
+    u64 qval;
 
     printf("Setting up cores on node #%d (0x%03x), %d HT nodes\n",
            num, node, ht_id);
@@ -1148,6 +1274,8 @@ static void setup_remote_cores(u16 num)
 	    *REL(cpu_apic_renumber) = apicid & 0xff;
 	    *REL(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
 	    *REL(cpu_init_finished) = 0;
+	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
+	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
 
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (oldid<<16));
 	    tsc_wait(50);
@@ -1159,8 +1287,14 @@ static void setup_remote_cores(u16 num)
 		tsc_wait(10);
 	    }
 
-	    if (*REL(cpu_init_finished))
+	    if (*REL(cpu_init_finished)) {
 		printf("apic %d (%d) reported done.\n", apicid, oldid);
+		qval = *((u64 *)REL(rem_topmem_msr));
+		printf("remote topmem: %llx\n", qval);
+		qval = *((u64 *)REL(rem_smm_base_msr));
+		printf("remote smm_base: %llx\n", qval);
+		disable_smm_handler(qval);
+	    }
 	    else {
 		printf("apic %d (%d) did not toggle init flag.\n", apicid, oldid);
 	    }
@@ -1494,13 +1628,13 @@ static void wait_status(void)
 	return;
 
     count = 0;
-    printf("waiting for ");
+    printf("waiting for");
 
     /* skip first node */
     for (int i = 1; i < cfg_nodes; i++)
 	if (nodedata[cfg_nodelist[i].sciid] != 0x80)
-	    printf(" %d", i + 1);
-
+	    printf(" 0x%03x (%s)",
+		   cfg_nodelist[i].sciid, cfg_nodelist[i].desc);
     printf("\n");
 }
 
@@ -1570,14 +1704,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%d) entered %d; waiting for [", rsp.sciid, rsp.uuid, waitfor);
+			printf("Node 0x%03x (%d) entered %d\n", rsp.sciid, rsp.uuid, waitfor);
 			nodedata[rsp.sciid] = 0x80;
-
-			/* start at second node */
-			for (int j = 1; j < cfg_nodes; j++)
-			    if (nodedata[cfg_nodelist[j].sciid] != 0x80)
-				printf(" %d", j);
-			printf("]\n");
 		    }
 		}
 		else if ((rsp.state == RSP_PHY_NOT_TRAINED) ||
@@ -1744,13 +1872,68 @@ static int update_mtrr(void)
     return 0;
 }
 
-static void chipset_fixup(void)
+static void local_chipset_fixup(void)
+{
+    u16 node;
+    u64 addr;
+    u32 sreq_ctrl, val;
+    int i;
+
+    printf("Scanning for known chipsets, local pass...\n");
+    val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
+    if (val == 0x43851002) {
+	printf("Adjusting local configuration of AMD SP5100...\n");
+	if (!disable_smm) {
+	    /* Disable config-space triggered SMI */
+	    outb(0xa8, 0xcd6);
+	    val = inb(0xcd7);
+	    val = val & ~0x10;
+	    outb(val, 0xcd7);
+	}
+
+	addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
+	addr += 0x200000000000ULL;
+
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+	node = (val >> 16) & 0xfff;
+
+	for (i = 0; i < dnc_master_ht_id; i++) {
+	    add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+			       dnc_master_ht_id);
+	}
+
+	add_scc_hotpatch_att(addr, node);
+
+	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
+		      (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
+
+	val = mem64_read32(addr + 4);
+	printf("SMM fingerprint: %16llx\n", val);
+    
+	if (val == 0x3160bf66) {
+	    printf("SMM coh config space trigger fingerprint found, patching...\n");
+	    val = mem64_read32(addr);
+	    mem64_write32(addr, (val & 0xff) | 0x9040eb00);
+	}
+    
+	val = mem64_read32(addr);
+	printf("MEM %llx: %08lx\n", addr, val);
+	
+	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
+	for (i = 0; i < dnc_master_ht_id; i++)
+	    del_extd_mmio_maps(0xfff0, i, 7);
+    }
+    printf("Chipset-specific setup done.\n");
+}
+
+static void global_chipset_fixup(void)
 {
     u16 node;
     u32 val;
     int i;
 
-    printf("Scanning for known chipsets...\n");
+    printf("Scanning for known chipsets, global pass...\n");
     for (i = 0; i < dnc_node_count; i++) {
 	node = nc_node[i].sci_id;
 	val = dnc_read_conf(node, 0, 0, 0, 0);
@@ -1848,7 +2031,8 @@ static int unify_all_nodes(void)
 			  0x80000000 | /* AutoInc */
 			  (0x08000000 << SCC_ATT_INDEX_RANGE) | /* Index Range */
 			  (addr/SCC_ATT_GRAN)); /* Start index for current node */
-	    printf("Node %03x ATT_INDEX: %x (%x, %x) SCI %03x\n", nc_node[i].sci_id, dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end, nc_node[dnode].sci_id);
+	    printf("Node %03x ATT_INDEX: %x (%x, %x) SCI %03x\n", nc_node[i].sci_id,
+		   dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end, nc_node[dnode].sci_id);
 	    while (addr < end) {
 		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[dnode].sci_id);
 		addr += SCC_ATT_GRAN;
@@ -1862,6 +2046,7 @@ static int unify_all_nodes(void)
         load_scc_microcode(node);
     }
 
+    scc_started = 1;
     printf("SCC microcode loaded.\n");
 
     if (update_mtrr() < 0) {
@@ -1895,7 +2080,10 @@ static int unify_all_nodes(void)
     *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL;
 
     /* Make chipset-specific adjustments */
-    chipset_fixup();
+    global_chipset_fixup();
+
+    /* Must run after SCI is operational */
+    disable_smm_handler(dnc_rdmsr(MSR_SMM_BASE));
 
     setup_other_cores();
 
@@ -2065,6 +2253,10 @@ static void stop_usb(void)
     u8 dev;
     u8 fn;
 
+    // If SMM is disabled, USB functionality may have been lost.
+    if (disable_smm)
+	return;
+
     // Scan bus 0 for OHCI controllers and disable them if used by BIOS/SMM
     for (dev=0; dev<0x18; dev++) {
         for (fn=0; fn<7; fn++) {
@@ -2224,19 +2416,20 @@ int main(void)
 	else {
 	    wait_for_master(info, part);
 	}
-	if (info->sync_only) {
-	    tsc_wait(5000);
-	    start_user_os();
-	}
     }
     else {
 	printf("Sync mode disabled...\n"); 
 
 	if (dnc_setup_fabric(info) < 0)
             return -1;
+    }
 
-        if (info->sync_only)
-            start_user_os();
+    /* Must run after SCI is operational */
+    local_chipset_fixup();
+
+    if (info->sync_only) {
+	tsc_wait(5000);
+	start_user_os();
     }
 
     if (dnc_init_caches() < 0)

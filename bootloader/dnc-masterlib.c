@@ -230,6 +230,7 @@ int tally_remote_node(u16 node)
 	printf("apic_used[%d]: %08x\n", i, apic_used[i]);
     }
 
+    ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
     cur_node->apic_offset = ht_next_apic;
     cur_apic = 0;
 
@@ -304,7 +305,7 @@ int tally_remote_node(u16 node)
 	       cur_apic);
     }
 
-    /* If rebased apicid[7:0] if last core is above a given threshold,
+    /* If rebased apicid[7:0] of last core is above a given threshold,
        bump base for entire SCI node to next 8-bit interval. */
     if ((ht_next_apic & 0xff) + cur_node->ht[last].apic_base + cur_node->ht[last].cores > 0xf0)
 	ht_next_apic = (ht_next_apic & ~0xff) + 0x100 + cur_node->ht[0].apic_base;
@@ -340,7 +341,6 @@ int tally_all_remote_nodes(void)
 {
     int ret = 1;
     u16 node;
-    ht_next_apic = 0x20;
     for (node = 1; node < 4096; node++) {
         if ((nodedata[node] & 0xc0) != 0x80)
             continue;

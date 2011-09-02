@@ -39,6 +39,7 @@ typedef	unsigned char      u8;
 #define MSR_NB_CFG    0xc001001f
 #define MSR_APIC_BAR  0x0000001b
 #define MSR_LSCFG     0xc0011020
+#define MSR_SMM_BASE  0xc0010111
 
 #define MSR_MTRR_PHYS_BASE0 0x00000200
 #define MSR_MTRR_PHYS_BASE1 0x00000202

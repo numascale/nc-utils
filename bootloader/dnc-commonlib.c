@@ -33,6 +33,18 @@ extern unsigned char sleep(unsigned int msec);
 
 // -------------------------------------------------------------------------
 
+char *config_file_name = "nc-config/fabric.json";
+char *next_label = "menu.c32";
+char *microcode_path = "";
+int sync_mode = 0;
+int init_only = 0;
+int enable_nbmce = 0;
+int enable_nbwdt = 0;
+int enable_selftest = 1;
+int ht_testmode = 0;
+int force_ganged = 0;
+int disable_smm = 0;
+
 // Structs to hold DIMM configuration from SPD readout.
 
 struct dimm_config {
@@ -405,12 +417,29 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
     val = dnc_read_conf(scinode, 0, 24+node,  NB_FUNC_HT, 0x168);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x168, (val & ~0x300) | 0x200);
 
-    printf("Adding Extd MMIO map #%d %016llx-%016llx (%08llx/%08llx) to HT#%d\n",
-           idx, start, end, start, mask, dest);
+    /* printf("[%03x#%d] Adding Extd MMIO map #%d %016llx-%016llx (%08llx/%08llx) to HT#%d\n",
+       scinode, node, idx, start, end, start, mask, dest); */
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (start << 8) | dest);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (mask << 8) | 1);
+}
+
+void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx)
+{
+    u32 val;
+    u64 mask;
+
+    /* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
+    val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68,
+                   val | (1<<25) | (1<<18) | (1<<17));
+
+    /* printf("[%03x#%d] Removing Extd MMIO map #%d\n", scinode, node, idx); */
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
 }
 
 static u32 get_phy_register(int node, int link, int idx, int direct)
@@ -580,14 +609,17 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     /* Make sure link towards NC is ganged, disable LS2En */
     /* XXX: Why do we alter this, optimally the link should be detected as
        ganged anyway if we set our CTL[1] terminations correctly ?? */
-//    val = cht_read_config(neigh, 0, 0x170 + link * 4);
-//    cht_write_config(neigh, 0, 0x170 + link * 4, (val & ~0x100) | 1);
+    if (force_ganged) {
+	val = cht_read_config(neigh, 0, 0x170 + link * 4);
+	cht_write_config(neigh, 0, 0x170 + link * 4, (val & ~0x100) | 1);
+    }
 
     /* For ASIC revision 1 and later, optimize width (16b) */
     /* For FPGA revision 6022 and later, optimize width (16b) */
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
-    if (ganged && ((val >> 16) == 0x11) &&
-        ((asic_mode && rev >= 1) /*|| (!asic_mode && (rev>>16) >= 6022)*/)) {
+    if (force_ganged ||
+	(ganged && ((val >> 16) == 0x11) && ((asic_mode && rev >= 1))))
+    {
 	printf("*");
 	tsc_wait(50);
 	val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
@@ -643,6 +675,10 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         }
     }
     printf(". done.\n");
+
+    if (ht_testmode > 0) {
+	print_htphys();
+    }
 
     if (reboot) {
 	printf("Rebooting to make new link settings effective...\n");
@@ -1086,16 +1122,6 @@ struct optargs {
     void *userdata;
 };
 
-char *config_file_name = "nc-config/fabric.json";
-char *next_label = "menu.c32";
-char *microcode_path = "";
-int sync_mode = 1;
-int init_only = 0;
-int enable_nbmce = 0;
-int enable_nbwdt = 0;
-int enable_selftest = 1;
-int ht_testmode = 0;
-
 static int parse_string(const char *val, void *stringp)
 {
     *(char **)stringp = strdup(val);
@@ -1125,6 +1151,8 @@ static int parse_cmdline(const char *cmdline)
         {"microcode",	&parse_string, &microcode_path},
         {"ht-testmode",	&parse_int, &ht_testmode},
         {"link-watchdog", &parse_int, &link_watchdog},
+        {"force-ganged", &parse_int, &force_ganged},
+        {"disable-smm", &parse_int, &disable_smm},
     };
     char arg[256];
     int lstart, lend, aend, i;
@@ -1824,7 +1852,7 @@ enum node_state release_reset(struct node_info *info,
 	    pending |= phy_check_status(5);
 	}
 	if (!pending) {
-	    printf(" Done.\n");
+	    printf("Done.\n");
 	    return RSP_PHY_TRAINED;
 	}
 	if (i++ > 10) {
@@ -1833,7 +1861,6 @@ enum node_state release_reset(struct node_info *info,
 	}
 	tsc_wait(200);
     }
-    printf("Done.\n");
 }			
 
 static int lc_check_status(int lc, int dimidx)
