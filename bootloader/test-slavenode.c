@@ -65,6 +65,7 @@ int read_config_file(char *file_name)
 	return -1;
     }
     len = read(fd, buf, sizeof(buf));
+    close(fd);
     if (buf <= 0) {
 	fprintf(stderr, "No config file contents?\n");
 	return -1;
@@ -152,7 +153,8 @@ static char * _concat_argv(int argc, char **argv)
     return cmdline;
 }
 
-int dnc_asic_mode = 0;
+int dnc_asic_mode;
+int dnc_chip_rev;
 
 int main(int argc, char **argv)
 {
@@ -161,7 +163,6 @@ int main(int argc, char **argv)
     u32 val, uuid = 40;
     struct node_info *info;
     struct part_info *part;
-    int chip_rev;
     char *cmdline = NULL;
 
     (void) signal(SIGINT, sighandler);
@@ -186,7 +187,7 @@ int main(int argc, char **argv)
 
     cmdline = _concat_argv(argc, argv);
 
-    if (dnc_init_bootloader(&uuid, &dnc_asic_mode, &chip_rev, cmdline) < 0)
+    if (dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev, cmdline) < 0)
         return -1;
 
     info = get_node_config(uuid);
@@ -197,8 +198,7 @@ int main(int argc, char **argv)
     if (!part)
 	return -1;
 
-    printf("sync-mode: %d, chip_rev: %d\n", sync_mode, chip_rev);
-    if (sync_mode >= 1 && chip_rev >= 1) {
+    if (sync_mode >= 1) {
 	wait_for_master(info, part);
 	tsc_wait(5000);
     }

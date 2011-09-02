@@ -51,6 +51,7 @@ struct dimm_config {
     u8 addr_pins;
     u8 column_size;
     u8 cs_map;
+    u8 width;
     int mem_size; // Size of DIMM in GByte powers of 2
 };
 
@@ -66,9 +67,9 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
 
     reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  0); // Read SPD location 0, 1, 2, 3
     if (((reg >> 8) & 0xff) != 0x08) {
-        printf("ERROR: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
-               cdata ? "CData" : "MCTag");
-        return -1;
+	printf("ERROR: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
+	       cdata ? "CData" : "MCTag");
+	return -1;
     }
     dimm->addr_pins = 16 - (reg & 0xf); // Number of Row address bits (max 16)
     addr_bits = (reg & 0xf);
@@ -80,14 +81,21 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
 
     reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  8); // Read SPD location 8, 9, 10, 11
     if (!(reg & 2)) {
-        printf("ERROR: Unsupported non-ECC %s DIMM!\n", cdata ? "CData" : "MCTag");
-        return -1;
+	printf("ERROR: Unsupported non-ECC %s DIMM!\n", cdata ? "CData" : "MCTag");
+	return -1;
     }
 
+    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 12); // Read SPD location 12, 13, 14, 15
+    dimm->width = (reg >> 8) & 0xff;
+    if ((dimm->width != 4) && (dimm->width != 8)) {
+	printf("ERROR: Unsupported %s SDRAM width %d!\n", cdata ? "CData" : "MCTag", dimm->width);
+	return -1;
+    }
+    
     reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 20); // Read SPD location 20, 21, 22, 23
     if (!(reg & 0x11000000)) {
-        printf("ERROR: Unsupported non-Registered %s DIMM!\n", cdata ? "CData" : "MCTag");
-        return -1;
+	printf("ERROR: Unsupported non-Registered %s DIMM!\n", cdata ? "CData" : "MCTag");
+	return -1;
     }
 
     ((u32 *)mdata)[0] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 72)); // Read SPD location 72, 73, 74, 75
@@ -100,20 +108,20 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
     printf("%s is a %s module (%d MByte)\n", cdata ? "Cdata" : "MCTag", &mdata[1], 1<<(addr_bits - 14));
 
     switch (addr_bits) {
-        case 28: dimm->mem_size = 4; break; // 16G
-        case 27: dimm->mem_size = 3; break; //  8G
-        case 26: dimm->mem_size = 2; break; //  4G
-        case 25: dimm->mem_size = 1; break; //  2G
-        case 24: dimm->mem_size = 0; break; //  1G
-        default: dimm->mem_size = 0; printf("ERROR: Unsupported %s DIMM SIZE (%d MByte)\n",
-                                            cdata ? "CData" : "MCTag", 1<<(addr_bits - 14)); return -1;
+	case 28: dimm->mem_size = 4; break; // 16G
+	case 27: dimm->mem_size = 3; break; //  8G
+	case 26: dimm->mem_size = 2; break; //  4G
+	case 25: dimm->mem_size = 1; break; //  2G
+	case 24: dimm->mem_size = 0; break; //  1G
+	default: dimm->mem_size = 0; printf("ERROR: Unsupported %s DIMM SIZE (%d MByte)\n",
+					    cdata ? "CData" : "MCTag", 1<<(addr_bits - 14)); return -1;
     }
 
     return 0;
 }
 
-#include "mctr_define_register_C.h"
-#include "regconfig_200_cl4_bl4_genericrdimm.h"
+#include "../interface/mctr_define_register_C.h"
+#include "../interface/regconfig_200_cl4_bl4_genericrdimm.h"
 
 static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 {
@@ -129,7 +137,8 @@ static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(  9<<2), DENALI_CTL_09_DATA);
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 10<<2), DENALI_CTL_10_DATA);
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 11<<2), DENALI_CTL_11_DATA);
-    dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 12<<2), DENALI_CTL_12_DATA);
+    dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 12<<2),
+		  (DENALI_CTL_12_DATA & ~(3<<16)) | ((dimm->width == 8 ? 1 : 0)<<16));
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 13<<2),
                   (DENALI_CTL_13_DATA & ~(0x7<<16)) | ((dimm->addr_pins & 0x7)<<16));
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 14<<2),
@@ -1754,32 +1763,40 @@ enum node_state enter_reset(struct node_info *info,
     u32 val;
     printf("Entering reset.\n");
 
-    /* Reset already held?  Toggle reset logic to ensure reset
-     * reverts to know state */
-    while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
-	if (tries == 0) {
-	    printf("HSSXA_STAT_1 is zero, toggling reset...\n");
-            _pic_reset_ctrl(2);
-	    tsc_wait(1000);
+    if (dnc_asic_mode && dnc_chip_rev >= 1) {
+	/* Reset already held?  Toggle reset logic to ensure reset
+	 * reverts to know state */
+	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
+	    if (tries == 0) {
+		printf("HSSXA_STAT_1 is zero, toggling reset...\n");
+		_pic_reset_ctrl(2);
+		tsc_wait(1000);
+	    }
+	    /* printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries); */
+	    tsc_wait(200);
+	    if (tries++ > 16)
+		tries = 0;
 	}
-	/* printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries); */
-	tsc_wait(200);
-	if (tries++ > 16)
-	    tries = 0;
-    }
-    
-    tsc_wait(200);
 
-    /* Hold reset */
-    _pic_reset_ctrl(2);
-    tsc_wait(200);
-    tries = 0;
-    while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
-	/* printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
-	   val, tries); */
 	tsc_wait(200);
-	if (tries++ > 16)
-	    return enter_reset(info, part);
+
+	/* Hold reset */
+	_pic_reset_ctrl(2);
+	tsc_wait(200);
+	tries = 0;
+	while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
+	    /* printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
+	       val, tries); */
+	    tsc_wait(200);
+	    if (tries++ > 16)
+		return enter_reset(info, part);
+	}
+    } else {
+	// No external reset control, simply reset all PHYs to start training sequence
+        dnc_reset_phy(1); dnc_reset_phy(2);
+        dnc_reset_phy(3); dnc_reset_phy(4);
+        dnc_reset_phy(5); dnc_reset_phy(6);
+        tsc_wait(1000);
     }
     
     printf("In reset\n");
@@ -1825,14 +1842,16 @@ enum node_state release_reset(struct node_info *info,
     int pending, i;
     printf("Releasing reset.\n");
 
-    /* Release reset */
-    _pic_reset_ctrl(2);
-    tsc_wait(200);
-    i = 0;
-    while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
-	if (i++ > 20)
-	    return RSP_PHY_NOT_TRAINED;
+    if (dnc_asic_mode && dnc_chip_rev >= 1) {
+	/* Release reset */
+	_pic_reset_ctrl(2);
 	tsc_wait(200);
+	i = 0;
+	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
+	    if (i++ > 20)
+		return RSP_PHY_NOT_TRAINED;
+	    tsc_wait(200);
+	}
     }
 
     /* Verify that all relevant PHYs are training */

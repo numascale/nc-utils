@@ -83,7 +83,7 @@ dnc-bootloader.o: dnc-bootloader.c $(IFACEDEPS) dnc-types.h dnc-regs.h \
 
 dnc-e820-handler.o: hw-config.h
 
-dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-access.h regconfig_200_cl4_bl4_genericrdimm.h
+dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-access.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 
 dnc-config.o: dnc-config.c dnc-config.h $(mjson_dir)/src/json.h
 
@@ -128,7 +128,7 @@ test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h \
 test-json.o: $(mjson_dir)/src/json.c
 	$(CC) $(COPT) -c $< -o $@
 
-dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h regconfig_200_cl4_bl4_genericrdimm.h
+dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 	$(CC) $(COPT) -c $< -o $@
 
 dnc-test-masterlib.o: dnc-masterlib.c dnc-commonlib.h dnc-masterlib.h hw-config.h dnc-access.h

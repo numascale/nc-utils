@@ -61,6 +61,7 @@ extern void tsc_wait(u32 mticks);
 extern int read_config_file(char *file_name);
 
 extern int dnc_asic_mode;
+extern int dnc_chip_rev;
 
 extern char *next_label;
 extern int sync_mode;

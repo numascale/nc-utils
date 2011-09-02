@@ -51,6 +51,7 @@
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
 extern int nc_neigh, nc_neigh_link;
 int dnc_asic_mode;
+int dnc_chip_rev;
 u16 dnc_node_count = 0;
 nc_node_info_t nc_node[128];
 u16 ht_pdom_count = 0;
@@ -2492,7 +2493,6 @@ static void clear_bsp_flag(void)
 int main(void)
 {
     u32 uuid;
-    int chip_rev;
     struct node_info *info;
     struct part_info *part;
     int wait;
@@ -2504,99 +2504,8 @@ int main(void)
 
     /* Only in effect on core0, but only required for 32-bit code. */
     set_wrap32_disable();
-
-#ifdef UNUSED /* Used for G34 debugging for now... */
-    { 
-        int i, max_ht_node, link, rt, use, neigh;
-        u32 val;
-        u64 rval;
-
-        /* Set EnableCf8ExtCfg */
-        rval = dnc_rdmsr(MSR_NB_CFG);
-        rval = rval | (1ULL << 46);
-        dnc_wrmsr(MSR_NB_CFG, rval);
-
-        val = cht_read_config(0, NB_FUNC_HT, 0x60);
-        printf("HT#0 F0x60: %08x\n", val);
-        max_ht_node = (val >> 4) & 7;
-        
-        use = 1;
-        for (neigh = 0; neigh <= max_ht_node; neigh++) {
-            u32 aggr = cht_read_config(neigh, NB_FUNC_HT, 0x164);
-            for (link = 0; link < 4; link++) {
-                val = cht_read_config(neigh, NB_FUNC_HT, 0x98 + link * 0x20);
-                if ((val & 0x1f) != 0x3)
-                    continue; /* Not coherent */
-                use = 0;
-                if (aggr & (0x10000 << link))
-                    use = 1;
-                for (rt = 0; rt <= max_ht_node; rt++) {
-                    val = cht_read_config(neigh, NB_FUNC_HT, 0x40 + rt * 4);
-                    if (val & (2 << link))
-                        use = 1; /* Routing entry "rt" uses link "link" */
-                }
-                if (!use)
-                    break;
-            }
-            if (!use)
-                break;
-        }
-        if (use) {
-            printf("No unrouted coherent links found.\n");
-        } else {
-            printf("HT#%d L%d is coherent and unrouted\n", neigh, link);
-        }
-
-        for (i=0; i<=max_ht_node; i++) {
-            for (link = 0; link < 4; link++) {
-                val = cht_read_config(i, NB_FUNC_HT, 0x98 + link * 0x20);
-                if ((val & 3) != 3)
-                    continue;
-                printf("HT#%d L%d Link Type        : %08x\n", i, link, val);
-                val = cht_read_config(i, NB_FUNC_HT, 0x84 + link * 0x20);
-                printf("HT#%d L%d Link Control     : %08x\n", i, link, val);
-                val = cht_read_config(i, NB_FUNC_HT, 0x88 + link * 0x20);
-                printf("HT#%d L%d Link Freq        : %08x\n", i, link, val);
-                val = cht_read_config(i, NB_FUNC_HT, 0x170 + link * 0x4);
-                printf("HT#%d L%d Link Ext. Control: %08x\n", i, link, val);
-                if (!(val & 1)) {
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x98 + link * 0x20);
-                    printf("HT#%d L%d.1 Link Type        : %08x\n", i, link, val);
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x84 + link * 0x20);
-                    printf("HT#%d L%d.1 Link Control     : %08x\n", i, link, val);
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x88 + link * 0x20);
-                    printf("HT#%d L%d.1 Link Freq        : %08x\n", i, link, val);
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x180 + link * 0x4);
-                    printf("HT#%d L%d.1 Link Ext. Control: %08x\n", i, link, val);
-                }
-            }
-            printf("------------------------------------------\n");
-        }
-
-        for (i=0; i<=max_ht_node; i++) {
-            val = cht_read_config(i, NB_FUNC_MISC, 0x44);
-            printf("HT#%d F3x44: %08x\n", i, val);
-            cht_write_config(i, NB_FUNC_MISC, 0x44, val &
-                             ~((1 << 30) | (1 << 21) | (1 << 20) | (1 << 2)));
-            printf("HT#%d F3x44: %08x\n", i, cht_read_config(i, NB_FUNC_MISC, 0x44));
-        }
-        
-        for (i=0; i<=max_ht_node; i++) {
-            val = cht_read_config(i, NB_FUNC_MISC, 0x180);
-            printf("HT#%d F3x180: %08x\n", i, val);
-            cht_write_config(i, NB_FUNC_MISC, 0x180, val &
-                             ~((1 << 22) | (1 << 21) | (1 << 20) 
-                               | (1 << 9) | (1 << 8) | (1 << 7)
-                               | (1 << 6) | (1 << 1)));
-            printf("HT#%d F3x180: %08x\n", i, cht_read_config(i, NB_FUNC_MISC, 0x180));
-        }
-    
-        wait_key();
-        
-        return 0;
-    }
-#endif    
-    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &chip_rev,
+ 
+    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
 					   __com32.cs_cmdline);
     if (dnc_master_ht_id == -2)
 	start_user_os();
@@ -2615,7 +2524,7 @@ int main(void)
     /* Copy this into NC ram so its available remotely */
     load_existing_apic_map();
 
-    if (sync_mode >= 1 && chip_rev >= 1) {
+    if (sync_mode >= 1) {
 	if (part->builder == info->sciid) {
 	    wait_for_slaves(info, part);
 	}
