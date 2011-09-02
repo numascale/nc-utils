@@ -51,6 +51,7 @@
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
 extern int nc_neigh, nc_neigh_link;
 int dnc_asic_mode;
+int dnc_chip_rev;
 u16 dnc_node_count = 0;
 nc_node_info_t nc_node[128];
 u16 ht_pdom_count = 0;
@@ -1569,8 +1570,13 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%d) entered %d\n", rsp.sciid, rsp.uuid, waitfor);
+			printf("Node 0x%03x (%d) entered %d; waiting for [", rsp.sciid, rsp.uuid, waitfor);
 			nodedata[rsp.sciid] = 0x80;
+			/* start at second node */
+			for (int j = 1; j < cfg_nodes; j++)
+			    if (nodedata[cfg_nodelist[j].sciid] != 0x80)
+				printf(" %d", j);
+			printf("]\n");
 		    }
 		}
 		else if ((rsp.state == RSP_PHY_NOT_TRAINED) ||
@@ -1590,10 +1596,9 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
         for (i = 0; i < cfg_nodes; i++) {
             if (cfg_nodelist[i].uuid == info->uuid) /* Self */
                 continue;
-	    if (!(nodedata[cfg_nodelist[i].sciid] & 0x80)) {
-		ready_pending = 1;
-		break;
-	    }
+	    if (nodedata[cfg_nodelist[i].sciid] & 0x80)
+		continue;
+	    ready_pending = 1;
         }
 
 	if (!ready_pending || do_restart) {
@@ -1630,7 +1635,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    for (i = 0; i < cfg_nodes; i++)
 		nodedata[cfg_nodelist[i].sciid] &= 0x7f;
 
-	    printf("Transition to %d, waiting for %d.\n", cmd.state, waitfor);
+	    printf("Transition to %d, desired response %d.\n", cmd.state, waitfor);
 	    cmd.tid++;
 	    count = 0;
 	    backoff = 1;
@@ -1737,13 +1742,37 @@ static int update_mtrr(void)
     return 0;
 }
 
-static void chipset_fixup(void)
+static void local_chipset_fixup(void)
 {
     u16 node;
     u32 val;
     int i;
 
-    printf("Scanning for known chipsets...\n");
+    printf("Scanning for known chipsets, local pass...\n");
+    val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
+    if (val == 0x43851002) {
+	printf("Adjusting local configuration of AMD SP5100...\n");
+	/* Disable config-space triggered SMI (may not be needed now
+	 * that we neuter the SMM handler) */
+	outb(0xa8, 0xcd6);
+	val = inb(0xcd7);
+	val = val & ~0x10;
+	outb(val, 0xcd7);
+
+	/* Disable 00:14.5, OHCI, it does not work well without SMM. */
+	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0x68);
+	dnc_write_conf(0xfff0, 0, 0x14, 0, 0x68, val & ~0x80);
+    }
+    printf("Chipset-specific setup done.\n");
+}
+
+static void global_chipset_fixup(void)
+{
+    u16 node;
+    u32 val;
+    int i;
+
+    printf("Scanning for known chipsets, global pass...\n");
     for (i = 0; i < dnc_node_count; i++) {
 	node = nc_node[i].sci_id;
 	val = dnc_read_conf(node, 0, 0, 0, 0);
@@ -1768,6 +1797,69 @@ static void chipset_fixup(void)
 	}
     }
     printf("Chipset-specific setup done.\n");
+}
+
+static void disable_smm(void)
+{
+    u64 val;
+    u64 smm_base;
+    u16 node;
+    u32 base, lim;
+    u32 sreq_ctrl;
+    int i;
+
+    val = dnc_rdmsr(MSR_SMM_BASE);
+    if (val && (val != ~0ULL))
+	smm_base = val + 0x8000;
+    else
+	return;
+
+    printf("Disabling SMM handler at %llx...\n", smm_base);
+
+    val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+    node = (val >> 16) & 0xfff;
+
+    for (i = 0; i < dnc_master_ht_id; i++) {
+	add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+			   dnc_master_ht_id);
+    }
+
+    /* Set local ATT */
+    dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX,
+		  0x80000000 | /* AutoInc */
+		  (0x08000000 << 3) | /* Index Range (3 = 47:36) */
+		  0x200); /* Start index */
+    for (i = 0; i < 256; i++)
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
+
+    for (i = 0; i < 8; i++) {
+	base = cht_read_config(0, NB_FUNC_MAPS, 0x40 + (8 * i));
+	lim = cht_read_config(0, NB_FUNC_MAPS, 0x44 + (8 * i));
+	if (base & 3) {
+	    base = (base >> 8) | (base & 3);
+	    lim = (lim >> 8) | (lim & 7);
+	}
+	else {
+	    base = 0;
+	    lim = 0;
+	}
+
+	cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
+	cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+    }
+
+    sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL) & ~(0xfff << 4);
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl | (0xf00 << 4));
+
+    val = mem64_read32(0x200000000000ULL | smm_base);
+    /* printf("MEM %llx: %08lx\n", smm_base, val); */
+    mem64_write16(0x200000000000ULL | smm_base, 0xaa0f);
+    val = mem64_read32(0x200000000000ULL | smm_base);
+    /* printf("MEM %llx: %08lx\n", smm_base, val); */
+
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
+    /* TODO: remove Ext'd MMIO map entry? */
 }
 
 static int unify_all_nodes(void)
@@ -1888,7 +1980,7 @@ static int unify_all_nodes(void)
     *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL;
 
     /* Make chipset-specific adjustments */
-    chipset_fixup();
+    global_chipset_fixup();
 
     setup_other_cores();
 
@@ -2087,7 +2179,6 @@ static void clear_bsp_flag(void)
 int main(void)
 {
     u32 uuid;
-    int chip_rev;
     struct node_info *info;
     struct part_info *part;
     int wait;
@@ -2099,100 +2190,11 @@ int main(void)
 
     /* Only in effect on core0, but only required for 32-bit code. */
     set_wrap32_disable();
-
-#ifdef UNUSED /* Used for G34 debugging for now... */
-    { 
-        int i, max_ht_node, link, rt, use, neigh;
-        u32 val;
-        u64 rval;
-
-        /* Set EnableCf8ExtCfg */
-        rval = dnc_rdmsr(MSR_NB_CFG);
-        rval = rval | (1ULL << 46);
-        dnc_wrmsr(MSR_NB_CFG, rval);
-
-        val = cht_read_config(0, NB_FUNC_HT, 0x60);
-        printf("HT#0 F0x60: %08x\n", val);
-        max_ht_node = (val >> 4) & 7;
-        
-        use = 1;
-        for (neigh = 0; neigh <= max_ht_node; neigh++) {
-            u32 aggr = cht_read_config(neigh, NB_FUNC_HT, 0x164);
-            for (link = 0; link < 4; link++) {
-                val = cht_read_config(neigh, NB_FUNC_HT, 0x98 + link * 0x20);
-                if ((val & 0x1f) != 0x3)
-                    continue; /* Not coherent */
-                use = 0;
-                if (aggr & (0x10000 << link))
-                    use = 1;
-                for (rt = 0; rt <= max_ht_node; rt++) {
-                    val = cht_read_config(neigh, NB_FUNC_HT, 0x40 + rt * 4);
-                    if (val & (2 << link))
-                        use = 1; /* Routing entry "rt" uses link "link" */
-                }
-                if (!use)
-                    break;
-            }
-            if (!use)
-                break;
-        }
-        if (use) {
-            printf("No unrouted coherent links found.\n");
-        } else {
-            printf("Node %d link %d is coherent and unrouted\n", neigh, link);
-        }
-
-        for (i=0; i<=max_ht_node; i++) {
-            for (link = 0; link < 4; link++) {
-                val = cht_read_config(i, NB_FUNC_HT, 0x98 + link * 0x20);
-                if ((val & 3) != 3)
-                    continue;
-                printf("HT#%d.%d Link Type        : %08x\n", i, link, val);
-                val = cht_read_config(i, NB_FUNC_HT, 0x84 + link * 0x20);
-                printf("HT#%d.%d Link Control     : %08x\n", i, link, val);
-                val = cht_read_config(i, NB_FUNC_HT, 0x88 + link * 0x20);
-                printf("HT#%d.%d Link Freq        : %08x\n", i, link, val);
-                val = cht_read_config(i, NB_FUNC_HT, 0x170 + link * 0x4);
-                printf("HT#%d.%d Link Ext. Control: %08x\n", i, link, val);
-                if (!(val & 1)) {
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x98 + link * 0x20);
-                    printf("HT#%d.%d.1 Link Type        : %08x\n", i, link, val);
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x84 + link * 0x20);
-                    printf("HT#%d.%d.1 Link Control     : %08x\n", i, link, val);
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x88 + link * 0x20);
-                    printf("HT#%d.%d.1 Link Freq        : %08x\n", i, link, val);
-                    val = cht_read_config(i, NB_FUNC_LINK, 0x180 + link * 0x4);
-                    printf("HT#%d.%d.1 Link Ext. Control: %08x\n", i, link, val);
-                }
-            }
-            printf("------------------------------------------\n");
-        }
-
-        for (i=0; i<=max_ht_node; i++) {
-            val = cht_read_config(i, NB_FUNC_MISC, 0x44);
-            printf("HT#%d F3x44: %08x\n", i, val);
-            cht_write_config(i, NB_FUNC_MISC, 0x44, val &
-                             ~((1 << 30) | (1 << 21) | (1 << 20) | (1 << 2)));
-            printf("HT#%d F3x44: %08x\n", i, cht_read_config(i, NB_FUNC_MISC, 0x44));
-        }
-        
-        for (i=0; i<=max_ht_node; i++) {
-            val = cht_read_config(i, NB_FUNC_MISC, 0x180);
-            printf("HT#%d F3x180: %08x\n", i, val);
-            cht_write_config(i, NB_FUNC_MISC, 0x180, val &
-                             ~((1 << 22) | (1 << 21) | (1 << 20) 
-                               | (1 << 9) | (1 << 8) | (1 << 7)
-                               | (1 << 6) | (1 << 1)));
-            printf("HT#%d F3x180: %08x\n", i, cht_read_config(i, NB_FUNC_MISC, 0x180));
-        }
-    
-        wait_key();
-        
-        return 0;
-    }
-#endif    
-    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &chip_rev,
+ 
+    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
 					   __com32.cs_cmdline);
+    local_chipset_fixup();
+
     if (dnc_master_ht_id == -2)
 	start_user_os();
 
@@ -2210,16 +2212,12 @@ int main(void)
     /* Copy this into NC ram so its available remotely */
     load_existing_apic_map();
 
-    if (sync_mode >= 1 && chip_rev >= 1) {
+    if (sync_mode >= 1) {
 	if (part->builder == info->sciid) {
 	    wait_for_slaves(info, part);
 	}
 	else {
 	    wait_for_master(info, part);
-	}
-	if (info->sync_only) {
-	    tsc_wait(5000);
-	    start_user_os();
 	}
     }
     else {
@@ -2227,11 +2225,16 @@ int main(void)
 
 	if (dnc_setup_fabric(info) < 0)
             return -1;
-
-        if (info->sync_only)
-            start_user_os();
     }
 
+    /* Must run after SCI is operational */
+//    disable_smm();
+ 
+    if (info->sync_only) {
+	tsc_wait(5000);
+	start_user_os();
+    }
+    
     if (dnc_init_caches() < 0)
         return -1;
 

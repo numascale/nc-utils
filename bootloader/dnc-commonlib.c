@@ -33,12 +33,24 @@ extern unsigned char sleep(unsigned int msec);
 
 // -------------------------------------------------------------------------
 
+char *config_file_name = "nc-config/fabric.json";
+char *next_label = "menu.c32";
+char *microcode_path = "";
+int sync_mode = 0;
+int init_only = 0;
+int enable_nbmce = 0;
+int enable_nbwdt = 0;
+int enable_selftest = 1;
+int ht_testmode = 0;
+int force_ganged = 0;
+
 // Structs to hold DIMM configuration from SPD readout.
 
 struct dimm_config {
     u8 addr_pins;
     u8 column_size;
     u8 cs_map;
+    u8 width;
     int mem_size; // Size of DIMM in GByte powers of 2
 };
 
@@ -54,9 +66,9 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
 
     reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  0); // Read SPD location 0, 1, 2, 3
     if (((reg >> 8) & 0xff) != 0x08) {
-        printf("ERROR: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
-               cdata ? "CData" : "MCTag");
-        return -1;
+	printf("ERROR: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
+	       cdata ? "CData" : "MCTag");
+	return -1;
     }
     dimm->addr_pins = 16 - (reg & 0xf); // Number of Row address bits (max 16)
     addr_bits = (reg & 0xf);
@@ -68,14 +80,21 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
 
     reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  8); // Read SPD location 8, 9, 10, 11
     if (!(reg & 2)) {
-        printf("ERROR: Unsupported non-ECC %s DIMM!\n", cdata ? "CData" : "MCTag");
-        return -1;
+	printf("ERROR: Unsupported non-ECC %s DIMM!\n", cdata ? "CData" : "MCTag");
+	return -1;
     }
 
+    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 12); // Read SPD location 12, 13, 14, 15
+    dimm->width = (reg >> 8) & 0xff;
+    if ((dimm->width != 4) && (dimm->width != 8)) {
+	printf("ERROR: Unsupported %s SDRAM width %d!\n", cdata ? "CData" : "MCTag", dimm->width);
+	return -1;
+    }
+    
     reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 20); // Read SPD location 20, 21, 22, 23
     if (!(reg & 0x11000000)) {
-        printf("ERROR: Unsupported non-Registered %s DIMM!\n", cdata ? "CData" : "MCTag");
-        return -1;
+	printf("ERROR: Unsupported non-Registered %s DIMM!\n", cdata ? "CData" : "MCTag");
+	return -1;
     }
 
     ((u32 *)mdata)[0] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 72)); // Read SPD location 72, 73, 74, 75
@@ -88,20 +107,20 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
     printf("%s is a %s module (%d MByte)\n", cdata ? "Cdata" : "MCTag", &mdata[1], 1<<(addr_bits - 14));
 
     switch (addr_bits) {
-        case 28: dimm->mem_size = 4; break; // 16G
-        case 27: dimm->mem_size = 3; break; //  8G
-        case 26: dimm->mem_size = 2; break; //  4G
-        case 25: dimm->mem_size = 1; break; //  2G
-        case 24: dimm->mem_size = 0; break; //  1G
-        default: dimm->mem_size = 0; printf("ERROR: Unsupported %s DIMM SIZE (%d MByte)\n",
-                                            cdata ? "CData" : "MCTag", 1<<(addr_bits - 14)); return -1;
+	case 28: dimm->mem_size = 4; break; // 16G
+	case 27: dimm->mem_size = 3; break; //  8G
+	case 26: dimm->mem_size = 2; break; //  4G
+	case 25: dimm->mem_size = 1; break; //  2G
+	case 24: dimm->mem_size = 0; break; //  1G
+	default: dimm->mem_size = 0; printf("ERROR: Unsupported %s DIMM SIZE (%d MByte)\n",
+					    cdata ? "CData" : "MCTag", 1<<(addr_bits - 14)); return -1;
     }
 
     return 0;
 }
 
-#include "mctr_define_register_C.h"
-#include "regconfig_200_cl4_bl4_genericrdimm.h"
+#include "../interface/mctr_define_register_C.h"
+#include "../interface/regconfig_200_cl4_bl4_genericrdimm.h"
 
 static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 {
@@ -117,7 +136,8 @@ static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(  9<<2), DENALI_CTL_09_DATA);
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 10<<2), DENALI_CTL_10_DATA);
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 11<<2), DENALI_CTL_11_DATA);
-    dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 12<<2), DENALI_CTL_12_DATA);
+    dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 12<<2),
+		  (DENALI_CTL_12_DATA & ~(3<<16)) | ((dimm->width == 8 ? 1 : 0)<<16));
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 13<<2),
                   (DENALI_CTL_13_DATA & ~(0x7<<16)) | ((dimm->addr_pins & 0x7)<<16));
     dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+( 14<<2),
@@ -559,17 +579,17 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 
     ganged = cht_read_config(neigh, 0, 0x170 + link * 4) & 1;
     
-    printf("Found link to NC on HT#%d lnk#%d (%s)\n", neigh, link,
+    printf("Found link to NC on HT#%d L%d (%s)\n", neigh, link,
            ganged ? "GANGED" : "UNGANGED");
 
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
-    printf("HT#%d.%d Link Control       : %08x\n", neigh, link, val);
+    printf("HT#%d L%d Link Control       : %08x\n", neigh, link, val);
     val = cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20);
-    printf("HT#%d.%d Link Freq/Revision : %08x\n", neigh, link, val);
+    printf("HT#%d L%d Link Freq/Revision : %08x\n", neigh, link, val);
     val = cht_read_config(neigh, 0, 0x170 + link * 4);
-    printf("HT#%d.%d Link Ext. Control  : %08x\n", neigh, link, val);
+    printf("HT#%d L%d Link Ext. Control  : %08x\n", neigh, link, val);
     val = get_phy_register(nc_neigh, nc_neigh_link, 0xe0, 0); /* link phy compensation and calibration control 1 */
-    printf("HT#%d.%d Link Phy Settings  : RTT=%02x RON=%02x\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
+    printf("HT#%d L%d Link Phy Settings  : RTT=%02x RON=%02x\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
 
     printf("Checking width/freq ");
 
@@ -580,14 +600,17 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     /* Make sure link towards NC is ganged, disable LS2En */
     /* XXX: Why do we alter this, optimally the link should be detected as
        ganged anyway if we set our CTL[1] terminations correctly ?? */
-//    val = cht_read_config(neigh, 0, 0x170 + link * 4);
-//    cht_write_config(neigh, 0, 0x170 + link * 4, (val & ~0x100) | 1);
+    if (force_ganged) {
+	val = cht_read_config(neigh, 0, 0x170 + link * 4);
+	cht_write_config(neigh, 0, 0x170 + link * 4, (val & ~0x100) | 1);
+    }
 
     /* For ASIC revision 1 and later, optimize width (16b) */
     /* For FPGA revision 6022 and later, optimize width (16b) */
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
-    if (ganged && ((val >> 16) == 0x11) &&
-        ((asic_mode && rev >= 1) /*|| (!asic_mode && (rev>>16) >= 6022)*/)) {
+    if (force_ganged ||
+	(ganged && ((val >> 16) == 0x11) && ((asic_mode && rev >= 1))))
+    {
 	printf("*");
 	tsc_wait(50);
 	val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
@@ -785,7 +808,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         return -1;
     }
 
-    printf("Node %d link %d is coherent and unrouted\n", neigh, link);
+    printf("HT#%d L%d is coherent and unrouted\n", neigh, link);
     if (disable_nc) {
 	printf("Disabling NC link.\n");
 	disable_link(neigh, link);
@@ -1086,16 +1109,6 @@ struct optargs {
     void *userdata;
 };
 
-char *config_file_name = "nc-config/fabric.json";
-char *next_label = "menu.c32";
-char *microcode_path = "";
-int sync_mode = 1;
-int init_only = 0;
-int enable_nbmce = 0;
-int enable_nbwdt = 0;
-int enable_selftest = 1;
-int ht_testmode = 0;
-
 static int parse_string(const char *val, void *stringp)
 {
     *(char **)stringp = strdup(val);
@@ -1125,6 +1138,7 @@ static int parse_cmdline(const char *cmdline)
         {"microcode",	&parse_string, &microcode_path},
         {"ht-testmode",	&parse_int, &ht_testmode},
         {"link-watchdog", &parse_int, &link_watchdog},
+        {"force-ganged", &parse_int, &force_ganged},
     };
     char arg[256];
     int lstart, lend, aend, i;
@@ -1726,32 +1740,40 @@ enum node_state enter_reset(struct node_info *info,
     u32 val;
     printf("Entering reset.\n");
 
-    /* Reset already held?  Toggle reset logic to ensure reset
-     * reverts to know state */
-    while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
-	if (tries == 0) {
-	    printf("HSSXA_STAT_1 is zero, toggling reset...\n");
-            _pic_reset_ctrl(2);
-	    tsc_wait(1000);
+    if (dnc_asic_mode && dnc_chip_rev >= 1) {
+	/* Reset already held?  Toggle reset logic to ensure reset
+	 * reverts to know state */
+	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
+	    if (tries == 0) {
+		printf("HSSXA_STAT_1 is zero, toggling reset...\n");
+		_pic_reset_ctrl(2);
+		tsc_wait(1000);
+	    }
+	    /* printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries); */
+	    tsc_wait(200);
+	    if (tries++ > 16)
+		tries = 0;
 	}
-	printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries);
-	tsc_wait(200);
-	if (tries++ > 16)
-	    tries = 0;
-    }
-    
-    tsc_wait(200);
 
-    /* Hold reset */
-    _pic_reset_ctrl(2);
-    tsc_wait(200);
-    tries = 0;
-    while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
-	printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
-	       val, tries);
 	tsc_wait(200);
-	if (tries++ > 16)
-	    return enter_reset(info, part);
+
+	/* Hold reset */
+	_pic_reset_ctrl(2);
+	tsc_wait(200);
+	tries = 0;
+	while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
+	    printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
+		   val, tries);
+	    tsc_wait(200);
+	    if (tries++ > 16)
+		return enter_reset(info, part);
+	}
+    } else {
+	// No external reset control, simply reset all PHYs to start training sequence
+        dnc_reset_phy(1); dnc_reset_phy(2);
+        dnc_reset_phy(3); dnc_reset_phy(4);
+        dnc_reset_phy(5); dnc_reset_phy(6);
+        tsc_wait(1000);
     }
     
     printf("In reset\n");
@@ -1797,14 +1819,16 @@ enum node_state release_reset(struct node_info *info,
     int pending, i;
     printf("Releasing reset.\n");
 
-    /* Release reset */
-    _pic_reset_ctrl(2);
-    tsc_wait(200);
-    i = 0;
-    while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
-	if (i++ > 20)
-	    return RSP_PHY_NOT_TRAINED;
+    if (dnc_asic_mode && dnc_chip_rev >= 1) {
+	/* Release reset */
+	_pic_reset_ctrl(2);
 	tsc_wait(200);
+	i = 0;
+	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
+	    if (i++ > 20)
+		return RSP_PHY_NOT_TRAINED;
+	    tsc_wait(200);
+	}
     }
 
     /* Verify that all relevant PHYs are training */
