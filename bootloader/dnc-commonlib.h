@@ -112,6 +112,8 @@ typedef struct ht_node_info {
 typedef struct nc_node_info {
     u16 sci_id;		/* Maps logical dnc node ids to physical (sci) ids */
     u32 node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
+    u32 addr_base;
+    u32 addr_end;
     ht_node_info_t ht[8];
     u16 nc_ht_id;	/* HT id of dnc node dnc controller on local system */
     u16 apic_offset;	/* Offset to shift APIC ids by when unifying */
