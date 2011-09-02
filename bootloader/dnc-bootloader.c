@@ -1115,90 +1115,69 @@ static void renumber_remote_bsp(u16 num)
 	    return;
 	}
 
+	/* Route maxnode + 1 as maxnode */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode);
-	printf("HT#%d rt%d: %x\n", i, maxnode, val);
 	dnc_write_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode, val);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode);
-	printf("HT#%d rt%d: %x\n", i, maxnode+1, val);
     }
 
+    /* Bump NC to maxnode + 1 */
     dnc_write_conf(node, 0, 24+maxnode, 0, H2S_CSR_F0_CHTX_NODE_ID,
 		   (maxnode << 8) | (maxnode + 1));
     val = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID);
     printf("nc nodeid: %x\n", val);
 
     for (i = 0; i < maxnode; i++) {
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
-	printf("[%04x#%x]F0x00: 0x%08x\n", node, i, val);
-
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
-	printf("[%04x#%x]F0x68: 0x%08x\n", node, i, val);
 	dnc_write_conf(node, 0, 24+i, 0, 0x68, (val & ~(1<<15)) | 0x40f);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
-	printf("[%04x#%x]F0x68: 0x%08x\n", node, i, val);
 
+	/* Increase NodeCnt */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	printf("[%04x#%x]F0x60: 0x%08x\n", node, i, val);
 	dnc_write_conf(node, 0, 24+i, 0, 0x60, val + 0x10);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	printf("[%04x#%x]F0x60: 0x%08x\n", node, i, val);
 
+	/* Route maxnode as 0 */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x40);
-	printf("HT#%d rt%d: %x\n", i, 0, val);
 	dnc_write_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode, val);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode);
-	printf("HT#%d rt%d: %x\n", i, maxnode, val);
     }
 	
+    /* Renumber HT#0 */
     val = dnc_read_conf(node, 0, 24+0, 0, 0x60);
-    printf("[%04x#%x]F0x60: 0x%08x\n", node, 0, val);
     dnc_write_conf(node, 0, 24+0, 0, 0x60,
 		   (val & ~0xff0f) | (maxnode << 12) | (maxnode << 8) | maxnode);
     val = dnc_read_conf(node, 0, 24+maxnode, 0, 0x60);
     printf("[%04x#%x]F0x60: 0x%08x\n", node, maxnode, val);
 
     for (i = 1; i <= maxnode; i++) {
+	/* Update LkNode, SbNode */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	printf("[%04x#%x]F0x60: 0x%08x\n", node, i, val);
 	dnc_write_conf(node, 0, 24+i, 0, 0x60,
 		       (val & ~0xff00) | (maxnode << 12) | (maxnode << 8));
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	printf("[%04x#%x]F0x60: 0x%08x\n", node, i, val);
 
+	/* Update DRAM maps */
 	for (j = 0; j < 8; j++) {
 	    val = dnc_read_conf(node, 0, 24+i, 1, 0x44 + 8 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0x44 + 8 * j, val);
 	    if ((val & 7) == 0)
 		dnc_write_conf(node, 0, 24+i, 1, 0x44 + 8 * j, val | maxnode);
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0x44 + 8 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0x44 + 8 * j, val);
 	}
 
+	/* Update MMIO maps */
 	for (j = 0; j < 8; j++) {
 	    val = dnc_read_conf(node, 0, 24+i, 1, 0x84 + 8 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0x84 + 8 * j, val);
 	    if ((val & 7) == 0)
 		dnc_write_conf(node, 0, 24+i, 1, 0x84 + 8 * j, val | maxnode);
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0x84 + 8 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0x84 + 8 * j, val);
 	}
 
+	/* Update IO maps */
 	for (j = 0; j < 4; j++) {
 	    val = dnc_read_conf(node, 0, 24+i, 1, 0xc4 + 8 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0xc4 + 8 * j, val);
 	    if ((val & 7) == 0)
 		dnc_write_conf(node, 0, 24+i, 1, 0xc4 + 8 * j, val | maxnode);
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0xc4 + 8 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0xc4 + 8 * j, val);
 	}
 
+	/* Update CFG maps */
 	for (j = 0; j < 4; j++) {
 	    val = dnc_read_conf(node, 0, 24+i, 1, 0xe0 + 4 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0xe0 + 4 * j, val);
 	    if (((val >> 4) & 7) == 0)
 		dnc_write_conf(node, 0, 24+i, 1, 0xe0 + 4 * j, val | (maxnode << 4));
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0xe0 + 4 * j);
-	    printf("[%04x#%x]F0x%x: 0x%08x\n", node, i, 0xe0 + 4 * j, val);
 	}
     }
     
@@ -1211,55 +1190,35 @@ static void renumber_remote_bsp(u16 num)
 	    return -1;
 	}
 
+	/* Route 0 as maxnode + 1 */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode);
-	printf("HT#%d rt%d: %x\n", i, maxnode+1, val);
 	dnc_write_conf(node, 0, 24+i, 0, 0x40, val);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x40);
-	printf("HT#%d rt%d: %x\n", i, 0, val);
     }
 
-
+    /* Move NC to HT#0, update SbNode, LkNode */
     dnc_write_conf(node, 0, 24+maxnode+1, 0, H2S_CSR_F0_CHTX_NODE_ID,
 		   (maxnode << 24) | (maxnode << 16) | (maxnode << 8) | 0);
     val = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID);
     printf("nc nodeid: %x\n", val);
 
     for (i = 1; i <= maxnode; i++) {
+	/* Decrease NodeCnt */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
 	dnc_write_conf(node, 0, 24+i, 0, 0x60, val - 0x10);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
-	printf("[%04x#%x]F0x00: 0x%08x\n", node, i, val);
     }
 
     for (i = 1; i <= maxnode; i++) {
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	printf("[%04x#%x]F0x60: 0x%08x\n", node, i, val);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
-	printf("[%04x#%x]F0x68: 0x%08x\n", node, i, val);
-    }
-
-    for (i = 1; i <= maxnode; i++) {
+	/* Remote maxnode + 1 routing entry */
 	dnc_write_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode, 0x40201);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode);
-	printf("HT#%d rt%d: %x\n", i, maxnode+1, val);
     }
 
     for (i = 1; i <= maxnode; i++) {
+	/* Reenable probes */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
-	printf("[%04x#%x]F0x68: 0x%08x\n", node, i, val);
 	dnc_write_conf(node, 0, 24+i, 0, 0x68, (val & ~0x40f) | (1 << 15));
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
-	printf("[%04x#%x]F0x68: 0x%08x\n", node, i, val);
     }
 
-    for (i = 1; i <= maxnode; i++) {
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
-	printf("[%04x#%x]F0x00: 0x%08x\n", node, i, val);
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	printf("[%04x#%x]F0x60: 0x%08x\n", node, i, val);
-    }
-
-    val = dnc_read_conf(node, 0, 24+maxnode, 0, H2S_CSR_F0_CHTX_NODE_ID);
+    val = dnc_read_conf(node, 0, 24+0, 0, H2S_CSR_F0_CHTX_NODE_ID);
     printf("nc node_id: %x\n", val);
 
     memcpy(&nc_node[num].ht[maxnode], &nc_node[num].ht[0], sizeof(ht_node_info_t));
