@@ -283,7 +283,7 @@ int dnc_init_lc3(int linkno, u16 maxchunk,
         return -1;
     }
 
-//    dnc_write_csr(0xfff0 + linkno, LC3_CSR_NODE_IDS, expected_id << 16);
+    dnc_write_csr(0xfff0 + linkno, LC3_CSR_NODE_IDS, expected_id << 16);
     dnc_write_csr(0xfff0 + linkno, LC3_CSR_SAVE_ID, expected_id);
 //    dnc_write_csr(0xfff0 + linkno, LC3_CSR_CONFIG1,
 //                  dnc_read_csr(0xfff0 + linkno, LC3_CSR_CONFIG1));
