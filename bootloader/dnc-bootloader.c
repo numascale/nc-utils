@@ -1495,7 +1495,7 @@ static void wait_status(void)
 	return;
 
     count = 0;
-    printf("waiting for ");
+    printf("waiting for");
 
     /* skip first node */
     for (int i = 1; i < cfg_nodes; i++)
