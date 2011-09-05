@@ -6,7 +6,7 @@
 void setup_ht_trace(u16 sciid, u8 cpu, u64 start, u64 end)
 {
     printf("Starting trace @ %03x:HT#%d (%llx - %llx)(%x)\n",
-	   sciid, cpu, start, end, (u32)((start >> 24) | (end >> 8)));
+	   sciid, cpu, start, end, (u32)((start >> 24) | ((end >> 8) & 0xffff0000)));
 
     dnc_write_conf(sciid, 0, 24+cpu, NB_FUNC_DRAM, 0x120, 0x0);
     dnc_write_conf(sciid, 0, 24+cpu, NB_FUNC_DRAM, 0xc4, 0);
@@ -53,7 +53,9 @@ void start_remote_trace(int num)
     u16 sciid = num > 0 ? nc_node[num].sci_id : 0xfff0;
     int i;
 
-    for (i = 0; i < nc_node[num].nc_ht_id; i++) {
+    for (i = 0; i < 8; i++) {
+	if (!nc_node[num].ht[i].cpuid)
+	    continue;
 	printf("SCI %03x HT#%d: %lx, %lx\n", 
 	       sciid, i, nc_node[num].ht[i].base, nc_node[num].ht[i].size);
 	if (!nc_node[num].ht[i].size)
@@ -67,7 +69,9 @@ void start_remote_trace(int num)
 	setup_ht_trace(sciid, i, start, end);
     }
 
-    for (i = 0; i < nc_node[num].nc_ht_id; i++) {
+    for (i = 0; i < 8; i++) {
+	if (!nc_node[num].ht[i].cpuid)
+	    continue;
 	start_ht_trace(sciid, i);
     }
 }
