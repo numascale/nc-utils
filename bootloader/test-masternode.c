@@ -38,7 +38,7 @@
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
-int link_watchdog = 0;
+int ht_testmode = 0;
 
 void wait_key(void)
 {

@@ -41,7 +41,7 @@
 
 #include "dnc-commonlib.h"
 
-int link_watchdog = 0;
+int ht_testmode = 0;
 
 void tsc_wait(u32 mticks) {
     usleep((useconds_t)mticks*1000);

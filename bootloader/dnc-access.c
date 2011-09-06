@@ -44,8 +44,8 @@
 
 static volatile unsigned int *watchdog_ctl = WATCHDOG_BASE;
 static volatile unsigned int *watchdog_timer = WATCHDOG_BASE + 1;
-int link_watchdog = 0;
 
+int ht_testmode;
 int cht_config_use_extd_addressing = 0;
 
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
@@ -153,10 +153,38 @@ void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
 }
 
 /* check for link instability */
-static int link_error(int node, int link)
+static int cht_error(int node, int link)
 {
     u32 status = cht_read_config(node, NB_FUNC_HT, 0x84 + link * 0x20);
     return status & ((3 << 8) | (1 << 4)); /* CrcErr, LinkFail */
+}
+
+void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect)
+{
+    int i, errors = 0;
+
+    printf("Testing HT link...");
+
+    if (ht_testmode & HT_TESTMODE_WATCHDOG)
+	watchdog_run(4000); /* 4s timeout if read hangs due to unstable link */
+
+    for (i = 0; i < 5000000; i++) {
+	cht_write_config(node, func, reg, expect);
+	u32 val = cht_read_config(node, func, reg);
+	if (val != expect)
+	    errors++;
+    }
+
+    if (ht_testmode & HT_TESTMODE_WATCHDOG)
+	watchdog_stop();
+
+    if (errors || cht_error(neigh, neigh_link)) {
+	printf("%d link errors while reading; resetting system...\n", errors);
+	/* cold reset, since warm doesn't always reset the link enough */
+	reset_cf9(0xa, neigh);
+    }
+
+    printf("done\n");
 }
 
 u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
@@ -164,19 +192,19 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     u32 ret;
     int reboot;
 
-    if (link_watchdog)
+    if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_run(100); /* 1s timeout if read hangs due to unstable link */
 
     ret = cht_read_config(node, func, reg);
 
-    if (link_watchdog)
+    if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
 
     /* only check for Target Abort if unable to check link */
     if (neigh == -1 || neigh_link == -1)
 	reboot = ret == 0xffffffff;
     else {
-	reboot = link_error(neigh, neigh_link);
+	reboot = cht_error(neigh, neigh_link);
 	if (!reboot && ret == 0xffffffff) {
 	    printf("Warning: undetected link error (HT%d F%dx%02x read 0xffffffff)\n",
 		   node, func, reg);
@@ -195,16 +223,16 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
 
 void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 val)
 {
-    if (link_watchdog)
+    if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_run(100); /* 1s timeout if write hangs due to unstable link */
 
     cht_write_config(node, func, reg, val);
 
-    if (link_watchdog)
+    if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
 
     /* only check for Target Abort if unable to check link */
-    if (neigh != -1 && neigh_link != -1 && link_error(neigh, neigh_link)) {
+    if (neigh != -1 && neigh_link != -1 && cht_error(neigh, neigh_link)) {
 	printf("Link error while writing; resetting system...\n");
 	/* cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
