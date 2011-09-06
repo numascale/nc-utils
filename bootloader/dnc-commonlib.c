@@ -1637,9 +1637,14 @@ int dnc_setup_fabric(struct node_info *info)
             dst >>= 4;
         }
         out = dim * 2 + 1;
-        /* TODO: Calculate direction */
-        /* For now, route counter-clockwise from odd nodes */
-//        out += info->sciid & 1;
+
+	if (cfg_fabric.strict)
+	    /* SCI IDs correspond to position on the rings; use shortest route */
+	    out += dst < src;
+	else
+	    /* SCI IDs may not correspond; balance */
+	    out += info->sciid & 1;
+
         printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
                info->sciid, cfg_nodelist[i].sciid, dim, out);
 
