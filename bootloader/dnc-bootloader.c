@@ -1102,9 +1102,8 @@ static void renumber_remote_bsp(u16 num)
     u16 node = nc_node[num].sci_id;
     u8 maxnode = nc_node[num].nc_ht_id;
     u32 val;
-    printf("nc nodeid: %x\n", maxnode);
-    val = dnc_read_conf(node, 0, 24+maxnode, 0, H2S_CSR_F0_CHTX_NODE_ID);
-    printf("nc node_id: %x\n", val);
+
+    printf("[%04x#0] Renumbering BSP to HT#%d...\n", node, maxnode);
 
     for (i = 0; i < maxnode; i++) {
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
@@ -1124,7 +1123,7 @@ static void renumber_remote_bsp(u16 num)
     dnc_write_conf(node, 0, 24+maxnode, 0, H2S_CSR_F0_CHTX_NODE_ID,
 		   (maxnode << 8) | (maxnode + 1));
     val = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID);
-    printf("nc nodeid: %x\n", val);
+    printf("[%04x] Moving NC to HT#%d...\n", node, val);
 
     for (i = 0; i < maxnode; i++) {
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
@@ -1144,7 +1143,7 @@ static void renumber_remote_bsp(u16 num)
     dnc_write_conf(node, 0, 24+0, 0, 0x60,
 		   (val & ~0xff0f) | (maxnode << 12) | (maxnode << 8) | maxnode);
     val = dnc_read_conf(node, 0, 24+maxnode, 0, 0x60);
-    printf("[%04x#%x]F0x60: 0x%08x\n", node, maxnode, val);
+    printf("[%04x#%x]F0x60: 0x%08x (BSP)...\n", node, maxnode, val);
 
     for (i = 1; i <= maxnode; i++) {
 	/* Update LkNode, SbNode */
@@ -1199,7 +1198,7 @@ static void renumber_remote_bsp(u16 num)
     dnc_write_conf(node, 0, 24+maxnode+1, 0, H2S_CSR_F0_CHTX_NODE_ID,
 		   (maxnode << 24) | (maxnode << 16) | (maxnode << 8) | 0);
     val = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID);
-    printf("nc nodeid: %x\n", val);
+    printf("[%04x] Moving NC to HT#%d...\n", node, val);
 
     for (i = 1; i <= maxnode; i++) {
 	/* Decrease NodeCnt */
@@ -1219,7 +1218,7 @@ static void renumber_remote_bsp(u16 num)
     }
 
     val = dnc_read_conf(node, 0, 24+0, 0, H2S_CSR_F0_CHTX_NODE_ID);
-    printf("nc node_id: %x\n", val);
+    printf("Done.\n");
 
     memcpy(&nc_node[num].ht[maxnode], &nc_node[num].ht[0], sizeof(ht_node_info_t));
     nc_node[num].ht[0].cpuid = 0;
@@ -1266,7 +1265,8 @@ static void setup_remote_cores(u16 num)
                       nc_node[0].sci_id);
     }
 
-    renumber_remote_bsp(num);
+    if (renumber_bsp)
+	renumber_remote_bsp(num);
     ht_id = nc_node[num].nc_ht_id;
 
     printf("remote dnc mmio32 maps set...\n");
