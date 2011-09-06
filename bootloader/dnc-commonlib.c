@@ -41,7 +41,6 @@ int init_only = 0;
 int enable_nbmce = 0;
 int enable_nbwdt = 0;
 int enable_selftest = 1;
-int ht_testmode = 0;
 int force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
@@ -452,6 +451,7 @@ void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx)
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
 }
 
+#ifdef __i386
 static u32 get_phy_register(int node, int link, int idx, int direct)
 {
     int base = 0x180 + link * 8;
@@ -467,6 +467,7 @@ static u32 get_phy_register(int node, int link, int idx, int direct)
            node, base, idx);
     return 0;
 }
+#endif /* __i386 */
 
 #ifdef UNUSED
 static void set_phy_register(int node, int link, int idx, int direct, u32 val)
@@ -513,6 +514,7 @@ static void reorganize_mmio(int nc)
 }
 #endif /* UNUSED */
 
+#ifdef __i386
 static void print_phy_gangs(char *name, int base)
 {
     printf("%s:\n", name);
@@ -535,7 +537,7 @@ static void print_phy_lanes(char *name, int base, int clk)
 	printf("- CLK[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 19 * 0x80, 1));
 }
 
-static void print_htphys(void)
+static void cht_print(void)
 {
     print_phy_gangs("link phy impedance", 0xc0);
     print_phy_gangs("link phy receiver loop filter", 0xc1);
@@ -558,6 +560,7 @@ static void print_htphys(void)
     print_phy_lanes("link phy receiver process control", 0x4011, 0);
     print_phy_lanes("link phy tx deemphasis and margin test control", 0x600c, 1); */
 }
+#endif /* __i386 */
 
 static void ht_optimize_link(int nc, int rev, int asic_mode)
 {
@@ -687,7 +690,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     printf(". done.\n");
 
     if (ht_testmode > 0) {
-	print_htphys();
+	cht_print();
     }
 
     if (reboot) {
@@ -855,8 +858,9 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         cht_write_config(i, NB_FUNC_HT, 0x40 + nc * 4, val);
     }
 
-    printf("allowing link to stabilise...\n");
-    sleep(2000);
+    /* earliest opportunity to test HT link */
+    if (ht_testmode & HT_TESTMODE_TEST)
+	cht_test(nc, 0, neigh, link, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER, 0x06011b47);
 
     val = cht_read_config_nc(nc, 0, neigh, link,
                              H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
@@ -1160,7 +1164,6 @@ static int parse_cmdline(const char *cmdline)
         {"self-test",   &parse_int, &enable_selftest},
         {"microcode",	&parse_string, &microcode_path},
         {"ht-testmode",	&parse_int, &ht_testmode},
-        {"link-watchdog", &parse_int, &link_watchdog},
         {"force-ganged", &parse_int, &force_ganged},
         {"disable-smm", &parse_int, &disable_smm},
         {"renumber-bsp", &parse_int, &renumber_bsp},
@@ -1443,10 +1446,11 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
         if (perform_selftest(asic_mode) < 0)
             return -1;
     }
-    
-    if (ht_testmode > 0) {
-	print_htphys();
-    }
+
+#ifdef __i386
+    if (ht_testmode & HT_TESTMODE_PRINT)
+	cht_print();
+#endif
      
     /* If init-only parameter is given, we stop here and return */
     if (init_only > 0)
@@ -1662,9 +1666,14 @@ int dnc_setup_fabric(struct node_info *info)
             dst >>= 4;
         }
         out = dim * 2 + 1;
-        /* TODO: Calculate direction */
-        /* For now, route counter-clockwise from odd nodes */
-//        out += info->sciid & 1;
+
+	if (cfg_fabric.strict)
+	    /* SCI IDs correspond to position on the rings; use shortest route */
+	    out += dst < src;
+	else
+	    /* SCI IDs may not correspond; balance */
+	    out += info->sciid & 1;
+
         printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
                info->sciid, cfg_nodelist[i].sciid, dim, out);
 
