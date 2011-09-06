@@ -28,6 +28,31 @@ struct node_info *cfg_nodelist;
 struct part_info *cfg_partlist;
 int cfg_nodes, cfg_partitions;
 
+static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
+{
+    json_t *item;
+    *val = -1;
+    item = json_find_first_label(obj, label);
+    if (!(item && item->child)) {
+	if (!opt)
+	    printf("** parse error: label <%s> not found!\n", label);
+        return 0;
+    }
+    if (item->child->type == JSON_TRUE) {
+        *val = 1;
+    }
+    else if (item->child->type == JSON_FALSE) {
+        *val = 0;
+    }
+    else {
+        printf("** parse error: label <%s> has bad type (%d)!\n",
+               label, item->child->type);
+        return 0;
+    }
+
+    return 1;
+}
+
 static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
 {
     json_t *item;
@@ -96,6 +121,9 @@ static int parse_json(json_t *root)
           parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0) &&
           parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)))
         return 0;
+
+    if (!parse_json_bool(fab->child, "strict", &cfg_fabric.strict, 0))
+	cfg_fabric.strict = 0;
 
     list = json_find_first_label(fab->child, "nodes");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {

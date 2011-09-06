@@ -25,6 +25,7 @@ struct fabric_info {
     u32 x_size;
     u32 y_size;
     u32 z_size;
+    u32 strict;
 };
 
 struct node_info {
