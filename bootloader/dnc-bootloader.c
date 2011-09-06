@@ -1744,9 +1744,7 @@ static int update_mtrr(void)
 
 static void local_chipset_fixup(void)
 {
-    u16 node;
     u32 val;
-    int i;
 
     printf("Scanning for known chipsets, local pass...\n");
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
