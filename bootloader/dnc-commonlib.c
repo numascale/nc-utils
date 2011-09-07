@@ -690,7 +690,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     }
     printf(". done.\n");
 
-    if (ht_testmode > 0) {
+    if (ht_testmode & HT_TESTMODE_PRINT) {
 	cht_print();
     }
 
