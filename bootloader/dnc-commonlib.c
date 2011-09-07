@@ -1602,6 +1602,19 @@ static int _check_dim(int dim)
     return ok ? 0 : -1;
 }
 
+int shortest(u8 dim, u16 src, u16 dst) {
+    /* extract positions on ring */
+    int src2 = (src >> (dim * 4)) & 0xf;
+    int dst2 = (dst >> (dim * 4)) & 0xf;
+    int len = (dim == 0) ? cfg_fabric.x_size : (dim == 1) ? cfg_fabric.y_size : cfg_fabric.z_size;
+    int forward = ((len - src2) + dst2) % len;
+    int backward = ((src2 + (len - dst2)) + len) % len;
+
+    if (forward == backward)
+	return src2 & 1; /* load balance */
+    return backward < forward;
+}
+
 int dnc_setup_fabric(struct node_info *info)
 {
     int i;
@@ -1613,6 +1626,8 @@ int dnc_setup_fabric(struct node_info *info)
     memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
     memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
     memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
+
+    printf("Using %s path routing\n", cfg_fabric.strict ? "shortest" : "unoptimised");
 
     if (cfg_fabric.x_size > 0)
         _add_route(info->sciid, 0, 1); // Self route via LC3XA.
@@ -1643,11 +1658,11 @@ int dnc_setup_fabric(struct node_info *info)
         out = dim * 2 + 1;
 
 	if (cfg_fabric.strict)
-	    /* SCI IDs correspond to position on the rings; use shortest route */
-	    out += dst < src;
+	    /* SCI IDs correspond to position on the rings */
+	    out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
 	else
-	    /* SCI IDs may not correspond; balance */
-	    out += info->sciid & 1;
+	    /* SCI IDs may not correspond; load-balance route */
+	    out += src & 1;
 
         printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
                info->sciid, cfg_nodelist[i].sciid, dim, out);

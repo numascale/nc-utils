@@ -394,32 +394,50 @@ static void load_existing_apic_map(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, apic_used[i]);
 }
 
+static int linear_hops(int src, int dst, int size) {
+    if (src == dst)
+	return 0;
+
+    int fw = ((size - src) + dst) % size;
+    int bw = ((src + (size - dst)) + size) % size;
+
+    return min(fw, bw);
+}
+
 static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
 {
-    const int socket_cost = 10;	/* typically 2.2GHz HyperTransport link */
-    const int nc_cost = 60;	/* fixed NC costs */
-    const int ring_cost = 30;	/* scaled variable NC costs: 2xSERDES latency + route lookup */
+    const int socket_cost = 5;	/* typically 2.2GHz HyperTransport link */
+    const int nc_cost = 90;	/* fixed NC costs */
+    const int fabric_cost = 20;	/* scaled variable NC costs: 2xSERDES latency + route lookup */
     int total_cost = 10;	/* memory-controller + SDRAM latency */
 
     int src_sci = cfg_nodelist[src_node].sciid;
     int dst_sci = cfg_nodelist[dst_node].sciid;
-    int rings = 0;
+    int size = cfg_fabric.z_size << 8 | cfg_fabric.y_size << 4 | cfg_fabric.x_size;
+    int hops = 0;
 
-    /* count how many axes difference */
+    /* sum hops per axis */
     for (int dim = 0; dim < 3; dim++) {
-	rings += (dst_sci & 0xf) != (src_sci & 0xf);
+	if (cfg_fabric.strict)
+	    /* compute shortest path */
+	    hops += linear_hops(src_sci & 0xf, dst_sci & 0xf, size & 0xf);
+	else
+	    /* assume average of half ring length */
+	    hops += size / 2;
+
 	src_sci >>= 4;
 	dst_sci >>= 4;
+	size >>= 4;
     }
 
-    if (rings) {
+    if (hops) {
 	/* assume linear socket distance to NC */
 	int src_socket_offset = abs(src_ht - nc_node[src_node].nc_neigh);
 	int dst_socket_offset = abs(dst_ht - nc_node[dst_node].nc_neigh);
 
 	total_cost += (src_socket_offset + dst_socket_offset) * socket_cost;
 	total_cost += nc_cost; /* fixed cost of NC */
-	total_cost += rings * ring_cost; /* variable cost of NC */
+	total_cost += hops * fabric_cost; /* variable cost of NC */
     } else
 	total_cost += abs(dst_ht - src_ht) * socket_cost;
 
@@ -568,35 +586,9 @@ static void update_acpi_tables(void) {
     memset(slit->data, 0, 8); /* Number of System Localities */
     dist = (void *)&(slit->data[8]);
 
-#ifdef OLD_SLIT
-    /* Baseline algorithm; does not reflect intra-node distances yet */
-    for (i = 0; i < ht_pdom_count; i++) {
-	for (j = 0; j < ht_pdom_count; j++) {
-	    if (i == j)
-		dist[i*ht_pdom_count + j] = 10; /* Same node */
-	    else
-		dist[i*ht_pdom_count + j] = 100; /* Default distance */
-	}
-    }
-    for (i = 0; i < dnc_node_count; i++) {
-	for (j = 0; j < 8; j++) {
-	    unsigned int k;
-
-	    if (!nc_node[i].ht[j].cpuid)
-		continue;
-	    for (k = 0; k < 8; k++) {
-		if (!nc_node[i].ht[k].cpuid)
-		    continue;
-		if (j == k)
-		    continue;
-		dist[nc_node[i].ht[j].pdom*ht_pdom_count + nc_node[i].ht[k].pdom] = 20;
-	    }
-	}
-    }
-#else
     int k,l, src_numa = 0, index = 0;
 
-    printf("Updating SLIT table:\nnode ");
+    printf("Updating SLIT table: (%s path)\nnode ", cfg_fabric.strict ? "shortest" : "unoptimised");
 
     for (i = 0; i < dnc_node_count; i++)
 	for (j = 0; j < 8; j++) {
@@ -627,7 +619,6 @@ static void update_acpi_tables(void) {
 
 	    printf("\n");
 	}
-#endif
 
     memcpy(slit->data, &ht_pdom_count, sizeof(ht_pdom_count));
     slit->len = 44 + ht_pdom_count * ht_pdom_count;
