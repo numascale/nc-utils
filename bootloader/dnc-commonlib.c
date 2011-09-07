@@ -438,7 +438,6 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
 void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx)
 {
     u32 val;
-    u64 mask;
 
     /* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
     val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
