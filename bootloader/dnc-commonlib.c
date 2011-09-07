@@ -44,6 +44,7 @@ int enable_selftest = 1;
 int force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
+int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 
 // Structs to hold DIMM configuration from SPD readout.
 
@@ -1167,6 +1168,7 @@ static int parse_cmdline(const char *cmdline)
         {"force-ganged", &parse_int, &force_ganged},
         {"disable-smm", &parse_int, &disable_smm},
         {"renumber-bsp", &parse_int, &renumber_bsp},
+        {"forwarding-mode", &parse_int, &forwarding_mode},
     };
     char arg[256];
     int lstart, lend, aend, i;

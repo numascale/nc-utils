@@ -26,6 +26,8 @@
 #include "dnc-access.h"
 #include "dnc-fabric.h"
 
+extern int forwarding_mode;
+
 // We use this here but its not defined in any header file we use
 extern void tsc_wait(u32 mticks);
 
@@ -270,14 +272,12 @@ int dnc_check_lc3(int linkno)
 int dnc_init_lc3(int linkno, u16 maxchunk,
                  u16 rtbll[], u16 rtblm[], u16 rtblh[], u16 ltbl[])
 {
-//    const u32 lpass = 0; // LC3 lpass setting, 0 = store-and-forward, 3 = cut-through
-//    const u32 bpass = 0; // LC3 bpass setting, 0 = store-and-forward, 3 = cut-through
     u16 nodeid = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
     u16 expected_id = (nodeid | (linkno << 13));
     u32 error_count1, error_count2;
     u16 chunk, offs;
 
-    printf("Initializing LC3%s...\n", _get_linkname(linkno));
+    printf("Initializing LC3%s with forwarding mode %d...\n", _get_linkname(linkno), forwarding_mode);
 
     if (dnc_raw_read_csr(0xfff0 + linkno, LC3_CSR_ERROR_COUNT, &error_count1) != 0) {
         return -1;
@@ -287,8 +287,8 @@ int dnc_init_lc3(int linkno, u16 maxchunk,
     dnc_write_csr(0xfff0 + linkno, LC3_CSR_SAVE_ID, expected_id);
 //    dnc_write_csr(0xfff0 + linkno, LC3_CSR_CONFIG1,
 //                  dnc_read_csr(0xfff0 + linkno, LC3_CSR_CONFIG1));
-//    dnc_write_csr(0xfff0 + linkno, LC3_CSR_CONFIG2,
-//                  (dnc_read_csr(0xfff0 + linkno, LC3_CSR_CONFIG2) & ~(0xf0)) | (lpass<<6) | (bpass<<4));
+    dnc_write_csr(0xfff0 + linkno, LC3_CSR_CONFIG2,
+                  (dnc_read_csr(0xfff0 + linkno, LC3_CSR_CONFIG2) & ~(0xf0)) | (forwarding_mode << 6) | (forwarding_mode << 4));
 //    dnc_write_csr(0xfff0 + linkno, LC3_CSR_CONFIG3,
 //                  dnc_read_csr(0xfff0 + linkno, LC3_CSR_CONFIG3) | (1<<12)); // Set fatal2dead
 
