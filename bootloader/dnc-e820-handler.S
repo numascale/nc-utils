@@ -18,6 +18,7 @@
 #define MSR_APIC_BAR  0x0000001b
 #define MSR_LSCFG     0xc0011020
 #define MSR_NODE_ID   0xc001100c
+#define MSR_SMM_BASE  0xc0010111
 
 #define MSR_MTRR_PHYS_BASE0 0x00000200
 #define MSR_MTRR_PHYS_BASE1 0x00000202
@@ -184,6 +185,16 @@ EXPORT(init_trampoline)
 	rdmsr
 	or	$0x1000, %edx
 	wrmsr
+
+	mov	$MSR_TOPMEM, %ecx
+	rdmsr
+	mov	%eax, %cs:SYM_OFFSET(rem_topmem_msr)
+	mov	%edx, %cs:SYM_OFFSET(rem_topmem_msr+4)
+
+	mov	$MSR_SMM_BASE, %ecx
+	rdmsr
+	mov	%eax, %cs:SYM_OFFSET(rem_smm_base_msr)
+	mov	%edx, %cs:SYM_OFFSET(rem_smm_base_msr+4)
         
 	mov	$SYM_OFFSET(cpu_done2), %si
 	call	print_strz
@@ -217,6 +228,10 @@ EXPORT(new_mtrr_base)
 	.skip 8*8, 0
 EXPORT(new_mtrr_mask)
 	.skip 8*8, 0
+EXPORT(rem_topmem_msr)
+	.long 0, 0
+EXPORT(rem_smm_base_msr)
+	.long 0, 0
 
 // Print asciiz string at by cs:si
 print_strz:
@@ -336,3 +351,16 @@ EXPORT(new_mptable)
 
 	.global asm_relocate_end
 asm_relocate_end:
+
+
+// Replacement code for brute-force SMM disable
+
+	.code16
+	.text
+	.align 4096
+
+	.global smm_handler_start
+smm_handler_start:
+	rsm
+	.global smm_handler_end
+smm_handler_end:

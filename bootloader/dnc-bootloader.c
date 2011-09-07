@@ -59,6 +59,7 @@ u16 apic_per_node;
 u16 ht_next_apic;
 u32 dnc_top_of_mem;       /* Top of mem, in 16MB chunks */
 u8 post_apic_mapping[256]; /* POST APIC assigments */
+int scc_started = 0;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
 u8 nodedata[4096];
@@ -89,6 +90,11 @@ IMPORT_RELOCATED(new_mpfp);
 IMPORT_RELOCATED(new_mptable);
 IMPORT_RELOCATED(new_mtrr_base);
 IMPORT_RELOCATED(new_mtrr_mask);
+IMPORT_RELOCATED(rem_topmem_msr);
+IMPORT_RELOCATED(rem_smm_base_msr);
+
+extern u8 smm_handler_start;
+extern u8 smm_handler_end;
 
 struct e820entry {
     u64 base;
@@ -159,7 +165,7 @@ static void load_orig_e820_map(void)
     rm.eax.l = 0x0000e820;
     rm.edx.l = STR_DW_N("SMAP");
     rm.ebx.l = 0;
-    rm.ecx.l = 65536;
+    rm.ecx.l = 1024;
     rm.edi.w[0] = OFFS(e820_map);
     rm.es = SEG(e820_map);
     __intcall(0x15, &rm, &rm);
@@ -171,12 +177,12 @@ static void load_orig_e820_map(void)
         while (rm.ebx.l > 0) {
             rm.eax.l = 0x0000e820;
             rm.edx.l = STR_DW_N("SMAP");
-            rm.ecx.l = 65536;
+            rm.ecx.l = 1024;
             rm.edi.w[0] = OFFS(e820_map) + e820_len;
             rm.es = SEG(e820_map);
             __intcall(0x15, &rm, &rm);
 
-            e820_len += rm.ecx.l;
+            e820_len += rm.ecx.l ? rm.ecx.l : sizeof(struct e820entry);
         }
       
         int i;
@@ -327,8 +333,10 @@ static void update_e820_map(void)
     buffer = 0;
     /* Add remote nodes */
     for (i = 0; i < dnc_node_count; i++) {
-	for (j = 0; j < nc_node[i].nc_ht_id; j++) {
+	for (j = 0; j < 8; j++) {
 	    if ((i == 0) && (j == 0))
+		continue;
+	    if (!nc_node[i].ht[j].cpuid)
 		continue;
 
             e820[*len].base   = ((u64)nc_node[i].ht[j].base << DRAM_MAP_SHIFT) + buffer;
@@ -881,6 +889,116 @@ static void setup_apic_atts(void)
     }
 }
     
+static void add_scc_hotpatch_att(u64 addr, u16 node)
+{
+    u64 val;
+    u32 base, lim;
+    int i;
+
+    if (scc_started) {
+	u32 att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
+	att_idx = (att_idx >> 27) & 0xf;
+	val = addr >> 20;
+	while (att_idx > 0) {
+	    val = val >> 4;
+	    att_idx = att_idx >> 1;
+	}
+	att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, (att_idx & 0x78000000) | (val & 0xfff));
+	if (val & ~0xfff) {
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
+	    if (val != node) {
+		printf("add_att: Existing ATT entry differs from given node! %08x != %08x\n",
+		       val, node);
+	    }
+	}
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
+    }
+    else {
+	/* Set local ATT */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX,
+		      (0x08000000 << 3) | /* Index Range (3 = 47:36) */
+		      (addr >> 36)); /* Start index */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
+
+	for (i = 0; i < 8; i++) {
+	    base = cht_read_config(0, NB_FUNC_MAPS, 0x40 + (8 * i));
+	    lim = cht_read_config(0, NB_FUNC_MAPS, 0x44 + (8 * i));
+	    if (base & 3) {
+		base = (base >> 8) | (base & 3);
+		lim = (lim >> 8) | (lim & 7);
+	    }
+	    else {
+		base = 0;
+		lim = 0;
+	    }
+
+	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
+	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+	}
+    }
+}
+
+static void disable_smm_handler(u64 smm_base)
+{
+    u64 val;
+    u64 smm_addr;
+    u16 node;
+    u32 sreq_ctrl;
+    int i;
+    u8 *cur;
+
+    if (!disable_smm)
+	return;
+
+    if (smm_base && (smm_base != ~0ULL))
+	smm_base += 0x8000;
+    else
+	return;
+
+    printf("Disabling SMM handler at %llx...\n", smm_base);
+    smm_addr = 0x200000000000ULL | smm_base;
+
+    val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+    node = (val >> 16) & 0xfff;
+
+    for (i = 0; i < dnc_master_ht_id; i++) {
+	add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+			   dnc_master_ht_id);
+    }
+
+    add_scc_hotpatch_att(smm_addr, node);
+
+    sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
+		  (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
+
+    /* val = mem64_read32(smm_addr);
+       printf("MEM %llx: %08lx\n", smm_base, val); */
+	
+    cur = &smm_handler_start;
+    while (cur + 4 <= &smm_handler_end) {
+	mem64_write32(smm_addr, *((u32 *)cur));
+	smm_addr += 4;
+	cur += 4;
+    }
+    if (cur + 2 <= &smm_handler_end) {
+	mem64_write16(smm_addr, *((u16 *)cur));
+	smm_addr += 2;
+	cur += 2;
+    }
+    if (cur < &smm_handler_end) {
+	mem64_write8(smm_addr, *cur);
+	smm_addr++;
+	cur++;
+    }
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
+
+    for (i = 0; i < dnc_master_ht_id; i++)
+	del_extd_mmio_maps(0xfff0, i, 7);
+}
+
 static void setup_other_cores(void)
 {
     u16 node = nc_node[0].sci_id;
@@ -926,6 +1044,8 @@ static void setup_other_cores(void)
 	    *REL(cpu_apic_renumber) = apicid;
 	    *REL(cpu_apic_hi)       = 0;
 	    *REL(cpu_init_finished) = 0;
+	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
+	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
 
 	    apic[0x310/4] = oldid << 24;
 	    *icr = 0x00004500;
@@ -952,12 +1072,148 @@ static void setup_other_cores(void)
 		    break;
 		tsc_wait(10);
 	    }
-	    if (*REL(cpu_init_finished))
+	    if (*REL(cpu_init_finished)) {
 		printf("apic %d reported done.\n", apicid);
-	    else
+		val = *((u64 *)REL(rem_topmem_msr));
+		printf("remote topmem: %llx\n", val);
+		val = *((u64 *)REL(rem_smm_base_msr));
+		printf("remote smm_base: %llx\n", val);
+		disable_smm_handler(val);
+	    }
+	    else {
 		printf("apic %d did not toggle init flag.\n", apicid);
+	    }
 	}
     }
+}
+
+static void renumber_remote_bsp(u16 num)
+{
+    u8 i, j;
+    u16 node = nc_node[num].sci_id;
+    u8 maxnode = nc_node[num].nc_ht_id;
+    u32 val;
+
+    printf("[%04x#0] Renumbering BSP to HT#%d...\n", node, maxnode);
+
+    for (i = 0; i < maxnode; i++) {
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
+	if (val != 0x12001022) {
+	    fprintf(stderr,
+		    "[%04x#%x]F0x00 does not indicate an AMD Opteron CPU: 0x%08x\n",
+		    node, i, val);
+	    return;
+	}
+
+	/* Route maxnode + 1 as maxnode */
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode);
+	dnc_write_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode, val);
+    }
+
+    /* Bump NC to maxnode + 1 */
+    dnc_write_conf(node, 0, 24+maxnode, 0, H2S_CSR_F0_CHTX_NODE_ID,
+		   (maxnode << 8) | (maxnode + 1));
+    val = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID);
+    printf("[%04x] Moving NC to HT#%d...\n", node, val);
+
+    for (i = 0; i < maxnode; i++) {
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
+	dnc_write_conf(node, 0, 24+i, 0, 0x68, (val & ~(1<<15)) | 0x40f);
+
+	/* Increase NodeCnt */
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
+	dnc_write_conf(node, 0, 24+i, 0, 0x60, val + 0x10);
+
+	/* Route maxnode as 0 */
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x40);
+	dnc_write_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode, val);
+    }
+	
+    /* Renumber HT#0 */
+    val = dnc_read_conf(node, 0, 24+0, 0, 0x60);
+    dnc_write_conf(node, 0, 24+0, 0, 0x60,
+		   (val & ~0xff0f) | (maxnode << 12) | (maxnode << 8) | maxnode);
+    val = dnc_read_conf(node, 0, 24+maxnode, 0, 0x60);
+    printf("[%04x#%x]F0x60: 0x%08x (BSP)...\n", node, maxnode, val);
+
+    for (i = 1; i <= maxnode; i++) {
+	/* Update LkNode, SbNode */
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
+	dnc_write_conf(node, 0, 24+i, 0, 0x60,
+		       (val & ~0xff00) | (maxnode << 12) | (maxnode << 8));
+
+	/* Update DRAM maps */
+	for (j = 0; j < 8; j++) {
+	    val = dnc_read_conf(node, 0, 24+i, 1, 0x44 + 8 * j);
+	    if ((val & 7) == 0)
+		dnc_write_conf(node, 0, 24+i, 1, 0x44 + 8 * j, val | maxnode);
+	}
+
+	/* Update MMIO maps */
+	for (j = 0; j < 8; j++) {
+	    val = dnc_read_conf(node, 0, 24+i, 1, 0x84 + 8 * j);
+	    if ((val & 7) == 0)
+		dnc_write_conf(node, 0, 24+i, 1, 0x84 + 8 * j, val | maxnode);
+	}
+
+	/* Update IO maps */
+	for (j = 0; j < 4; j++) {
+	    val = dnc_read_conf(node, 0, 24+i, 1, 0xc4 + 8 * j);
+	    if ((val & 7) == 0)
+		dnc_write_conf(node, 0, 24+i, 1, 0xc4 + 8 * j, val | maxnode);
+	}
+
+	/* Update CFG maps */
+	for (j = 0; j < 4; j++) {
+	    val = dnc_read_conf(node, 0, 24+i, 1, 0xe0 + 4 * j);
+	    if (((val >> 4) & 7) == 0)
+		dnc_write_conf(node, 0, 24+i, 1, 0xe0 + 4 * j, val | (maxnode << 4));
+	}
+    }
+    
+    for (i = 1; i <= maxnode; i++) {
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
+	if (val != 0x12001022) {
+	    fprintf(stderr,
+		    "[%04x#%x]F0x00 does not indicate an AMD Opteron CPU: 0x%08x\n",
+		    node, i, val);
+	    return -1;
+	}
+
+	/* Route 0 as maxnode + 1 */
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode);
+	dnc_write_conf(node, 0, 24+i, 0, 0x40, val);
+    }
+
+    /* Move NC to HT#0, update SbNode, LkNode */
+    dnc_write_conf(node, 0, 24+maxnode+1, 0, H2S_CSR_F0_CHTX_NODE_ID,
+		   (maxnode << 24) | (maxnode << 16) | (maxnode << 8) | 0);
+    val = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID);
+    printf("[%04x] Moving NC to HT#%d...\n", node, val);
+
+    for (i = 1; i <= maxnode; i++) {
+	/* Decrease NodeCnt */
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
+	dnc_write_conf(node, 0, 24+i, 0, 0x60, val - 0x10);
+    }
+
+    for (i = 1; i <= maxnode; i++) {
+	/* Remote maxnode + 1 routing entry */
+	dnc_write_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode, 0x40201);
+    }
+
+    for (i = 1; i <= maxnode; i++) {
+	/* Reenable probes */
+	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
+	dnc_write_conf(node, 0, 24+i, 0, 0x68, (val & ~0x40f) | (1 << 15));
+    }
+
+    val = dnc_read_conf(node, 0, 24+0, 0, H2S_CSR_F0_CHTX_NODE_ID);
+    printf("Done.\n");
+
+    memcpy(&nc_node[num].ht[maxnode], &nc_node[num].ht[0], sizeof(ht_node_info_t));
+    nc_node[num].ht[0].cpuid = 0;
+    nc_node[num].nc_ht_id = 0;
 }
 
 static void setup_remote_cores(u16 num)
@@ -970,6 +1226,7 @@ static void setup_remote_cores(u16 num)
     u32 j;
     u32 val;
     u64 tom;
+    u64 qval;
 
     printf("Setting up cores on node #%d (0x%03x), %d HT nodes\n",
            num, node, ht_id);
@@ -999,6 +1256,10 @@ static void setup_remote_cores(u16 num)
                       nc_node[0].sci_id);
     }
 
+    if (renumber_bsp)
+	renumber_remote_bsp(num);
+    ht_id = nc_node[num].nc_ht_id;
+
     printf("remote dnc mmio32 maps set...\n");
 
     /* Set H2S_Init */
@@ -1009,7 +1270,9 @@ static void setup_remote_cores(u16 num)
     /* Insert coverall MMIO maps */
     tom = dnc_rdmsr(MSR_TOPMEM) >> 8;
     printf("Inserting coverall MMIO maps on sci node %03x\n", node);
-    for (i = 0; i < ht_id; i++) {
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84, 0x00000f00 | ht_id);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x80, 0x00000a03);
         for (j = 1; j < 8; j++) {
@@ -1028,7 +1291,9 @@ static void setup_remote_cores(u16 num)
 
     /* Now, reset all DRAM maps */
     printf("Resetting DRAM maps on sci node %03x\n", node);
-    for (i = 0; i < ht_id; i++) {
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
         // Re-direct everything below our first local address to NumaChip
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44,
                        ((cur_node->ht[0].base - 1) << 16) | ht_id);
@@ -1043,7 +1308,9 @@ static void setup_remote_cores(u16 num)
 
     /* Reprogram HT node "self" ranges */
     printf("Reprogramming HT node \"self\" ranges on sci node %03x\n", node);
-    for (i = 0; i < ht_id; i++) {
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x120,
                        cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x124,
@@ -1062,9 +1329,22 @@ static void setup_remote_cores(u16 num)
 	}
     }
 
+    for (i = 1; i < 8; i++) {
+	for (j = 0; j < 8; j++) {
+	    if (!cur_node->ht[j].cpuid)
+		continue;
+            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x44 + i*8, 0);
+            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x40 + i*8, 0);
+        }
+    }
+
     // Program our local ranges
-    for (i = 0; i < ht_id; i++) {
-        for (j = 0; j < ht_id; j++) {
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
+	for (j = 0; j < 8; j++) {
+	    if (!cur_node->ht[j].cpuid)
+		continue;
             dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x4c + i*8,
                            ((cur_node->ht[i].base + cur_node->ht[i].size - 1) << 16) | i);
             dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x48 + i*8,
@@ -1080,11 +1360,13 @@ static void setup_remote_cores(u16 num)
 
     // Re-direct everything above our last local address (if any) to NumaChip
     if (num != dnc_node_count-1) {
-        for (j = 0; j < ht_id; j++) {
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x4c + ht_id*8,
-                           ((nc_node[dnc_node_count-1].ht[1].base + nc_node[dnc_node_count-1].ht[1].size - 1) << 16) | ht_id);
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x48 + ht_id*8,
-                           ((cur_node->ht[1].base + cur_node->ht[1].size) << 16) | 3);
+	for (j = 0; j < 8; j++) {
+	    if (!cur_node->ht[j].cpuid)
+		continue;
+            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x7c,
+                           ((nc_node[dnc_node_count-1].addr_end - 1) << 16) | ht_id);
+            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x78,
+                           (cur_node->addr_end << 16) | 3);
         }
     }
 
@@ -1094,7 +1376,9 @@ static void setup_remote_cores(u16 num)
 
     /* Quick and dirty: zero out I/O and config space maps; add
      * all-covering map towards DNC */
-    for (i = 0; i < ht_id; i++) {
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
         for (j = 0xc0; j < 0xf0; j += 4) {
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, j, 0);
         }
@@ -1103,16 +1387,18 @@ static void setup_remote_cores(u16 num)
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xe0, 0xff000003 | (ht_id << 4));
     }
 
-    dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->ht[0].base >> 6);
-    dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT, ((cur_node->ht[1].base + cur_node->ht[1].size) >> 6) - 1);
+    dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->addr_base >> 6);
+    dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT, (cur_node->addr_end >> 6) - 1);
     printf("%03x/NGCM0: %x\n", node, dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT));
     printf("%03x/NGCM1: %x\n", node, dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT));
 
-    dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->ht[0].base);
-    dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->ht[1].base + cur_node->ht[1].size);
+    dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->addr_base);
+    dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->addr_end);
 
     /* Redo the Global CSR and MMCFG maps here just in case master and slave are out of sync */
-    for (i = 0; i < ht_id; i++) {
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
         add_extd_mmio_maps(node, i, 0, DNC_CSR_BASE, DNC_CSR_LIM, ht_id);
         add_extd_mmio_maps(node, i, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, ht_id);
     }
@@ -1140,6 +1426,8 @@ static void setup_remote_cores(u16 num)
 	    *REL(cpu_apic_renumber) = apicid & 0xff;
 	    *REL(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
 	    *REL(cpu_init_finished) = 0;
+	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
+	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
 
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (oldid<<16));
 	    tsc_wait(50);
@@ -1151,8 +1439,14 @@ static void setup_remote_cores(u16 num)
 		tsc_wait(10);
 	    }
 
-	    if (*REL(cpu_init_finished))
+	    if (*REL(cpu_init_finished)) {
 		printf("apic %d (%d) reported done.\n", apicid, oldid);
+		qval = *((u64 *)REL(rem_topmem_msr));
+		printf("remote topmem: %llx\n", qval);
+		qval = *((u64 *)REL(rem_smm_base_msr));
+		printf("remote smm_base: %llx\n", qval);
+		disable_smm_handler(qval);
+	    }
 	    else {
 		printf("apic %d (%d) did not toggle init flag.\n", apicid, oldid);
 	    }
@@ -1491,8 +1785,8 @@ static void wait_status(void)
     /* skip first node */
     for (int i = 1; i < cfg_nodes; i++)
 	if (nodedata[cfg_nodelist[i].sciid] != 0x80)
-	    printf(" %d", i + 1);
-
+	    printf(" 0x%03x (%s)",
+		   cfg_nodelist[i].sciid, cfg_nodelist[i].desc);
     printf("\n");
 }
 
@@ -1558,16 +1852,12 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		    ours = 1;
 		    break;
 		}
+
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%d) entered %d; waiting for [", rsp.sciid, rsp.uuid, waitfor);
+			printf("Node 0x%03x (%d) entered %d\n", rsp.sciid, rsp.uuid, waitfor);
 			nodedata[rsp.sciid] = 0x80;
-			/* start at second node */
-			for (int j = 1; j < cfg_nodes; j++)
-			    if (nodedata[cfg_nodelist[j].sciid] != 0x80)
-				printf(" %d", j);
-			printf("]\n");
 		    }
 		}
 		else if ((rsp.state == RSP_PHY_NOT_TRAINED) ||
@@ -1587,9 +1877,10 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
         for (i = 0; i < cfg_nodes; i++) {
             if (cfg_nodelist[i].uuid == info->uuid) /* Self */
                 continue;
-	    if (nodedata[cfg_nodelist[i].sciid] & 0x80)
-		continue;
-	    ready_pending = 1;
+	    if (!(nodedata[cfg_nodelist[i].sciid] & 0x80)) {
+		ready_pending = 1;
+		break;
+	    }
         }
 
 	if (!ready_pending || do_restart) {
@@ -1735,22 +2026,55 @@ static int update_mtrr(void)
 
 static void local_chipset_fixup(void)
 {
-    u32 val;
+    u16 node;
+    u64 addr;
+    u32 sreq_ctrl, val;
+    int i;
 
     printf("Scanning for known chipsets, local pass...\n");
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
     if (val == 0x43851002) {
 	printf("Adjusting local configuration of AMD SP5100...\n");
-	/* Disable config-space triggered SMI (may not be needed now
-	 * that we neuter the SMM handler) */
-	outb(0xa8, 0xcd6);
-	val = inb(0xcd7);
-	val = val & ~0x10;
-	outb(val, 0xcd7);
+	if (!disable_smm) {
+	    /* Disable config-space triggered SMI */
+	    outb(0xa8, 0xcd6);
+	    val = inb(0xcd7);
+	    val = val & ~0x10;
+	    outb(val, 0xcd7);
+	}
 
-	/* Disable 00:14.5, OHCI, it does not work well without SMM. */
-	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0x68);
-	dnc_write_conf(0xfff0, 0, 0x14, 0, 0x68, val & ~0x80);
+	addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
+	addr += 0x200000000000ULL;
+
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+	node = (val >> 16) & 0xfff;
+
+	for (i = 0; i < dnc_master_ht_id; i++) {
+	    add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+			       dnc_master_ht_id);
+	}
+
+	add_scc_hotpatch_att(addr, node);
+
+	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
+		      (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
+
+	val = mem64_read32(addr + 4);
+	printf("SMM fingerprint: %16llx\n", val);
+    
+	if (val == 0x3160bf66) {
+	    printf("SMM coh config space trigger fingerprint found, patching...\n");
+	    val = mem64_read32(addr);
+	    mem64_write32(addr, (val & 0xff) | 0x9040eb00);
+	}
+    
+	val = mem64_read32(addr);
+	printf("MEM %llx: %08lx\n", addr, val);
+	
+	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
+	for (i = 0; i < dnc_master_ht_id; i++)
+	    del_extd_mmio_maps(0xfff0, i, 7);
     }
     printf("Chipset-specific setup done.\n");
 }
@@ -1788,69 +2112,6 @@ static void global_chipset_fixup(void)
     printf("Chipset-specific setup done.\n");
 }
 
-static void disable_smm(void)
-{
-    u64 val;
-    u64 smm_base;
-    u16 node;
-    u32 base, lim;
-    u32 sreq_ctrl;
-    int i;
-
-    val = dnc_rdmsr(MSR_SMM_BASE);
-    if (val && (val != ~0ULL))
-	smm_base = val + 0x8000;
-    else
-	return;
-
-    printf("Disabling SMM handler at %llx...\n", smm_base);
-
-    val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
-    node = (val >> 16) & 0xfff;
-
-    for (i = 0; i < dnc_master_ht_id; i++) {
-	add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
-			   dnc_master_ht_id);
-    }
-
-    /* Set local ATT */
-    dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX,
-		  0x80000000 | /* AutoInc */
-		  (0x08000000 << 3) | /* Index Range (3 = 47:36) */
-		  0x200); /* Start index */
-    for (i = 0; i < 256; i++)
-	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
-
-    for (i = 0; i < 8; i++) {
-	base = cht_read_config(0, NB_FUNC_MAPS, 0x40 + (8 * i));
-	lim = cht_read_config(0, NB_FUNC_MAPS, 0x44 + (8 * i));
-	if (base & 3) {
-	    base = (base >> 8) | (base & 3);
-	    lim = (lim >> 8) | (lim & 7);
-	}
-	else {
-	    base = 0;
-	    lim = 0;
-	}
-
-	cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
-	cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
-    }
-
-    sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL) & ~(0xfff << 4);
-    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl | (0xf00 << 4));
-
-    val = mem64_read32(0x200000000000ULL | smm_base);
-    /* printf("MEM %llx: %08lx\n", smm_base, val); */
-    mem64_write16(0x200000000000ULL | smm_base, 0xaa0f);
-    val = mem64_read32(0x200000000000ULL | smm_base);
-    /* printf("MEM %llx: %08lx\n", smm_base, val); */
-
-    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
-    /* TODO: remove Ext'd MMIO map entry? */
-}
-
 static int unify_all_nodes(void)
 {
     u64 val;
@@ -1879,33 +2140,38 @@ static int unify_all_nodes(void)
 //    }
  
     // Set up local mapping registers etc. from 0 - 16G
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 0);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
-                     ((nc_node[0].ht[0].base + nc_node[0].ht[0].size - 1) << 8) | 0);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
-                     (nc_node[0].ht[0].base << 8) | 3);
-
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 1);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
-                     ((nc_node[0].ht[1].base + nc_node[0].ht[1].size - 1) << 8) | 1);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
-                     (nc_node[0].ht[1].base << 8) | 3);
+    for (i = 0; i < dnc_master_ht_id; i++) {
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
+			    ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
+			    (nc_node[0].ht[i].base << 8) | 3);
+    }
 
     // DRAM map on local CPUs to redirect all accesses outside our local range to NC
     // NB: Assuming that memory is assigned sequentially to SCI nodes and HT nodes.
-    cht_write_config(1, 1, 0x54, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
-    cht_write_config(1, 1, 0x50, (nc_node[1].ht[0].base << 16) | 3);
+    for (i = 0; i < dnc_master_ht_id; i++) {
+	// TODO: Verify that this DRAM slot is actually unused
+	cht_write_config(i, 1, 0x7c, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
+	cht_write_config(i, 1, 0x78, (nc_node[1].ht[0].base << 16) | 3);
+    }
 
-    cht_write_config(0, 1, 0x54, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
-    cht_write_config(0, 1, 0x50, (nc_node[1].ht[0].base << 16) | 3);
-
-    dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, nc_node[0].ht[0].base >> 6);
-    dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT, ((nc_node[0].ht[1].base + nc_node[0].ht[1].size) >> 6) - 1);
+    dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT,
+		  nc_node[0].ht[0].base >> 6);
+    dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT,
+		  ((nc_node[0].ht[dnc_master_ht_id - 1].base +
+		    nc_node[0].ht[dnc_master_ht_id - 1].size) >> 6) - 1);
     printf("%03x/NGCM0: %x\n", nc_node[0].sci_id, dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT));
     printf("%03x/NGCM1: %x\n", nc_node[0].sci_id, dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT));
 
-    dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_BASE, nc_node[0].ht[0].base);
-    dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT, nc_node[0].ht[1].base + nc_node[0].ht[1].size);
+    dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_BASE,
+		  nc_node[0].ht[0].base);
+    dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT,
+		  nc_node[0].ht[dnc_master_ht_id - 1].base +
+		  nc_node[0].ht[dnc_master_ht_id - 1].size);
 
     for (i = 0; i < dnc_node_count; i++) {
 	u16 dnode;
@@ -1922,7 +2188,8 @@ static int unify_all_nodes(void)
 			  0x80000000 | /* AutoInc */
 			  (0x08000000 << SCC_ATT_INDEX_RANGE) | /* Index Range */
 			  (addr/SCC_ATT_GRAN)); /* Start index for current node */
-	    printf("Node %03x ATT_INDEX: %x (%x, %x) SCI %03x\n", nc_node[i].sci_id, dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end, nc_node[dnode].sci_id);
+	    printf("Node %03x ATT_INDEX: %x (%x, %x) SCI %03x\n", nc_node[i].sci_id,
+		   dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end, nc_node[dnode].sci_id);
 	    while (addr < end) {
 		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[dnode].sci_id);
 		addr += SCC_ATT_GRAN;
@@ -1936,6 +2203,7 @@ static int unify_all_nodes(void)
         load_scc_microcode(node);
     }
 
+    scc_started = 1;
     printf("SCC microcode loaded.\n");
 
     if (update_mtrr() < 0) {
@@ -1970,6 +2238,9 @@ static int unify_all_nodes(void)
 
     /* Make chipset-specific adjustments */
     global_chipset_fixup();
+
+    /* Must run after SCI is operational */
+    disable_smm_handler(dnc_rdmsr(MSR_SMM_BASE));
 
     setup_other_cores();
 
@@ -2139,6 +2410,10 @@ static void stop_usb(void)
     u8 dev;
     u8 fn;
 
+    // If SMM is disabled, USB functionality may have been lost.
+    if (disable_smm)
+	return;
+
     // Scan bus 0 for OHCI controllers and disable them if used by BIOS/SMM
     for (dev=0; dev<0x18; dev++) {
         for (fn=0; fn<7; fn++) {
@@ -2182,8 +2457,6 @@ int main(void)
  
     dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
 					   __com32.cs_cmdline);
-    local_chipset_fixup();
-
     if (dnc_master_ht_id == -2)
 	start_user_os();
 
@@ -2217,13 +2490,13 @@ int main(void)
     }
 
     /* Must run after SCI is operational */
-//    disable_smm();
- 
+    local_chipset_fixup();
+
     if (info->sync_only) {
 	tsc_wait(5000);
 	start_user_os();
     }
-    
+
     if (dnc_init_caches() < 0)
         return -1;
 

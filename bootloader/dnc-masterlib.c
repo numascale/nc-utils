@@ -75,6 +75,7 @@ void tally_local_node(int enforce_alignment)
     nc_node[0].sci_id = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
     nc_node[0].nc_ht_id = dnc_master_ht_id;
     nc_node[0].nc_neigh = nc_neigh;
+    nc_node[0].addr_base = 0;
 
     val = cht_read_config(0, NB_FUNC_HT, 0x60);
     max_ht_node = (val >> 4) & 7;
@@ -144,6 +145,8 @@ void tally_local_node(int enforce_alignment)
            tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 
     dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
+    nc_node[0].addr_end = dnc_top_of_mem;
+
     rest = dnc_top_of_mem & (SCC_ATT_GRAN-1);
     if (rest && enforce_alignment) {
 	printf("Deducting %x from node %d to accommodate granularity requirements.\n",
@@ -216,6 +219,7 @@ int tally_remote_node(u16 node)
     /* Ensure that all nodes start out on 1G boundaries.
        FIXME: Add IO holes to cover address space discontinuity? */ 
     dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
+    cur_node->addr_base = dnc_top_of_mem;
 
     val = dnc_read_conf(node, 0, 24, NB_FUNC_HT, 0x60);
     if (val == 0xffffffff) {
@@ -232,12 +236,15 @@ int tally_remote_node(u16 node)
 	printf("apic_used[%d]: %08x\n", i, apic_used[i]);
     }
 
+    ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
     cur_node->apic_offset = ht_next_apic;
     cur_apic = 0;
 
     for (i = 0; i <= max_ht_node; i++) {
-        if (i == cur_node->nc_ht_id)
+        if (i == cur_node->nc_ht_id) {
+	    cur_node->ht[i].cpuid = 0;
             continue;
+	}
 
         printf("Examining SCI node %03x HT node %d...\n", node, i);
        
@@ -252,6 +259,7 @@ int tally_remote_node(u16 node)
 	{
 	    printf("** Node has unknown/incompatible CPUID: %08x, skipping...\n", cur_node->ht[i].cpuid);
 	    cur_node->ht[i].pdom = 0;
+	    cur_node->ht[i].cpuid = 0;
 	    continue;
 	}
 	cur_node->ht[i].pdom = ht_pdom_count++;
@@ -306,7 +314,7 @@ int tally_remote_node(u16 node)
 	       cur_apic);
     }
 
-    /* If rebased apicid[7:0] if last core is above a given threshold,
+    /* If rebased apicid[7:0] of last core is above a given threshold,
        bump base for entire SCI node to next 8-bit interval. */
     if ((ht_next_apic & 0xff) + cur_node->ht[last].apic_base + cur_node->ht[last].cores > 0xf0)
 	ht_next_apic = (ht_next_apic & ~0xff) + 0x100 + cur_node->ht[0].apic_base;
@@ -319,6 +327,8 @@ int tally_remote_node(u16 node)
 	   cur_node->apic_offset);
 
     printf("ht_next_apic: %d\n", ht_next_apic);
+
+    cur_node->addr_end = dnc_top_of_mem;
 
     printf("%2d CPU cores and %2d GBytes of memory found in SCI node %03x\n",
            tot_cores, cur_node->node_mem >> 6, node);
@@ -342,7 +352,6 @@ int tally_all_remote_nodes(void)
 {
     int ret = 1;
     u16 node;
-    ht_next_apic = 0x20;
     for (node = 1; node < 4096; node++) {
         if ((nodedata[node] & 0xc0) != 0x80)
             continue;

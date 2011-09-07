@@ -40,6 +40,7 @@
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest);
+void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx);
 
 int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline);
 int dnc_setup_fabric(struct node_info *info);
@@ -65,6 +66,8 @@ extern int dnc_chip_rev;
 extern char *next_label;
 extern int sync_mode;
 extern char *microcode_path;
+extern int disable_smm;
+extern int renumber_bsp;
 
 extern u16 shadow_rtbll[7][256];
 extern u16 shadow_rtblm[7][256];
@@ -111,6 +114,8 @@ typedef struct ht_node_info {
 typedef struct nc_node_info {
     u16 sci_id;		/* Maps logical dnc node ids to physical (sci) ids */
     u32 node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
+    u32 addr_base;
+    u32 addr_end;
     ht_node_info_t ht[8];
     u16 nc_ht_id;	/* HT id of dnc node dnc controller on local system */
     u16 apic_offset;	/* Offset to shift APIC ids by when unifying */

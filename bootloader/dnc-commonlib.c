@@ -42,6 +42,8 @@ int enable_nbmce = 0;
 int enable_nbwdt = 0;
 int enable_selftest = 1;
 int force_ganged = 0;
+int disable_smm = 0;
+int renumber_bsp = 0;
 
 // Structs to hold DIMM configuration from SPD readout.
 
@@ -424,12 +426,29 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
     val = dnc_read_conf(scinode, 0, 24+node,  NB_FUNC_HT, 0x168);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x168, (val & ~0x300) | 0x200);
 
-    printf("Adding Extd MMIO map #%d %016llx-%016llx (%08llx/%08llx) to HT#%d\n",
-           idx, start, end, start, mask, dest);
+    /* printf("[%03x#%d] Adding Extd MMIO map #%d %016llx-%016llx (%08llx/%08llx) to HT#%d\n",
+       scinode, node, idx, start, end, start, mask, dest); */
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (start << 8) | dest);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
     dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (mask << 8) | 1);
+}
+
+void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx)
+{
+    u32 val;
+    u64 mask;
+
+    /* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
+    val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68,
+                   val | (1<<25) | (1<<18) | (1<<17));
+
+    /* printf("[%03x#%d] Removing Extd MMIO map #%d\n", scinode, node, idx); */
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
+    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
 }
 
 #ifdef __i386
@@ -669,6 +688,10 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         }
     }
     printf(". done.\n");
+
+    if (ht_testmode > 0) {
+	cht_print();
+    }
 
     if (reboot) {
 	printf("Rebooting to make new link settings effective...\n");
@@ -1142,6 +1165,8 @@ static int parse_cmdline(const char *cmdline)
         {"microcode",	&parse_string, &microcode_path},
         {"ht-testmode",	&parse_int, &ht_testmode},
         {"force-ganged", &parse_int, &force_ganged},
+        {"disable-smm", &parse_int, &disable_smm},
+        {"renumber-bsp", &parse_int, &renumber_bsp},
     };
     char arg[256];
     int lstart, lend, aend, i;
@@ -1786,8 +1811,8 @@ enum node_state enter_reset(struct node_info *info,
 	tsc_wait(200);
 	tries = 0;
 	while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
-	    printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
-		   val, tries);
+	    /* printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
+	       val, tries); */
 	    tsc_wait(200);
 	    if (tries++ > 16)
 		return enter_reset(info, part);
@@ -1872,7 +1897,7 @@ enum node_state release_reset(struct node_info *info,
 	    pending |= phy_check_status(5);
 	}
 	if (!pending) {
-	    printf(" Done.\n");
+	    printf("Done.\n");
 	    return RSP_PHY_TRAINED;
 	}
 	if (i++ > 10) {
@@ -1881,7 +1906,6 @@ enum node_state release_reset(struct node_info *info,
 	}
 	tsc_wait(200);
     }
-    printf("Done.\n");
 }			
 
 static int lc_check_status(int lc, int dimidx)
