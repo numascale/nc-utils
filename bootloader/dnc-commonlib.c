@@ -36,7 +36,7 @@ extern unsigned char sleep(unsigned int msec);
 char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
 char *microcode_path = "";
-int sync_mode = 0;
+int sync_mode = 1;
 int init_only = 0;
 int enable_nbmce = 0;
 int enable_nbwdt = 0;
