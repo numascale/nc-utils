@@ -1849,7 +1849,8 @@ static int phy_check_status(int phy)
     if (val > 0)
 	return 1 << phy;
 
-    return dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy) != 0x1fff;
+    val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
+    return  (val != 0x1fff) << phy;
 }
 
 static void phy_print_error(int mask)
@@ -1965,8 +1966,7 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	*rstate = release_reset(info);
 	return 1;
     case CMD_VALIDATE_RINGS:
-	*rstate = validate_rings(info
-	    );
+	*rstate = validate_rings(info);
 	return 1;
     case CMD_SETUP_FABRIC:
 	*rstate = (dnc_setup_fabric(info) == 0) ?
