@@ -135,27 +135,27 @@ void dnc_reset_phy(int linkno)
     switch (linkno) {
         case 1:
             val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR, val | (1<<7));
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR, val | (1<<7) | (1<<13) | (1<<12));
             break;
         case 2:
             val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXB_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXB_LINK_CTR, val | (1<<7));
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXB_LINK_CTR, val | (1<<7) | (1<<13) | (1<<12));
             break;
         case 3:
             val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYYA_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYA_LINK_CTR, val | (1<<7));
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYA_LINK_CTR, val | (1<<7) | (1<<13) | (1<<12));
             break;
         case 4:
             val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYYB_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYB_LINK_CTR, val | (1<<7));
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYB_LINK_CTR, val | (1<<7) | (1<<13) | (1<<12));
             break;
         case 5:
             val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYZA_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZA_LINK_CTR, val | (1<<7));
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZA_LINK_CTR, val | (1<<7) | (1<<13) | (1<<12));
             break;
         case 6:
             val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYZB_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZB_LINK_CTR, val | (1<<7));
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZB_LINK_CTR, val | (1<<7) | (1<<13) | (1<<12));
             break;
         default:
             break;
@@ -168,28 +168,28 @@ void dnc_reset_lc3(int linkno)
     u32 val;
     switch (linkno) {
         case 1:
-            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR, val | (1<<6));
+            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXB_LINK_CTR);
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXB_LINK_CTR, val | (1<<6) | (1<<13) | (1<<12));
             break;
         case 2:
-            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXB_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXB_LINK_CTR, val | (1<<6));
+            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR);
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR, val | (1<<6) | (1<<13) | (1<<12));
             break;
         case 3:
-            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYYA_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYA_LINK_CTR, val | (1<<6));
+            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYYB_LINK_CTR);
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYB_LINK_CTR, val | (1<<6) | (1<<13) | (1<<12));
             break;
         case 4:
-            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYYB_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYB_LINK_CTR, val | (1<<6));
+            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYYA_LINK_CTR);
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYYA_LINK_CTR, val | (1<<6) | (1<<13) | (1<<12));
             break;
         case 5:
-            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYZA_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZA_LINK_CTR, val | (1<<6));
+            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYZB_LINK_CTR);
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZB_LINK_CTR, val | (1<<6) | (1<<13) | (1<<12));
             break;
         case 6:
-            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYZB_LINK_CTR);
-            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZB_LINK_CTR, val | (1<<6));
+            val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYZA_LINK_CTR);
+            dnc_write_csr(0xfff0, H2S_CSR_G0_PHYZA_LINK_CTR, val | (1<<6) | (1<<13) | (1<<12));
             break;
         default:
             break;
