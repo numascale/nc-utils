@@ -1,6 +1,6 @@
 IFACEPATH = ../interface
-IFACEDEPS = $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h \
-	$(IFACEPATH)/numachip-mseq-ucode.h $(IFACEPATH)/numachip-mseq-table.h
+IFACEDEPS = $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
+UCODEDEPS = $(IFACEPATH)/numachip-mseq-ucode.h $(IFACEPATH)/numachip-mseq-table.h
 CFLAGS    = -I$(IFACEPATH)
 COPT	:= -g -Wall
 
@@ -87,7 +87,7 @@ dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-access.h ../interface/regco
 
 dnc-config.o: dnc-config.c dnc-config.h $(mjson_dir)/src/json.h
 
-dnc-masterlib.o: dnc-masterlib.c dnc-commonlib.h dnc-masterlib.h hw-config.h dnc-access.h
+dnc-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-masterlib.h hw-config.h dnc-access.h
 
 dnc-fabric.o: dnc-fabric.c dnc-fabric.h
 
@@ -131,7 +131,7 @@ test-json.o: $(mjson_dir)/src/json.c
 dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 	$(CC) $(COPT) -c $< -o $@
 
-dnc-test-masterlib.o: dnc-masterlib.c dnc-commonlib.h dnc-masterlib.h hw-config.h dnc-access.h
+dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-masterlib.h hw-config.h dnc-access.h
 	$(CC) $(COPT) -c $< -o $@
 
 dnc-test-fabric.o: dnc-fabric.c dnc-fabric.h
