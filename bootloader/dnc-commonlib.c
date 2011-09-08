@@ -1956,34 +1956,6 @@ enum node_state validate_rings(struct node_info *info,
     }
 }
 
-void print_status(void)
-{
-    int i;
-    int phyok = 0;
-    u32 val;
-
-    printf("Current status:\n");
-    for (i = 0; i < 6; i++) {
-	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * i);
-	printf("Phy %d ELOG: %08x\n", i, val);
-	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * i);
-	printf("Phy %d LINK_STAT: %08x\n", i, val);
-	if (val == 0x1fff)
-	    phyok |= (1 << i);
-    }
-    for (i = 0; i < 6; i++) {
-	int mask = 3 << (i & ~1);
-	if ((phyok & mask) == mask) {
-	    val = dnc_read_csr(0xfff1 + i, LC3_CSR_INIT_STATE);
-	    printf("LC3 %d INIT_STATE: %08x\n", i, val);
-	    val = dnc_read_csr(0xfff1 + i, LC3_CSR_NODE_IDS);
-	    printf("LC3 %d NODE_IDS: %08x\n", i, val);
-	    val = dnc_read_csr(0xfff1 + i, LC3_CSR_SAVE_ID);
-	    printf("LC3 %d SAVE_ID: %08x\n", i, val);
-	}
-    }
-}
-
 int handle_command(enum node_state cstate, enum node_state *rstate, 
 		   struct node_info *info, struct part_info *part)
 {
@@ -2067,7 +2039,6 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 		}
 		else if (cmd.state == CMD_CONTINUE) {
 		    printf("Master signalled go-ahead.\n");
-		    print_status();
 		    /* Belts and suspenders: slaves re-broadcast go-ahead command */
 		    udp_broadcast_state(handle, &cmd, sizeof(cmd));
 		    go_ahead = 1;
