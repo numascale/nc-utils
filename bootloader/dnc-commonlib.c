@@ -1789,8 +1789,7 @@ int dnc_check_fabric(struct node_info *info)
     return res;
 }        
 
-enum node_state enter_reset(struct node_info *info,
-			    struct part_info *part)
+enum node_state enter_reset(struct node_info *info)
 {
     int tries = 0;
     u32 val;
@@ -1822,7 +1821,7 @@ enum node_state enter_reset(struct node_info *info,
 	       val, tries); */
 	    tsc_wait(200);
 	    if (tries++ > 16)
-		return enter_reset(info, part);
+		return enter_reset(info);
 	}
     } else {
 	// No external reset control, simply reset all PHYs to start training sequence
@@ -1867,8 +1866,7 @@ static void phy_print_error(int mask)
 }
 
 
-enum node_state release_reset(struct node_info *info,
-			      struct part_info *part)
+enum node_state release_reset(struct node_info *info)
 {
     int pending, i;
     printf("Releasing reset.\n");
@@ -1927,8 +1925,7 @@ static int lc_check_status(int lc, int dimidx)
     return 1;
 }
 
-enum node_state validate_rings(struct node_info *info,
-			       struct part_info *part)
+enum node_state validate_rings(struct node_info *info)
 {
     int pending, i;
 
@@ -1961,14 +1958,15 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 {
     switch (cstate) {
     case CMD_ENTER_RESET:
-	*rstate = enter_reset(info, part);
+	*rstate = enter_reset(info);
 	return 1;
     case CMD_RELEASE_RESET:
 	tsc_wait(2000);
-	*rstate = release_reset(info, part);
+	*rstate = release_reset(info);
 	return 1;
     case CMD_VALIDATE_RINGS:
-	*rstate = validate_rings(info, part);
+	*rstate = validate_rings(info
+	    );
 	return 1;
     case CMD_SETUP_FABRIC:
 	*rstate = (dnc_setup_fabric(info) == 0) ?

@@ -48,9 +48,9 @@ int dnc_check_fabric(struct node_info *info);
 u32 dnc_check_mctr_status(int cdata);
 int dnc_init_caches(void);
 
-enum node_state enter_reset(struct node_info *info, struct part_info *part);
-enum node_state release_reset(struct node_info *info, struct part_info *part);
-enum node_state validate_rings(struct node_info *info, struct part_info *part);
+enum node_state enter_reset(struct node_info *info);
+enum node_state release_reset(struct node_info *info);
+enum node_state validate_rings(struct node_info *info);
 int handle_command(enum node_state cstate, enum node_state *rstate, 
 		   struct node_info *info, struct part_info *part);
 void wait_for_master(struct node_info *info, struct part_info *part);
