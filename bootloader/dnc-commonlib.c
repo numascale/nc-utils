@@ -1386,13 +1386,21 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
     dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf<<4)) | (1<<4));
 
-    // ERRATA #N17: Disable SCC Context #0 to avoid false baPiuTHit assertions when buffer #0 is active.
-    // ERRATA #N23: Disable 8 SCC Contexts (0-7) to avoid SPrb filling up completely and thus asserting
-    // pmInhRemoteReq and causing the pre-grant of pmGrant to de-assert which causes issues when both
-    // BIU and MIU sends requests to an almost full SReq module.
-    // Also disable the MIB timer completely (bit6) for now (debugging purposes).
-    val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
-    dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x00ff << 8) | (1 << 6));
+    if (asic_mode && (chip_rev < 2)) {
+	// ERRATA #N17: Disable SCC Context #0 to avoid false baPiuTHit assertions when buffer #0 is active.
+	// ERRATA #N23: Disable 8 SCC Contexts (0-7) to avoid SPrb filling up completely and thus asserting
+	// pmInhRemoteReq and causing the pre-grant of pmGrant to de-assert which causes issues when both
+	// BIU and MIU sends requests to an almost full SReq module.
+	// Also disable the MIB timer completely (bit6) for now (debugging purposes).
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x00ff << 8) | (1 << 6));
+    } else if (!asic_mode) { // FPGA
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x0001 << 8) | (1 << 6));
+    } else {
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (1 << 6));
+    }
 
     for (i = 0; i < ht_id; i++) {
         // XXX: Disable Northbridge WatchDog timer to avoid false error situations in these debug times..
@@ -1412,8 +1420,6 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
         // InstallStateS to avoid exclusive state
         val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68);
         dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68, val | (1<<23));
-        // Disable Traffic distribution for requests and probes
-        dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x164, 0x0);
 */
         // ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
         // which have bad side-effects with NumaChip in certain scenarios.
@@ -1823,7 +1829,6 @@ enum node_state enter_reset(struct node_info *info,
         dnc_reset_phy(1); dnc_reset_phy(2);
         dnc_reset_phy(3); dnc_reset_phy(4);
         dnc_reset_phy(5); dnc_reset_phy(6);
-        tsc_wait(1000);
     }
     
     printf("In reset\n");
@@ -1838,7 +1843,7 @@ static int phy_check_status(int phy)
     tsc_wait(200);
     if (val & 0xf0) {
 	/* Clock compensation error, try forced retraining */
-	dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, 0x80);
+	dnc_reset_phy(phy+1);
 	return 1;
     }
     /* Other errors */
@@ -1850,14 +1855,13 @@ static int phy_check_status(int phy)
 
 static void phy_print_error(int mask)
 {
-    const char *names[6] = {"XA", "XB", "YA", "YB", "ZA", "ZB"};
     int i;
 
     printf("PHY training failure - check cables to ports");
 
     for (i = 0; i < 6; i++)
 	if (mask & (1 << i))
-	    printf(" %s", names[i]);
+	    printf(" %s", _get_linkname(i+1));
 
     printf("\n");
 }
@@ -1911,19 +1915,14 @@ enum node_state release_reset(struct node_info *info,
 
 static int lc_check_status(int lc, int dimidx)
 {
-    u32 val;
-    val = dnc_read_csr(0xfff1 + lc, LC3_CSR_INIT_STATE);
-    printf("LC %d INIT STATE: %x\n", lc, val);
-    val = val & 0xf;
-    /* HW init complete? */
-    if ((val == 2) || (val == 4))
+    if (dnc_check_lc3(lc+1) == 0)
 	return 0;
 
     tsc_wait(200);
     /* Only initiate resets from one of the ring nodes */
     if (dimidx == 0) {
-	printf("Initiating reset on LC %d\n", lc);
-	dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, 0x40);
+	printf("Initiating reset on LC%s\n", _get_linkname(lc+1));
+	dnc_reset_lc3(lc+1);
     }
     return 1;
 }
