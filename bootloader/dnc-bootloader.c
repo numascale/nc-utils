@@ -1105,6 +1105,9 @@ static void renumber_remote_bsp(u16 num)
 	    return;
 	}
 
+        // Disable traffic distribution for now..
+	dnc_write_conf(node, 0, 24+i, 0, 0x164, 0);
+	
 	/* Route maxnode + 1 as maxnode */
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode);
 	dnc_write_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode, val);
@@ -1177,7 +1180,7 @@ static void renumber_remote_bsp(u16 num)
 	    fprintf(stderr,
 		    "[%04x#%x]F0x00 does not indicate an AMD Opteron CPU: 0x%08x\n",
 		    node, i, val);
-	    return -1;
+	    return;
 	}
 
 	/* Route 0 as maxnode + 1 */
