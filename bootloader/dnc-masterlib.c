@@ -231,9 +231,8 @@ int tally_remote_node(u16 node)
     dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); // Select APIC ATT
     for (i = 0; i < 16; i++) {
 	apic_used[i] = dnc_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4);
-	if (apic_used[i] == 0) /* skip trailing empty entries */
-	    break;
-	printf("apic_used[%d]: %08x\n", i, apic_used[i]);
+	if (apic_used[i] != 0) /* May be sparse */
+	    printf("apic_used[%d]: %08x\n", i, apic_used[i]);
     }
 
     ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
