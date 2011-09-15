@@ -140,10 +140,8 @@ void dnc_reset_phy(int phy)
 void dnc_reset_lc3(int lc)
 {
     u32 val;
-    int phy = (lc == 4) ? 5 : (lc == 5) ? 4 : (lc == 2) ? 3 : (lc == 3) ? 2 : (lc == 0) ? 1 : 0;
-
-    val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy);
-    dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, val | (1<<6) | (1<<13) | (1<<12));
+    val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc);
+    dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, val | (1<<6) | (1<<13) | (1<<12));
     tsc_wait(1000);
 }
 
