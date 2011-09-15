@@ -40,10 +40,11 @@
 //#define DEBUG(...) printf(__VA_ARGS__)
 #define DEBUG(...) do { } while (0)
 
-#define WATCHDOG_BASE (unsigned int *)0xfec000f0 /* AMD recommended */
+#define WATCHDOG_BASE (u32 *)0xfec000f0 /* AMD recommended */
+#define PMIO_BASE 0xcd6
 
-static volatile unsigned int *watchdog_ctl = WATCHDOG_BASE;
-static volatile unsigned int *watchdog_timer = WATCHDOG_BASE + 1;
+static volatile u32 *watchdog_ctl = WATCHDOG_BASE;
+static volatile u32 *watchdog_timer = WATCHDOG_BASE + 1;
 
 int ht_testmode;
 int cht_config_use_extd_addressing = 0;
@@ -55,20 +56,21 @@ extern unsigned char sleep(unsigned int msec);
 
 static void pmio_write(u8 offset, u8 val)
 {
-    outb(offset, 0xcd6 /* PMIO index */);
-    outb(val, 0xcd7 /* PMIO data */);
+    outb(offset, PMIO_BASE /* index */);
+    outb(val, PMIO_BASE + 1 /* data */);
 }
 
 static u8 pmio_read(u8 offset)
 {
-    outb(offset, 0xcd6 /* PMIO index */);
-    return inb(0xcd7 /* PMIO data */);
+    outb(offset, PMIO_BASE /* PMIO index */);
+    return inb(PMIO_BASE + 1 /* PMIO data */);
 }
 
 static inline void watchdog_run(unsigned int counter)
 {
-    *watchdog_timer = counter;
-    *watchdog_ctl = (1 << 0 /*WatchDogRunStopB */) | (1 << 7 /* WatchDogTrigger */);
+    *watchdog_ctl = 0x81; /* WatchDogRunStopB | WatchDogTrigger */
+    *watchdog_timer = counter; /* in centiseconds */
+    *watchdog_ctl = 0x81;
 }
 
 static inline void watchdog_stop(void)
@@ -91,6 +93,8 @@ void watchdog_setup(void)
     /* write watchdog base address */
     for (i = 0; i < sizeof(watchdog_ctl); i++)
 	pmio_write(0x6c + i, ((unsigned int)watchdog_ctl >> (i * 8)) & 0xff);
+
+    printf("watchdog enabled\n");
 }
 
 void reset_cf9(int mode, int last)
@@ -163,12 +167,13 @@ void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect)
 {
     int i, errors = 0;
 
-    printf("Testing HT link...");
+    if (ht_testmode & HT_TESTMODE_WATCHDOG) {
+	printf("Testing HT link (4s timeout)...");
+	watchdog_run(400); /* reset if read hangs due to unstable link */
+    } else
+	printf("Testing HT link...");
 
-    if (ht_testmode & HT_TESTMODE_WATCHDOG)
-	watchdog_run(4000); /* 4s timeout if read hangs due to unstable link */
-
-    for (i = 0; i < 5000000; i++) {
+    for (i = 0; i < 2000000; i++) {
 	cht_write_config(node, func, reg, expect);
 	u32 val = cht_read_config(node, func, reg);
 	if (val != expect)
