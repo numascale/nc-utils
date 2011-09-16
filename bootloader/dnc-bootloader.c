@@ -431,7 +431,7 @@ static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
 	    hops += linear_hops(src_sci & 0xf, dst_sci & 0xf, size & 0xf);
 	else
 	    /* assume average of half ring length */
-	    hops += size / 2;
+	    hops += (src_sci == dst_sci) ? 0 : (size / 2);
 
 	src_sci >>= 4;
 	dst_sci >>= 4;
