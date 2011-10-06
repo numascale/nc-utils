@@ -273,7 +273,7 @@ int tally_remote_node(u16 node)
 
 	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf0);
 	    if ((val & 3) == 3)
-		limit -= (val >> 8) & 0xff;
+		limit -= ((val >> 8) & 0xff) - base;
 	    cur_node->ht[i].base = dnc_top_of_mem;
 	    cur_node->ht[i].size = limit - base + 1;
             cur_node->node_mem += cur_node->ht[i].size;

@@ -2224,13 +2224,19 @@ static int unify_all_nodes(void)
     debug_acpi();
 
     printf("Setting MMIO maps on local DNC...\n");
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 0);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, 0x00000f00);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS,  0x00000a03);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 1);
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, 0x00ffff00);
-    val = dnc_rdmsr(MSR_TOPMEM) >> 8;
-    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS,  val | 3);
+    for (i = 0; i < 8; i++) {
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	/* This strips NP-bit. */
+        val = cht_read_config(node, NB_FUNC_MAPS, 0x84 + i*8) & ~0xf8;
+	printf("Limit%d: %08x\n", i, val);
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, val);
+        val = cht_read_config(node, NB_FUNC_MAPS, 0x80 + i*8) & ~0xfc;
+	printf("Base%d: %08x\n", i, val);
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, val);
+    }
 
 //    fix_legacy_mmio_maps();
     
