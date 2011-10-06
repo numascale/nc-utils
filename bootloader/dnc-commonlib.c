@@ -1568,18 +1568,18 @@ void test_route(u8 bxbarid, u16 dest)
     }   
 }
 
-static int _verify_save_id(u16 nodeid, int linkno)
+static int _verify_save_id(u16 nodeid, int lc)
 {
-    u16 expected_id = (nodeid | (linkno << 13));
+    const char *linkname = _get_linkname(lc);
+    u16 expected_id = (nodeid | ((lc+1) << 13));
     u32 val;
 
-    if (dnc_raw_read_csr(0xfff0 + linkno, LC3_CSR_SAVE_ID, &val) != 0) {
+    if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_SAVE_ID, &val) != 0)
         return -1;
-    }
 
     if (val != expected_id) {
         printf("LC3%s SAVE_ID (%04x) is not matching expected value (%04x)!\n",
-               _get_linkname(linkno), val, expected_id);
+               linkname, val, expected_id);
         return -1;
     }
 
@@ -1588,8 +1588,8 @@ static int _verify_save_id(u16 nodeid, int linkno)
 
 static int _check_dim(int dim)
 {
-    u16 linkida = 2*dim + 1;
-    u16 linkidb = 2*dim + 2;
+    u16 linkida = 2*dim + 0;
+    u16 linkidb = 2*dim + 1;
     int ok = 0;
 
     ok = (dnc_check_phy(linkida) == 0);
@@ -1714,25 +1714,25 @@ int dnc_setup_fabric(struct node_info *info)
     if (cfg_fabric.x_size > 0) {
         if (_check_dim(0) != 0)
 	    return -1;
-        dnc_init_lc3(1, dnc_asic_mode ? 16 : 1,
+        dnc_init_lc3(info->sciid, 0, dnc_asic_mode ? 16 : 1,
                      shadow_rtbll[1], shadow_rtblm[1], shadow_rtblh[1], shadow_ltbl[1]);
-        dnc_init_lc3(2, dnc_asic_mode ? 16 : 1,
+        dnc_init_lc3(info->sciid, 1, dnc_asic_mode ? 16 : 1,
                      shadow_rtbll[2], shadow_rtblm[2], shadow_rtblh[2], shadow_ltbl[2]);
     }
     if (cfg_fabric.y_size > 0) {
         if (_check_dim(1) != 0)
 	    return -1;
-        dnc_init_lc3(3, dnc_asic_mode ? 16 : 1,
+        dnc_init_lc3(info->sciid, 2, dnc_asic_mode ? 16 : 1,
                      shadow_rtbll[3], shadow_rtblm[3], shadow_rtblh[3], shadow_ltbl[3]);
-        dnc_init_lc3(4, dnc_asic_mode ? 16 : 1,
+        dnc_init_lc3(info->sciid, 3, dnc_asic_mode ? 16 : 1,
                      shadow_rtbll[4], shadow_rtblm[4], shadow_rtblh[4], shadow_ltbl[4]);
     }
     if (cfg_fabric.z_size > 0) {
         if (_check_dim(2) != 0)
 	    return -1;
-        dnc_init_lc3(5, dnc_asic_mode ? 16 : 1,
+        dnc_init_lc3(info->sciid, 4, dnc_asic_mode ? 16 : 1,
                      shadow_rtbll[5], shadow_rtblm[5], shadow_rtblh[5], shadow_ltbl[5]);
-        dnc_init_lc3(6, dnc_asic_mode ? 16 : 1,
+        dnc_init_lc3(info->sciid, 5, dnc_asic_mode ? 16 : 1,
                      shadow_rtbll[6], shadow_rtblm[6], shadow_rtblh[6], shadow_ltbl[6]);
     }
 
@@ -1747,13 +1747,13 @@ int dnc_check_fabric(struct node_info *info)
     if (cfg_fabric.x_size > 0) {
 	if (_check_dim(0) < 0)
 	    return 0;
-	if (_verify_save_id(info->sciid, 1) != 0) {
-	    res = (0 == dnc_init_lc3(1, dnc_asic_mode ? 16 : 1,
+	if (_verify_save_id(info->sciid, 0) != 0) {
+	    res = (0 == dnc_init_lc3(info->sciid, 0, dnc_asic_mode ? 16 : 1,
 				     shadow_rtbll[1], shadow_rtblm[1],
 				     shadow_rtblh[1], shadow_ltbl[1])) && res;
 	}
-        if (_verify_save_id(info->sciid, 2) != 0) {
-	    res = (0 == dnc_init_lc3(2, dnc_asic_mode ? 16 : 1,
+        if (_verify_save_id(info->sciid, 1) != 0) {
+	    res = (0 == dnc_init_lc3(info->sciid, 1, dnc_asic_mode ? 16 : 1,
 				     shadow_rtbll[2], shadow_rtblm[2],
 				     shadow_rtblh[2], shadow_ltbl[2])) && res;
 	}
@@ -1761,13 +1761,13 @@ int dnc_check_fabric(struct node_info *info)
     if (cfg_fabric.y_size > 0) {
 	if (_check_dim(1) < 0)
 	    return 0;
-        if (_verify_save_id(info->sciid, 3) != 0) {
-	    res = (0 == dnc_init_lc3(3, dnc_asic_mode ? 16 : 1,
+        if (_verify_save_id(info->sciid, 2) != 0) {
+	    res = (0 == dnc_init_lc3(info->sciid, 2, dnc_asic_mode ? 16 : 1,
 				     shadow_rtbll[3], shadow_rtblm[3]
 				     , shadow_rtblh[3], shadow_ltbl[3])) && res;
 	}
-        if (_verify_save_id(info->sciid, 4) != 0) {
-	    res = (0 == dnc_init_lc3(4, dnc_asic_mode ? 16 : 1,
+        if (_verify_save_id(info->sciid, 3) != 0) {
+	    res = (0 == dnc_init_lc3(info->sciid, 3, dnc_asic_mode ? 16 : 1,
 				     shadow_rtbll[4], shadow_rtblm[4],
 				     shadow_rtblh[4], shadow_ltbl[4])) && res;
 	}
@@ -1775,13 +1775,13 @@ int dnc_check_fabric(struct node_info *info)
     if (cfg_fabric.z_size > 0) {
 	if (_check_dim(2) < 0)
 	    return 0;
-        if (_verify_save_id(info->sciid, 5) != 0) {
-	    res = (0 == dnc_init_lc3(5, dnc_asic_mode ? 16 : 1,
+        if (_verify_save_id(info->sciid, 4) != 0) {
+	    res = (0 == dnc_init_lc3(info->sciid, 4, dnc_asic_mode ? 16 : 1,
 				     shadow_rtbll[5], shadow_rtblm[5],
 				     shadow_rtblh[5], shadow_ltbl[5])) && res;
 	}
-        if (_verify_save_id(info->sciid, 6) != 0) {
-	    res = (0 == dnc_init_lc3(6, dnc_asic_mode ? 16 : 1,
+        if (_verify_save_id(info->sciid, 5) != 0) {
+	    res = (0 == dnc_init_lc3(info->sciid, 5, dnc_asic_mode ? 16 : 1,
 				     shadow_rtbll[6], shadow_rtblm[6],
 				     shadow_rtblh[6], shadow_ltbl[6])) && res;
 	}
@@ -1825,9 +1825,9 @@ enum node_state enter_reset(struct node_info *info)
 	}
     } else {
 	// No external reset control, simply reset all PHYs to start training sequence
-        dnc_reset_phy(1); dnc_reset_phy(2);
-        dnc_reset_phy(3); dnc_reset_phy(4);
-        dnc_reset_phy(5); dnc_reset_phy(6);
+        dnc_reset_phy(0); dnc_reset_phy(1);
+        dnc_reset_phy(2); dnc_reset_phy(3);
+        dnc_reset_phy(4); dnc_reset_phy(5);
     }
     
     printf("In reset\n");
@@ -1842,7 +1842,7 @@ static int phy_check_status(int phy)
     tsc_wait(200);
     if (val & 0xf0) {
 	/* Clock compensation error, try forced retraining */
-	dnc_reset_phy(phy+1);
+	dnc_reset_phy(phy);
 	return 1;
     }
     /* Other errors */
@@ -1861,7 +1861,7 @@ static void phy_print_error(int mask)
 
     for (i = 0; i < 6; i++)
 	if (mask & (1 << i))
-	    printf(" %s", _get_linkname(i+1));
+	    printf(" %s", _get_linkname(i));
 
     printf("\n");
 }
@@ -1914,14 +1914,14 @@ enum node_state release_reset(struct node_info *info)
 
 static int lc_check_status(int lc, int dimidx)
 {
-    if (dnc_check_lc3(lc+1) == 0)
+    if (dnc_check_lc3(lc) == 0)
 	return 0;
 
     tsc_wait(200);
     /* Only initiate resets from one of the ring nodes */
     if (dimidx == 0) {
-	printf("Initiating reset on LC%s\n", _get_linkname(lc+1));
-	dnc_reset_lc3(lc+1);
+	printf("Initiating reset on LC%s\n", _get_linkname(lc));
+	dnc_reset_lc3(lc);
     }
     return 1;
 }

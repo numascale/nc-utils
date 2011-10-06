@@ -50,6 +50,4 @@ void tally_local_node(int enforce_alignment);
 int tally_remote_node(u16 node);
 int tally_all_remote_nodes(void);
 
-int walk_ring_lc3ccr(u8 dim);
-
 #endif
