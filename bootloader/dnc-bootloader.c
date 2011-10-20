@@ -165,7 +165,7 @@ static void load_orig_e820_map(void)
     rm.eax.l = 0x0000e820;
     rm.edx.l = STR_DW_N("SMAP");
     rm.ebx.l = 0;
-    rm.ecx.l = 1024;
+    rm.ecx.l = sizeof(struct e820entry);
     rm.edi.w[0] = OFFS(e820_map);
     rm.es = SEG(e820_map);
     __intcall(0x15, &rm, &rm);
@@ -177,7 +177,7 @@ static void load_orig_e820_map(void)
         while (rm.ebx.l > 0) {
             rm.eax.l = 0x0000e820;
             rm.edx.l = STR_DW_N("SMAP");
-            rm.ecx.l = 1024;
+            rm.ecx.l = sizeof(struct e820entry);
             rm.edi.w[0] = OFFS(e820_map) + e820_len;
             rm.es = SEG(e820_map);
             __intcall(0x15, &rm, &rm);
