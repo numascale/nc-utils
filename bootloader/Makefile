@@ -2,7 +2,8 @@ IFACEPATH = ../interface
 IFACEDEPS = $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS = $(IFACEPATH)/numachip-mseq-ucode.h $(IFACEPATH)/numachip-mseq-table.h
 CFLAGS    = -I$(IFACEPATH)
-COPT	:= -g -Wall
+COPT      := -g -Wall
+GITLOG    := $(shell ./gen-gitlog.sh auto-dnc-gitlog.c gitlog_dnc_bootloader)
 
 syslinux_version = 3.86
 syslinux_dir     = syslinux-$(syslinux_version)
@@ -75,7 +76,8 @@ $(mjson_dir)/src/json.o: $(mjson_dir)/src/json.c
 
 dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-masterlib.o \
 	dnc-fabric.o dnc-access.o dnc-route.o dnc-acpi.o dnc-config.o \
-	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS)
+	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS) \
+	auto-dnc-gitlog.o
 
 dnc-bootloader.o: dnc-bootloader.c $(IFACEDEPS) dnc-types.h dnc-regs.h \
 	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h \
@@ -97,15 +99,19 @@ dnc-route.o: dnc-route.c dnc-route.h
 
 dnc-acpi.o: dnc-acpi.c dnc-acpi.h
 
+auto-dnc-gitlog.c:
+
 remreset.elf: remreset.o dnc-access.o $(COM32DEPS)
 
 test-masternode: test-masternode.o dnc-test-commonlib.o dnc-test-masterlib.o \
 	dnc-test-fabric.o dnc-test-access.o dnc-test-route.o dnc-test-config.o \
-	test-json.o
+	test-json.o \
+	auto-dnc-test-gitlog.o
 	$(CC) $(COPT) $^ -o $@
 
 test-slavenode: test-slavenode.o dnc-test-commonlib.o dnc-test-fabric.o \
-	dnc-test-access.o dnc-test-route.o dnc-test-config.o test-json.o
+	dnc-test-access.o dnc-test-route.o dnc-test-config.o test-json.o \
+	auto-dnc-test-gitlog.o
 	$(CC) $(COPT) $^ -o $@
 
 test-routing: test-routing.o dnc-test-access.o
@@ -144,6 +150,9 @@ dnc-test-route.o: dnc-route.c dnc-access.h
 	$(CC) $(COPT) -c $< -o $@
 
 dnc-test-config.o: dnc-config.c dnc-config.h
+	$(CC) $(COPT) -c $< -o $@
+
+auto-dnc-test-gitlog.o: auto-dnc-gitlog.c
 	$(CC) $(COPT) -c $< -o $@
 
 $(IFACEDEPS):
