@@ -165,7 +165,7 @@ static void load_orig_e820_map(void)
     rm.eax.l = 0x0000e820;
     rm.edx.l = STR_DW_N("SMAP");
     rm.ebx.l = 0;
-    rm.ecx.l = 1024;
+    rm.ecx.l = sizeof(struct e820entry);
     rm.edi.w[0] = OFFS(e820_map);
     rm.es = SEG(e820_map);
     __intcall(0x15, &rm, &rm);
@@ -177,7 +177,7 @@ static void load_orig_e820_map(void)
         while (rm.ebx.l > 0) {
             rm.eax.l = 0x0000e820;
             rm.edx.l = STR_DW_N("SMAP");
-            rm.ecx.l = 1024;
+            rm.ecx.l = sizeof(struct e820entry);
             rm.edi.w[0] = OFFS(e820_map) + e820_len;
             rm.es = SEG(e820_map);
             __intcall(0x15, &rm, &rm);
@@ -1489,6 +1489,143 @@ static void fix_legacy_mmio_maps(void)
 }
 #endif
 
+static void setup_local_mmio_maps(void)
+{
+    int i, j, next;
+    u64 tom;
+    u32 base[8];
+    u32 lim[8];
+    u32 dst[8];
+    u32 curbase, curlim, curdst;
+    int sbnode;
+
+    printf("Setting MMIO maps on local DNC...\n");
+
+    for (i = 0; i < 8; i++) {
+	base[i] = 0;
+	lim[i] = 0;
+	dst[i] = 0;
+    }
+
+    tom = dnc_rdmsr(MSR_TOPMEM);
+    if (tom >= 0x100000000) {
+	printf("TOP_MEM above 4G boundary, aborting!\n");
+	return;
+    }
+
+    sbnode = (cht_read_config(0, NB_FUNC_HT, 0x60) >> 8) & 7;
+    base[0] = (tom >> 8) & ~0xff;
+    lim[0] = 0x00ffff00;
+    dst[0] = (sbnode << 8) | 3;
+    next = 1;
+
+    /* Apply default maps so we can bail without losing all hope. */
+    for (i = 0; i < 8; i++) {
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+    }
+
+    for (i = 0; i < 8; i++) {
+        curbase = cht_read_config(sbnode, NB_FUNC_MAPS, 0x80 + i*8);
+        curlim = cht_read_config(sbnode, NB_FUNC_MAPS, 0x84 + i*8);
+	curdst = ((curlim & 0x7) << 8) | curbase & 0x3;
+	/* This strips NP-bit. */
+	curbase = curbase & ~0xff;
+	curlim = curlim & ~0xff;
+	printf("CPU MMIO region #%d base: %08x, lim: %08x, dst: %04x\n",
+	       i, curbase, curlim, curdst);
+	if (curdst & 3) {
+	    int found = 0;
+	    int placed = 0;
+	    for (j = 0; j < next; j++) {
+		if (((curbase < base[j]) && (curlim > base[j])) ||
+		    ((curbase < lim[j])  && (curlim > lim[j])))
+		{
+		    printf("MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)!\n",
+			   i, curbase, curlim, j, base[j], lim[j]);
+		    return;
+		}
+		if (curbase == base[j]) {
+		    found = 1;
+		    if ((curdst >> 8) == sbnode) {
+			placed = 1;
+		    }
+		    if (curlim == lim[j]) {
+			/* Complete overlap */
+			dst[j] = curdst;
+			placed = 1;
+		    }
+		    else {
+			/* Equal base */
+			base[j] = curlim + 0x100;
+		    }
+		    break;
+		}
+		else if ((curbase > base[j]) && (curbase <= lim[j])) {
+		    found = 1;
+		    if ((curdst >> 8) == sbnode) {
+			placed = 1;
+		    }
+		    else if (curlim == lim[j]) {
+			/* Equal limit */
+			lim[j] = curbase - 0x100;
+		    }
+		    else {
+			/* Enclosed region */
+			if (next >= 8) {
+			    printf("Ran out of MMIO regions trying to place #%d (%x-%x)!\n",
+				   i, curbase, curlim);
+			    return;
+			}
+			base[next] = curlim + 0x100;
+			lim[next] = lim[j];
+			dst[next] = dst[j];
+			lim[j] = curbase - 0x100;
+			next++;
+		    }
+		    break;
+		}
+		else if ((curbase < 0x1000) && (curlim < 0x1000)) {
+		    /* Sub-1M ranges */
+		    found = 1;
+		}
+	    }
+	    if (found) {
+		if (!placed) {
+		    if (next >= 8) {
+			printf("Ran out of MMIO regions trying to place #%d (%x-%x)!\n",
+			       i, curbase, curlim);
+			return;
+		    }
+
+		    base[next] = curbase;
+		    lim[next] = curlim;
+		    dst[next] = curdst;
+		    next++;
+		}
+	    }
+	    else {
+		printf("Enclosing window not found for MMIO range #%d (%x-%x)!\n",
+		       i, curbase, curlim);
+		return;
+	    }
+	}
+    }
+    for (i = 0; i < 8; i++) {
+	printf("NC MMIO region #%d base: %08x, lim: %08x, dst: %04x\n", i, base[i], lim[i], dst[i]);
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+			    H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+    }
+}
+
 static int read_file(const char *filename, void *buf, int bufsz)
 {
     static com32sys_t inargs, outargs;
@@ -2142,7 +2279,7 @@ static int unify_all_nodes(void)
 //        return 1;
 //    }
  
-    // Set up local mapping registers etc. from 0 - 16G
+    // Set up local mapping registers etc. from 0 - master node max
     for (i = 0; i < dnc_master_ht_id; i++) {
 	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
@@ -2223,20 +2360,7 @@ static int unify_all_nodes(void)
     update_mptable();
     debug_acpi();
 
-    printf("Setting MMIO maps on local DNC...\n");
-    for (i = 0; i < 8; i++) {
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	/* This strips NP-bit. */
-        val = cht_read_config(node, NB_FUNC_MAPS, 0x84 + i*8) & ~0xf8;
-	printf("Limit%d: %08x\n", i, val);
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, val);
-        val = cht_read_config(node, NB_FUNC_MAPS, 0x80 + i*8) & ~0xfc;
-	printf("Base%d: %08x\n", i, val);
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, val);
-    }
+    setup_local_mmio_maps();
 
 //    fix_legacy_mmio_maps();
     

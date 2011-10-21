@@ -1196,6 +1196,20 @@ static int parse_int(const char *val, void *intp)
     return 1;
 }
 
+extern char *gitlog_dnc_bootloader_sha;
+extern char *gitlog_dnc_bootloader_diff;
+static int print_git_log(const char *val, void *data)
+{
+    printf("Git HEAD: %s\n", gitlog_dnc_bootloader_sha);
+    if (strlen(gitlog_dnc_bootloader_diff) > 0) {
+	printf("-----\n%s-----\n", gitlog_dnc_bootloader_diff);
+    }
+    else {
+	printf("(unmodified)\n");
+    }
+    return 1;
+}
+
 static int parse_cmdline(const char *cmdline) 
 {
     static struct optargs options[] = {
@@ -1213,6 +1227,7 @@ static int parse_cmdline(const char *cmdline)
         {"disable-smm", &parse_int, &disable_smm},
         {"renumber-bsp", &parse_int, &renumber_bsp},
         {"forwarding-mode", &parse_int, &forwarding_mode},
+        {"print-git-log", &print_git_log, NULL},
     };
     char arg[256];
     int lstart, lend, aend, i;
