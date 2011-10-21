@@ -106,7 +106,7 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
     ((u32 *)mdata)[4] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 88)); // Read SPD location 88, 89, 90, 91
 
     mdata[19] = 0;
-    printf("%s is a %s module (%d MByte)\n", cdata ? "Cdata" : "MCTag", &mdata[1], 1<<(addr_bits - 14));
+    printf("%s is a %s module (x%d, %d MByte)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1<<(addr_bits - 14));
 
     switch (addr_bits) {
 	case 28: dimm->mem_size = 4; break; // 16G
@@ -272,11 +272,11 @@ u32 dnc_check_mctr_status(int cdata)
 
 int dnc_init_caches(void) {
     u32 val;
-    int mem_size;
     int cdata;
 
     for (cdata = 0; cdata < 2; cdata++) {
         char *name = cdata ? "CData" : "MCTag";
+        int mem_size = dimms[cdata].mem_size;
         
         if (!dnc_asic_mode) {
             // On FPGA, just check that the PHY is initialized
@@ -285,16 +285,11 @@ int dnc_init_caches(void) {
                 printf("%s Controller not calibrated (%x)\n", name, val);
                 return -1;
             }
-            mem_size = cdata ? 1 : 0; // On FPGA cards we only have 1 GB MCTag and 2GB Cdata
         } else {
-            struct dimm_config *dimm = &dimms[cdata];
-
-            mem_size = dimm->mem_size;
-            
             val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00) + (START_ADDR<<2)); // Read the Denali START parameter
             if (((val >> START_OFFSET) & 1) == 0) {
                 printf("RESET and Load Denali Controller, Denali PHY and external DDR2 Ram (MODE- EMODE-Register)\n");
-                _denali_mctr_reset(cdata, dimm);
+                _denali_mctr_reset(cdata, &dimms[cdata]);
                 printf("START Denali Controller\n");
                 val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(START_ADDR<<2));
                 dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(START_ADDR<<2), val | (1<<START_OFFSET));
@@ -326,9 +321,76 @@ int dnc_init_caches(void) {
             printf("Initialization of Denali controller done\n");
         }
 
-        val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
-        dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
-                      (val & ~7) | (1<<12) | (1<<7) | ((mem_size & 7)<<4)); // DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0]
+	if ((dnc_asic_mode && dnc_chip_rev >= 2) ||
+	    (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6251))) {
+	    int tmp = mem_size;
+
+	    // New Rev2 MCTag setting for supporting larger local memory.
+
+	    if (!cdata) {
+		if (dnc_asic_mode || (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6254))) {
+		    if        (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) { // 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory
+			tmp = 0;
+		    } else if (dimms[0].mem_size == 0 && dimms[1].mem_size == 2) { // 1GB MCTag_Size  4GB Remote Cache   16GB Coherent Local Memory
+			tmp = 1;
+		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { // 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory
+			tmp = 2;
+		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { // 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory
+			tmp = 3;
+		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { // 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory
+			tmp = 4;
+		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { // 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory
+			tmp = 5;
+		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { // 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory
+			tmp = 6;
+		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { // 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory
+			tmp = 7;
+		    } else {
+			printf("ERROR: Unsupported MCTag/CData combination (%d/%d GByte)\n",
+			       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
+			return -1;
+		    }
+		} else {
+		    // FPGA rev 6251 version, no 1GB MCTag support
+		    if        (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { // 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory
+			tmp = 0;
+		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { // 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory
+			tmp = 1;
+		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { // 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory
+			tmp = 4;
+		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { // 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory
+			tmp = 5;
+		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { // 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory
+			tmp = 6;
+		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { // 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory
+			tmp = 7;
+		    } else {
+			printf("ERROR: Unsupported MCTag/CData combination (%d/%d GByte)\n",
+			       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
+			return -1;
+		    }
+		}
+
+		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
+		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size)));
+	    }
+
+	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
+	    dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
+			  (val & ~7) | (1<<12) | ((tmp & 7)<<4)); // DRAM_AVAILABLE, MEMSIZE[2:0]
+	} else { // Older than Rev2
+	    // On Rev1 and older there's a direct relationship between the MTag size and RCache size.
+
+            if (cdata && mem_size == 0) {
+                printf("ERROR: Unsupported CData SIZE (%d GByte)\n",
+                       (1<<mem_size));
+                return -1;
+            }
+
+	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
+	    dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
+			  (val & ~7) | (1<<12) | (1<<7) | ((mem_size & 7)<<4)); // DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0]
+	}
 
         // Initialize DRAM
         printf("Initializing %s (%d GByte)\n", cdata ? "CData" : "MCTag", 1<<mem_size);
@@ -342,12 +404,6 @@ int dnc_init_caches(void) {
         dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<4));
 
         if (cdata) {
-            if (mem_size == 0) {
-                printf("ERROR: Unsupported CData SIZE (%d GByte)\n",
-                       (1<<mem_size));
-                return -1;
-            }
-
             printf("Setting RCache size to %d GByte\n", 1<<mem_size);
             // Set the cache size in HReq and MIU
             val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
@@ -358,50 +414,39 @@ int dnc_init_caches(void) {
 
     // Special FPGA considerations for Ftag SRAM
     if (!dnc_asic_mode)  {
-        dnc_write_csr(0xfff0, H2S_CSR_G2_DDL_CTRL, 0x00CC0000); // Sensible value for DDL settings derived from testing.
-#if 0
-        printf("Enabling FTag SRAM\n");
-        // Zero out FTag SRAM
-        dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
-        while (1) { 
-            tsc_wait(100);
-            val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
-            if ((val & 1) == 0)
-                break;
-        }
-        dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
-#else
-        printf("Disabling FTag SRAM\n");
-        dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
-#endif
+	if ((dnc_chip_rev>>16) < 6233) {
+	    printf("Disabling FTag SRAM\n");
+	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
+	} else {
+	    printf("FPGA Revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
+	}
     } else {
-#if 1
         // ASIC
-        val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
-        if (((val >> 24) & 0xff) != 0x3f)
-            printf("Waiting for SRAM clock calibration!\n");
-        while (((val >> 24) & 0xff) != 0x3f) {
-            tsc_wait(100);
-            if ((val & 0xc000000) != 0) {
-                printf("SRAM clock calibration overflow detected (%08x)!\n", val);
-                return -1;
-            }
-        }
-        printf("SRAM clock calibration complete!\n");
-        // Zero out FTag SRAM
-        dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
-        while (1) { 
-            tsc_wait(100);
-            val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
-            if ((val & 1) == 0)
-                break;
-        }
-        printf("Enabling FTag SRAM\n");
-        dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
-#else
-        printf("Disabling FTag SRAM\n");
-        dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
-#endif
+	if (dnc_chip_rev < 2) {
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
+	    if (((val >> 24) & 0xff) != 0x3f)
+		printf("Waiting for SRAM clock calibration!\n");
+	    while (((val >> 24) & 0xff) != 0x3f) {
+		tsc_wait(100);
+		if ((val & 0xc000000) != 0) {
+		    printf("SRAM clock calibration overflow detected (%08x)!\n", val);
+		    return -1;
+		}
+	    }
+	    printf("SRAM clock calibration complete!\n");
+	    // Zero out FTag SRAM
+	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
+	    while (1) { 
+		tsc_wait(100);
+		val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
+		if ((val & 1) == 0)
+		    break;
+	    }
+	    printf("Enabling FTag SRAM\n");
+	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
+	} else {
+	    printf("ASIC Revision %d detected, no FTag SRAM\n", dnc_chip_rev);
+	}
     }
 
     return 0;
@@ -1241,21 +1286,24 @@ static int perform_selftest(int asic_mode)
 
         if (res < 0) break;
 
-        // Test MMIO32 ATT
-        printf(".");
-        for (chunk = 0; chunk < maxchunk; chunk++) {
-            dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
-            for (i = 0; i < 256; i++) {
-                dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, (chunk*256) + i);
+        if (asic_mode) {
+            // XXX: MMIO32 ATT has a slightly different layout on FPGA, so we just skip it for now..
+            // Test MMIO32 ATT
+            printf(".");
+            for (chunk = 0; chunk < maxchunk; chunk++) {
+                dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
+                for (i = 0; i < 256; i++) {
+                    dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, (chunk*256) + i);
+                }
             }
-        }
-        for (chunk = 0; chunk < maxchunk; chunk++) {
-            dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
-            for (i = 0; i < 256; i++) {
-                val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4);
-                if (val != (u32)((chunk*256) + i)) {
-                    res = -1;
-                    break;
+            for (chunk = 0; chunk < maxchunk; chunk++) {
+                dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
+                for (i = 0; i < 256; i++) {
+                    val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4);
+                    if (val != (u32)((chunk*256) + i)) {
+                        res = -1;
+                        break;
+                    }
                 }
             }
         }
@@ -1376,15 +1424,17 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL);
     dnc_write_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL, val | (1<<1)); // disableErrorResponse=1
     
-    // Unknown ERRATA: Disable the Early CData read. It causes data corruption.
-    val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3<<6)) | (3<<6));
-    // Unknown ERRATA: Disable CTag cache.
-    val = dnc_read_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR);
-    dnc_write_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<2));
-    // Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations.
-    val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
-    dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf<<4)) | (1<<4));
+    if (asic_mode && (chip_rev < 2)) {
+	// Unknown ERRATA: Disable the Early CData read. It causes data corruption.
+	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3<<6)) | (3<<6));
+	// Unknown ERRATA: Disable CTag cache.
+	val = dnc_read_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR);
+	dnc_write_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<2));
+	// Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations.
+	val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
+	dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf<<4)) | (1<<4));
+    }
 
     if (asic_mode && (chip_rev < 2)) {
 	// ERRATA #N17: Disable SCC Context #0 to avoid false baPiuTHit assertions when buffer #0 is active.
@@ -1396,7 +1446,13 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x00ff << 8) | (1 << 6));
     } else if (!asic_mode) { // FPGA
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
-	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x0001 << 8) | (1 << 6));
+	// ERRATA #N37: On FPGA now we have an RTL fix in SCC buffers to throttle the amount of
+	// local memory requests to accept (bit[27:24] in MIB_IBC). SReq has 4 buffers available
+	// on FGPA, but cannot accept more than coherent requests total (1 reserved for
+	// non-coherent transactions). We need atleast 1 free buffer to receive the retried
+	// coherent requests to ensure forward progress on probes.
+	// Also disable the MIB timer completely (bit6) for now (debugging purposes).
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (0x2 << 24) | (1 << 6));
     } else {
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (1 << 6));
@@ -1444,9 +1500,14 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 
     // Read the SPD info from our DIMMs to see if they are supported.
     for (i = 0; i < 2; i++) {
-        struct dimm_config *dimm = &dimms[i];
-        if (read_spd_info(i, dimm) < 0)
+        if (read_spd_info(i, &dimms[i]) < 0)
             return -1;
+    }
+
+    if (!asic_mode && ((chip_rev>>16) < 6251)) {
+	// On FPGA cards we only have 1 GB MCTag and 2GB CData
+	dimms[0].mem_size = 0;
+	dimms[1].mem_size = 1;
     }
 
     if (enable_selftest > 0) {
