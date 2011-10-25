@@ -185,12 +185,24 @@ static void load_orig_e820_map(void)
             e820_len += rm.ecx.l ? rm.ecx.l : sizeof(struct e820entry);
         }
       
-        int i;
-        for (i = 0; i*sizeof(struct e820entry) < e820_len; i++) {
+        int i, j, len;
+	struct e820entry elem;
+
+	len = e820_len / sizeof(elem);
+	/* Sort e820 map entries */
+	for (j = 1; j < len; j++) {
+	    memcpy(&elem, &e820_map[j], sizeof(elem));
+	    for (i = j - 1; (i >= 0) && (e820_map[i].base > elem.base); i--)
+		memcpy(&e820_map[i+1], &e820_map[i], sizeof(elem));
+	    memcpy(&e820_map[i+1], &elem, sizeof(elem));
+	}
+
+        for (i = 0; i < len; i++) {
             printf(" %016llx - %016llx (%016llx) [%x]\n",
                    e820_map[i].base, e820_map[i].base+e820_map[i].length,
                    e820_map[i].length, e820_map[i].type);
         }
+
         orig_e820_map = malloc(e820_len);
         memcpy(orig_e820_map, e820_map, e820_len);
         orig_e820_len = e820_len;
