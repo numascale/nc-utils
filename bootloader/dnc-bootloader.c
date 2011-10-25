@@ -1925,13 +1925,6 @@ int udp_read_state(int handle, void *buf, int len)
 
 static void wait_status(void)
 {
-    static int count = 0;
-
-    /* print once in 10 200ms loop timeouts */
-    if (count++ < 10)
-	return;
-
-    count = 0;
     printf("waiting for");
 
     /* skip first node */
@@ -1946,7 +1939,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 {
     struct state_bcast cmd, rsp;
     int ready_pending = 1;
-    int count, backoff;
+    int count, backoff, last_stat;
     int do_restart;
     enum node_state waitfor, own_state;
     u32 last_cmd = ~0;
@@ -1965,14 +1958,17 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
     count = 0;
     backoff = 1;
+    last_stat = 0;
     while (1) {
-	if (cmd.state != CMD_STARTUP)
-	    if (++count >= backoff) {
+	if (++count >= backoff) {
+	    if (cmd.state != CMD_STARTUP)
 		udp_broadcast_state(handle, &cmd, sizeof(cmd));
-		if (backoff < 32)
-		    backoff = backoff * 2;
-		count = 0;
-	    }
+	    tsc_wait(100 * backoff);
+	    last_stat += backoff;
+	    if (backoff < 32)
+		backoff = backoff * 2;
+	    count = 0;
+	}
 
 	if (cmd.state == CMD_CONTINUE)
 	    break;
@@ -1990,8 +1986,10 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	if (cfg_nodes > 1) {
 	    len = udp_read_state(handle, &rsp, sizeof(rsp));
 	    if (!len && !do_restart) {
-		wait_status();
-		tsc_wait(200);
+		if (last_stat > 64) {
+		    last_stat = 0;
+		    wait_status();
+		}
 		continue;
 	    }
 	} else
@@ -2008,7 +2006,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%d) entered %d\n", rsp.sciid, rsp.uuid, waitfor);
+			printf("Node 0x%03x (%s) entered %d\n",
+			       rsp.sciid, cfg_nodelist[i].desc, waitfor);
 			nodedata[rsp.sciid] = 0x80;
 		    }
 		}
@@ -2018,7 +2017,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			 (rsp.state == RSP_FABRIC_NOT_OK))
 		{
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x aborted!  Restarting process...\n", rsp.sciid);
+			printf("Node 0x%03x (%s) aborted!  Restarting process...\n",
+			       rsp.sciid, cfg_nodelist[i].desc);
 			do_restart = 1;
 			nodedata[rsp.sciid] = 0x80;
 		    }

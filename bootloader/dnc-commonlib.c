@@ -2024,6 +2024,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	    printf("Broadcasting state: %d, sciid: %03x, uuid = %d, tid = %d\n",
                    rsp.state, rsp.sciid, rsp.uuid, rsp.tid);
 	    udp_broadcast_state(handle, &rsp, sizeof(rsp));
+	    tsc_wait(100 * backoff);
 	    if (backoff < 32)
 		backoff = backoff * 2;
 	    count = 0;
@@ -2034,8 +2035,10 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	 * once every 2*cfg_nodes packet seen. */
 	for (i = 0; i < 2*cfg_nodes; i++) {
 	    len = udp_read_state(handle, &cmd, sizeof(cmd));
-	    if (len != sizeof(cmd))
+	    if (!len)
 		break;
+	    if (len != sizeof(cmd))
+		continue;
 
             //printf("Got cmd packet. state = %d, sciid = %03x, uuid = %d, tid = %d\n",
             //       cmd.state, cmd.sciid, cmd.uuid, cmd.tid);
@@ -2059,7 +2062,6 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 		}
 	    }
 	}
-	tsc_wait(200);
     }
 }
 
