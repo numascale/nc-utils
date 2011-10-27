@@ -38,6 +38,7 @@ char *next_label = "menu.c32";
 char *microcode_path = "";
 int sync_mode = 1;
 int init_only = 0;
+int route_only = 0;
 int enable_nbmce = 0;
 int enable_nbwdt = 0;
 int enable_selftest = 1;
@@ -916,6 +917,9 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 
     printf("NumaChip found (%08x).\n", val);
 
+    if (route_only)
+	return nc;
+
     /* Ramp up link speed and width before adding NC to coherent fabric */
     tsc_wait(50);
     val = cht_read_config_nc(nc, 0, neigh, link, 0xec);
@@ -1217,6 +1221,7 @@ static int parse_cmdline(const char *cmdline)
         {"next-label",	&parse_string, &next_label},
         {"sync-mode",	&parse_int, &sync_mode},
         {"init-only",	&parse_int, &init_only},
+        {"route-only",	&parse_int, &route_only},
         {"disable-nc",	&parse_int, &disable_nc},
         {"enablenbmce",	&parse_int, &enable_nbmce},
         {"enablenbwdt",	&parse_int, &enable_nbwdt},
@@ -1404,7 +1409,11 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 
     ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
 
+    /* Indicate immediate jump to next-label (-2) if init-only is also given. */
     if ((disable_nc > 0) && (init_only > 0))
+        return -2;
+
+    if (route_only > 0)
         return -2;
 
     if (ht_id < 0)
@@ -2085,6 +2094,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	    printf("Broadcasting state: %d, sciid: %03x, uuid = %d, tid = %d\n",
                    rsp.state, rsp.sciid, rsp.uuid, rsp.tid);
 	    udp_broadcast_state(handle, &rsp, sizeof(rsp));
+	    tsc_wait(100 * backoff);
 	    if (backoff < 32)
 		backoff = backoff * 2;
 	    count = 0;
@@ -2095,8 +2105,10 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	 * once every 2*cfg_nodes packet seen. */
 	for (i = 0; i < 2*cfg_nodes; i++) {
 	    len = udp_read_state(handle, &cmd, sizeof(cmd));
-	    if (len != sizeof(cmd))
+	    if (!len)
 		break;
+	    if (len != sizeof(cmd))
+		continue;
 
             //printf("Got cmd packet. state = %d, sciid = %03x, uuid = %d, tid = %d\n",
             //       cmd.state, cmd.sciid, cmd.uuid, cmd.tid);
@@ -2120,7 +2132,6 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 		}
 	    }
 	}
-	tsc_wait(200);
     }
 }
 
