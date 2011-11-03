@@ -60,6 +60,7 @@ u16 ht_next_apic;
 u32 dnc_top_of_mem;       /* Top of mem, in 16MB chunks */
 u8 post_apic_mapping[256]; /* POST APIC assigments */
 int scc_started = 0;
+extern char *hostname;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
 u8 nodedata[4096];
@@ -2585,6 +2586,44 @@ static void clear_bsp_flag(void)
     asm volatile("wrmsr" :: "d"(hi), "a"(lo), "c"(MSR_APIC_BAR));
 }
 
+void get_hostname(void)
+{
+    char *dhcpdata;
+    size_t dhcplen;
+
+    if (pxe_get_cached_info(PXENV_PACKET_TYPE_DHCP_ACK, (void **)&dhcpdata, &dhcplen))
+	return;
+
+    /* skip standard fields, as hostname is an option */
+    unsigned int offset = 4 + offsetof(pxe_bootp_t, vendor.d);
+
+    while (offset < dhcplen) {
+	int code = dhcpdata[offset];
+	int len = dhcpdata[offset + 1];
+
+	/* sanity-check length */
+	if (len == 0)
+	    return;
+
+	/* skip non-hostname options */
+	if (code != 12) {
+	    offset += 2 + len;
+	    continue;
+	}
+
+	/* sanity-check length */
+	if ((offset + len) > dhcplen)
+	    break;
+
+	/* create a private copy */
+	hostname = strndup(&dhcpdata[offset + 2], len);
+	printf("hostname is %s\n", hostname);
+	return;
+    }
+
+    hostname = NULL;
+}
+
 int main(void)
 {
     u32 uuid;
@@ -2593,6 +2632,7 @@ int main(void)
     int wait;
     
     openconsole(&dev_rawcon_r, &dev_stdcon_w);
+    get_hostname();
 
     if (check_api_version() < 0)
         return -1;
