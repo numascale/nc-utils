@@ -351,25 +351,6 @@ int dnc_init_caches(void) {
 			       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
 			return -1;
 		    }
-		} else {
-		    // FPGA rev 6251 version, no 1GB MCTag support
-		    if        (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { // 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory
-			tmp = 0;
-		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { // 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory
-			tmp = 1;
-		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { // 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory
-			tmp = 4;
-		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { // 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory
-			tmp = 5;
-		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { // 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory
-			tmp = 6;
-		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { // 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory
-			tmp = 7;
-		    } else {
-			printf("ERROR: Unsupported MCTag/CData combination (%d/%d GByte)\n",
-			       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
-			return -1;
-		    }
 		}
 
 		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
@@ -1458,6 +1439,9 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	// Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations.
 	val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
 	dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf<<4)) | (1<<4));
+    } else { // ASIC Rev2 and FPGA
+        val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
+        dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1<<19)); // Enable WeakOrdering
     }
 
     if (asic_mode && (chip_rev < 2)) {
@@ -1468,16 +1452,13 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	// Also disable the MIB timer completely (bit6) for now (debugging purposes).
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x00ff << 8) | (1 << 6));
-    } else if (!asic_mode) { // FPGA
-	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
+    } else { // ASIC Rev2 and FPGA
 	// ERRATA #N37: On FPGA now we have an RTL fix in SCC buffers to throttle the amount of
 	// local memory requests to accept (bit[27:24] in MIB_IBC). SReq has 4 buffers available
 	// on FGPA, but cannot accept more than coherent requests total (1 reserved for
 	// non-coherent transactions). We need atleast 1 free buffer to receive the retried
 	// coherent requests to ensure forward progress on probes.
 	// Also disable the MIB timer completely (bit6) for now (debugging purposes).
-	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (0x2 << 24) | (1 << 6));
-    } else {
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (1 << 6));
     }
@@ -1496,25 +1477,21 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
             printf("Disabling DRAM scrubber on HT#%d (F3x58=%08x)\n", i, val);
             dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_MISC, 0x58, val & ~0x1f);
         }
-/*        
-        // InstallStateS to avoid exclusive state
-        val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68);
-        dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68, val | (1<<23));
-*/
-        // ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
-        // which have bad side-effects with NumaChip in certain scenarios.
-        val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x11c);
-        dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x11c, val | (0x1f<<2));
 
-        // ERRATA #N27: Disable Coherent Prefetch Probes (Query probes) as NumaChip don't handle them correctly
-        val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x1b0);
-        dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x1b0, val & ~(7<<8)); // CohPrefPrbLimit=000b
-        
-        // XXX: Some BIOSes set the Buffer Release Priority Select bits (14:13) to something other than
-        // 2 even though this is the recommended setting according to the BKDG.
-//        val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68);
-//        dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68,
-//                       (val & ~(3 << 13)) | (2 << 13));
+	if (asic_mode && (chip_rev < 2)) {
+	    // InstallStateS to avoid exclusive state
+	    val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68);
+	    dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68, val | (1<<23));
+
+	    // ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
+	    // which have bad side-effects with NumaChip in certain scenarios.
+	    val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x11c);
+	    dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x11c, val | (0x1f<<2));
+
+	}
+	// ERRATA #N27: Disable Coherent Prefetch Probes (Query probes) as NumaChip don't handle them correctly
+	val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x1b0);
+	dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x1b0, val & ~(7<<8)); // CohPrefPrbLimit=000b
     }
     
     /* ====================== END ERRATA WORKAROUNDS ====================== */
