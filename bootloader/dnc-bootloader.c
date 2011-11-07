@@ -921,7 +921,7 @@ static void add_scc_hotpatch_att(u64 addr, u16 node)
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
 	    if (val != node) {
 		printf("add_att: Existing ATT entry differs from given node! %08x != %08x\n",
-		       val, node);
+		       (u32)val, node);
 	    }
 	}
 	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
@@ -1544,7 +1544,7 @@ static void setup_local_mmio_maps(void)
     for (i = 0; i < 8; i++) {
         curbase = cht_read_config(sbnode, NB_FUNC_MAPS, 0x80 + i*8);
         curlim = cht_read_config(sbnode, NB_FUNC_MAPS, 0x84 + i*8);
-	curdst = ((curlim & 0x7) << 8) | curbase & 0x3;
+	curdst = ((curlim & 0x7) << 8) | (curbase & 0x3);
 	/* This strips NP-bit. */
 	curbase = curbase & ~0xff;
 	curlim = curlim & ~0xff;
