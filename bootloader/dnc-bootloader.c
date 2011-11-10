@@ -1988,6 +1988,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (do_restart)
 		printf("Command did not complete successfully on master (reason %d), resetting...\n", own_state);
 
+	    nodedata[info->sciid] = 0x80;
 	    last_cmd = cmd.tid;
 	}
 
