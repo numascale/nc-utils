@@ -1041,6 +1041,14 @@ static void setup_other_cores(void)
     val = dnc_rdmsr(MSR_LSCFG);
     val = val | (1ULL << 44);
     dnc_wrmsr(MSR_LSCFG, val);
+
+    // AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
+    // Suggested Workaround
+    // BIOS should set MSRC001_102A[27] = 1b.
+    // We do this unconditionally (ie on fam10h as well).
+    val = dnc_rdmsr(MSR_CU_CFG2);
+    val = val | (1ULL << 27);
+    dnc_wrmsr(MSR_CU_CFG2, val);
    
     // Start all local cores (not BSP) and let them run our init_trampoline
     for (ht = 0; ht < 8; ht++) {
