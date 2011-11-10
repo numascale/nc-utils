@@ -1220,7 +1220,8 @@ static int parse_int(const char *val, void *intp)
 
 extern char *gitlog_dnc_bootloader_sha;
 extern char *gitlog_dnc_bootloader_diff;
-static int print_git_log(const char *val, void *data)
+static int print_git_log(const char *val __attribute__((unused)),
+			 void *data __attribute__((unused)))
 {
     printf("Git HEAD: %s\n", gitlog_dnc_bootloader_sha);
     if (strlen(gitlog_dnc_bootloader_diff) > 0) {
@@ -1966,7 +1967,7 @@ static void phy_print_error(int mask)
 }
 
 
-enum node_state release_reset(struct node_info *info)
+enum node_state release_reset(struct node_info *info __attribute__((unused)))
 {
     int pending, i;
     printf("Releasing reset.\n");
@@ -2054,7 +2055,8 @@ enum node_state validate_rings(struct node_info *info)
 }
 
 int handle_command(enum node_state cstate, enum node_state *rstate, 
-		   struct node_info *info, struct part_info *part)
+		   struct node_info *info,
+		   struct part_info *part __attribute__((unused)))
 {
     switch (cstate) {
     case CMD_ENTER_RESET:

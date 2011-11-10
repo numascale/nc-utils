@@ -1518,7 +1518,7 @@ static void setup_local_mmio_maps(void)
     u32 lim[8];
     u32 dst[8];
     u32 curbase, curlim, curdst;
-    int sbnode;
+    unsigned int sbnode;
 
     printf("Setting MMIO maps on local DNC...\n");
 
@@ -1885,7 +1885,8 @@ int udp_open(void)
     return 1;
 }
 
-void udp_broadcast_state(int handle, void *buf, int len)
+void udp_broadcast_state(int handle __attribute__((unused)),
+			 void *buf, int len)
 {
     t_PXENV_UDP_WRITE *pxe_write_param;
     char *buf_reloc;
@@ -1906,7 +1907,8 @@ void udp_broadcast_state(int handle, void *buf, int len)
     pxeapi_call(PXENV_UDP_WRITE, (u8 *)pxe_write_param);
 }
 
-int udp_read_state(int handle, void *buf, int len)
+int udp_read_state(int handle __attribute__((unused)),
+		   void *buf, int len)
 {
     t_PXENV_UDP_READ *pxe_read_param;
     char *buf_reloc;
