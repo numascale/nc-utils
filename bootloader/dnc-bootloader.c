@@ -920,7 +920,7 @@ static void add_scc_hotpatch_att(u64 addr, u16 node)
 	if (val & ~0xfff) {
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
 	    if (val != node) {
-		printf("add_att: Existing ATT entry differs from given node! %08x != %08x\n",
+		printf("add_att: Existing ATT entry differs from given node! %08llx != %08x\n",
 		       val, node);
 	    }
 	}
@@ -1552,7 +1552,7 @@ static void setup_local_mmio_maps(void)
     for (i = 0; i < 8; i++) {
         curbase = cht_read_config(sbnode, NB_FUNC_MAPS, 0x80 + i*8);
         curlim = cht_read_config(sbnode, NB_FUNC_MAPS, 0x84 + i*8);
-	curdst = ((curlim & 0x7) << 8) | curbase & 0x3;
+	curdst = ((curlim & 0x7) << 8) | (curbase & 0x3);
 	/* This strips NP-bit. */
 	curbase = curbase & ~0xff;
 	curlim = curlim & ~0xff;
@@ -2222,7 +2222,7 @@ static void local_chipset_fixup(void)
 		      (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
 
 	val = mem64_read32(addr + 4);
-	printf("SMM fingerprint: %16llx\n", val);
+	printf("SMM fingerprint: %08x\n", val);
     
 	if (val == 0x3160bf66) {
 	    printf("SMM coh config space trigger fingerprint found, patching...\n");
@@ -2231,7 +2231,7 @@ static void local_chipset_fixup(void)
 	}
     
 	val = mem64_read32(addr);
-	printf("MEM %llx: %08lx\n", addr, val);
+	printf("MEM %llx: %08x\n", addr, val);
 	
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 	for (i = 0; i < dnc_master_ht_id; i++)
