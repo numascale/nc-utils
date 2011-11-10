@@ -976,7 +976,7 @@ static void disable_smm_handler(u64 smm_base)
     node = (val >> 16) & 0xfff;
 
     for (i = 0; i < dnc_master_ht_id; i++) {
-	add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+	add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
 			   dnc_master_ht_id);
     }
 
@@ -1008,7 +1008,7 @@ static void disable_smm_handler(u64 smm_base)
     dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
     for (i = 0; i < dnc_master_ht_id; i++)
-	del_extd_mmio_maps(0xfff0, i, 7);
+	del_extd_mmio_maps(0xfff0, i, 3);
 }
 
 static void setup_other_cores(void)
@@ -2202,7 +2202,7 @@ static void local_chipset_fixup(void)
 	node = (val >> 16) & 0xfff;
 
 	for (i = 0; i < dnc_master_ht_id; i++) {
-	    add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+	    add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
 			       dnc_master_ht_id);
 	}
 
@@ -2226,7 +2226,7 @@ static void local_chipset_fixup(void)
 	
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 	for (i = 0; i < dnc_master_ht_id; i++)
-	    del_extd_mmio_maps(0xfff0, i, 7);
+	    del_extd_mmio_maps(0xfff0, i, 3);
     }
     printf("Chipset-specific setup done.\n");
 }
