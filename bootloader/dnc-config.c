@@ -27,6 +27,8 @@ struct fabric_info cfg_fabric;
 struct node_info *cfg_nodelist;
 struct part_info *cfg_partlist;
 int cfg_nodes, cfg_partitions;
+int name_matching = 0;
+char *hostname;
 
 static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
 {
@@ -135,8 +137,13 @@ static int parse_json(json_t *root)
         cfg_nodes++;
     cfg_nodelist = malloc(cfg_nodes * sizeof(*cfg_nodelist));
     for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
-        if (!(parse_json_num(obj, "uuid", &cfg_nodelist[i].uuid, 0) &&
-              parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0) &&
+	/* UUID is optional */
+	if (!parse_json_num(obj, "uuid", &cfg_nodelist[i].uuid, 1)) {
+	    cfg_nodelist[i].uuid = 0;
+	    name_matching = 1;
+	}
+
+        if (!(parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0) &&
               parse_json_num(obj, "partition", &cfg_nodelist[i].partition, 0) &&
               parse_json_num(obj, "osc", &cfg_nodelist[i].osc, 0) &&
               parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)))
@@ -144,6 +151,10 @@ static int parse_json(json_t *root)
             free(cfg_nodelist);
             return 0;
         }
+
+	if (name_matching)
+	    printf("UUIDs omitted - falling back to name matching\n");
+
 	if (parse_json_num(obj, "sync-only", &val, 1))
 	    cfg_nodelist[i].sync_only = val;
 	else 
@@ -227,8 +238,13 @@ struct node_info* get_node_config(u32 uuid)
 {
     int i;
     for (i = 0; i < cfg_nodes; i++) {
-        if (cfg_nodelist[i].uuid == uuid)
-            return &cfg_nodelist[i];
+	if (name_matching && hostname) {
+	    if (strcmp(cfg_nodelist[i].desc, hostname) == 0)
+		return &cfg_nodelist[i];
+	} else {
+	    if (cfg_nodelist[i].uuid == uuid)
+		return &cfg_nodelist[i];
+	}
     }
     return NULL;
 }
