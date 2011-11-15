@@ -950,9 +950,6 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 
     printf("NumaChip found (%08x).\n", val);
 
-    if (route_only)
-	return nc;
-
     /* Ramp up link speed and width before adding NC to coherent fabric */
     tsc_wait(50);
     val = cht_read_config_nc(nc, 0, neigh, link, 0xec);
@@ -970,6 +967,9 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         *p_asic_mode = 0;
         *p_chip_rev = val;
     }
+
+    if (route_only)
+	return nc;
 
     if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff) {
 	disable_probefilter(nodes);
