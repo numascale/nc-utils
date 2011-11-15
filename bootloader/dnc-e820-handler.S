@@ -19,6 +19,7 @@
 #define MSR_LSCFG     0xc0011020
 #define MSR_NODE_ID   0xc001100c
 #define MSR_SMM_BASE  0xc0010111
+#define MSR_CU_CFG2   0xc001102a
 
 #define MSR_MTRR_PHYS_BASE0 0x00000200
 #define MSR_MTRR_PHYS_BASE1 0x00000202
@@ -184,6 +185,15 @@ EXPORT(init_trampoline)
 	mov	$MSR_LSCFG, %ecx
 	rdmsr
 	or	$0x1000, %edx
+	wrmsr
+
+	// AMD Fam 15h Errate #572: Access to PCI Extended Configuration Space in SMM is Blocked
+	// Suggested Workaround
+	// BIOS should set MSRC001_102A[27] = 1b.
+	// We do this unconditionally (ie on fam10h as well).
+	mov	$MSR_CU_CFG2, %ecx
+	rdmsr
+	or	$0x8000000, %eax
 	wrmsr
 
 	mov	$MSR_TOPMEM, %ecx

@@ -977,7 +977,7 @@ static void disable_smm_handler(u64 smm_base)
     node = (val >> 16) & 0xfff;
 
     for (i = 0; i < dnc_master_ht_id; i++) {
-	add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+	add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
 			   dnc_master_ht_id);
     }
 
@@ -1009,7 +1009,7 @@ static void disable_smm_handler(u64 smm_base)
     dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
     for (i = 0; i < dnc_master_ht_id; i++)
-	del_extd_mmio_maps(0xfff0, i, 7);
+	del_extd_mmio_maps(0xfff0, i, 3);
 }
 
 static void setup_other_cores(void)
@@ -1042,6 +1042,14 @@ static void setup_other_cores(void)
     val = dnc_rdmsr(MSR_LSCFG);
     val = val | (1ULL << 44);
     dnc_wrmsr(MSR_LSCFG, val);
+
+    // AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
+    // Suggested Workaround
+    // BIOS should set MSRC001_102A[27] = 1b.
+    // We do this unconditionally (ie on fam10h as well).
+    val = dnc_rdmsr(MSR_CU_CFG2);
+    val = val | (1ULL << 27);
+    dnc_wrmsr(MSR_CU_CFG2, val);
    
     // Start all local cores (not BSP) and let them run our init_trampoline
     for (ht = 0; ht < 8; ht++) {
@@ -1510,7 +1518,7 @@ static void setup_local_mmio_maps(void)
     u32 lim[8];
     u32 dst[8];
     u32 curbase, curlim, curdst;
-    int sbnode;
+    unsigned int sbnode;
 
     printf("Setting MMIO maps on local DNC...\n");
 
@@ -1877,7 +1885,8 @@ int udp_open(void)
     return 1;
 }
 
-void udp_broadcast_state(int handle, void *buf, int len)
+void udp_broadcast_state(int handle __attribute__((unused)),
+			 void *buf, int len)
 {
     t_PXENV_UDP_WRITE *pxe_write_param;
     char *buf_reloc;
@@ -1898,7 +1907,8 @@ void udp_broadcast_state(int handle, void *buf, int len)
     pxeapi_call(PXENV_UDP_WRITE, (u8 *)pxe_write_param);
 }
 
-int udp_read_state(int handle, void *buf, int len)
+int udp_read_state(int handle __attribute__((unused)),
+		   void *buf, int len)
 {
     t_PXENV_UDP_READ *pxe_read_param;
     char *buf_reloc;
@@ -1981,6 +1991,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (do_restart)
 		printf("Command did not complete successfully on master (reason %d), resetting...\n", own_state);
 
+	    nodedata[info->sciid] = 0x80;
 	    last_cmd = cmd.tid;
 	}
 
@@ -2203,7 +2214,7 @@ static void local_chipset_fixup(void)
 	node = (val >> 16) & 0xfff;
 
 	for (i = 0; i < dnc_master_ht_id; i++) {
-	    add_extd_mmio_maps(0xfff0, i, 7, 0x200000000000ULL, 0x2fffffffffffULL,
+	    add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
 			       dnc_master_ht_id);
 	}
 
@@ -2214,7 +2225,7 @@ static void local_chipset_fixup(void)
 		      (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
 
 	val = mem64_read32(addr + 4);
-	printf("SMM fingerprint: %16llx\n", val);
+	printf("SMM fingerprint: %08x\n", val);
     
 	if (val == 0x3160bf66) {
 	    printf("SMM coh config space trigger fingerprint found, patching...\n");
@@ -2223,11 +2234,11 @@ static void local_chipset_fixup(void)
 	}
     
 	val = mem64_read32(addr);
-	printf("MEM %llx: %08lx\n", addr, val);
+	printf("MEM %llx: %08x\n", addr, val);
 	
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 	for (i = 0; i < dnc_master_ht_id; i++)
-	    del_extd_mmio_maps(0xfff0, i, 7);
+	    del_extd_mmio_maps(0xfff0, i, 3);
     }
     printf("Chipset-specific setup done.\n");
 }

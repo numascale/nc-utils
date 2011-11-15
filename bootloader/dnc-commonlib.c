@@ -435,32 +435,69 @@ int dnc_init_caches(void) {
     return 0;
 }
 
+int cpu_family(u16 scinode, u8 node)
+{
+    u32 val;
+    int family, model, stepping;
+
+    val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_MISC, 0xfc);
+
+    family = ((val >> 20) & 0xf) + ((val >> 8) & 0xf);
+    model = ((val >> 12) & 0xf0) | ((val >> 4) & 0xf);
+    stepping = val & 0xf;
+
+    return (family << 16) | (model << 8) | stepping;
+}
+
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest)
 {
     u32 val;
-    u64 mask;
 
-    mask = 0;
-    start = start >> 27;
-    end   = end >> 27;
-    while ((start | mask) != (end | mask))
-        mask = (mask << 1) | 1;
+    if ((cpu_family(scinode, node) >> 16) < 0x15) {
+	u64 mask;
 
-    /* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
-    val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68,
-                   val | (1<<25) | (1<<18) | (1<<17));
+	mask = 0;
+	start = start >> 27;
+	end   = end >> 27;
+	while ((start | mask) != (end | mask))
+	    mask = (mask << 1) | 1;
 
-    /* Set ExtMmioMapAddSel granularity to 128M */
-    val = dnc_read_conf(scinode, 0, 24+node,  NB_FUNC_HT, 0x168);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x168, (val & ~0x300) | 0x200);
+	/* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
+	val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68,
+		       val | (1<<25) | (1<<18) | (1<<17));
 
-    /* printf("[%03x#%d] Adding Extd MMIO map #%d %016llx-%016llx (%08llx/%08llx) to HT#%d\n",
-       scinode, node, idx, start, end, start, mask, dest); */
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (start << 8) | dest);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (mask << 8) | 1);
+	/* Set ExtMmioMapAddSel granularity to 128M */
+	val = dnc_read_conf(scinode, 0, 24+node,  NB_FUNC_HT, 0x168);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x168, (val & ~0x300) | 0x200);
+
+	/* printf("[%03x#%d] Adding Extd MMIO map #%d %016llx-%016llx (%08llx/%08llx) to HT#%d\n",
+	   scinode, node, idx, start, end, start, mask, dest); */
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (start << 8) | dest);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (mask << 8) | 1);
+    }
+    else {
+	/* From family 15h, the Extd MMIO maps are deprecated in favor
+	 * of extending the legacy MMIO maps with a "base/limit high"
+	 * register set.  To avoid trampling over existing mappings,
+	 * use the (also new) 9-12 mapping entries when invoked here. */
+	if (idx > 4) {
+	    printf("add_extd_mmio_maps: index (%d) out of range for family 15h!\n", idx);
+	    return;
+	}
+	printf("[%03x#%d] Adding MMIO map #%d %016llx-%016llx to HT#%d\n",
+	       scinode, node, idx+8, start, end, dest);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1a0 + idx * 8, 0);
+
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1c0 + idx * 4,
+		       ((end >> 40) << 16) | (start >> 40));
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1a4 + idx * 8,
+		       ((end >> 16) << 8) | dest);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1a0 + idx * 8,
+		       ((start >> 16) << 8) | 3);
+    }
 }
 
 void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx)
@@ -1201,7 +1238,8 @@ static int parse_int(const char *val, void *intp)
 
 extern char *gitlog_dnc_bootloader_sha;
 extern char *gitlog_dnc_bootloader_diff;
-static int print_git_log(const char *val, void *data)
+static int print_git_log(const char *val __attribute__((unused)),
+			 void *data __attribute__((unused)))
 {
     printf("Git HEAD: %s\n", gitlog_dnc_bootloader_sha);
     if (strlen(gitlog_dnc_bootloader_diff) > 0) {
@@ -1953,7 +1991,7 @@ static void phy_print_error(int mask)
 }
 
 
-enum node_state release_reset(struct node_info *info)
+enum node_state release_reset(struct node_info *info __attribute__((unused)))
 {
     int pending, i;
     printf("Releasing reset.\n");
@@ -2041,7 +2079,8 @@ enum node_state validate_rings(struct node_info *info)
 }
 
 int handle_command(enum node_state cstate, enum node_state *rstate, 
-		   struct node_info *info, struct part_info *part)
+		   struct node_info *info,
+		   struct part_info *part __attribute__((unused)))
 {
     switch (cstate) {
     case CMD_ENTER_RESET:
