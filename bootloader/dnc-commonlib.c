@@ -42,6 +42,7 @@ int route_only = 0;
 int enable_nbmce = 0;
 int enable_nbwdt = 0;
 int enable_selftest = 1;
+int force_probefilteroff = 0;
 int force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
@@ -742,32 +743,44 @@ static void disable_probefilter(int nodes)
     printf("HT#0 F3x1d4: %08x\n", val);
     printf("Probe filter active; disabling (%d)...\n", nodes);
 
-    /* Disable scrubbers */
+    /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
+       - F3x58[L3Scrub]=00h.
+       - F3x58[DramScrub]=00h.
+       - F3x5C[ScrubRedirEn]=0. */
     for (i = 0; i <= nodes; i++) {
 	scrub[i] = cht_read_config(i, NB_FUNC_MISC, 0x58);
 	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i] & ~0x1f00001f);
 	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
 	cht_write_config(i, NB_FUNC_MISC, 0x5c, val & ~1);
     }
+
+    /* 2.  Wait 40us for outstanding scrub requests to complete. */
     printf(".");
 	
+    /* 3.  Disable all cache activity in the system by setting
+       CR0.CD for all active cores in the system. */
     disable_cache();
+    /* 4.  Issue WBINVD on all active cores in the system. */
     asm volatile("wbinvd" ::: "memory");
     printf(".");
 
+    /* 5.  Set F3x1C4[L3TagInit]=1. */
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
 	cht_write_config(i, NB_FUNC_MISC, 0x1c4, val | (1 << 31));
     }
     printf(".");
 
+    /* 6.  Wait for F3x1C4[L3TagInit]=0. */
     for (i = 0; i <= nodes; i++) {
-	while (cht_read_config(i, NB_FUNC_MISC, 0x1c4) & (1 << 31)) {
+	do {
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
 	    printf("<%d>", i);
-	}
+	} while (val & (1 << 31));
     }
     printf(".");
 
+    /* 7.  Set F3x1D4[PFMode]=00b. */
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1d4);
 	cht_write_config(i, NB_FUNC_MISC, 0x1d4, val & ~3);
@@ -779,11 +792,13 @@ static void disable_probefilter(int nodes)
 	printf("<%d:%08x>", i, val);
     }
     printf(".");
-    
+
+    /* 8.  Enable all cache activity in the system by clearing
+       CR0.CD for all active cores in the system. */
     enable_cache();
     printf(".");
 
-    /* Restore scrubbers */
+    /* 9. Restore L3 and DRAM scrubber register values. */
     for (i = 0; i <= nodes; i++) {
 	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i]);
 	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
@@ -918,8 +933,11 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         *p_asic_mode = 0;
         *p_chip_rev = val;
     }
+
+    if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff) {
+	disable_probefilter(nodes);
+    }
     
-    disable_probefilter(nodes);
     disable_cache();
 
     for (i = nodes; i >= 0; i--) {
@@ -1209,6 +1227,7 @@ static int parse_cmdline(const char *cmdline)
         {"self-test",   &parse_int, &enable_selftest},
         {"microcode",	&parse_string, &microcode_path},
         {"ht-testmode",	&parse_int, &ht_testmode},
+	{"disable-pf",  &parse_int, &force_probefilteroff},
         {"force-ganged", &parse_int, &force_ganged},
         {"disable-smm", &parse_int, &disable_smm},
         {"renumber-bsp", &parse_int, &renumber_bsp},
@@ -1465,33 +1484,38 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 
     for (i = 0; i < ht_id; i++) {
         // XXX: Disable Northbridge WatchDog timer to avoid false error situations in these debug times..
-        val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_MISC, 0x44);
+        val = cht_read_config(i, NB_FUNC_MISC, 0x44);
         val = val & ~((1<<6)|(1<<8)); // Clear both bits
         if (!enable_nbmce) val |= (1<<6);
         if (!enable_nbwdt) val |= (1<<8);
-        dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_MISC, 0x44, val);
+        cht_write_config(i, NB_FUNC_MISC, 0x44, val);
 
         // XXX: Disable DRAM scrubbing in case we want to do HT-Tracing
-        val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_MISC, 0x58);
+        val = cht_read_config(i, NB_FUNC_MISC, 0x58);
         if (val & 0x1f) {
             printf("Disabling DRAM scrubber on HT#%d (F3x58=%08x)\n", i, val);
-            dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_MISC, 0x58, val & ~0x1f);
+            cht_write_config(i, NB_FUNC_MISC, 0x58, val & ~0x1f);
         }
 
 	if (asic_mode && (chip_rev < 2)) {
 	    // InstallStateS to avoid exclusive state
-	    val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68);
-	    dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_HT, 0x68, val | (1<<23));
+	    val = cht_read_config(i, NB_FUNC_HT, 0x68);
+	    cht_write_config(i, NB_FUNC_HT, 0x68, val | (1<<23));
 
 	    // ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
 	    // which have bad side-effects with NumaChip in certain scenarios.
-	    val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x11c);
-	    dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x11c, val | (0x1f<<2));
+	    val = cht_read_config(i, NB_FUNC_DRAM, 0x11c);
+	    cht_write_config(i, NB_FUNC_DRAM, 0x11c, val | (0x1f<<2));
 
 	}
 	// ERRATA #N27: Disable Coherent Prefetch Probes (Query probes) as NumaChip don't handle them correctly
-	val = dnc_read_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x1b0);
-	dnc_write_conf(0xfff0, 0, 24+i, NB_FUNC_DRAM, 0x1b0, val & ~(7<<8)); // CohPrefPrbLimit=000b
+	val = cht_read_config(i, NB_FUNC_DRAM, 0x1b0);
+	cht_write_config(i, NB_FUNC_DRAM, 0x1b0, val & ~(7<<8)); // CohPrefPrbLimit=000b
+
+	// XXX: In case Traffic distribution is enabled on 2 socket systems, we
+	// need to disable it for Directed Probes. Ref email to AMD dated 4/28/2010.
+	val = cht_read_config(i, NB_FUNC_HT, 0x164);
+	cht_write_config(i, NB_FUNC_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
     }
     
     /* ====================== END ERRATA WORKAROUNDS ====================== */
