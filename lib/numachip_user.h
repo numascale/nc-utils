@@ -34,28 +34,6 @@ BEGIN_C_DECLS
 struct numachip_device;
 struct numachip_context;
 
-struct numachip_device_ops {
-    struct numachip_context * (*alloc_context)(struct numachip_device *device);
-    void                      (*free_context)(struct numachip_context *context);
-};
-
-struct numachip_device {
-    struct numachip_device_ops  ops;
-    off_t                       csr_base;
-};
-
-struct numachip_context_ops {
-    uint32_t (*read_csr)(struct numachip_context *context, uint16_t offset);
-    void     (*write_csr)(struct numachip_context *context, uint16_t offset, uint32_t value);
-};
-
-struct numachip_context {
-    struct numachip_device      *device;
-    struct numachip_context_ops  ops;
-    int                          memfd;
-    uint32_t                    *csr_space;
-};
-
 /**
  * numachip_get_device_list - Get list of NumaChip devices currently available
  * @num_devices: optional. If non-NULL, set to the number of devices
@@ -89,20 +67,26 @@ int numachip_close_device(struct numachip_context *context);
 /**
  * numachip_read_csr - Read CSR
  */
-static inline uint32_t numachip_read_csr(struct numachip_context *context,
-					 uint16_t offset)
-{
-    return context->ops.read_csr(context, offset);
-}
+uint32_t numachip_read_csr(struct numachip_context *context,
+			   uint16_t offset);
 
 /**
  * numachip_write_csr - Write CSR
  */
-static inline void numachip_write_csr(struct numachip_context *context,
-				      uint16_t offset, uint32_t value)
-{
-    context->ops.write_csr(context, offset, value);
-}
+void numachip_write_csr(struct numachip_context *context,
+			uint16_t offset, uint32_t value);
+
+/**
+ * numachip_read_config - Read Config Space
+ */
+uint32_t numachip_read_config(struct numachip_context *context,
+			      uint8_t fn, uint16_t offset);
+
+/**
+ * numachip_write_csr - Write Config Space
+ */
+void numachip_write_config(struct numachip_context *context,
+			   uint8_t fn, uint16_t offset, uint32_t value);
 
 END_C_DECLS
 
