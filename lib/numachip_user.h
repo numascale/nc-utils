@@ -89,7 +89,8 @@ int numachip_close_device(struct numachip_context *context);
 /**
  * numachip_read_csr - Read CSR
  */
-static inline uint32_t numachip_read_csr(struct numachip_context *context, uint16_t offset)
+static inline uint32_t numachip_read_csr(struct numachip_context *context,
+					 uint16_t offset)
 {
     return context->ops.read_csr(context, offset);
 }
@@ -97,7 +98,8 @@ static inline uint32_t numachip_read_csr(struct numachip_context *context, uint1
 /**
  * numachip_write_csr - Write CSR
  */
-static inline void numachip_write_csr(struct numachip_context *context, uint16_t offset, uint32_t value)
+static inline void numachip_write_csr(struct numachip_context *context,
+				      uint16_t offset, uint32_t value)
 {
     context->ops.write_csr(context, offset, value);
 }
