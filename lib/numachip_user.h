@@ -34,6 +34,12 @@ BEGIN_C_DECLS
 struct numachip_device;
 struct numachip_context;
 
+struct numachip_sge {
+    uint64_t from;
+    uint64_t to;
+    uint32_t length;
+} __attribute__((aligned(16)));
+    
 /**
  * numachip_get_device_list - Get list of NumaChip devices currently available
  * @num_devices: optional. If non-NULL, set to the number of devices
@@ -87,6 +93,11 @@ uint32_t numachip_read_config(struct numachip_context *context,
  */
 void numachip_write_config(struct numachip_context *context,
 			   uint8_t fn, uint16_t offset, uint32_t value);
+
+/**
+ * numachip_sge_copy - Optimized SG Copy
+ */
+void numachip_sge_copy(struct numachip_sge *sg_list, int num_sge);
 
 END_C_DECLS
 
