@@ -57,6 +57,8 @@ struct dimm_config {
     int mem_size; // Size of DIMM in GByte powers of 2
 };
 
+u32 max_mem_per_node;
+
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; // 0 - MCTag, 1 - CData
 
@@ -353,8 +355,10 @@ int dnc_init_caches(void) {
 		    }
 		}
 
+		max_mem_per_node = (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size));
 		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
-		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size)));
+		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
+		max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
 	    }
 
 	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
@@ -369,6 +373,12 @@ int dnc_init_caches(void) {
                 return -1;
             }
 
+	    if (!cdata) {
+		max_mem_per_node = (16U<<dimms[0].mem_size);
+		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
+		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
+		max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
+	    }
 	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 	    dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
 			  (val & ~7) | (1<<12) | (1<<7) | ((mem_size & 7)<<4)); // DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0]

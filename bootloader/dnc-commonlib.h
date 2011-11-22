@@ -39,6 +39,8 @@
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
+#define DRAM_MAP_SHIFT 24ULL
+
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest);
 void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx);
 
@@ -62,6 +64,7 @@ extern int read_config_file(char *file_name);
 
 extern int dnc_asic_mode;
 extern int dnc_chip_rev;
+extern u32 max_mem_per_node;
 
 extern char *next_label;
 extern int sync_mode;

@@ -234,14 +234,14 @@ static int install_e820_handler(void)
     for (i = 0; i < orig_e820_len / sizeof(struct e820entry); i++) {
         u64 orig_end = orig_e820_map[i].base + orig_e820_map[i].length;
 
-	if (orig_e820_map[i].base > MAX_MEM_PER_NODE) {
+	if ((orig_e820_map[i].base >> DRAM_MAP_SHIFT) > max_mem_per_node) {
 	    /* Skip entry altogether */
 	    continue;
 	}
 
-	if (orig_end > MAX_MEM_PER_NODE) {
+	if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_node) {
 	    /* Adjust length to fit */
-	    orig_end = MAX_MEM_PER_NODE;
+	    orig_end = max_mem_per_node << DRAM_MAP_SHIFT;
 	    orig_e820_map[i].length = orig_end - orig_e820_map[i].base;
 	}
 

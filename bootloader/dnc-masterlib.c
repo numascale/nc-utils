@@ -277,11 +277,10 @@ int tally_remote_node(u16 node)
 	    cur_node->ht[i].base = dnc_top_of_mem;
 	    cur_node->ht[i].size = limit - base + 1;
             cur_node->node_mem += cur_node->ht[i].size;
-	    if (cur_node->node_mem > (MAX_MEM_PER_NODE >> DRAM_MAP_SHIFT)) {
+	    if (cur_node->node_mem > max_mem_per_node) {
 		printf("** Node exceeds cachable memory range, clamping...\n");
-		cur_node->ht[i].size -=
-		    cur_node->node_mem - (MAX_MEM_PER_NODE >> DRAM_MAP_SHIFT);
-		cur_node->node_mem = MAX_MEM_PER_NODE >> DRAM_MAP_SHIFT;
+		cur_node->ht[i].size -= cur_node->node_mem - max_mem_per_node;
+		cur_node->node_mem = max_mem_per_node;
 	    }
 
 	    dnc_top_of_mem += cur_node->ht[i].size;

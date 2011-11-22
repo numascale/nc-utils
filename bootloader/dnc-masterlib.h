@@ -21,8 +21,6 @@
 
 #include "dnc-types.h"
 
-#define MAX_MEM_PER_NODE	(32*1024*1024*1024ULL)
-#define DRAM_MAP_SHIFT 24
 #define SCC_ATT_INDEX_RANGE 2   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
 #define SCC_ATT_GRAN            ((0x1000000ULL << (SCC_ATT_INDEX_RANGE * 4)) >> DRAM_MAP_SHIFT)
 
@@ -35,6 +33,7 @@ extern u16 apic_per_node;
 extern u16 ht_next_apic;
 extern u32 dnc_top_of_mem;
 extern u8 post_apic_mapping[256];
+extern u32 max_mem_per_node;
 
 extern u32 *mseq_ucode;
 extern u16 *mseq_table;
