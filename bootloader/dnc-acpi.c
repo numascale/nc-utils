@@ -200,7 +200,7 @@ int replace_child(const char *sig, acpi_sdt_p new,
     acpi_sdt_p table;
 
     if (!checksum_ok(new, new->len)) {
-	printf("*** Bad new table checksum!\n");
+	printf("*** Bad new %4s table checksum!\n", sig);
 	return 0;
     }
 
