@@ -83,7 +83,7 @@ dnc-bootloader.o: dnc-bootloader.c $(IFACEDEPS) dnc-types.h dnc-regs.h \
 	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h \
 	dnc-commonlib.h dnc-masterlib.h dnc-debug.h hw-config.h
 
-dnc-e820-handler.o: hw-config.h
+dnc-e820-handler.o: hw-config.h dnc-defs.h
 
 dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-access.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 
