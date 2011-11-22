@@ -234,6 +234,27 @@ int parse_config_file(char *data)
     return ret;
 }
 
+void make_singleton_config(u32 uuid)
+{
+    cfg_fabric.x_size = 1;
+    cfg_fabric.y_size = 0;
+    cfg_fabric.z_size = 0;
+
+    cfg_nodes = 1;
+    cfg_nodelist = malloc(sizeof(*cfg_nodelist));
+    cfg_nodelist[0].uuid = uuid;
+    cfg_nodelist[0].sciid = 0;
+    cfg_nodelist[0].osc = 0;
+    cfg_nodelist[0].partition = 0;
+    memcpy(cfg_nodelist[0].desc, "self", 5);
+    cfg_nodelist[0].sync_only = 1;
+
+    cfg_partitions = 1;
+    cfg_partlist = malloc(sizeof(*cfg_partlist));
+    cfg_partlist[0].master = 0;
+    cfg_partlist[0].builder = 0;
+}
+	
 struct node_info* get_node_config(u32 uuid)
 {
     int i;

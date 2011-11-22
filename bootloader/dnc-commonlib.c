@@ -46,6 +46,7 @@ int force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
+int singleton = 0;
 
 // Structs to hold DIMM configuration from SPD readout.
 
@@ -1261,6 +1262,7 @@ static int parse_cmdline(const char *cmdline)
         {"disable-smm", &parse_int, &disable_smm},
         {"renumber-bsp", &parse_int, &renumber_bsp},
         {"forwarding-mode", &parse_int, &forwarding_mode},
+        {"singleton",   &parse_int, &singleton},
         {"print-git-log", &print_git_log, NULL},
     };
     char arg[256];
@@ -1573,8 +1575,14 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     if (init_only > 0)
         return -2;
 
-    if (read_config_file(config_file_name) < 0)
-        return -1;
+    if (singleton) {
+	make_singleton_config(uuid);
+    }
+    else {
+	if (read_config_file(config_file_name) < 0)
+	    return -1;
+    }
+    
 
     info = get_node_config(uuid);
     if (!info)

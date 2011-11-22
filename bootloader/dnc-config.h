@@ -48,6 +48,7 @@ extern struct part_info *cfg_partlist;
 extern int cfg_nodes, cfg_partitions;
 
 int parse_config_file(char *data);
+void make_singleton_config(u32 uuid);
 struct node_info* get_node_config(u32 uuid);
 struct part_info* get_partition_config(int idx);
 
