@@ -123,16 +123,30 @@ void tally_local_node(int enforce_alignment)
 	    last = i;
 	}
 
-        /* Assume at least one core */
-        nc_node[0].ht[i].cores = 1;
-        val = cht_read_config(i, NB_FUNC_HT, 0x68);
-        if (val & 0x20) nc_node[0].ht[i].cores++; /* Cpu1En */
+	/* Assume at least one core */
+	nc_node[0].ht[i].cores = 1;
 
-        val = cht_read_config(i, NB_FUNC_HT, 0x168);
-        if (val & 0x01) nc_node[0].ht[i].cores++; /* Cpu2En */
-        if (val & 0x02) nc_node[0].ht[i].cores++; /* Cpu3En */
-        if (val & 0x04) nc_node[0].ht[i].cores++; /* Cpu4En */
-        if (val & 0x08) nc_node[0].ht[i].cores++; /* Cpu5En */
+	if ((cpu_family(0xfff0, i) >> 16) < 0x15) {
+	    val = cht_read_config(i, NB_FUNC_HT, 0x68);
+	    if (val & 0x20) nc_node[0].ht[i].cores++; /* Cpu1En */
+
+	    val = cht_read_config(i, NB_FUNC_HT, 0x168);
+	    if (val & 0x01) nc_node[0].ht[i].cores++; /* Cpu2En */
+	    if (val & 0x02) nc_node[0].ht[i].cores++; /* Cpu3En */
+	    if (val & 0x04) nc_node[0].ht[i].cores++; /* Cpu4En */
+	    if (val & 0x08) nc_node[0].ht[i].cores++; /* Cpu5En */
+	}
+	else {
+	    val = cht_read_config(i, 5, 0x84);
+	    nc_node[0].ht[i].cores += val & 0xff;
+	    val = cht_read_config(i, 3, 0x190);
+	    while (val > 0) {
+		if (val & 1)
+		    nc_node[0].ht[i].cores--;
+		val = val >> 1;
+	    }
+	}
+
 	nc_node[0].ht[i].apic_base = post_apic_mapping[tot_cores];
 	ht_next_apic = nc_node[0].ht[i].apic_base + apic_per_node;
  
@@ -290,16 +304,30 @@ int tally_remote_node(u16 node)
 	    cur_apic++;
 	
 	/* Assume at least one core */
-        cur_node->ht[i].cores = 1;
+	cur_node->ht[i].cores = 1;
 
-        val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
-        if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
+	if ((cpu_family(node, i) >> 16) < 0x15) {
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
+	    if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
 
-        val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x168);
-        if (val & 0x01) cur_node->ht[i].cores++; /* Cpu2En */
-        if (val & 0x02) cur_node->ht[i].cores++; /* Cpu3En */
-        if (val & 0x04) cur_node->ht[i].cores++; /* Cpu4En */
-        if (val & 0x08) cur_node->ht[i].cores++; /* Cpu5En */
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x168);
+	    if (val & 0x01) cur_node->ht[i].cores++; /* Cpu2En */
+	    if (val & 0x02) cur_node->ht[i].cores++; /* Cpu3En */
+	    if (val & 0x04) cur_node->ht[i].cores++; /* Cpu4En */
+	    if (val & 0x08) cur_node->ht[i].cores++; /* Cpu5En */
+	}
+	else {
+	    val += dnc_read_conf(node, 0, 24+i, 5, 0x84);
+	    printf("F5x84: %08x\n", val);
+	    cur_node->ht[i].cores = val & 0xff;
+	    val = dnc_read_conf(node, 0, 24+i, 3, 0x190);
+	    printf("F3x190: %08x\n", val);
+	    while (val > 0) {
+		if (val & 1)
+		    cur_node->ht[i].cores--;
+		val = val >> 1;
+	    }
+	}
 	cur_node->ht[i].apic_base = cur_apic;
 
         tot_cores += cur_node->ht[i].cores;

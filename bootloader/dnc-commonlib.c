@@ -1108,6 +1108,20 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
         printf("Setting CSR and MCFG maps for node %d\n", node);
         add_extd_mmio_maps(0xfff0, node, 0, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
         add_extd_mmio_maps(0xfff0, node, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
+	if ((cpu_family(0xfff0, node) >> 16) == 0x15) {
+	    val = cht_read_config(node, NB_FUNC_HT, 0x68);
+	    if (val & (1<<12)) {
+		printf("Clearing ATMModeEn for node %d\n", node);
+		cht_write_config(node, NB_FUNC_HT, 0x68, val & ~(1<<12));
+		val = cht_read_config(node, NB_FUNC_MISC, 0x1b8);
+		cht_write_config(node, NB_FUNC_MISC, 0x1b8, val & ~(1<<27));
+	    }
+	    val = cht_read_config(node, 5, 0x88);
+	    if (!(val & (1<<9))) {
+		printf("Setting DisHintInHtMskCnt\n");
+		cht_write_config(node, 5, 0x88, val | (1<<9));
+	    }
+	}
     }
 
     cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,

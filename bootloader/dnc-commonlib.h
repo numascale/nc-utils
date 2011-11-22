@@ -41,6 +41,7 @@
 
 #define DRAM_MAP_SHIFT 24ULL
 
+int cpu_family(u16 scinode, u8 node);
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest);
 void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx);
 
