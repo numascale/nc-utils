@@ -241,7 +241,7 @@ static int install_e820_handler(void)
 
 	if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_node) {
 	    /* Adjust length to fit */
-	    orig_end = max_mem_per_node << DRAM_MAP_SHIFT;
+	    orig_end = (u64)max_mem_per_node << DRAM_MAP_SHIFT;
 	    orig_e820_map[i].length = orig_end - orig_e820_map[i].base;
 	}
 
@@ -287,7 +287,7 @@ static int install_e820_handler(void)
             j++;
         }
 
-	if ((orig_end < 0x100000000) &&
+	if ((orig_end < 0x100000000ULL) &&
 	    (orig_e820_map[i].length > TABLE_AREA_SIZE) &&
 	    (orig_e820_map[i].type == 1))
 	    last_32b = j-1;
