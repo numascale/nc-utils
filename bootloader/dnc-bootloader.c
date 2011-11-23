@@ -314,18 +314,27 @@ static int install_e820_handler(void)
 static void update_e820_map(void)
 {
     u64 prev_end, rest, buffer;
-    unsigned int i, j;
+    unsigned int i, j, max;
     struct e820entry *e820;
     u16 *len;
 
     e820 = (void *)REL(new_e820_map);
     len  = (u16 *)REL(new_e820_len);
 
-    /* Truncate to SCI 000/HT 0 end. Rest added below. */
-    e820[*len-1].length = ((u64)nc_node[0].ht[0].size << DRAM_MAP_SHIFT)
-	- e820[*len-1].base;
+    prev_end = 0;
+    max = 0;
+    for (i = 0; i < *len; i++) {
+	if (prev_end < e820[i].base + e820[i].length) {
+	    max = i;
+	    prev_end = e820[max].base + e820[max].length;
+	}
+    }
 
-    prev_end = e820[*len-1].base + e820[*len-1].length;
+    /* Truncate to SCI 000/HT 0 end. Rest added below. */
+    e820[max].length = ((u64)nc_node[0].ht[0].size << DRAM_MAP_SHIFT)
+	- e820[max].base;
+
+    prev_end = e820[max].base + e820[max].length;
     if (nc_node[0].nc_ht_id == 1) {
 	/* Truncate SCI 000/HT 0 to SCC ATT granularity if only HT
 	 * node on SCI 000.  Existing adjustment of ht_node_size
@@ -333,14 +342,14 @@ static void update_e820_map(void)
 	rest = prev_end & ((SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1);
 	if (rest) {
 	    printf("Deducting %x from e820 entry...\n", (u32)rest);
-	    e820[*len-1].length -= rest;
+	    e820[max].length -= rest;
 	    prev_end -= rest;
 	}
     }
 
 #ifdef TRACE_BUF_SIZE
-    if (e820[*len-1].length > TRACE_BUF_SIZE)
-	e820[*len-1].length -= TRACE_BUF_SIZE;
+    if (e820[max].length > TRACE_BUF_SIZE)
+	e820[max].length -= TRACE_BUF_SIZE;
 #endif
 
     buffer = 0;
