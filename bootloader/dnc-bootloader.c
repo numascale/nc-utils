@@ -1218,7 +1218,7 @@ static void renumber_remote_bsp(u16 num)
     
     for (i = 1; i <= maxnode; i++) {
 	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
-	if (val != 0x12001022) {
+	if ((val != 0x12001022) && (val != 0x16001022)) {
 	    fprintf(stderr,
 		    "[%04x#%x]F0x00 does not indicate an AMD Opteron CPU: 0x%08x\n",
 		    node, i, val);
