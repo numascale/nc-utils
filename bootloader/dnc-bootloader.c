@@ -883,6 +883,8 @@ static void setup_apic_atts(void)
     
     apic_shift = 1;
     while (apic_per_node > (1 << apic_shift)) apic_shift++;
+    if (apic_shift > 4)
+	apic_shift = 4;
     printf("Using apic shift: %d (%d)\n", apic_shift, apic_per_node);
     
     // Set APIC ATT for remote interrupts
@@ -899,14 +901,23 @@ static void setup_apic_atts(void)
 	}
 		    
 	for (dnode = 0; dnode < dnc_node_count; dnode++) {
+	    u16 cur, min, max;
+	    min = ~0;
+	    max = 0;
 	    for (ht = 0; ht < 8; ht++) {
 		if (!nc_node[dnode].ht[ht].cpuid)
 		    continue;
-		for (j = 0; j < nc_node[dnode].ht[ht].cores; j += (1<<apic_shift)) {
-		    u16 offs = 4 * ((nc_node[dnode].apic_offset + nc_node[dnode].ht[ht].apic_base + j) >> apic_shift);
-		    printf("Adding apic entry: %03x : %02x -> %03x\n", nc_node[i].sci_id, offs, nc_node[dnode].sci_id);
-		    dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + offs, nc_node[dnode].sci_id);
-		}
+		cur = nc_node[dnode].apic_offset + nc_node[dnode].ht[ht].apic_base;
+		if (min > cur)
+		    min = cur;
+		if (max < cur + nc_node[dnode].ht[ht].cores)
+		    max = cur + nc_node[dnode].ht[ht].cores;
+	    }
+	    min = min >> apic_shift;
+	    max = (max - 1) >> apic_shift;
+	    for (j = min; j <= max; j++) {
+		printf("Adding apic entry: %03x : %02x -> %03x\n", nc_node[i].sci_id, j*4, nc_node[dnode].sci_id);
+		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j*4, nc_node[dnode].sci_id);
 	    }
 	}
     }
