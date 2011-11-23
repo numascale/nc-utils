@@ -336,10 +336,8 @@ int tally_remote_node(u16 node)
 	}
 	else {
 	    val = dnc_read_conf(node, 0, 24+i, 5, 0x84);
-	    printf("F5x84: %08x\n", val);
 	    cur_node->ht[i].cores += val & 0xff;
 	    val = dnc_read_conf(node, 0, 24+i, 3, 0x190);
-	    printf("F3x190: %08x\n", val);
 	    while (val > 0) {
 		if (val & 1)
 		    cur_node->ht[i].cores--;
@@ -351,11 +349,6 @@ int tally_remote_node(u16 node)
         tot_cores += cur_node->ht[i].cores;
 	cur_apic += cur_node->ht[i].cores;
 	last = i;
-	printf("SCI%03x HT#%d: apic_base: %d, cores: %d, cur_apic: %d\n",
-	       cur_node->sci_id, i,
-	       cur_node->ht[i].apic_base,
-	       cur_node->ht[i].cores,
-	       cur_apic);
     }
 
     /* If rebased apicid[7:0] of last core is above a given threshold,
@@ -365,10 +358,6 @@ int tally_remote_node(u16 node)
 
     cur_node->apic_offset = ht_next_apic - cur_node->ht[0].apic_base;
     ht_next_apic = cur_node->apic_offset + cur_node->ht[last].apic_base + apic_per_node;
-
-    printf("SCI%03x: apic_offset: %d\n",
-	   cur_node->sci_id,
-	   cur_node->apic_offset);
 
     printf("ht_next_apic: %d\n", ht_next_apic);
 
