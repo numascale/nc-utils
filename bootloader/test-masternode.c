@@ -84,8 +84,6 @@ u8 post_apic_mapping[256]; /* POST APIC assigments */
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
 u8 nodedata[4096];
 
-#define DRAM_MAP_SHIFT 24
-
 int
 sci_fabric_setup(void)
 {
