@@ -241,6 +241,7 @@ static int install_e820_handler(void)
 
 	if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_node) {
 	    /* Adjust length to fit */
+	    printf("** Master node exceeds cachable memory range, clamping...\n");
 	    orig_end = (u64)max_mem_per_node << DRAM_MAP_SHIFT;
 	    orig_e820_map[i].length = orig_end - orig_e820_map[i].base;
 	}

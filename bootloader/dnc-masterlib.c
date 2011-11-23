@@ -67,7 +67,7 @@ extern int nc_neigh, nc_neigh_link;
 void tally_local_node(int enforce_alignment)
 {
     u32 val, base, limit, rest;
-    u16 i, max_ht_node, tot_cores;
+    u16 i, j, max_ht_node, tot_cores;
     u16 last = 0;
 
     nc_node[0].node_mem = 0;
@@ -121,6 +121,24 @@ void tally_local_node(int enforce_alignment)
 	    nc_node[0].ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
 	    nc_node[0].node_mem += nc_node[0].ht[i].size;
 	    last = i;
+	    if (nc_node[0].node_mem > max_mem_per_node) {
+		printf("** Node exceeds cachable memory range, clamping...\n");
+		nc_node[0].ht[i].size -= nc_node[0].node_mem - max_mem_per_node;
+		nc_node[0].node_mem = max_mem_per_node;
+		limit = nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1;
+
+		asm volatile("wbinvd" ::: "memory");
+		for (j = 0; j <= max_ht_node; j++) {
+		    if (j == dnc_master_ht_id)
+			continue;
+		    if (!nc_node[0].ht[j].cpuid)
+			continue;
+		    cht_write_config(j, NB_FUNC_MAPS, 0x44 + i*8, (limit << 16) |
+				     (cht_read_config(j, NB_FUNC_MAPS, 0x44 + i*8) & 0xffff));
+		}
+		cht_write_config(i, NB_FUNC_MAPS, 0x124, limit >> (27 - DRAM_MAP_SHIFT));
+		asm volatile("wbinvd" ::: "memory");
+	    }
 	}
 
 	/* Assume at least one core */
