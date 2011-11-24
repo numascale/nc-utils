@@ -2670,6 +2670,8 @@ void get_hostname(void)
     hostname = NULL;
 }
 
+extern char *gitlog_dnc_bootloader_sha;
+extern char *gitlog_dnc_bootloader_diff;
 int main(void)
 {
     u32 uuid;
@@ -2679,6 +2681,10 @@ int main(void)
     
     openconsole(&dev_rawcon_r, &dev_stdcon_w);
     get_hostname();
+
+    printf("*** NumaConnect system unification module starting, rev %.7s%s ***\n",
+	   gitlog_dnc_bootloader_sha, 
+	   (strlen(gitlog_dnc_bootloader_diff) > 0) ? " (modified)" : "");
 
     if (check_api_version() < 0)
         return -1;
@@ -2784,7 +2790,7 @@ int main(void)
             
             val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
             if ((val & (1<<31))) {
-                printf("Go-ahead seen, jumping to trampoline...\n");
+                printf("*** Go-ahead seen, joining system to master node ***\n");
                 break;
             }
 
