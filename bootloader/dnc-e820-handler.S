@@ -72,6 +72,15 @@ EXPORT(init_trampoline)
 	and	$~0x40000000, %eax
 	mov	%eax, %cr0
 
+	/* Copy old TOP_MEM value, set global value */
+	mov	$MSR_TOPMEM, %ecx
+	rdmsr
+	mov	%eax, %cs:SYM_OFFSET(rem_topmem_msr)
+	mov	%edx, %cs:SYM_OFFSET(rem_topmem_msr+4)
+	mov	%cs:SYM_OFFSET(new_topmem_msr), %eax
+	mov	%cs:SYM_OFFSET(new_topmem_msr+4), %edx
+	wrmsr
+
 	/* Set TOP_MEM2 */
 	mov	%cs:SYM_OFFSET(new_topmem2_msr), %eax
 	mov	%cs:SYM_OFFSET(new_topmem2_msr+4), %edx
@@ -162,11 +171,6 @@ EXPORT(init_trampoline)
 	or	$0x8000000, %eax
 	wrmsr
 
-	mov	$MSR_TOPMEM, %ecx
-	rdmsr
-	mov	%eax, %cs:SYM_OFFSET(rem_topmem_msr)
-	mov	%edx, %cs:SYM_OFFSET(rem_topmem_msr+4)
-
 	mov	$MSR_SMM_BASE, %ecx
 	rdmsr
 	mov	%eax, %cs:SYM_OFFSET(rem_smm_base_msr)
@@ -197,6 +201,8 @@ EXPORT(cpu_apic_renumber)
 EXPORT(cpu_apic_hi)
 	.byte 0
 EXPORT(new_mcfg_msr)
+	.long 0, 0
+EXPORT(new_topmem_msr)
 	.long 0, 0
 EXPORT(new_topmem2_msr)
 	.long 0, 0

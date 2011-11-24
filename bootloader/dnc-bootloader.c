@@ -84,6 +84,7 @@ IMPORT_RELOCATED(cpu_init_finished);
 IMPORT_RELOCATED(cpu_apic_renumber);
 IMPORT_RELOCATED(cpu_apic_hi);
 IMPORT_RELOCATED(new_mcfg_msr);
+IMPORT_RELOCATED(new_topmem_msr);
 IMPORT_RELOCATED(new_topmem2_msr);
 IMPORT_RELOCATED(new_e820_len);
 IMPORT_RELOCATED(new_e820_map);
@@ -1116,10 +1117,10 @@ static void setup_other_cores(void)
 	    }
 	    if (*REL(cpu_init_finished)) {
 		printf("apic %d reported done.\n", apicid);
-		val = *((u64 *)REL(rem_topmem_msr));
-		printf("remote topmem: %llx\n", val);
+		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
+		    printf("Adjusted topmem value from %llx to %llx.\n",
+			   *((u64 *)REL(rem_topmem_msr)), *((u64 *)REL(new_topmem_msr)));
 		val = *((u64 *)REL(rem_smm_base_msr));
-		printf("remote smm_base: %llx\n", val);
 		disable_smm_handler(val);
 	    }
 	    else {
@@ -1486,10 +1487,10 @@ static void setup_remote_cores(u16 num)
 
 	    if (*REL(cpu_init_finished)) {
 		printf("apic %d (%d) reported done.\n", apicid, oldid);
-		qval = *((u64 *)REL(rem_topmem_msr));
-		printf("remote topmem: %llx\n", qval);
+		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
+		    printf("Adjusted topmem value from %llx to %llx.\n",
+			   *((u64 *)REL(rem_topmem_msr)), *((u64 *)REL(new_topmem_msr)));
 		qval = *((u64 *)REL(rem_smm_base_msr));
-		printf("remote smm_base: %llx\n", qval);
 		disable_smm_handler(qval);
 	    }
 	    else {
@@ -2399,6 +2400,8 @@ static int unify_all_nodes(void)
     // Set TOPMEM2 for ourselves and other cores
     dnc_wrmsr(MSR_TOPMEM2, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
     *((u64 *)REL(new_topmem2_msr)) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
+    // Harmonize TOPMEM
+    *((u64 *)REL(new_topmem_msr)) = dnc_rdmsr(MSR_TOPMEM);
 
     debug_acpi();
     update_acpi_tables();
