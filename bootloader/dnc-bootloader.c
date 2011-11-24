@@ -2013,7 +2013,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (handle_command(cmd.state, &own_state, info, part))
 		do_restart = own_state != waitfor;
 	    if (do_restart)
-		printf("Command did not complete successfully on master (reason %d), resetting...\n", own_state);
+		printf("Command did not complete successfully on master (reason %s), resetting...\n",
+		       node_state_name[own_state]);
 
 	    nodedata[info->sciid] = 0x80;
 	    last_cmd = cmd.tid;
@@ -2042,8 +2043,9 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    if (ours) {
 		if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%s) entered %d\n",
-			       rsp.sciid, cfg_nodelist[i].desc, waitfor);
+			printf("Node 0x%03x (%s) entered %s\n",
+			       rsp.sciid, cfg_nodelist[i].desc,
+			       node_state_name[waitfor]);
 			nodedata[rsp.sciid] = 0x80;
 		    }
 		}
@@ -2105,10 +2107,12 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	    for (i = 0; i < cfg_nodes; i++)
 		nodedata[cfg_nodelist[i].sciid] &= 0x7f;
 
-	    printf("Transition to %d, desired response %d.\n", cmd.state, waitfor);
 	    cmd.tid++;
 	    count = 0;
 	    backoff = 1;
+
+	    printf("Issuing %s, desired response %s (tid = %d).\n",
+		   node_state_name[cmd.state], node_state_name[waitfor], cmd.tid);
 	}
     }
 }

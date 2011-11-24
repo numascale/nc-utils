@@ -50,6 +50,8 @@ int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-th
 int singleton = 0;
 int verbose = 0;
 
+const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
+
 // Structs to hold DIMM configuration from SPD readout.
 
 struct dimm_config {
@@ -2168,8 +2170,8 @@ void wait_for_master(struct node_info *info, struct part_info *part)
     backoff = 1;
     while (!go_ahead) {
 	if (++count >= backoff) {
-	    printf("Broadcasting state: %d, sciid: %03x, uuid = %d, tid = %d\n",
-                   rsp.state, rsp.sciid, rsp.uuid, rsp.tid);
+	    printf("Broadcasting state: %s (sciid: 0x%03x, uuid = %d, tid = %d)\n",
+                   node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
 	    udp_broadcast_state(handle, &rsp, sizeof(rsp));
 	    tsc_wait(100 * backoff);
 	    if (backoff < 32)

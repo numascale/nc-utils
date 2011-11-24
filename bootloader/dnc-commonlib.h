@@ -79,26 +79,31 @@ extern u16 shadow_rtblm[7][256];
 extern u16 shadow_rtblh[7][256];
 extern u16 shadow_ltbl[7][256];
 
-enum node_state {
-    CMD_STARTUP,
-    RSP_SLAVE_READY,
-    CMD_ENTER_RESET,
-    RSP_RESET_ACTIVE,
-    CMD_RELEASE_RESET,
-    RSP_PHY_TRAINED,
-    RSP_PHY_NOT_TRAINED,
-    CMD_VALIDATE_RINGS,
-    RSP_RINGS_OK,
-    RSP_RINGS_NOT_OK,
-    CMD_SETUP_FABRIC,
-    RSP_FABRIC_READY,
-    RSP_FABRIC_NOT_READY,
-    CMD_VALIDATE_FABRIC,
-    RSP_FABRIC_OK,
-    RSP_FABRIC_NOT_OK,
-    CMD_CONTINUE,
-    RSP_NONE,
-};
+#define NODE_SYNC_STATES(state) \
+    state(CMD_STARTUP) \
+    state(RSP_SLAVE_READY) \
+    state(CMD_ENTER_RESET) \
+    state(RSP_RESET_ACTIVE) \
+    state(CMD_RELEASE_RESET) \
+    state(RSP_PHY_TRAINED) \
+    state(RSP_PHY_NOT_TRAINED) \
+    state(CMD_VALIDATE_RINGS) \
+    state(RSP_RINGS_OK) \
+    state(RSP_RINGS_NOT_OK) \
+    state(CMD_SETUP_FABRIC) \
+    state(RSP_FABRIC_READY) \
+    state(RSP_FABRIC_NOT_READY) \
+    state(CMD_VALIDATE_FABRIC) \
+    state(RSP_FABRIC_OK) \
+    state(RSP_FABRIC_NOT_OK) \
+    state(CMD_CONTINUE) \
+    state(RSP_NONE)
+
+#define ENUM_DEF(state) state,
+#define ENUM_NAMES(state) #state,
+
+enum node_state { NODE_SYNC_STATES(ENUM_DEF) };
+extern const char* node_state_name[];
 
 struct state_bcast {
     enum node_state state;
