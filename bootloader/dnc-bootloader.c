@@ -2312,6 +2312,7 @@ static int unify_all_nodes(void)
     u64 val;
     u16 i;
     u16 node;
+    u8 abort = 0;
     volatile u32 *apic;
 
     val = dnc_rdmsr(MSR_APIC_BAR);
@@ -2328,12 +2329,26 @@ static int unify_all_nodes(void)
         printf("Unable to reach all nodes, retrying...\n");
 	return 0;
     }
-
-//    if (dnc_node_count <= 1) {
-//        printf("No remote nodes!\n");
-//        return 1;
-//    }
  
+    for (node = 0; node < dnc_node_count; node++) {
+	for (i = 0; i < 8; i++) {
+	    if (!nc_node[node].ht[i].cpuid)
+		continue;
+	    if ((cpu_family(nc_node[node].sci_id, i) >> 16) >= 0x15) {
+		val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, NB_FUNC_DRAM, 0x118);
+		if (val & (1<<19)) {
+		    printf("** [%04x#%d] has LockDramCfg set (F2x118 = 0x%08x), cannot continue.\n",
+			   nc_node[node].sci_id, i, val);
+		    abort = 1;
+		}
+	    }
+	}
+    }
+    if (abort) {
+	printf("   Please ensure that BIOS is not set to enable CState C6, then retry.\n");
+	return -1;
+    }
+
     // Set up local mapping registers etc. from 0 - master node max
     for (i = 0; i < dnc_master_ht_id; i++) {
 	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
@@ -2403,7 +2418,7 @@ static int unify_all_nodes(void)
 
     if (update_mtrr() < 0) {
         printf("Error updating MTRRs!\n");
-	return 1;
+	return -1;
     }
 
     // Set TOPMEM2 for ourselves and other cores
@@ -2755,7 +2770,7 @@ int main(void)
             return -1;
 
 	wait = 100;
-	while (!unify_all_nodes()) {
+	while ((i = unify_all_nodes()) == 0) {
 	    if (wait > 100000) {
 		wait = 100;
 	    }
@@ -2763,6 +2778,8 @@ int main(void)
 	    wait <<= 2;
 	    dnc_check_fabric(info);
 	}
+	if (i < 0)
+	    return -1;
 
         (void)dnc_check_mctr_status(0);
         (void)dnc_check_mctr_status(1);
