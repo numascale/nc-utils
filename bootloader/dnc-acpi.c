@@ -90,7 +90,7 @@ acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
 	}
 	memcpy(&table, &childp, sizeof(table));
 	if (!checksum_ok(table, table->len)) {
-	    printf("*** Bad table %p checksum %4s!\n", table, table->sig.s);
+	    printf("*** Bad table %p checksum %.4s!\n", table, table->sig.s);
 	    continue;
 	}
 
@@ -114,7 +114,7 @@ static int slack(acpi_sdt_p parent)
     for (i = 0; i*4 + sizeof(*rsdt) < rsdt->len; i++) {
 	acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
 	if (!checksum_ok(table, table->len)) {
-	    printf(" Bad table checksum %4s!\n", table->sig.s);
+	    printf(" Bad table checksum %.4s!\n", table->sig.s);
 	    continue;
 	}
 
@@ -127,7 +127,7 @@ static int slack(acpi_sdt_p parent)
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf(" Bad table checksum %4s!\n", dsdt->sig.s);
+		printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
 		continue;
 	    }
 
@@ -161,7 +161,7 @@ static int slack(acpi_sdt_p parent)
 	}
 	memcpy(&table, &childp, sizeof(table));
 	if (!checksum_ok(table, table->len)) {
-	    printf(" Bad table checksum %4s!\n", table->sig.s);
+	    printf(" Bad table checksum %.4s!\n", table->sig.s);
 	    continue;
 	}
 
@@ -174,7 +174,7 @@ static int slack(acpi_sdt_p parent)
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf(" Bad table checksum %4s!\n", dsdt->sig.s);
+		printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
 		continue;
 	    }
 
@@ -200,7 +200,7 @@ int replace_child(const char *sig, acpi_sdt_p new,
     acpi_sdt_p table;
 
     if (!checksum_ok(new, new->len)) {
-	printf("*** Bad new %4s table checksum!\n", sig);
+	printf("*** Bad new %.4s table checksum!\n", sig);
 	return 0;
     }
 
@@ -218,7 +218,7 @@ int replace_child(const char *sig, acpi_sdt_p new,
 	}
 	memcpy(&table, &childp, sizeof(table));
 	if (!checksum_ok(table, table->len)) {
-	    printf("*** Bad table %p checksum %4s!\n", table, table->sig.s);
+	    printf("*** Bad table %p checksum %.4s!\n", table, table->sig.s);
 	    continue;
 	}
 	if (table->sig.l == STR_DW_H(sig)) {
@@ -418,7 +418,7 @@ void debug_acpi(void)
     for (i = 0; i*4 + sizeof(*rsdt) < rsdt->len; i++) {
 	acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
 	if (!checksum_ok(table, table->len)) {
-	    printf(" Bad table checksum %4s!\n", table->sig.s);
+	    printf(" Bad table checksum %.4s!\n", table->sig.s);
 	    continue;
 	}
 
@@ -437,7 +437,7 @@ void debug_acpi(void)
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf(" Bad table checksum %4s!\n", dsdt->sig.s);
+		printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
 		continue;
 	    }
 	    
@@ -486,7 +486,7 @@ void debug_acpi(void)
 		acpi_sdt_p table;
 		memcpy(&table, &xsdt_entries[i], sizeof(table));
 		if (!checksum_ok(table, table->len)) {
-		    printf(" Bad table checksum %4s!\n", table->sig.s);
+		    printf(" Bad table checksum %.4s!\n", table->sig.s);
 		    continue;
 		}
 	
@@ -505,7 +505,7 @@ void debug_acpi(void)
 		    acpi_sdt_p dsdt;
 		    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 		    if (!checksum_ok(dsdt, dsdt->len)) {
-			printf(" Bad table checksum %4s!\n", dsdt->sig.s);
+			printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
 			continue;
 		    }
 
