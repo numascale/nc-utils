@@ -48,6 +48,7 @@ int disable_smm = 0;
 int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int singleton = 0;
+int verbose = 0;
 
 // Structs to hold DIMM configuration from SPD readout.
 
@@ -498,8 +499,9 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
 	    printf("add_extd_mmio_maps: index (%d) out of range for family 15h!\n", idx);
 	    return;
 	}
-	printf("[%03x#%d] Adding MMIO map #%d %016llx-%016llx to HT#%d\n",
-	       scinode, node, idx+8, start, end, dest);
+	if (verbose > 0)
+	    printf("[%03x#%d] Adding MMIO map #%d %016llx-%016llx to HT#%d\n",
+		   scinode, node, idx+8, start, end, dest);
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1a0 + idx * 8, 0);
 
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1c0 + idx * 4,
@@ -1129,14 +1131,16 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
 	if ((cpu_family(0xfff0, node) >> 16) == 0x15) {
 	    val = cht_read_config(node, NB_FUNC_HT, 0x68);
 	    if (val & (1<<12)) {
-		printf("Clearing ATMModeEn for node %d\n", node);
+		if (verbose > 0)
+		    printf("Clearing ATMModeEn for node %d\n", node);
 		cht_write_config(node, NB_FUNC_HT, 0x68, val & ~(1<<12));
 		val = cht_read_config(node, NB_FUNC_MISC, 0x1b8);
 		cht_write_config(node, NB_FUNC_MISC, 0x1b8, val & ~(1<<27));
 	    }
 	    val = cht_read_config(node, 5, 0x88);
 	    if (!(val & (1<<9))) {
-		printf("Setting DisHintInHtMskCnt\n");
+		if (verbose > 0)
+		    printf("Setting DisHintInHtMskCnt\n");
 		cht_write_config(node, 5, 0x88, val | (1<<9));
 	    }
 	}
@@ -1296,6 +1300,7 @@ static int parse_cmdline(const char *cmdline)
         {"renumber-bsp", &parse_int, &renumber_bsp},
         {"forwarding-mode", &parse_int, &forwarding_mode},
         {"singleton",   &parse_int, &singleton},
+	{"verbose",     &parse_int, &verbose},
         {"print-git-log", &print_git_log, NULL},
     };
     char arg[256];

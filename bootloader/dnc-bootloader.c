@@ -403,7 +403,6 @@ static void load_existing_apic_map(void)
 	if (srat->data[i] == 0) {
 	    struct acpi_core_affinity *af = 
 		(struct acpi_core_affinity *)&(srat->data[i]);
-	    printf("core%d apic_id: 0x%x\n", c, af->apic_id);
 	    post_apic_mapping[c] = af->apic_id;
 	    apic_used[af->apic_id >> 4] = 
 		apic_used[af->apic_id >> 4] | (1 << (af->apic_id & 0xf));
@@ -1295,7 +1294,8 @@ static void setup_remote_cores(u16 num)
     /* Map MMIO 0x00000000 - 0xffffffff to master node */
     for (j = 0; j < 0x1000; j++) {
         if ((j & 0xff) == 0) {
-            printf("setting remote mmio32 maps page %d...\n", j >> 8);
+	    if (verbose > 0)
+		printf("setting remote mmio32 maps page %d...\n", j >> 8);
             dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
         }
         dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4,
@@ -1579,8 +1579,9 @@ static void setup_local_mmio_maps(void)
 	/* This strips NP-bit. */
 	curbase = curbase & ~0xff;
 	curlim = curlim & ~0xff;
-	printf("CPU MMIO region #%d base: %08x, lim: %08x, dst: %04x\n",
-	       i, curbase, curlim, curdst);
+	if (verbose > 0)
+	    printf("CPU MMIO region #%d base: %08x, lim: %08x, dst: %04x\n",
+		   i, curbase, curlim, curdst);
 	if (curdst & 3) {
 	    int found = 0;
 	    int placed = 0;
@@ -1658,15 +1659,16 @@ static void setup_local_mmio_maps(void)
 	    }
 	}
     }
-    for (i = 0; i < 8; i++) {
-	printf("NC MMIO region #%d base: %08x, lim: %08x, dst: %04x\n", i, base[i], lim[i], dst[i]);
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
-    }
+    if (verbose > 0)
+	for (i = 0; i < 8; i++) {
+	    printf("NC MMIO region #%d base: %08x, lim: %08x, dst: %04x\n", i, base[i], lim[i], dst[i]);
+	    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+				H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+				H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+	    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+				H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+	}
 }
 
 static int read_file(const char *filename, void *buf, int bufsz)
@@ -2199,14 +2201,17 @@ static int update_mtrr(void)
     printf("MTRRs enabled.\n");
     printf("default type: %016llx\n", dnc_rdmsr(MSR_MTRR_DEFAULT));
 
-    for (i = 0; i < 11; i++)
-	printf("MTRR F%d: %016llx: %016llx\n", i, fixed_mtrr_base[i], dnc_rdmsr(fixed_mtrr_reg[i]));
+    if (verbose > 0) {
+	for (i = 0; i < 11; i++)
+	    printf("MTRR F%d: %016llx: %016llx\n", i, fixed_mtrr_base[i], dnc_rdmsr(fixed_mtrr_reg[i]));
 
-    for (i = 0; i < 8; i++)
-        printf("MTRR %d: %012llx - %012llx\n", 
-               i,
-               dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i*2),
-               dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i*2));
+	for (i = 0; i < 8; i++)
+	    printf("MTRR %d: %012llx - %012llx\n", 
+		   i,
+		   dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i*2),
+		   dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i*2));
+    }
+
     return 0;
 }
 
@@ -2403,10 +2408,12 @@ static int unify_all_nodes(void)
     // Harmonize TOPMEM
     *((u64 *)REL(new_topmem_msr)) = dnc_rdmsr(MSR_TOPMEM);
 
-    debug_acpi();
+    if (verbose > 0)
+	debug_acpi();
     update_acpi_tables();
     update_mptable();
-    debug_acpi();
+    if (verbose > 0)
+	debug_acpi();
 
     setup_local_mmio_maps();
 

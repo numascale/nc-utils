@@ -72,6 +72,7 @@ extern int sync_mode;
 extern char *microcode_path;
 extern int disable_smm;
 extern int renumber_bsp;
+extern int verbose;
 
 extern u16 shadow_rtbll[7][256];
 extern u16 shadow_rtblm[7][256];
