@@ -84,7 +84,7 @@ IMPORT_RELOCATED(cpu_init_finished);
 IMPORT_RELOCATED(cpu_apic_renumber);
 IMPORT_RELOCATED(cpu_apic_hi);
 IMPORT_RELOCATED(new_mcfg_msr);
-IMPORT_RELOCATED(new_topmem_msr);
+IMPORT_RELOCATED(new_topmem2_msr);
 IMPORT_RELOCATED(new_e820_len);
 IMPORT_RELOCATED(new_e820_map);
 IMPORT_RELOCATED(new_mpfp);
@@ -2398,7 +2398,7 @@ static int unify_all_nodes(void)
 
     // Set TOPMEM2 for ourselves and other cores
     dnc_wrmsr(MSR_TOPMEM2, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
-    *((u64 *)REL(new_topmem_msr)) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
+    *((u64 *)REL(new_topmem2_msr)) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
 
     debug_acpi();
     update_acpi_tables();

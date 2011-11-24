@@ -73,8 +73,8 @@ EXPORT(init_trampoline)
 	mov	%eax, %cr0
 
 	/* Set TOP_MEM2 */
-	mov	%cs:SYM_OFFSET(new_topmem_msr), %eax
-	mov	%cs:SYM_OFFSET(new_topmem_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_topmem2_msr), %eax
+	mov	%cs:SYM_OFFSET(new_topmem2_msr+4), %edx
 	mov	$MSR_TOPMEM2, %ecx
 	wrmsr
 
@@ -198,7 +198,7 @@ EXPORT(cpu_apic_hi)
 	.byte 0
 EXPORT(new_mcfg_msr)
 	.long 0, 0
-EXPORT(new_topmem_msr)
+EXPORT(new_topmem2_msr)
 	.long 0, 0
 EXPORT(new_mtrr_base)
 	.skip 8*8, 0
