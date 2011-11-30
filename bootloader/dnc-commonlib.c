@@ -48,6 +48,7 @@ int disable_smm = 0;
 int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int singleton = 0;
+int mem_offline = 0;
 int verbose = 0;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
@@ -1302,6 +1303,7 @@ static int parse_cmdline(const char *cmdline)
         {"renumber-bsp", &parse_int, &renumber_bsp},
         {"forwarding-mode", &parse_int, &forwarding_mode},
         {"singleton",   &parse_int, &singleton},
+	{"mem-offline", &parse_int, &mem_offline},
 	{"verbose",     &parse_int, &verbose},
         {"print-git-log", &print_git_log, NULL},
     };

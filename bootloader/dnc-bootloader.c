@@ -47,6 +47,7 @@
 #define REL(sym) ((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start))
 
 #define TABLE_AREA_SIZE		1024*1024
+#define MIN_NODE_MEM		256*1024*1024
 
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
 extern int nc_neigh, nc_neigh_link;
@@ -365,12 +366,18 @@ static void update_e820_map(void)
 
             e820[*len].base   = ((u64)nc_node[i].ht[j].base << DRAM_MAP_SHIFT) + buffer;
             e820[*len].length = ((u64)nc_node[i].ht[j].size << DRAM_MAP_SHIFT) - buffer;
-#ifdef TRACE_BUF_SIZE		
-	    if (e820[*len].length > TRACE_BUF_SIZE)
-		e820[*len].length -= TRACE_BUF_SIZE;
-#endif
             e820[*len].type   = 1;
-            prev_end = e820[*len].base + e820[*len].length;
+	    if (mem_offline && (i > 0)) {
+		if (e820[*len].length > MIN_NODE_MEM)
+		    e820[*len].length = MIN_NODE_MEM;
+	    }
+	    else {
+#ifdef TRACE_BUF_SIZE		
+		if (e820[*len].length > TRACE_BUF_SIZE)
+		    e820[*len].length -= TRACE_BUF_SIZE;
+#endif
+	    }
+	    prev_end = e820[*len].base + e820[*len].length;
             (*len)++;
 
 //            buffer = (buffer + 4096) % (1<<20);
