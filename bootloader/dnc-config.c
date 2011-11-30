@@ -152,9 +152,6 @@ static int parse_json(json_t *root)
             return 0;
         }
 
-	if (name_matching)
-	    printf("UUIDs omitted - falling back to name matching\n");
-
 	if (parse_json_num(obj, "sync-only", &val, 1))
 	    cfg_nodelist[i].sync_only = val;
 	else 
@@ -180,6 +177,10 @@ static int parse_json(json_t *root)
             return 0;
         }
     }
+
+    if (name_matching)
+        printf("UUIDs omitted - searching with hostname %s\n", hostname);
+
     return 1;
 }
 
@@ -267,6 +268,7 @@ struct node_info* get_node_config(u32 uuid)
 		return &cfg_nodelist[i];
 	}
     }
+    printf("error: failed to find node config\n");
     return NULL;
 }
 
