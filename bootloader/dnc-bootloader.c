@@ -316,7 +316,7 @@ static int install_e820_handler(void)
 
 static void update_e820_map(void)
 {
-    u64 prev_end, rest, buffer;
+    u64 prev_end, rest;
     unsigned int i, j, max;
     struct e820entry *e820;
     u16 *len;
@@ -350,12 +350,9 @@ static void update_e820_map(void)
 	}
     }
 
-#ifdef TRACE_BUF_SIZE
-    if (e820[max].length > TRACE_BUF_SIZE)
-	e820[max].length -= TRACE_BUF_SIZE;
-#endif
+    if ((trace_buf_size > 0) && (e820[max].length > (u64)trace_buf_size))
+	e820[max].length -= trace_buf_size;
 
-    buffer = 0;
     /* Add remote nodes */
     for (i = 0; i < dnc_node_count; i++) {
 	for (j = 0; j < 8; j++) {
@@ -364,23 +361,19 @@ static void update_e820_map(void)
 	    if (!nc_node[i].ht[j].cpuid)
 		continue;
 
-            e820[*len].base   = ((u64)nc_node[i].ht[j].base << DRAM_MAP_SHIFT) + buffer;
-            e820[*len].length = ((u64)nc_node[i].ht[j].size << DRAM_MAP_SHIFT) - buffer;
+            e820[*len].base   = ((u64)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
+            e820[*len].length = ((u64)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);
             e820[*len].type   = 1;
 	    if (mem_offline && (i > 0)) {
 		if (e820[*len].length > MIN_NODE_MEM)
 		    e820[*len].length = MIN_NODE_MEM;
 	    }
 	    else {
-#ifdef TRACE_BUF_SIZE		
-		if (e820[*len].length > TRACE_BUF_SIZE)
-		    e820[*len].length -= TRACE_BUF_SIZE;
-#endif
+		if ((trace_buf_size > 0) && (e820[*len].length > (u64)trace_buf_size))
+		    e820[*len].length -= trace_buf_size;
 	    }
 	    prev_end = e820[*len].base + e820[*len].length;
             (*len)++;
-
-//            buffer = (buffer + 4096) % (1<<20);
 	}
     }
 
@@ -581,11 +574,7 @@ static void update_acpi_tables(void) {
 		    lapic->len = 8;
 		    lapic->proc_id = pnum; /* ACPI Processor ID */
 		    lapic->apic_id = apicid; /* APIC ID */
-#ifdef APIC_ENABLE_MASK
-		    lapic->flags = APIC_ENABLE_MASK(pnum);
-#else
 		    lapic->flags = 1;
-#endif
 		    apic->len += lapic->len;
 		}
 		else {
@@ -596,11 +585,7 @@ static void update_acpi_tables(void) {
 		    x2apic->reserved1[1] = 0;
 		    x2apic->x2apic_id = apicid;
 		    x2apic->proc_uid = 0;
-#ifdef APIC_ENABLE_MASK
-		    x2apic->flags = APIC_ENABLE_MASK(pnum);
-#else
 		    x2apic->flags = 1;
-#endif
 		    apic->len += x2apic->len;
 		}
 		pnum++;
@@ -1507,38 +1492,6 @@ static void setup_remote_cores(u16 num)
     }
 }
 
-#if 0
-static void fix_legacy_mmio_maps(void)
-{
-    u8 node;
-    u32 val;
-    int i;
-    
-    for (node = 0; node < dnc_master_ht_id; node++) {
-        for (i = 0; i < 8; i++) {
-            val = cht_read_config(node, NB_FUNC_MAPS, 0x80 + i*8);
-            if (val & 2) {
-                // Set the non-posted bit to force non-posted requests
-                printf("Enablig the non-posted bit for HT#%d MMIO range %010llx - %010llx\n", node,
-                       ((u64)cht_read_config(node, NB_FUNC_MAPS, 0x80 + i*8) << 8) & 0xffffff0000ULL,
-                       ((u64)cht_read_config(node, NB_FUNC_MAPS, 0x84 + i*8) << 8) & 0xffffff0000ULL);
-                val = cht_read_config(node, NB_FUNC_MAPS, 0x84 + i*8);
-                cht_write_config(node, NB_FUNC_MAPS, 0x84 + i*8, val | (1<<7));
-            }
-        }
-#if !defined(USE_LOCAL_VGA)
-        // Apparently the HP DL165 modes can't handle non-posted writes to the VGA ports...
-        // Fix VGA enable register also, if in use
-        val = cht_read_config(node, NB_FUNC_MAPS, 0xf4);
-        if (val & 1) {
-            printf("Enablig the non-posted bit for HT#%d VGA range (0xA0000 - 0xBFFFF)\n", node);
-            cht_write_config(node, NB_FUNC_MAPS, 0xf4, val | (1<<1));
-        }
-#endif
-    }
-}
-#endif
-
 static void setup_local_mmio_maps(void)
 {
     int i, j, next;
@@ -2345,7 +2298,7 @@ static int unify_all_nodes(void)
 		val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, NB_FUNC_DRAM, 0x118);
 		if (val & (1<<19)) {
 		    printf("** [%04x#%d] has LockDramCfg set (F2x118 = 0x%08x), cannot continue.\n",
-			   nc_node[node].sci_id, i, val);
+			   nc_node[node].sci_id, i, (u32)val);
 		    abort = 1;
 		}
 	    }
@@ -2443,8 +2396,6 @@ static int unify_all_nodes(void)
 
     setup_local_mmio_maps();
 
-//    fix_legacy_mmio_maps();
-    
     setup_apic_atts();
 
     dnc_wrmsr(MSR_MCFG_BASE, DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL);

@@ -49,6 +49,7 @@ int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int singleton = 0;
 int mem_offline = 0;
+int trace_buf_size = 0;
 int verbose = 0;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
@@ -1286,26 +1287,27 @@ static int print_git_log(const char *val __attribute__((unused)),
 static int parse_cmdline(const char *cmdline) 
 {
     static struct optargs options[] = {
-        {"config",	&parse_string, &config_file_name},
-        {"next-label",	&parse_string, &next_label},
-        {"sync-mode",	&parse_int, &sync_mode},
-        {"init-only",	&parse_int, &init_only},
-        {"route-only",	&parse_int, &route_only},
-        {"disable-nc",	&parse_int, &disable_nc},
-        {"enablenbmce",	&parse_int, &enable_nbmce},
-        {"enablenbwdt",	&parse_int, &enable_nbwdt},
-        {"self-test",   &parse_int, &enable_selftest},
-        {"microcode",	&parse_string, &microcode_path},
-        {"ht-testmode",	&parse_int, &ht_testmode},
-	{"disable-pf",  &parse_int, &force_probefilteroff},
-        {"force-ganged", &parse_int, &force_ganged},
-        {"disable-smm", &parse_int, &disable_smm},
-        {"renumber-bsp", &parse_int, &renumber_bsp},
-        {"forwarding-mode", &parse_int, &forwarding_mode},
-        {"singleton",   &parse_int, &singleton},
-	{"mem-offline", &parse_int, &mem_offline},
-	{"verbose",     &parse_int, &verbose},
-        {"print-git-log", &print_git_log, NULL},
+        {"config",	    &parse_string, &config_file_name},
+        {"next-label",	    &parse_string, &next_label},
+        {"microcode",	    &parse_string, &microcode_path},
+        {"sync-mode",	    &parse_int,    &sync_mode},
+        {"init-only",	    &parse_int,    &init_only},
+        {"route-only",	    &parse_int,    &route_only},
+        {"disable-nc",	    &parse_int,    &disable_nc},
+        {"enablenbmce",	    &parse_int,    &enable_nbmce},
+        {"enablenbwdt",	    &parse_int,    &enable_nbwdt},
+        {"self-test",       &parse_int,    &enable_selftest},
+        {"ht-testmode",	    &parse_int,    &ht_testmode},
+        {"disable-pf",      &parse_int,    &force_probefilteroff},
+        {"force-ganged",    &parse_int,    &force_ganged},
+        {"disable-smm",     &parse_int,    &disable_smm},
+        {"renumber-bsp",    &parse_int,    &renumber_bsp},
+        {"forwarding-mode", &parse_int,    &forwarding_mode},
+        {"singleton",       &parse_int,    &singleton},
+        {"mem-offline",     &parse_int,    &mem_offline},
+        {"trace-buf",       &parse_int,    &trace_buf_size},
+        {"verbose",         &parse_int,    &verbose},
+        {"print-git-log",   &print_git_log, NULL},
     };
     char arg[256];
     int lstart, lend, aend, i;
@@ -1563,12 +1565,13 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
         if (!enable_nbwdt) val |= (1<<8);
         cht_write_config(i, NB_FUNC_MISC, 0x44, val);
 
-        // XXX: Disable DRAM scrubbing in case we want to do HT-Tracing
-        val = cht_read_config(i, NB_FUNC_MISC, 0x58);
-        if (val & 0x1f) {
-            printf("Disabling DRAM scrubber on HT#%d (F3x58=%08x)\n", i, val);
-            cht_write_config(i, NB_FUNC_MISC, 0x58, val & ~0x1f);
-        }
+	if (trace_buf_size > 0) {
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x58);
+	    if (val & 0x1f) {
+		printf("HT-Trace buffers allocated, disabling DRAM scrubber on HT#%d (F3x58=%08x)\n", i, val);
+		cht_write_config(i, NB_FUNC_MISC, 0x58, val & ~0x1f);
+	    }
+	}
 
 	if (asic_mode && (chip_rev < 2)) {
 	    // InstallStateS to avoid exclusive state
