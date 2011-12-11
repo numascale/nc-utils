@@ -49,7 +49,7 @@ int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int singleton = 0;
 int mem_offline = 0;
-int trace_buf_size = 0;
+u64 trace_buf_size = 0;
 int verbose = 0;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
@@ -1269,6 +1269,32 @@ static int parse_int(const char *val, void *intp)
     return 1;
 }
 
+static int parse_u64(const char *val, void *intp)
+{
+    if (val[0] != '\0') {
+	char *endptr;
+	u64 ret = strtoull(val, &endptr, 0);
+	switch (*endptr) {
+	    case 'G':
+	    case 'g':
+		ret <<= 10;
+	    case 'M':
+	    case 'm':
+		ret <<= 10;
+	    case 'K':
+	    case 'k':
+		ret <<= 10;
+		endptr++;
+	    default:
+		break;
+	}
+	*(u64 *)intp = ret;
+    }
+    else
+	*(u64 *)intp = 1;
+    return 1;
+}
+
 extern char *gitlog_dnc_bootloader_sha;
 extern char *gitlog_dnc_bootloader_diff;
 static int print_git_log(const char *val __attribute__((unused)),
@@ -1305,7 +1331,7 @@ static int parse_cmdline(const char *cmdline)
         {"forwarding-mode", &parse_int,    &forwarding_mode},
         {"singleton",       &parse_int,    &singleton},
         {"mem-offline",     &parse_int,    &mem_offline},
-        {"trace-buf",       &parse_int,    &trace_buf_size},
+        {"trace-buf",       &parse_u64,    &trace_buf_size},
         {"verbose",         &parse_int,    &verbose},
         {"print-git-log",   &print_git_log, NULL},
     };
@@ -1565,12 +1591,11 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
         if (!enable_nbwdt) val |= (1<<8);
         cht_write_config(i, NB_FUNC_MISC, 0x44, val);
 
-	if (trace_buf_size > 0) {
-	    val = cht_read_config(i, NB_FUNC_MISC, 0x58);
-	    if (val & 0x1f) {
-		printf("HT-Trace buffers allocated, disabling DRAM scrubber on HT#%d (F3x58=%08x)\n", i, val);
-		cht_write_config(i, NB_FUNC_MISC, 0x58, val & ~0x1f);
-	    }
+	// XXX: Disable DRAM sequential scrubbing. Optimally we should se the DramScrubAddrLo/Hi register correctly.
+	val = cht_read_config(i, NB_FUNC_MISC, 0x58);
+	if (val & 0x1f) {
+	    printf("Disabling DRAM sequential scrubbing on HT#%d (F3x58=%08x)\n", i, val);
+	    cht_write_config(i, NB_FUNC_MISC, 0x58, val & ~0x1f);
 	}
 
 	if (asic_mode && (chip_rev < 2)) {

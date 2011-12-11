@@ -350,7 +350,7 @@ static void update_e820_map(void)
 	}
     }
 
-    if ((trace_buf_size > 0) && (e820[max].length > (u64)trace_buf_size))
+    if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size))
 	e820[max].length -= trace_buf_size;
 
     /* Add remote nodes */
@@ -369,7 +369,7 @@ static void update_e820_map(void)
 		    e820[*len].length = MIN_NODE_MEM;
 	    }
 	    else {
-		if ((trace_buf_size > 0) && (e820[*len].length > (u64)trace_buf_size))
+		if ((trace_buf_size > 0) && (e820[*len].length > trace_buf_size))
 		    e820[*len].length -= trace_buf_size;
 	    }
 	    prev_end = e820[*len].base + e820[*len].length;
@@ -2191,7 +2191,7 @@ static void local_chipset_fixup(void)
     if (val == 0x43851002) {
 	printf("Adjusting local configuration of AMD SP5100...\n");
 	if (!disable_smm) {
-	    /* Disable config-space triggered SMI */
+	    // Disable config-space triggered SMI
 	    outb(0xa8, 0xcd6);
 	    val = inb(0xcd7);
 	    val = val & ~0x10;
