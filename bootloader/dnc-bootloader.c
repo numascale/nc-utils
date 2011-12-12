@@ -149,11 +149,9 @@ unsigned char sleep(unsigned int msec)
 }
 
 static void disable_xtpic(void) {
-    u8 dummy;
-
-    dummy = inb(PIC_MASTER_IMR);
+    inb(PIC_MASTER_IMR);
     outb(0xff, PIC_MASTER_IMR);
-    dummy = inb(PIC_SLAVE_IMR);
+    inb(PIC_SLAVE_IMR);
     outb(0xff, PIC_SLAVE_IMR);
 }
 
