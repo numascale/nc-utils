@@ -200,7 +200,7 @@ int parse_config_file(char *data)
 #ifdef DEBUG_CONFIG
     if (!root) printf("No json root????\n");
 #endif
-    if (root) {
+    if (err == JSON_OK && root) {
         if (parse_json(root)) {
 #ifdef DEBUG_CONFIG            
             int i;
