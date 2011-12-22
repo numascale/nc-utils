@@ -1562,9 +1562,6 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     } else { // ASIC Rev2 and FPGA
         val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
         dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1<<19)); // Enable WeakOrdering
-	// Unknown ERRATA: Disable CTag cache.
-	val = dnc_read_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR);
-	dnc_write_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<2));
     }
 
     if (asic_mode && (chip_rev < 2)) {
