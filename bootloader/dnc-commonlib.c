@@ -1895,9 +1895,9 @@ int dnc_setup_fabric(struct node_info *info)
 	if (cfg_fabric.strict)
 	    /* SCI IDs correspond to position on the rings */
 	    out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
-	else
-	    /* SCI IDs may not correspond; load-balance route */
-	    out += src & 1;
+//	else
+//	    /* SCI IDs may not correspond; load-balance route */
+//	    out += src & 1;
 
         printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
                info->sciid, cfg_nodelist[i].sciid, dim, out);
