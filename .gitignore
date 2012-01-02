@@ -1,0 +1,13 @@
+*.c32
+*.[oa]
+*.so
+*.elf
+*.o.d
+bootloader/auto-dnc-gitlog.c
+bootloader/json-1.3/
+bootloader/mjson-1.3.tar.gz
+bootloader/syslinux-3.86.tar.bz2
+bootloader/syslinux-3.86/
+bootloader/test-masternode
+bootloader/test-routing
+bootloader/test-slavenode
