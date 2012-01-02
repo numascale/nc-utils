@@ -1624,6 +1624,13 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	// need to disable it for Directed Probes. Ref email to AMD dated 4/28/2010.
 	val = cht_read_config(i, NB_FUNC_HT, 0x164);
 	cht_write_config(i, NB_FUNC_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
+
+	// Fix for IBS setup on certain BIOS'es and Linux. Set IBS to use LVT offset 1.
+	val = cht_read_config(i, NB_FUNC_MISC, 0x1cc);
+	if ((val & (1<<8)) && ((val & 0xf) == 0)) {
+	    printf("Enable IBS LVT Offset workaround, forcing to '1' on HT#%d)\n", i);
+	    cht_write_config(i, NB_FUNC_MISC, 0x1cc, (1<<8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
+	}
     }
     
     /* ====================== END ERRATA WORKAROUNDS ====================== */
