@@ -1253,7 +1253,7 @@ static void renumber_remote_bsp(u16 num)
 
 static void setup_remote_cores(u16 num)
 {
-    u8 i;
+    u8 i, map_index;
     u16 node = nc_node[num].sci_id;
     u8 ht_id = nc_node[num].nc_ht_id;
     nc_node_info_t *cur_node = &nc_node[num];
@@ -1336,6 +1336,7 @@ static void setup_remote_cores(u16 num)
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40,
                        (nc_node[0].ht[0].base << 16) | 3);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf0,  0);
+        // Clear all other entries for now (we'll get to them later)
         for (j = 1; j < 8; j++) {
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8, 0);
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8, 0);
@@ -1351,59 +1352,69 @@ static void setup_remote_cores(u16 num)
                        cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x124,
                        (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT));
-	val = dnc_read_conf(node, 0, 24+i, 2, 0x110);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x110);
 	if (val & 1) {
 	    /* Reprogram DCT base/offset values */
-	    dnc_write_conf(node, 0, 24+i, 2, 0x110, (val & ~0xfffff800) |
+	    dnc_write_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x110, (val & ~0xfffff800) |
 			   ((cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT)) << 11));
-	    dnc_write_conf(node, 0, 24+i, 2, 0x114, 
+	    dnc_write_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x114, 
 			   (cur_node->ht[i].base >> (26 - DRAM_MAP_SHIFT)) << 10);
 	    printf("[%03x#%d] F2x110: %08x, F2x114: %08x\n",
 		   node, i,
-		   dnc_read_conf(node, 0, 24+i, 2, 0x110),
-		   dnc_read_conf(node, 0, 24+i, 2, 0x114));
+		   dnc_read_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x110),
+		   dnc_read_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x114));
 	}
     }
 
-    for (i = 1; i < 8; i++) {
-	for (j = 0; j < 8; j++) {
-	    if (!cur_node->ht[j].cpuid)
-		continue;
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x44 + i*8, 0);
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x40 + i*8, 0);
-        }
-    }
-
     // Program our local ranges
-    for (i = 0; i < 8; i++) {
+    for (map_index = 0, i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
 	for (j = 0; j < 8; j++) {
 	    if (!cur_node->ht[j].cpuid)
 		continue;
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x4c + i*8,
+            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x4c + map_index*8,
                            ((cur_node->ht[i].base + cur_node->ht[i].size - 1) << 16) | i);
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x48 + i*8,
+            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x48 + map_index*8,
                            (cur_node->ht[i].base << 16) | 3);
         }
         dnc_write_conf(node, 0, 24+ht_id, NB_FUNC_MAPS, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX,
-                       i);
+                       map_index);
         dnc_write_conf(node, 0, 24+ht_id, NB_FUNC_MAPS, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
                        ((cur_node->ht[i].base + cur_node->ht[i].size - 1) << 8) | i);
         dnc_write_conf(node, 0, 24+ht_id, NB_FUNC_MAPS, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
                        (cur_node->ht[i].base << 8) | 3);
+        map_index++;
     }
 
     // Re-direct everything above our last local address (if any) to NumaChip
     if (num != dnc_node_count-1) {
-	for (j = 0; j < 8; j++) {
-	    if (!cur_node->ht[j].cpuid)
+	if (map_index > 6)
+	    printf("ERROR: too many DRAM maps on SCI%03x, cannot fit last overflow map\n", node);
+
+	for (i = 0; i < 8; i++) {
+	    if (!cur_node->ht[i].cpuid)
 		continue;
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x7c,
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x4c + map_index*8,
                            ((nc_node[dnc_node_count-1].addr_end - 1) << 16) | ht_id);
-            dnc_write_conf(node, 0, 24+j, NB_FUNC_MAPS, 0x78,
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x48 + map_index*8,
                            (cur_node->addr_end << 16) | 3);
         }
+    }
+
+    if (verbose > 0) {
+	for (i = 0; i < 8; i++) {
+	    if (!cur_node->ht[i].cpuid)
+		continue;
+	    for (j = 0; j < 8; j++) {
+		printf("SCI%03x/HT#%d dram base/limit[%d] %08x/%08x\n",
+		       node, i, j,
+		       dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8),
+		       dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8));
+		
+	    }
+	}
+
     }
 
     printf("%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
@@ -2286,6 +2297,20 @@ static int unify_all_nodes(void)
     if (!tally_all_remote_nodes()) {
         printf("Unable to reach all nodes, retrying...\n");
 	return 0;
+    }
+
+    if (verbose > 0) {
+	printf("Global memory map :\n");
+	for (node = 0; node < dnc_node_count; node++) {
+	    for (i = 0; i < 8; i++) {
+		if (!nc_node[node].ht[i].cpuid)
+		    continue;
+		printf("SCI%03x/HT#%d : %012llx - %012llx\n",
+		       node, i,
+		       (u64)nc_node[node].ht[i].base << DRAM_MAP_SHIFT,
+		       (u64)(nc_node[node].ht[i].base + nc_node[node].ht[i].size) << DRAM_MAP_SHIFT);
+	    }
+	}
     }
  
     for (node = 0; node < dnc_node_count; node++) {
