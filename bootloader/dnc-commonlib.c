@@ -1065,6 +1065,8 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
         dnc_ht_id = ht_fabric_find_nc(p_asic_mode, p_chip_rev);
         if (dnc_ht_id < 0) {
             printf("NumaChip not found.\n");
+            *p_asic_mode = -1;
+            *p_chip_rev = -1;
             return -1;
         }
         printf("NumaChip incorporated as HT node %d\n", dnc_ht_id);
