@@ -109,11 +109,12 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
 	return -1;
     }
 
-    ((u32 *)mdata)[0] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 72)); // Read SPD location 72, 73, 74, 75
-    ((u32 *)mdata)[1] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 76)); // Read SPD location 76, 77, 78, 79
-    ((u32 *)mdata)[2] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 80)); // Read SPD location 80, 81, 82, 83
-    ((u32 *)mdata)[3] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 84)); // Read SPD location 84, 85, 86, 87
-    ((u32 *)mdata)[4] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 88)); // Read SPD location 88, 89, 90, 91
+    u32 *mdataw = (u32 *)mdata;
+    mdataw[0] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 72)); // Read SPD location 72, 73, 74, 75
+    mdataw[1] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 76)); // Read SPD location 76, 77, 78, 79
+    mdataw[2] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 80)); // Read SPD location 80, 81, 82, 83
+    mdataw[3] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 84)); // Read SPD location 84, 85, 86, 87
+    mdataw[4] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 88)); // Read SPD location 88, 89, 90, 91
 
     mdata[19] = 0;
     printf("%s is a %s module (x%d, %d MByte)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1<<(addr_bits - 14));
