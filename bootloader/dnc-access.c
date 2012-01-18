@@ -168,8 +168,8 @@ void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect)
     int i, errors = 0;
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG) {
-	printf("Testing HT link (4s timeout)...");
-	watchdog_run(400); /* reset if read hangs due to unstable link */
+	printf("Testing HT link (5s timeout)...");
+	watchdog_run(500); /* reset if read hangs due to unstable link */
     } else
 	printf("Testing HT link...");
 
