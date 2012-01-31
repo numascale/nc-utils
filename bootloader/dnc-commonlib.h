@@ -22,6 +22,12 @@
 #include "dnc-types.h"
 #include "dnc-config.h"
 
+#define ASSERT(cond) do { if (!(cond)) {				\
+	    printf("%s(%d): assert (%s) failed!\n",			\
+		   __FUNCTION__, __LINE__,				\
+		   #cond);						\
+	   } } while (0)
+
 #define disable_cache() do { \
     asm volatile("wbinvd\n" \
 	"mov %%cr0, %%eax\n" \
@@ -38,6 +44,9 @@
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
+
+#define PRInode "node 0x%03x (%s)"
+#define nodestr_offset(x) cfg_nodelist[x].sciid, cfg_nodelist[x].desc
 
 #define DRAM_MAP_SHIFT 24ULL
 
