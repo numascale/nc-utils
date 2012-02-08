@@ -1388,14 +1388,14 @@ static int perform_selftest(int asic_mode)
     u32 val;
 
     res = 0;
-    printf("Performing self test");
+    printf("Performing self test: ");
 
     for (pass=0; pass<10 && res==0; pass++) {
         const u16 maxchunk = asic_mode ? 16 : 1; // On FPGA all these rams are reduced in size
         int i, chunk;
 
         // Test PCII/O ATT
-        printf(".");
+        printf("1");
         dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000000);
         for (i = 0; i < 256; i++) {
             dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, i);
@@ -1413,7 +1413,7 @@ static int perform_selftest(int asic_mode)
         if (asic_mode) {
             // XXX: MMIO32 ATT has a slightly different layout on FPGA, so we just skip it for now..
             // Test MMIO32 ATT
-            printf(".");
+            printf("2");
             for (chunk = 0; chunk < maxchunk; chunk++) {
                 dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
                 for (i = 0; i < 256; i++) {
@@ -1435,7 +1435,7 @@ static int perform_selftest(int asic_mode)
         if (res < 0) break;
 
         // Test APIC ATT
-        printf(".");
+        printf("3");
         for (chunk = 0; chunk < maxchunk; chunk++) {
             dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | chunk);
             for (i = 0; i < 256; i++) {
@@ -1456,7 +1456,7 @@ static int perform_selftest(int asic_mode)
         if (res < 0) break;
 
         // Test IntRecNode ATT
-        printf(".");
+        printf("4");
         for (chunk = 0; chunk < maxchunk; chunk++) {
             dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000040 | chunk);
             for (i = 0; i < 256; i++) {
@@ -1477,7 +1477,7 @@ static int perform_selftest(int asic_mode)
         if (res < 0) break;
         
         // Test SCC routing tables, no readback verify
-        printf(".");
+        printf("5");
         for (chunk = 0; chunk < maxchunk; chunk++) {
             dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
             for (i = 0; i < 16; i++) {
@@ -1487,7 +1487,7 @@ static int perform_selftest(int asic_mode)
             }
         }
 
-        printf("PASS%d", pass);
+        printf("-PASS%d ", pass);
     }
     printf("\nSelftest %s\n", (res==0) ? "PASSED" : "FAILED");
 

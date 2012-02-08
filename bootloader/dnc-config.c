@@ -37,7 +37,7 @@ static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: label <%s> not found!\n", label);
+	    printf("** parse error: (PJB) label <%s> not found!\n", label);
         return 0;
     }
     if (item->child->type == JSON_TRUE) {
@@ -47,7 +47,7 @@ static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
         *val = 0;
     }
     else {
-        printf("** parse error: label <%s> has bad type (%d)!\n",
+        printf("** parse error: (PJB) label <%s> has bad type (%d)!\n",
                label, item->child->type);
         return 0;
     }
@@ -63,7 +63,7 @@ static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: label <%s> not found!\n", label);
+	    printf("** parse error: (PJN) label <%s> not found!\n", label);
         return 0;
     }
     if (item->child->type == JSON_NUMBER) {
@@ -73,13 +73,13 @@ static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
         *val = strtol(item->child->text, &end, 0);
     }
     else {
-        printf("** parse error: label <%s> has bad type (%d)!\n",
+        printf("** parse error: (PJN) label <%s> has bad type (%d)!\n",
                label, item->child->type);
         return 0;
     }
 
     if (end[0] != '\0') {
-        printf("** parse error: label <%s> value bad format!\n", label);
+        printf("** parse error: (PJN) label <%s> value bad format!\n", label);
         *val = -1;
         return 0;
     }
@@ -93,7 +93,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: label <%s> not found!\n", label);
+	    printf("** parse error: (PJS) label <%s> not found!\n", label);
         return 0;
     }
     if (item->child->type == JSON_STRING) {
@@ -101,7 +101,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
         val[len-1] = '\0';
     }
     else {
-        printf("** parse error: label <%s> has bad type (%d)!\n",
+        printf("** parse error: (PJS) label <%s> has bad type (%d)!\n",
                label, item->child->type);
         return 0;
     }
@@ -116,7 +116,7 @@ static int parse_json(json_t *root)
 
     fab = json_find_first_label(root, "fabric");
     if (!fab) {
-        printf("** parse error: object <fabric> not found!\n");
+        printf("** parse error: (PJ) object <fabric> not found!\n");
         return 0;
     }
     if (!(parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0) &&
@@ -129,7 +129,7 @@ static int parse_json(json_t *root)
 
     list = json_find_first_label(fab->child, "nodes");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("** parse error: array <nodes> not found!\n");
+        printf("** parse error: (PJ) array <nodes> not found!\n");
         return 0;
     }
 
@@ -152,6 +152,9 @@ static int parse_json(json_t *root)
             return 0;
         }
 
+	if (name_matching)
+	    printf("UUIDs omitted - falling back to name matching\n");
+
 	if (parse_json_num(obj, "sync-only", &val, 1))
 	    cfg_nodelist[i].sync_only = val;
 	else 
@@ -160,7 +163,7 @@ static int parse_json(json_t *root)
 
     list = json_find_first_label(fab->child, "partitions");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("** parse error: array <paritions> not found!\n");
+        printf("** parse error: (PJ) array <paritions> not found!\n");
         free(cfg_nodelist);
         return 0;
     }
@@ -177,9 +180,6 @@ static int parse_json(json_t *root)
             return 0;
         }
     }
-
-    if (name_matching)
-        printf("UUIDs omitted - searching with hostname %s\n", hostname);
 
     return 1;
 }

@@ -131,7 +131,7 @@ void tsc_wait(u32 mticks) {
 void wait_key(void)
 {
     char ch;
-    printf("... (press any key to continue) ... ");
+    printf("... ( press any key to continue ) ... ");
     while (fread(&ch, 1, 1, stdin) == 0)
         ;
     printf("\n");
@@ -1929,7 +1929,7 @@ int udp_read_state(int handle __attribute__((unused)),
 
 static void wait_status(void)
 {
-    printf("waiting for");
+    printf("Waiting for");
 
     /* skip first node */
     for (int i = 1; i < cfg_nodes; i++)
@@ -2668,6 +2668,17 @@ void get_hostname(void)
 
 extern char *gitlog_dnc_bootloader_sha;
 extern char *gitlog_dnc_bootloader_diff;
+
+#define ERR_API_VERSION            -1
+#define ERR_MASTER_HT_ID           -2
+#define ERR_NODE_CONFIG            -3
+#define ERR_PARTITION_CONFIG       -4
+#define ERR_DNC_SETUP_FABRIC       -5
+#define ERR_INIT_CACHES            -6
+#define ERR_INSTALL_E820_HANDLER   -7
+#define ERR_UNIFY_ALL_NODES        -8 
+#define ERR_GENERAL_NC_START_ERROR -9
+
 int nc_start(void)
 {
     u32 uuid;
@@ -2678,7 +2689,7 @@ int nc_start(void)
     get_hostname();
 
     if (check_api_version() < 0)
-        return -1;
+        return ERR_API_VERSION;
 
     /* Only in effect on core0, but only required for 32-bit code. */
     set_wrap32_disable();
@@ -2689,15 +2700,15 @@ int nc_start(void)
 	start_user_os();
 
     if (dnc_master_ht_id < 0)
-        return -1;
+        return ERR_MASTER_HT_ID;
 
     info = get_node_config(uuid);
     if (!info)
-        return -1;
+        return ERR_NODE_CONFIG;
 
     part = get_partition_config(info->partition);
     if (!part)
-        return -1;
+        return ERR_PARTITION_CONFIG;
 
     /* Copy this into NC ram so its available remotely */
     load_existing_apic_map();
@@ -2714,7 +2725,7 @@ int nc_start(void)
 	printf("Sync mode disabled...\n"); 
 
 	if (dnc_setup_fabric(info) < 0)
-            return -1;
+            return ERR_DNC_SETUP_FABRIC;
     }
 
     /* Must run after SCI is operational */
@@ -2726,7 +2737,7 @@ int nc_start(void)
     }
 
     if (dnc_init_caches() < 0)
-        return -1;
+        return ERR_INIT_CACHES;
 
     if (part->master == info->sciid) {
         int i;
@@ -2743,7 +2754,7 @@ int nc_start(void)
 
 	load_orig_e820_map();
         if (!install_e820_handler())
-            return -1;
+            return ERR_INSTALL_E820_HANDLER;
 
 	wait = 100;
 	while ((i = unify_all_nodes()) == 0) {
@@ -2755,7 +2766,7 @@ int nc_start(void)
 	    dnc_check_fabric(info);
 	}
 	if (i < 0)
-	    return -1;
+	    return ERR_UNIFY_ALL_NODES;
 
         (void)dnc_check_mctr_status(0);
         (void)dnc_check_mctr_status(1);
@@ -2802,7 +2813,7 @@ int nc_start(void)
         }
     }
 
-    return -1;
+    return ERR_GENERAL_NC_START_ERROR;
 }
 
 int main(void)
@@ -2815,6 +2826,10 @@ int main(void)
 
     ret = nc_start();
     if (ret < 0)
+      {
+	printf("ERROR! nc_start() failed with error code %d!\n", ret);
+	printf("Please check configuration files and HW (e.g. UUID etc.");
 	wait_key();
+      }
     return ret;
 }
