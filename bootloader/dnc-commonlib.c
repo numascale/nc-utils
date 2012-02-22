@@ -41,6 +41,7 @@ int init_only = 0;
 int route_only = 0;
 int enable_nbmce = 0;
 int enable_nbwdt = 0;
+int disable_sram = 0;
 int enable_selftest = 1;
 int force_probefilteroff = 0;
 int force_ganged = 0;
@@ -68,6 +69,11 @@ u32 max_mem_per_node;
 
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; // 0 - MCTag, 1 - CData
+
+int check_sram_option(void)
+{
+  return disable_sram;
+}
 
 static int read_spd_info(int cdata, struct dimm_config *dimm)
 {
@@ -405,6 +411,7 @@ int dnc_init_caches(void) {
 
         if (cdata) {
             printf("Setting RCache size to %d GByte\n", 1<<mem_size);
+			
             // Set the cache size in HReq and MIU
             val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
             dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3<<26)) | ((mem_size-1)<<26)); // [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB
@@ -413,43 +420,54 @@ int dnc_init_caches(void) {
     }
 
     // Special FPGA considerations for Ftag SRAM
-    if (!dnc_asic_mode)  {
-	if ((dnc_chip_rev>>16) < 6233) {
-	    printf("Disabling FTag SRAM\n");
-	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
-	} else {
-	    printf("FPGA Revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
-	}
-    } else {
-        // ASIC
-	if (dnc_chip_rev < 2) {
-	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
-	    if (((val >> 24) & 0xff) != 0x3f)
-		printf("Waiting for SRAM clock calibration!\n");
-	    while (((val >> 24) & 0xff) != 0x3f) {
-		tsc_wait(100);
-		if ((val & 0xc000000) != 0) {
-		    printf("SRAM clock calibration overflow detected (%08x)!\n", val);
-		    return -1;
+    if (!dnc_asic_mode) {
+		if ((dnc_chip_rev>>16) < 6233) {
+			printf("Disabling FTag SRAM\n");
+			dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
+		} else {
+			printf("FPGA Revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
 		}
-	    }
-	    printf("SRAM clock calibration complete!\n");
-	    // Zero out FTag SRAM
-	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
-	    while (1) { 
-		tsc_wait(100);
-		val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
-		if ((val & 1) == 0)
-		    break;
-	    }
-	    printf("Enabling FTag SRAM\n");
-	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
 	} else {
-	    printf("ASIC Revision %d detected, no FTag SRAM\n", dnc_chip_rev);
-	}
-    }
 
-    return 0;
+		// Only execute all the code below if SRAM is not disabled (*!* Make function of this)
+		if(check_sram_option() != 1)
+		{
+			// ASIC
+			if (dnc_chip_rev < 2) {
+				val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
+
+				if (((val >> 24) & 0xff) != 0x3f)
+					printf("Waiting for SRAM clock calibration!\n");
+				
+				while (((val >> 24) & 0xff) != 0x3f) {
+					tsc_wait(100);
+					if ((val & 0xc000000) != 0) {
+						printf("SRAM clock calibration overflow detected (%08x)!\n", val);
+						return -1;
+					}
+				}
+				printf("SRAM clock calibration complete!\n");
+
+				// Zero out FTag SRAM
+				dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
+				while (1) { 
+					tsc_wait(100);
+					val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
+					if ((val & 1) == 0)
+						break;
+				}
+				printf("Enabling FTag SRAM\n");
+				dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
+			} else {
+				printf("ASIC Revision %d detected, no FTag SRAM\n", dnc_chip_rev);
+			}
+		} else {
+			printf("No SRAM will be initialized!\n");
+			dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
+		}
+	}
+
+	return 0;
 }
 
 int cpu_family(u16 scinode, u8 node)
@@ -1325,6 +1343,7 @@ static int parse_cmdline(const char *cmdline)
         {"disable-nc",	    &parse_int,    &disable_nc},
         {"enablenbmce",	    &parse_int,    &enable_nbmce},
         {"enablenbwdt",	    &parse_int,    &enable_nbwdt},
+		{"disablesram", &parse_int, &disable_sram},
         {"self-test",       &parse_int,    &enable_selftest},
         {"ht-testmode",	    &parse_int,    &ht_testmode},
         {"disable-pf",      &parse_int,    &force_probefilteroff},
