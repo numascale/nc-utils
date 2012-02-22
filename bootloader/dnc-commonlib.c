@@ -1900,10 +1900,11 @@ int dnc_setup_fabric(struct node_info *info)
             dst >>= 4;
         }
         out = dim * 2 + 1;
+	out += ((src ^ dst) & 0x1); // load balance pairs
 
-	if (cfg_fabric.strict)
-	    /* SCI IDs correspond to position on the rings */
-	    out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
+//	if (cfg_fabric.strict)
+//	    /* SCI IDs correspond to position on the rings */
+//	    out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
 //	else
 //	    /* SCI IDs may not correspond; load-balance route */
 //	    out += src & 1;
