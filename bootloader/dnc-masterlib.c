@@ -173,7 +173,7 @@ void tally_local_node(int enforce_alignment)
 
     printf("ht_next_apic: %d\n", ht_next_apic);
 
-    printf("%2d CPU cores and %2d GBytes of memory found in SCI node %03x\n",
+    printf("%2d CPU cores and %2d GBytes of memory and I/O maps found in SCI node %03x\n",
            tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 
     dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
