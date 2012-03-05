@@ -21,7 +21,5 @@
 
 #define DEBUG_TRAMP 0
 
-/* If defined accesses to the VGA regions are always local */
-#define USE_LOCAL_VGA 1
 
 #endif

@@ -41,7 +41,8 @@ int init_only = 0;
 int route_only = 0;
 int enable_nbmce = 0;
 int enable_nbwdt = 0;
-int disable_sram = 0;
+static int disable_sram = 0;
+int enable_vga_redir = 0;
 int enable_selftest = 1;
 int force_probefilteroff = 0;
 int force_ganged = 0;
@@ -70,10 +71,6 @@ u32 max_mem_per_node;
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; // 0 - MCTag, 1 - CData
 
-int check_sram_option(void)
-{
-  return disable_sram;
-}
 
 static int read_spd_info(int cdata, struct dimm_config *dimm)
 {
@@ -287,6 +284,42 @@ u32 dnc_check_mctr_status(int cdata)
     return val;
 }
 
+int dnc_initialize_sram(void) {
+    u32 val;
+    
+    // ASIC
+    if (dnc_chip_rev < 2) {
+	val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
+
+	if (((val >> 24) & 0xff) != 0x3f)
+	    printf("Waiting for SRAM clock calibration!\n");
+	
+	while (((val >> 24) & 0xff) != 0x3f) {
+	    tsc_wait(100);
+	    if ((val & 0xc000000) != 0) {
+		printf("SRAM clock calibration overflow detected (%08x)!\n", val);
+		return -1;
+	    }
+	}
+	printf("SRAM clock calibration complete!\n");
+
+	// Zero out FTag SRAM
+	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
+	while (1) { 
+	    tsc_wait(100);
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
+	    if ((val & 1) == 0)
+		break;
+	}
+	printf("Enabling FTag SRAM\n");
+	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
+    } else {
+	    printf("ASIC Revision %d detected, no FTag SRAM\n", dnc_chip_rev);
+    }
+
+    return 0;
+}
+
 int dnc_init_caches(void) {
     u32 val;
     int cdata;
@@ -419,52 +452,23 @@ int dnc_init_caches(void) {
         }
     }
 
-    // Special FPGA considerations for Ftag SRAM
-    if (!dnc_asic_mode) {
-		if ((dnc_chip_rev>>16) < 6233) {
-			printf("Disabling FTag SRAM\n");
-			dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
-		} else {
-			printf("FPGA Revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
-		}
+    // Initialize SRAM
+    if (!dnc_asic_mode) { // Special FPGA considerations for Ftag SRAM
+	    if ((dnc_chip_rev>>16) < 6233) {
+		printf("Disabling FTag SRAM\n");
+		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  // Disable SRAM on NC
+	    } else {
+		printf("FPGA Revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
+	    }
 	} else {
-
-		// Only execute all the code below if SRAM is not disabled (*!* Make function of this)
-		if(check_sram_option() != 1)
-		{
-			// ASIC
-			if (dnc_chip_rev < 2) {
-				val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
-
-				if (((val >> 24) & 0xff) != 0x3f)
-					printf("Waiting for SRAM clock calibration!\n");
-				
-				while (((val >> 24) & 0xff) != 0x3f) {
-					tsc_wait(100);
-					if ((val & 0xc000000) != 0) {
-						printf("SRAM clock calibration overflow detected (%08x)!\n", val);
-						return -1;
-					}
-				}
-				printf("SRAM clock calibration complete!\n");
-
-				// Zero out FTag SRAM
-				dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
-				while (1) { 
-					tsc_wait(100);
-					val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
-					if ((val & 1) == 0)
-						break;
-				}
-				printf("Enabling FTag SRAM\n");
-				dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
-			} else {
-				printf("ASIC Revision %d detected, no FTag SRAM\n", dnc_chip_rev);
-			}
-		} else {
-			printf("No SRAM will be initialized!\n");
-			dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);
-		}
+	    // We are on ASIC, default initailize SRAM if not disable_sram is set
+	    if(!disable_sram) {
+		if((val=dnc_initialize_sram())<0)
+		    return val;
+	    } else {
+		printf("No SRAM will be initialized!\n");
+		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  // Disable SRAM on NC
+	    }
 	}
 
 	return 0;
@@ -1334,24 +1338,25 @@ static int print_git_log(const char *val __attribute__((unused)),
 static int parse_cmdline(const char *cmdline) 
 {
     static struct optargs options[] = {
-        {"config",	    &parse_string, &config_file_name},
-        {"next-label",	    &parse_string, &next_label},
-        {"microcode",	    &parse_string, &microcode_path},
-        {"sync-mode",	    &parse_int,    &sync_mode},
-        {"init-only",	    &parse_int,    &init_only},
+        {"config",	    &parse_string, &config_file_name},// Config (JSON) file to use
+        {"next-label",	    &parse_string, &next_label},      // Next PXELINUX label to boot after loader
+        {"microcode",	    &parse_string, &microcode_path},  // Path to microcode to be loaded into chip
+        {"sync-mode",	    &parse_int,    &sync_mode},       // Use network supported syncronization
+        {"init-only",	    &parse_int,    &init_only},       // Only initialize chip, but then load <nest-label> without setting up a full system
         {"route-only",	    &parse_int,    &route_only},
-        {"disable-nc",	    &parse_int,    &disable_nc},
-        {"enablenbmce",	    &parse_int,    &enable_nbmce},
-        {"enablenbwdt",	    &parse_int,    &enable_nbwdt},
-		{"disablesram", &parse_int, &disable_sram},
+        {"disable-nc",	    &parse_int,    &disable_nc},      // Disable the HT link to NumaChip
+        {"enablenbmce",	    &parse_int,    &enable_nbmce},    // Enable northbridge MCE (will be disabled by default)
+        {"enablenbwdt",	    &parse_int,    &enable_nbwdt},    // Enbale northbridge WDT (will be disabled by default)
+        {"disable-sram",    &parse_int,    &disable_sram},    // Disable SRAM chip, needed for newer cards without SRAM
+        {"enable-vga",	    &parse_int,    &enable_vga_redir},// Enable redirect of VGA to master, known issue with this on HP DL165 (default disable)
         {"self-test",       &parse_int,    &enable_selftest},
         {"ht-testmode",	    &parse_int,    &ht_testmode},
-        {"disable-pf",      &parse_int,    &force_probefilteroff},
+        {"disable-pf",      &parse_int,    &force_probefilteroff},  // Disable probefilter (HT Assist)
         {"force-ganged",    &parse_int,    &force_ganged},
         {"disable-smm",     &parse_int,    &disable_smm},
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
         {"forwarding-mode", &parse_int,    &forwarding_mode},
-        {"singleton",       &parse_int,    &singleton},
+        {"singleton",       &parse_int,    &singleton},       // Loopback test with cables
         {"mem-offline",     &parse_int,    &mem_offline},
         {"trace-buf",       &parse_u64,    &trace_buf_size},
         {"verbose",         &parse_int,    &verbose},
@@ -1536,6 +1541,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     if ((disable_nc > 0) && (init_only > 0))
         return -2;
 
+    /* Indicate immediate jump to next-label (-2) if route_only issued. */
     if (route_only > 0)
         return -2;
 

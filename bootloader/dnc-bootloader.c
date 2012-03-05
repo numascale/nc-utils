@@ -1317,12 +1317,14 @@ static void setup_remote_cores(u16 num)
         }
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x8c, 0x00ffff00 | ht_id);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x88, tom | 3);
-#if !defined(USE_LOCAL_VGA)
-        // Apparently the HP DL165 modes can't handle non-posted writes to the VGA ports...
-        /* Make sure the VGA Enable register is disabled to forward VGA transactions
-           (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
-        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf4, 0x0);
-#endif
+    
+	// Enable redirect of VGA to master, default disable where local cores will access local VGA on each node
+        if (enable_vga_redir) {
+            // Apparently the HP DL165 modes can't handle non-posted writes to the VGA ports...
+            /* Make sure the VGA Enable register is disabled to forward VGA transactions
+               (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf4, 0x0);
+        }
     }
 
     /* Now, reset all DRAM maps */

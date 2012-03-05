@@ -79,6 +79,7 @@ extern u32 max_mem_per_node;
 extern char *next_label;
 extern int sync_mode;
 extern char *microcode_path;
+extern int enable_vga_redir;
 extern int disable_smm;
 extern int renumber_bsp;
 extern int mem_offline;
