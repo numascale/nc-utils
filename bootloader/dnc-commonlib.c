@@ -1521,6 +1521,7 @@ static int perform_selftest(int asic_mode)
 int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline)
 {
     u32 uuid, val, chip_rev;
+    u64 val2;
     u8 osc_setting;
     char type[16];
     int ht_id = -1;
@@ -1658,6 +1659,16 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	if ((val & (1<<8)) && ((val & 0xf) == 0)) {
 	    printf("Enable IBS LVT Offset workaround, forcing to '1' on HT#%d)\n", i);
 	    cht_write_config(i, NB_FUNC_MISC, 0x1cc, (1<<8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
+	}
+    }
+
+    // disable OS Vendor Workaround bit for errata #400, as C1e is disabled
+    val2 = dnc_rdmsr(MSR_OSVW_ID_LEN);
+    if (val2 > 1) {
+	val2 = dnc_rdmsr(MSR_OSVW_STATUS);
+	if (val2 & 2) {
+	    dnc_wrmsr(MSR_OSVW_STATUS, val & ~2);
+	    printf("Cleared OSVW errata #400 bit status, as C1e disabled\n");
 	}
     }
     
