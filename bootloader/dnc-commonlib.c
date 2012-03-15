@@ -284,7 +284,7 @@ u32 dnc_check_mctr_status(int cdata)
     return val;
 }
 
-int dnc_initialize_sram(void) {
+static int dnc_initialize_sram(void) {
     u32 val;
     
     // ASIC
