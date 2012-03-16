@@ -60,23 +60,23 @@ u16 apic_per_node;
 u16 ht_next_apic;
 u32 dnc_top_of_mem;       /* Top of mem, in 16MB chunks */
 u8 post_apic_mapping[256]; /* POST APIC assigments */
-int scc_started = 0;
+static int scc_started = 0;
 extern char *hostname;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
 u8 nodedata[4096];
 
-const long long unsigned fixed_mtrr_base[] = {0x00000, 0x80000, 0xA0000,
+static const long long unsigned fixed_mtrr_base[] = {0x00000, 0x80000, 0xA0000,
     0xC0000, 0xC8000, 0xD0000, 0xD8000, 0xE0000, 0xE8000, 0xF0000, 0xF8000};
-const int fixed_mtrr_reg[] = {MSR_MTRR_FIX64K_00000, MSR_MTRR_FIX16K_80000,
+static const int fixed_mtrr_reg[] = {MSR_MTRR_FIX64K_00000, MSR_MTRR_FIX16K_80000,
     MSR_MTRR_FIX16K_A0000, MSR_MTRR_FIX4K_C0000, MSR_MTRR_FIX4K_C8000,
     MSR_MTRR_FIX4K_D0000, MSR_MTRR_FIX4K_D8000, MSR_MTRR_FIX4K_E0000,
     MSR_MTRR_FIX4K_E8000, MSR_MTRR_FIX4K_F0000, MSR_MTRR_FIX4K_F8000};
 
 extern unsigned char asm_relocate_start;
 extern unsigned char asm_relocate_end;
-char *asm_relocated;
-char *tables_relocated;
+static char *asm_relocated;
+static char *tables_relocated;
 
 IMPORT_RELOCATED(new_e820_handler);
 IMPORT_RELOCATED(old_int15_vec);
@@ -106,10 +106,10 @@ struct e820entry {
     u64 length;
     u32 type;
 } __attribute__((packed));
-struct e820entry *orig_e820_map;
+static struct e820entry *orig_e820_map;
 int orig_e820_len;
 
-com32sys_t inreg, outreg;
+static com32sys_t inreg, outreg;
 
 
 static inline u64 rdtscll(void)
@@ -475,14 +475,14 @@ static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
     return total_cost;
 }
 
-void disable_fixed_mtrrs(void)
+static void disable_fixed_mtrrs(void)
 {
     disable_cache();
     dnc_wrmsr(MSR_MTRR_DEFAULT, dnc_rdmsr(MSR_MTRR_DEFAULT) & ~(1 << 10));
     enable_cache();
 }
 
-void enable_fixed_mtrrs(void)
+static void enable_fixed_mtrrs(void)
 {
     disable_cache();
     dnc_wrmsr(MSR_MTRR_DEFAULT, dnc_rdmsr(MSR_MTRR_DEFAULT) | (1 << 10));
@@ -804,7 +804,7 @@ struct mp_floating_pointer {
 } __attribute__((packed));
 
 
-struct mp_floating_pointer *find_mptable(void *start, int len)
+static struct mp_floating_pointer *find_mptable(void *start, int len)
 {
     void *ret = NULL;
     int i;
@@ -1739,8 +1739,8 @@ static int convert_buf_u16(char *src, u16 *dst, int max_offset)
     return offs-1;
 }
 
-u32 mseq_ucode_update[1024];
-u16 mseq_table_update[128];
+static u32 mseq_ucode_update[1024];
+static u16 mseq_table_update[128];
 
 static void read_microcode_update(void)
 {
@@ -2711,7 +2711,7 @@ extern char *gitlog_dnc_bootloader_diff;
 #define ERR_UNIFY_ALL_NODES        -8 
 #define ERR_GENERAL_NC_START_ERROR -9
 
-int nc_start(void)
+static int nc_start(void)
 {
     u32 uuid;
     struct node_info *info;
