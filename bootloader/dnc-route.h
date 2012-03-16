@@ -21,8 +21,6 @@
 
 #include "dnc-types.h"
 
-extern void wait_key(void);
-
 void add_chunk_route(u16 dest, u16 node, u8 link);
 void del_chunk_route(u16 dest, u16 node);
 void set_route(u16 dest, u16 node, u16 width, u8 link);

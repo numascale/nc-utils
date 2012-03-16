@@ -27,6 +27,7 @@
 #include "dnc-route.h"
 #include "dnc-fabric.h"
 
+#include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
@@ -61,8 +62,6 @@ void load_scc_microcode(u16 node) {
     val = dnc_read_csr(node, H2S_CSR_G0_STATE_CLEAR);
     dnc_write_csr(node, H2S_CSR_G0_STATE_CLEAR, val);
 }
-
-extern int nc_neigh, nc_neigh_link;
 
 void tally_local_node(int enforce_alignment)
 {
@@ -220,7 +219,7 @@ void tally_local_node(int enforce_alignment)
     dnc_node_count++;
 }
 
-int tally_remote_node(u16 node)
+static int tally_remote_node(u16 node)
 {
     u32 val, base, limit;
     u16 i, max_ht_node, tot_cores;

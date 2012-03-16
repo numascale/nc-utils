@@ -79,7 +79,7 @@ dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-masterlib.o \
 	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS) \
 	auto-dnc-gitlog.o
 
-dnc-bootloader.o: dnc-bootloader.c $(IFACEDEPS) dnc-types.h dnc-regs.h \
+dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-types.h dnc-regs.h \
 	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h \
 	dnc-commonlib.h dnc-masterlib.h dnc-debug.h hw-config.h
 

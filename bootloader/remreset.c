@@ -21,7 +21,7 @@
 com32sys_t inreg, outreg;
 u32 dnc_ht_node = 2;
 
-unsigned char sleep(unsigned int msec)
+unsigned char msleep(unsigned int msec)
 {
     unsigned long micro = 1000*msec;
 
@@ -82,7 +82,7 @@ void reset_remote(u32 node)
 		   (0x000000ffffff >> 27 << 8) | 1);     
 
     printf("Resetting node %x in 5 seconds...\n", node);
-    sleep(5000);
+    msleep(5000);
 
     portcf9 = mem64_read8(0x08fdfc000cf9);
     printf("Node %x port cf9: %x\n", node, portcf9);

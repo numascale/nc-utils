@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 
+#include "dnc-bootloader.h"
 #include "dnc-access.h"
 
 #define PCI_CONF_SEL 0xcf8
@@ -51,8 +52,6 @@ int cht_config_use_extd_addressing = 0;
 
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
 u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
-
-extern unsigned char sleep(unsigned int msec);
 
 static void pmio_write(u8 offset, u8 val)
 {
@@ -102,7 +101,7 @@ void reset_cf9(int mode, int last)
     int i;
 
     /* ensure last lines were sent from management controller */
-    sleep(1000);
+    msleep(1000);
 
     for (i = 0; i <= last; i++) {
 	u32 val = cht_read_config(i, NB_FUNC_HT, 0x6c);

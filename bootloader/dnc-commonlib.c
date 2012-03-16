@@ -27,9 +27,8 @@
 #include "dnc-fabric.h"
 #include "dnc-config.h"
 
+#include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
-
-extern unsigned char sleep(unsigned int msec);
 
 // -------------------------------------------------------------------------
 
@@ -49,7 +48,7 @@ int force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
-int singleton = 0;
+static int singleton = 0;
 int mem_offline = 0;
 u64 trace_buf_size = 0;
 int verbose = 0;
@@ -899,7 +898,7 @@ static void disable_link(int node, int link)
 }
 #endif /* __i386 */
 
-int disable_nc = 0;
+static int disable_nc = 0;
 
 static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 {
@@ -1757,10 +1756,10 @@ static void save_scc_routing(u16 rtbll[], u16 rtblm[], u16 rtblh[])
     printf("\n");
 }
 
-u16 shadow_rtbll[7][256];
-u16 shadow_rtblm[7][256];
-u16 shadow_rtblh[7][256];
-u16 shadow_ltbl[7][256];
+static u16 shadow_rtbll[7][256];
+static u16 shadow_rtblm[7][256];
+static u16 shadow_rtblh[7][256];
+static u16 shadow_ltbl[7][256];
 
 /* Add route on "bxbarid" towards "dest" over "link". */
 static void _add_route(u16 dest, u8 bxbarid, u8 link)
@@ -1778,7 +1777,8 @@ static void _add_route(u16 dest, u8 bxbarid, u8 link)
 //    printf("add_route: rtblh[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblh[bxbarid][offs]);
 }
 
-void test_route(u8 bxbarid, u16 dest)
+#ifdef UNUSED
+static void test_route(u8 bxbarid, u16 dest)
 {
     u16 offs = (dest >> 4) & 0xff;
     u16 mask = 1<<(dest & 0xf);
@@ -1802,6 +1802,7 @@ void test_route(u8 bxbarid, u16 dest)
         printf("packet will be routed to bxbarid %d\n", out);
     }   
 }
+#endif
 
 static int _verify_save_id(u16 nodeid, int lc)
 {
@@ -1869,7 +1870,8 @@ static int _check_dim(int dim)
     return ok ? 0 : -1;
 }
 
-int shortest(u8 dim, u16 src, u16 dst) {
+#ifdef UNUSED
+static int shortest(u8 dim, u16 src, u16 dst) {
     /* extract positions on ring */
     int src2 = (src >> (dim * 4)) & 0xf;
     int dst2 = (dst >> (dim * 4)) & 0xf;
@@ -1883,6 +1885,7 @@ int shortest(u8 dim, u16 src, u16 dst) {
 	return src2 & 1; /* load balance */
     return backward < forward;
 }
+#endif
 
 int dnc_setup_fabric(struct node_info *info)
 {
@@ -2027,7 +2030,7 @@ int dnc_check_fabric(struct node_info *info)
     return res;
 }        
 
-enum node_state enter_reset(struct node_info *info)
+static enum node_state enter_reset(struct node_info *info)
 {
     int tries = 0;
     u32 val;
@@ -2104,8 +2107,7 @@ static void phy_print_error(int mask)
     printf("\n");
 }
 
-
-enum node_state release_reset(struct node_info *info __attribute__((unused)))
+static enum node_state release_reset(struct node_info *info __attribute__((unused)))
 {
     int pending, i;
     printf("Releasing reset.\n");
@@ -2164,7 +2166,7 @@ static int lc_check_status(int lc, int dimidx)
     return 1;
 }
 
-enum node_state validate_rings(struct node_info *info)
+static enum node_state validate_rings(struct node_info *info)
 {
     int pending, i;
 

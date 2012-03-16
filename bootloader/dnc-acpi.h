@@ -122,16 +122,16 @@ struct acpi_mcfg_allocation {
 
 typedef struct acpi_sdt *acpi_sdt_p;
 
-extern void debug_acpi(void);
-extern uint8_t checksum(void *addr, int len);
-extern acpi_sdt_p find_sdt(char *sig);
-extern acpi_sdt_p find_child(const char *sig,
+void debug_acpi(void);
+uint8_t checksum(void *addr, int len);
+acpi_sdt_p find_sdt(char *sig);
+acpi_sdt_p find_child(const char *sig,
 				   acpi_sdt_p parent,
 				   int ptrsize);
-extern int replace_child(const char *sig, acpi_sdt_p new,
+int replace_child(const char *sig, acpi_sdt_p new,
 			 acpi_sdt_p parent,
 			 int ptrsize);
-extern acpi_sdt_p find_root(const char *sig);
-extern int replace_root(const char *sig, acpi_sdt_p new);
+acpi_sdt_p find_root(const char *sig);
+int replace_root(const char *sig, acpi_sdt_p new);
 
 #endif

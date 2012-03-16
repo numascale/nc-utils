@@ -35,6 +35,7 @@
 #include "dnc-route.h"
 #include "dnc-config.h"
 
+#include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 

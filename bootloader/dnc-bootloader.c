@@ -33,6 +33,7 @@
 #include "dnc-fabric.h"
 #include "dnc-config.h"
 
+#include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
@@ -50,7 +51,6 @@
 #define MIN_NODE_MEM		256*1024*1024
 
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
-extern int nc_neigh, nc_neigh_link;
 int dnc_asic_mode;
 int dnc_chip_rev;
 u16 dnc_node_count = 0;
@@ -61,7 +61,6 @@ u16 ht_next_apic;
 u32 dnc_top_of_mem;       /* Top of mem, in 16MB chunks */
 u8 post_apic_mapping[256]; /* POST APIC assigments */
 static int scc_started = 0;
-extern char *hostname;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
 u8 nodedata[4096];
@@ -101,16 +100,9 @@ IMPORT_RELOCATED(new_osvw_status_msr);
 extern u8 smm_handler_start;
 extern u8 smm_handler_end;
 
-struct e820entry {
-    u64 base;
-    u64 length;
-    u32 type;
-} __attribute__((packed));
 static struct e820entry *orig_e820_map;
-int orig_e820_len;
-
+static int orig_e820_len;
 static com32sys_t inreg, outreg;
-
 
 static inline u64 rdtscll(void)
 {
@@ -139,7 +131,7 @@ void wait_key(void)
     printf("\n");
 }
 
-unsigned char sleep(unsigned int msec)
+unsigned char msleep(unsigned int msec)
 {
     unsigned long micro = 1000*msec;
 
@@ -211,7 +203,6 @@ static void load_orig_e820_map(void)
         orig_e820_len = e820_len;
     }
 }
-
 
 static int install_e820_handler(void)
 {
@@ -770,40 +761,6 @@ static void update_acpi_tables(void) {
     enable_fixed_mtrrs();
 }
 
-
-struct mp_config_table {
-    union {
-        char s[4];
-        uint32_t l;
-    } sig;
-    uint16_t len;
-    uint8_t revision;
-    uint8_t checksum;
-    unsigned char oemid[8];
-    unsigned char prodid[12];
-    uint8_t *oemtable;
-    uint16_t oemtablesz;
-    uint16_t entries;
-    uint32_t lapicaddr;
-    uint16_t extlen;
-    uint16_t extchksum;
-    char reserved;
-    unsigned char data[0];
-} __attribute__((packed));
-
-struct mp_floating_pointer {
-    union {
-        char s[4];
-        uint32_t l;
-    } sig;
-    struct mp_config_table *mptable;
-    uint8_t len;
-    uint8_t revision;
-    uint8_t checksum;
-    unsigned char feature[5];
-} __attribute__((packed));
-
-
 static struct mp_floating_pointer *find_mptable(void *start, int len)
 {
     void *ret = NULL;
@@ -817,7 +774,6 @@ static struct mp_floating_pointer *find_mptable(void *start, int len)
 
     return ret;
 }
-
 
 static void update_mptable(void)
 {
@@ -2660,7 +2616,7 @@ static void clear_bsp_flag(void)
     asm volatile("wrmsr" :: "d"(hi), "a"(lo), "c"(MSR_APIC_BAR));
 }
 
-void get_hostname(void)
+static void get_hostname(void)
 {
     char *dhcpdata;
     size_t dhcplen;
