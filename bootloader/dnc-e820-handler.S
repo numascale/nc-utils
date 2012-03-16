@@ -87,6 +87,18 @@ EXPORT(init_trampoline)
 	mov	$MSR_TOPMEM2, %ecx
 	wrmsr
 
+	/* Set OSVW_ID_LEN MSR */
+	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr), %eax
+	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr+4), %edx
+	mov	$MSR_OSVW_ID_LEN, %ecx
+	wrmsr
+
+	/* Set OSVW_STATUS MSR */
+	mov	%cs:SYM_OFFSET(new_osvw_status_msr), %eax
+	mov	%cs:SYM_OFFSET(new_osvw_status_msr+4), %edx
+	mov	$MSR_OSVW_STATUS, %ecx
+	wrmsr
+
 	mov	$SYM_OFFSET(cpu_cr), %si
 	call	print_strz
 
@@ -213,6 +225,10 @@ EXPORT(new_mtrr_mask)
 EXPORT(rem_topmem_msr)
 	.long 0, 0
 EXPORT(rem_smm_base_msr)
+	.long 0, 0
+EXPORT(new_osvw_id_len_msr)
+	.long 0, 0
+EXPORT(new_osvw_status_msr)
 	.long 0, 0
 
 // Print asciiz string at by cs:si

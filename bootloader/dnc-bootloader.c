@@ -95,6 +95,8 @@ IMPORT_RELOCATED(new_mtrr_base);
 IMPORT_RELOCATED(new_mtrr_mask);
 IMPORT_RELOCATED(rem_topmem_msr);
 IMPORT_RELOCATED(rem_smm_base_msr);
+IMPORT_RELOCATED(new_osvw_id_len_msr);
+IMPORT_RELOCATED(new_osvw_status_msr);
 
 extern u8 smm_handler_start;
 extern u8 smm_handler_end;
@@ -2278,6 +2280,31 @@ static void global_chipset_fixup(void)
     printf("Chipset-specific setup done.\n");
 }
 
+static void setup_osvw(void)
+{
+    // Disable OS Vendor Workaround bit for errata #400, as C1E is disabled
+    u64 msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
+    if (msr < 2) {
+	// Extend ID length to cover errata 400 status bit
+	dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
+	*((u64 *)REL(new_osvw_id_len_msr)) = 2;
+	msr = dnc_rdmsr(MSR_OSVW_STATUS) & ~2;
+	dnc_wrmsr(MSR_OSVW_STATUS, msr);
+	*((u64 *)REL(new_osvw_status_msr)) = msr;
+	printf("Enabled OSVW errata #400 workaround status, as C1E disabled\n");
+    } else {
+	*((u64 *)REL(new_osvw_id_len_msr)) = msr;
+	msr = dnc_rdmsr(MSR_OSVW_STATUS);
+	if (msr & 2) {
+	    msr &= ~2;
+	    dnc_wrmsr(MSR_OSVW_STATUS, msr);
+	    printf("Cleared OSVW errata #400 bit status, as C1E disabled\n");
+	}
+
+	*((u64 *)REL(new_osvw_status_msr)) = msr;
+    }
+}
+
 static int unify_all_nodes(void)
 {
     u64 val;
@@ -2411,6 +2438,9 @@ static int unify_all_nodes(void)
     *((u64 *)REL(new_topmem2_msr)) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
     // Harmonize TOPMEM
     *((u64 *)REL(new_topmem_msr)) = dnc_rdmsr(MSR_TOPMEM);
+
+    /* update OS visible workaround MSRs */
+    setup_osvw();
 
     if (verbose > 0)
 	debug_acpi();
