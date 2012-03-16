@@ -1517,6 +1517,25 @@ static int perform_selftest(int asic_mode)
     return res;
 }
 
+static void dump_northbridge_regs(int ht_id)
+{
+    int ht, func, offset;
+
+    printf("Dumping AMD Northbridge registers...\n");
+    for (ht = 0; ht < ht_id; ht++)
+	for (func = 0; func < 5; func++) {
+	    printf("HT%d F%d:\n", ht, func);
+	    for (offset = 0; offset < 512; offset += 4) {
+		if ((offset % 32) == 0)
+		    printf("%03x:", offset);
+		u32 val = cht_read_config(ht, func, offset);
+		printf(" %08x", val);
+		if ((offset % 32) == 28)
+		    printf("\n");
+	    }
+	}
+}
+
 int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline)
 {
     u32 uuid, val, chip_rev;
@@ -1535,6 +1554,8 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 #endif
 
     ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
+    if (verbose)
+	dump_northbridge_regs(ht_id);
 
     /* Indicate immediate jump to next-label (-2) if init-only is also given. */
     if ((disable_nc > 0) && (init_only > 0))
