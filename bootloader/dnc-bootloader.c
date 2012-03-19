@@ -97,6 +97,7 @@ IMPORT_RELOCATED(rem_topmem_msr);
 IMPORT_RELOCATED(rem_smm_base_msr);
 IMPORT_RELOCATED(new_osvw_id_len_msr);
 IMPORT_RELOCATED(new_osvw_status_msr);
+IMPORT_RELOCATED(new_hwcr_msr);
 
 extern u8 smm_handler_start;
 extern u8 smm_handler_end;

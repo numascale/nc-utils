@@ -99,6 +99,12 @@ EXPORT(init_trampoline)
 	mov	$MSR_OSVW_STATUS, %ecx
 	wrmsr
 
+	/* Set HWCR MSR */
+	mov	%cs:SYM_OFFSET(new_hwcr_msr), %eax
+	mov	%cs:SYM_OFFSET(new_hwcr_msr+4), %edx
+	mov	$MSR_HWCR, %ecx
+	wrmsr
+
 	mov	$SYM_OFFSET(cpu_cr), %si
 	call	print_strz
 
@@ -229,6 +235,8 @@ EXPORT(rem_smm_base_msr)
 EXPORT(new_osvw_id_len_msr)
 	.long 0, 0
 EXPORT(new_osvw_status_msr)
+	.long 0, 0
+EXPORT(new_hwcr_msr);
 	.long 0, 0
 
 // Print asciiz string at by cs:si

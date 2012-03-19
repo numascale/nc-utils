@@ -1516,6 +1516,19 @@ static int perform_selftest(int asic_mode)
     return res;
 }
 
+static void dump_msrs(u32 start, u32 end)
+{
+    u32 offset;
+
+    for (offset = start; offset <= end; offset += 1) {
+	if ((offset % 64) == 0)
+	    printf("MSR%08x:", offset);
+	printf(" %016llx", dnc_rdmsr(offset));
+	if ((offset % 64) == 56)
+	    printf("\n");
+    }
+}
+
 static void dump_northbridge_regs(int ht_id)
 {
     int ht, func, offset;
@@ -1527,8 +1540,7 @@ static void dump_northbridge_regs(int ht_id)
 	    for (offset = 0; offset < 512; offset += 4) {
 		if ((offset % 32) == 0)
 		    printf("%03x:", offset);
-		u32 val = cht_read_config(ht, func, offset);
-		printf(" %08x", val);
+		printf(" %08x", cht_read_config(ht, func, offset));
 		if ((offset % 32) == 28)
 		    printf("\n");
 	    }
