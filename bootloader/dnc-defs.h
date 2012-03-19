@@ -25,20 +25,20 @@
 #define NB_FUNC_MISC  3
 #define NB_FUNC_LINK  4
 
-#define MSR_FS_BASE   0xc0000100
-#define MSR_HWCR      0xc0010015
-#define MSR_TOPMEM    0xc001001a
-#define MSR_TOPMEM2   0xc001001d
-#define MSR_MCFG_BASE 0xc0010058
-#define MSR_SYSCFG    0xc0010010
-#define MSR_NB_CFG    0xc001001f
-#define MSR_APIC_BAR  0x0000001b
-#define MSR_LSCFG     0xc0011020
-#define MSR_NODE_ID   0xc001100c
-#define MSR_SMM_BASE  0xc0010111
-#define MSR_CU_CFG2   0xc001102a
+#define MSR_APIC_BAR    0x0000001b
+#define MSR_FS_BASE     0xc0000100
+#define MSR_SYSCFG      0xc0010010
+#define MSR_HWCR        0xc0010015
+#define MSR_TOPMEM      0xc001001a
+#define MSR_TOPMEM2     0xc001001d
+#define MSR_NB_CFG      0xc001001f
+#define MSR_MCFG_BASE   0xc0010058
+#define MSR_SMM_BASE    0xc0010111
 #define MSR_OSVW_ID_LEN 0xc0010140
 #define MSR_OSVW_STATUS 0xc0010141
+#define MSR_NODE_ID     0xc001100c
+#define MSR_LSCFG       0xc0011020
+#define MSR_CU_CFG2     0xc001102a
 
 #define MSR_MTRR_PHYS_BASE0 0x00000200
 #define MSR_MTRR_PHYS_BASE1 0x00000202
