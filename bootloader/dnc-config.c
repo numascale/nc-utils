@@ -27,7 +27,7 @@ struct fabric_info cfg_fabric;
 struct node_info *cfg_nodelist;
 struct part_info *cfg_partlist;
 int cfg_nodes, cfg_partitions;
-int name_matching = 0;
+static int name_matching = 0;
 char *hostname;
 
 static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)

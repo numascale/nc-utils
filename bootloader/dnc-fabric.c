@@ -25,11 +25,8 @@
 #include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-fabric.h"
-
-extern int forwarding_mode;
-
-// We use this here but its not defined in any header file we use
-extern void tsc_wait(u32 mticks);
+#include "dnc-commonlib.h"
+#include "dnc-bootloader.h"
 
 // -------------------------------------------------------------------------
 

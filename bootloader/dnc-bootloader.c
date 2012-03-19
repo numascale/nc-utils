@@ -36,6 +36,7 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
+#include "auto-dnc-gitlog.h"
 
 #include "hw-config.h"
 
@@ -2649,9 +2650,6 @@ static void get_hostname(void)
 
     hostname = NULL;
 }
-
-extern char *gitlog_dnc_bootloader_sha;
-extern char *gitlog_dnc_bootloader_diff;
 
 #define ERR_API_VERSION            -1
 #define ERR_MASTER_HT_ID           -2

@@ -29,6 +29,7 @@
 
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
+#include "auto-dnc-gitlog.h"
 
 // -------------------------------------------------------------------------
 
@@ -1319,8 +1320,6 @@ static int parse_u64(const char *val, void *intp)
     return 1;
 }
 
-extern char *gitlog_dnc_bootloader_sha;
-extern char *gitlog_dnc_bootloader_diff;
 static int print_git_log(const char *val __attribute__((unused)),
 			 void *data __attribute__((unused)))
 {

@@ -25,7 +25,7 @@
 #include <string.h>
 #include "dnc-acpi.h"
 
-struct acpi_rsdp *rptr = NULL;
+static struct acpi_rsdp *rptr = NULL;
 
 uint8_t checksum(void *addr, int len)
 {
