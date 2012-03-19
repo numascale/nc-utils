@@ -2602,18 +2602,14 @@ static void stop_usb(void)
 
 static void set_wrap32_disable(void)
 {
-    u32 lo, hi;
-    asm volatile("rdmsr" : "=d"(hi), "=a"(lo) : "c"(MSR_HWCR));
-    lo |= (1UL<<17);
-    asm volatile("wrmsr" :: "d"(hi), "a"(lo), "c"(MSR_HWCR));
+    u64 val = rdmsr(MSR_HWCR);
+    wrmsr(MSR_HWCR, val | (1ULL << 17);
 }
 
 static void clear_bsp_flag(void)
 {
-    u32 lo, hi;
-    asm volatile("rdmsr" : "=d"(hi), "=a"(lo) : "c"(MSR_APIC_BAR));
-    lo &= ~(1UL<<8);
-    asm volatile("wrmsr" :: "d"(hi), "a"(lo), "c"(MSR_APIC_BAR));
+    u64 val = rdmsr(MSR_APIC_BAR);
+    wrmsr(MSR_APIC_BAR, val &= ~(1ULL << 8);
 }
 
 static void get_hostname(void)
