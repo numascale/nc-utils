@@ -2602,14 +2602,14 @@ static void stop_usb(void)
 
 static void set_wrap32_disable(void)
 {
-    u64 val = rdmsr(MSR_HWCR);
-    wrmsr(MSR_HWCR, val | (1ULL << 17);
+    u64 val = dnc_rdmsr(MSR_HWCR);
+    dnc_wrmsr(MSR_HWCR, val | (1ULL << 17));
 }
 
 static void clear_bsp_flag(void)
 {
-    u64 val = rdmsr(MSR_APIC_BAR);
-    wrmsr(MSR_APIC_BAR, val &= ~(1ULL << 8);
+    u64 val = dnc_rdmsr(MSR_APIC_BAR);
+    dnc_wrmsr(MSR_APIC_BAR, val &= ~(1ULL << 8));
 }
 
 static void get_hostname(void)
