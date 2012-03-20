@@ -105,6 +105,12 @@ EXPORT(init_trampoline)
 	mov	$MSR_HWCR, %ecx
 	wrmsr
 
+	/* Set Interrupt Pending and CMP-Halt Register MSR */
+	mov	%cs:SYM_OFFSET(new_int_halt_msr), %eax
+	mov	%cs:SYM_OFFSET(new_int_halt_msr+4), %edx
+	mov	$MSR_HWCR, %ecx
+	wrmsr
+
 	mov	$SYM_OFFSET(cpu_cr), %si
 	call	print_strz
 
@@ -237,6 +243,8 @@ EXPORT(new_osvw_id_len_msr)
 EXPORT(new_osvw_status_msr)
 	.long 0, 0
 EXPORT(new_hwcr_msr);
+	.long 0, 0
+EXPORT(new_int_halt_msr);
 	.long 0, 0
 
 // Print asciiz string at by cs:si

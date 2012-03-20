@@ -98,6 +98,7 @@ IMPORT_RELOCATED(rem_smm_base_msr);
 IMPORT_RELOCATED(new_osvw_id_len_msr);
 IMPORT_RELOCATED(new_osvw_status_msr);
 IMPORT_RELOCATED(new_hwcr_msr);
+IMPORT_RELOCATED(new_int_halt_msr);
 
 extern u8 smm_handler_start;
 extern u8 smm_handler_end;
@@ -2238,10 +2239,21 @@ static void global_chipset_fixup(void)
     printf("Chipset-specific setup done.\n");
 }
 
-static void setup_osvw(void)
+static void setup_c1e_osvw(void)
 {
+    u64 msr;
+
+    // Disable C1E in MSRs
+    msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
+    dnc_wrmsr(MSR_HWCR, msr);
+    *((u64 *)REL(new_hwcr_msr)) = 0;
+
+    msr = 0;
+    dnc_wrmsr(MSR_INT_HALT, msr);
+    *((u64 *)REL(new_int_halt_msr)) = msr;
+
     // Disable OS Vendor Workaround bit for errata #400, as C1E is disabled
-    u64 msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
+    msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
     if (msr < 2) {
 	// Extend ID length to cover errata 400 status bit
 	dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
@@ -2398,7 +2410,7 @@ static int unify_all_nodes(void)
     *((u64 *)REL(new_topmem_msr)) = dnc_rdmsr(MSR_TOPMEM);
 
     /* update OS visible workaround MSRs */
-    setup_osvw();
+    setup_c1e_osvw();
 
     if (verbose > 0)
 	debug_acpi();

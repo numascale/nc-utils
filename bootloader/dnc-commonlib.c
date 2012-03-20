@@ -1657,7 +1657,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	    cht_write_config(i, NB_FUNC_MISC, 0x58, val & ~0x1f);
 	}
 
-	// disable C1E sleep mode, since it requires correct LDTSTOP# behaviour
+	// disable C1E sleep mode in northbridge, since it requires correct LDTSTOP# behaviour
 	val = cht_read_config(i, NB_FUNC_MISC, 0xd4);
 	if (val & (1 << 13)) {
 	    printf("Disabling C1E sleep state\n");

@@ -32,6 +32,7 @@
 #define MSR_TOPMEM      0xc001001a
 #define MSR_TOPMEM2     0xc001001d
 #define MSR_NB_CFG      0xc001001f
+#define MSR_INT_HALT    0xc0010055
 #define MSR_MCFG_BASE   0xc0010058
 #define MSR_SMM_BASE    0xc0010111
 #define MSR_OSVW_ID_LEN 0xc0010140
