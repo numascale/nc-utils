@@ -1516,18 +1516,27 @@ static int perform_selftest(int asic_mode)
     return res;
 }
 
-static void dump_msrs(u32 start, u32 end)
-{
-    u32 offset;
+struct msr_range {
+    u32 start, end;
+};
 
-    for (offset = start; offset <= end; offset += 1) {
-	if ((offset % 64) == 0)
-	    printf("MSR%08x:", offset);
-	printf(" %016llx", dnc_rdmsr(offset));
-	if ((offset % 64) == 56)
-	    printf("\n");
-    }
-}
+static const struct msr_range msr_ranges[] = {
+    {0x00000174, 0x00000176}, {0x00000179, 0x0000017b}, {0x000001db, 0x000001de}, {0x00000200, 0x0000020f},
+    {0x0000026a, 0x0000026f}, {0x00000400, 0x00000417}, {0xc0000080, 0xc0000084}, {0xc0000100, 0xc0000103},
+    {0xc0000408, 0xc000040f}, {0xc0010000, 0xc0010007}, {0xc0010015, 0xc001001a}, {0xc0010030, 0xc0010035},
+    {0xc0010044, 0xc0010049}, {0xc0010050, 0xc0010056}, {0xc0010058, 0xc001005d}, {0xc0010060, 0xc0010068},
+    {0xc0010111, 0xc0010115}, {0xc0010117, 0xc001011a}, {0xc0011021, 0xc0011023}, {0xc0011030, 0xc001103a},
+    {0xffffffff, 0xffffffff},
+};
+
+static const u32 msrs[] = {
+    0x00000000, 0x00000001, 0x00000010, 0x0000001b, 0x0000002a, 0x0000008b, 0x000000fe, 0x000001d9,
+    0x00000250, 0x00000258, 0x00000259, 0x00000268, 0x00000269, 0x00000277, 0x000002ff, 0xc001001d,
+    0xc001001f, 0xc0010022, 0xc001003e, 0xc0010070, 0xc0010071, 0xc0010074, 0xc0010140, 0xc0010141,
+    0xc0011004, 0xc0011005, 0xc001100c, 0xc0011029, 0xc001102a, 0xffffffff,
+};
+
+// MSRs that cause hanging on fam10h: 0x000000e7 0x000000e8 0xc0010020 0xc0010072 0xc0010073 0xc001116
 
 static void dump_northbridge_regs(int ht_id)
 {
@@ -1545,6 +1554,21 @@ static void dump_northbridge_regs(int ht_id)
 		    printf("\n");
 	    }
 	}
+
+    printf("Dumping MSRs...\n");
+    for (offset = 0; msrs[offset] != 0xffffffff; offset++) {
+	printf("MSR 0x%08x: ", msrs[offset]);
+	printf("%016llx\n", dnc_rdmsr(msrs[offset]));
+    }
+
+    for (offset = 0; msr_ranges[offset].start != 0xffffffff; offset++) {
+	u32 cur;
+
+	for (cur = msr_ranges[offset].start; cur < msr_ranges[offset].end; cur++) {
+	    printf("MSR 0x%08x: ", cur);
+	    printf("%016llx\n", dnc_rdmsr(cur));
+	}
+    }
 }
 
 int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline)
@@ -1565,7 +1589,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 #endif
 
     ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
-    if (verbose)
+    if (verbose > 1)
 	dump_northbridge_regs(ht_id);
 
     /* Indicate immediate jump to next-label (-2) if init-only is also given. */
