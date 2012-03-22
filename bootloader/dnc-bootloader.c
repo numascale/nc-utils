@@ -47,6 +47,7 @@
 
 #define IMPORT_RELOCATED(sym) extern volatile u8 sym ## _relocate
 #define REL(sym) ((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start))
+#define MTRR_TYPE(x) (x) == 0 ? "uncacheable" : (x) == 1 ? "write-combining" : (x) == 4 ? "write-through" : (x) == 5 ? "write-protect" : (x) == 6 ? "write-back" : "unknown"
 
 #define TABLE_AREA_SIZE		1024*1024
 #define MIN_NODE_MEM		256*1024*1024
@@ -2049,6 +2050,16 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
     }
 }
 
+#ifdef UNUSED
+static void mtrr_add(u64 *mtrr_base, u64 *mtrr_mask, u64 base, u64 limit, int type)
+{
+    *mtrr_base = base | type;
+    *mtrr_mask = (1ULL << 48) - 1;
+    *mtrr_mask &= ~(limit - base - 1);
+    *mtrr_mask |= 0x800;
+}
+#endif
+
 static int update_mtrr(void)
 {
     u64 base, mask, prev;
@@ -2059,7 +2070,9 @@ static int update_mtrr(void)
     mtrr_base = (void *)REL(new_mtrr_base);
     mtrr_mask = (void *)REL(new_mtrr_mask);
 
-    printf("Setting BSP MTRR...\n");
+    /* Ensure default memory type is uncacheable and MTRRs are enabled */
+    ASSERT(dnc_rdmsr(MSR_MTRR_DEFAULT) == 3 << 10);
+
     base = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
     mask = ~0ULL;
     prev = mask;
@@ -2088,6 +2101,14 @@ static int update_mtrr(void)
 	i++;
     }
 
+#ifdef UNUSED
+    /* Add writeback entry for DRAM before <4GB MMIO hole */
+    mtrr_add(&mtrr_base[i], &mtrr_mask[i], 0, dnc_rdmsr(MSR_TOPMEM), 6 /* WB */);
+    i += 1;
+    /* Add writeback entry for DRAM above 4GB */
+    mtrr_add(&mtrr_base[i], &mtrr_mask[i], 0x100000000ULL, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT, 6 /* WB */);
+    i += 1;
+#else
     /* Add entries for MMIO hole under 4G */
     base = dnc_rdmsr(MSR_TOPMEM);
     mask = ~0ULL;
@@ -2111,6 +2132,7 @@ static int update_mtrr(void)
 	    prev = mask;
 	}
     }
+#endif
 
     /* Blank remaining */
     while (i < 8) {
@@ -2119,14 +2141,11 @@ static int update_mtrr(void)
 	i++;
     }
 
-    printf("Disabling MTRRs...\n");
     disable_cache();
 
     /* Disable all entries */
     for (i = 0; i < 8; i++)
 	dnc_wrmsr(MSR_MTRR_PHYS_MASK0 + i*2, 0);
-
-    printf("MTRRs disabled...\n");
     
     for (i = 0; i < 8; i++) {
 	dnc_wrmsr(MSR_MTRR_PHYS_BASE0 + i*2, mtrr_base[i]);
@@ -2134,18 +2153,18 @@ static int update_mtrr(void)
     }
 
     enable_cache();
-    printf("MTRRs enabled.\n");
-    printf("default type: %016llx\n", dnc_rdmsr(MSR_MTRR_DEFAULT));
 
-    if (verbose > 0) {
+    if (verbose) {
+	printf("default MTRR type: %s\n", MTRR_TYPE(dnc_rdmsr(MSR_MTRR_DEFAULT) & 0xff));
 	for (i = 0; i < 11; i++)
-	    printf("MTRR F%d: %016llx: %016llx\n", i, fixed_mtrr_base[i], dnc_rdmsr(fixed_mtrr_reg[i]));
+	    printf("MTRR F%d: value 0x%016llx\n", i, dnc_rdmsr(fixed_mtrr_reg[i]));
 
-	for (i = 0; i < 8; i++)
-	    printf("MTRR %d: %012llx - %012llx\n", 
-		   i,
-		   dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i*2),
-		   dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i*2));
+	for (i = 0; i < 8; i++) {
+	    u64 base = dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
+	    u64 mask = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
+	    if (mask & 0x800)
+		printf("MTRR %d: base 0x%012llx, mask 0x%012llx %s\n", i, base & ~0xfffULL, mask & ~0xfffULL, MTRR_TYPE(base & 0xff));
+	}
     }
 
     return 0;
