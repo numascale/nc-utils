@@ -1366,6 +1366,8 @@ static int parse_cmdline(const char *cmdline)
     if (!cmdline)
         return 1;
 
+    printf("options:");
+
     lstart = 0;
     while (cmdline[lstart] != '\0') {
         while (cmdline[lstart] != '\0' && cmdline[lstart] == ' ')
@@ -1391,8 +1393,11 @@ static int parse_cmdline(const char *cmdline)
                     else
                         strncpy(arg, &cmdline[lend], aend - lend);
                            
-                    if (options[i].handler(arg, options[i].userdata) < 0)
+		    printf(" %s=%s", options[i].label, arg);
+		    if (options[i].handler(arg, options[i].userdata) < 0) {
+			printf("\n");
                         return -1;
+		    }
                     break;
                 }
             }
@@ -1401,6 +1406,7 @@ static int parse_cmdline(const char *cmdline)
         lstart = aend;
     }
 
+    printf("\n");
     return 1;
 }
 
