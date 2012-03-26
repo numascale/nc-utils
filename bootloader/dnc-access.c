@@ -168,6 +168,7 @@ static int cht_error(int node, int link)
 
 void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect)
 {
+    static int loop = 0;
     int i, errors = 0;
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG) {
@@ -175,6 +176,9 @@ void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect)
 	watchdog_run(500); /* reset if read hangs due to unstable link */
     } else
 	printf("Testing HT link...");
+
+    if (ht_testmode & HT_TESTMODE_LOOP)
+	printf("loop %d ", loop++);
 
     for (i = 0; i < 2000000; i++) {
 	cht_write_config(node, func, reg, expect);

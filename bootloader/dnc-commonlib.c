@@ -1008,6 +1008,11 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         *p_chip_rev = val;
     }
 
+    /* HT looping testmode useful after link is up at 16-bit 800MHz */
+    if (ht_testmode & HT_TESTMODE_LOOP)
+	while (1)
+	    cht_test(nc, 0, neigh, link, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER, 0x06011b47);
+
     if (route_only)
 	return nc;
 
