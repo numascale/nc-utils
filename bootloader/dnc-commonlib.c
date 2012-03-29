@@ -45,7 +45,7 @@ static int disable_sram = 0;
 int enable_vga_redir = 0;
 int enable_selftest = 1;
 int force_probefilteroff = 0;
-int force_ganged = 0;
+static int force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
@@ -622,45 +622,63 @@ static void reorganize_mmio(int nc)
 #endif /* UNUSED */
 
 #ifdef __i386
-static void print_phy_gangs(char *name, int base)
+static void print_phy_gangs(int neigh, int link, char *name, int base)
 {
     printf("%s:\n", name);
-    printf("- CAD[ 7:0],CTL0,CLK0=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base, 0));
-    printf("- CAD[15:8],CTL1,CLK1=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 0x10, 0));
+    printf("- CAD[ 7:0],CTL0,CLK0=0x%08x\n", get_phy_register(neigh, link, base, 0));
+    printf("- CAD[15:8],CTL1,CLK1=0x%08x\n", get_phy_register(neigh, link, base + 0x10, 0));
 }
 
-static void print_phy_lanes(char *name, int base, int clk)
+static void print_phy_lanes(int neigh, int link, char *name, int base, int clk)
 {
     int i;
 
     printf("%s:\n", name);
     for (i = 0; i <= 15; i++)
-	printf("- CAD[%2d]=%08Xh\n", i, get_phy_register(nc_neigh, nc_neigh_link, base + i * 0x80, 1));
-    printf("- CTL[ 0]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 16 * 0x80, 1));
+	printf("- CAD[%2d]=0x%08x\n", i, get_phy_register(neigh, link, base + i * 0x80, 1));
+    printf("- CTL[ 0]=0x%08x\n", get_phy_register(neigh, link, base + 16 * 0x80, 1));
     if (clk)
-	printf("- CLK[ 0]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 17 * 0x80, 1));
-    printf("- CTL[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 18 * 0x80, 1));
+	printf("- CLK[ 0]=0x%08x\n", get_phy_register(neigh, link, base + 17 * 0x80, 1));
+    printf("- CTL[ 1]=0x%08x\n", get_phy_register(neigh, link, base + 18 * 0x80, 1));
     if (clk)
-	printf("- CLK[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, base + 19 * 0x80, 1));
+	printf("- CLK[ 1]=0x%08x\n", get_phy_register(neigh, link, base + 19 * 0x80, 1));
 }
 
-static void cht_print(void)
+static void cht_print(int neigh, int link)
 {
-    print_phy_gangs("link phy impedance", 0xc0);
-    print_phy_gangs("link phy receiver loop filter", 0xc1);
-    print_phy_gangs("link phy timing margin", 0xc3);
-    print_phy_gangs("link phy DFE and DFR control", 0xc4);
-    print_phy_gangs("link phy transmit control", 0xc5);
-    print_phy_gangs("link FIFO read pointer optimisation", 0xcf);
+    u32 val;
+    printf("HT#%d L%d Link Control       : 0x%08x\n", neigh, link,
+	cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20));
+    printf("HT#%d L%d Link Freq/Revision : 0x%08x\n", neigh, link,
+	cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20));
+    printf("HT#%d L%d Link Ext. Control  : 0x%08x\n", neigh, link,
+	cht_read_config(neigh, 0, 0x170 + link * 4));
+    val = get_phy_register(neigh, link, 0xe0, 0); /* link phy compensation and calibration control 1 */
+    printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
 
-    printf("link phy compensation and calibration control 1: %08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, 0xe0, 0));
-    printf("link phy PLL control: %08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, 0xe3, 0));
-    printf("link BIST control: %08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, 0x100, 0));
+    if (!(ht_testmode & HT_TESTMODE_PRINT))
+	return;
 
-    print_phy_lanes("link phy DFE and DFR control", 0x4006, 0);
-    print_phy_lanes("link phy DLL control", 0x400a, 0);
-    print_phy_lanes("link phy transmit control", 0x6000, 1);
-    printf("link phy transmit clock phase control:\n- CLKOUT[ 0]=%08Xh\n- CLKOUT[ 1]=%08Xh\n", get_phy_register(nc_neigh, nc_neigh_link, 0x6884, 1), get_phy_register(nc_neigh, nc_neigh_link, 0x6984, 1));
+    print_phy_gangs(neigh, link, "link phy impedance", 0xc0);
+    print_phy_gangs(neigh, link, "link phy receiver loop filter", 0xc1);
+    print_phy_gangs(neigh, link, "link phy timing margin", 0xc3);
+    print_phy_gangs(neigh, link, "link phy DFE and DFR control", 0xc4);
+    print_phy_gangs(neigh, link, "link phy transmit control", 0xc5);
+    print_phy_gangs(neigh, link, "link FIFO read pointer optimisation", 0xcf);
+
+    printf("link phy compensation and calibration control 1: 0x%08x\n",
+	get_phy_register(neigh, link, 0xe0, 0));
+    printf("link phy PLL control: 0x%08x\n",
+	get_phy_register(neigh, link, 0xe3, 0));
+    printf("link BIST control: 0x%08x\n",
+	get_phy_register(neigh, link, 0x100, 0));
+
+    print_phy_lanes(neigh, link, "link phy DFE and DFR control", 0x4006, 0);
+    print_phy_lanes(neigh, link, "link phy DLL control", 0x400a, 0);
+    print_phy_lanes(neigh, link, "link phy transmit control", 0x6000, 1);
+    printf("link phy transmit clock phase control:\n- CLKOUT[ 0]=0x%08x\n- CLKOUT[ 1]=0x%08x\n",
+	get_phy_register(neigh, link, 0x6884, 1),
+	get_phy_register(neigh, link, 0x6984, 1));
 
 /* these cause hangs
     print_phy_lanes("link phy receiver DLL control and test 5", 0x400f, 0);
@@ -710,15 +728,6 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     
     printf("Found link to NC on HT#%d L%d (%s)\n", neigh, link,
            ganged ? "GANGED" : "UNGANGED");
-
-    val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
-    printf("HT#%d L%d Link Control       : %08x\n", neigh, link, val);
-    val = cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20);
-    printf("HT#%d L%d Link Freq/Revision : %08x\n", neigh, link, val);
-    val = cht_read_config(neigh, 0, 0x170 + link * 4);
-    printf("HT#%d L%d Link Ext. Control  : %08x\n", neigh, link, val);
-    val = get_phy_register(nc_neigh, nc_neigh_link, 0xe0, 0); /* link phy compensation and calibration control 1 */
-    printf("HT#%d L%d Link Phy Settings  : RTT=%02x RON=%02x\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
 
     printf("Checking width/freq ");
 
@@ -800,10 +809,6 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     }
 	
     printf(". done.\n");
-
-    if (ht_testmode & HT_TESTMODE_PRINT) {
-	cht_print();
-    }
 
     if (reboot) {
 	printf("Rebooting to make new link settings effective...\n");
@@ -984,9 +989,13 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         cht_write_config(i, NB_FUNC_HT, 0x40 + nc * 4, val);
     }
 
+#ifdef __i386
+    cht_print(neigh, link);
+#endif
+
     /* earliest opportunity to test HT link */
     if (ht_testmode & HT_TESTMODE_TEST)
-	cht_test(nc, 0, neigh, link, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER, 0x06011b47);
+	cht_test(nc, neigh, link);
 
     val = cht_read_config_nc(nc, 0, neigh, link,
                              H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
@@ -1014,6 +1023,11 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         *p_asic_mode = 0;
         *p_chip_rev = val;
     }
+
+    /* HT looping testmode useful after link is up at 16-bit 800MHz */
+    if (ht_testmode & HT_TESTMODE_LOOP)
+	while (1)
+	    cht_test(nc, neigh, link);
 
     if (route_only)
 	return nc;
@@ -1373,6 +1387,9 @@ static int parse_cmdline(const char *cmdline)
 
     if (!cmdline)
         return 1;
+
+    printf("options:");
+
     lstart = 0;
     while (cmdline[lstart] != '\0') {
         while (cmdline[lstart] != '\0' && cmdline[lstart] == ' ')
@@ -1398,8 +1415,11 @@ static int parse_cmdline(const char *cmdline)
                     else
                         strncpy(arg, &cmdline[lend], aend - lend);
                            
-                    if (options[i].handler(arg, options[i].userdata) < 0)
+		    printf(" %s=%s", options[i].label, arg);
+		    if (options[i].handler(arg, options[i].userdata) < 0) {
+			printf("\n");
                         return -1;
+		    }
                     break;
                 }
             }
@@ -1408,6 +1428,7 @@ static int parse_cmdline(const char *cmdline)
         lstart = aend;
     }
 
+    printf("\n");
     return 1;
 }
 
@@ -1744,11 +1765,6 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
         if (perform_selftest(asic_mode) < 0)
             return -1;
     }
-
-#ifdef __i386
-    if (ht_testmode & HT_TESTMODE_PRINT)
-	cht_print();
-#endif
      
     /* If init-only parameter is given, we stop here and return */
     if (init_only > 0)
