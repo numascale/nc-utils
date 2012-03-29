@@ -50,6 +50,7 @@ int disable_smm = 0;
 int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 static int singleton = 0;
+static int disable_speedincr = 0;
 int mem_offline = 0;
 u64 trace_buf_size = 0;
 int verbose = 0;
@@ -323,6 +324,7 @@ static int dnc_initialize_sram(void) {
 int dnc_init_caches(void) {
     u32 val;
     int cdata;
+    int ret;
 
     for (cdata = 0; cdata < 2; cdata++) {
         char *name = cdata ? "CData" : "MCTag";
@@ -463,8 +465,8 @@ int dnc_init_caches(void) {
 	} else {
 	    // We are on ASIC, default initailize SRAM if not disable_sram is set
 	    if(!disable_sram) {
-		if((val=dnc_initialize_sram())<0)
-		    return val;
+		if((ret=dnc_initialize_sram())<0)
+		    return ret;
 	    } else {
 		printf("No SRAM will be initialized!\n");
 		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  // Disable SRAM on NC
@@ -765,8 +767,8 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	printf(".");
     }
 
-    /* On ASIC optimize link frequency (800MHz) */
-    if (asic_mode) {
+    /* On ASIC optimize link frequency (800MHz), if option to disable this is not set */
+    if (asic_mode && (disable_speedincr==0)) {
         printf("+");
         tsc_wait(50);
         val = cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20);
@@ -792,6 +794,11 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
             reboot = 1;
         }
     }
+    
+    if(disable_speedincr) {
+	printf(".<Keep 200MHz>");
+    }
+	
     printf(". done.\n");
 
     if (ht_testmode & HT_TESTMODE_PRINT) {
@@ -1349,8 +1356,9 @@ static int parse_cmdline(const char *cmdline)
         {"enable-vga",	    &parse_int,    &enable_vga_redir},// Enable redirect of VGA to master, known issue with this on HP DL165 (default disable)
         {"self-test",       &parse_int,    &enable_selftest},
         {"ht-testmode",	    &parse_int,    &ht_testmode},
-        {"disable-pf",      &parse_int,    &force_probefilteroff},  // Disable probefilter (HT Assist)
-        {"force-ganged",    &parse_int,    &force_ganged},
+        {"disable-pf",      &parse_int,    &force_probefilteroff}, // Disable probefilter (HT Assist)
+        {"force-ganged",    &parse_int,    &force_ganged},    // Force setup of 16bit (ganged) HT link to NC
+        {"disable-speedup", &parse_int,    &disable_speedincr}, // Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC
         {"disable-smm",     &parse_int,    &disable_smm},
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
         {"forwarding-mode", &parse_int,    &forwarding_mode},
@@ -1365,7 +1373,6 @@ static int parse_cmdline(const char *cmdline)
 
     if (!cmdline)
         return 1;
-
     lstart = 0;
     while (cmdline[lstart] != '\0') {
         while (cmdline[lstart] != '\0' && cmdline[lstart] == ' ')
