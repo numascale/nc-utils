@@ -20,6 +20,7 @@
 
 #include "dnc-bootloader.h"
 #include "dnc-access.h"
+#include "dnc-regs.h"
 
 #define PCI_CONF_SEL 0xcf8
 #define PCI_CONF_DATA 0xcfc
@@ -166,10 +167,11 @@ static int cht_error(int node, int link)
     return status & ((3 << 8) | (1 << 4)); /* CrcErr, LinkFail */
 }
 
-void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect)
+void cht_test(u8 node, int neigh, int neigh_link)
 {
-    static int loop = 0;
-    int i, errors = 0;
+    static int loop = 0, errors = 0;
+    u32 base;
+    int i;
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG) {
 	printf("Testing HT link (5s timeout)...");
@@ -180,23 +182,35 @@ void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect)
     if (ht_testmode & HT_TESTMODE_LOOP)
 	printf("loop %d ", loop++);
 
+    base = cht_read_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
+
     for (i = 0; i < 2000000; i++) {
-	cht_write_config(node, func, reg, expect);
-	u32 val = cht_read_config(node, func, reg);
-	if (val != expect)
+	u32 h = i;
+	h ^= h >> 16;
+	h *= 0x85ebca6b;
+	h ^= h >> 13;
+	h *= 0xc2b2ae35;
+	h ^= h >> 16;
+	h &= ~0xfc; /* Clear read-only bits */
+
+	cht_write_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, h);
+	if (cht_read_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS) != h)
 	    errors++;
     }
+
+    /* Restore previous value */
+    cht_write_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base);
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
 
-    if (errors || cht_error(neigh, neigh_link)) {
+    if (!(ht_testmode & HT_TESTMODE_LOOP) && (errors || cht_error(neigh, neigh_link))) {
 	printf("%d link errors while reading; resetting system...\n", errors);
 	/* cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
     }
 
-    printf("done\n");
+    printf("%d errors\n", errors);
 }
 
 u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)

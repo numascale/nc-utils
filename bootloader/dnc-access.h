@@ -49,7 +49,7 @@ static inline u32 u32bswap(u32 val)
 
 void watchdog_setup(void);
 void reset_cf9(int mode, int last);
-void cht_test(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 expect);
+void cht_test(u8 node, int neigh, int neigh_link);
 u32  cht_read_config(u8 node, u8 func, u16 reg);
 void cht_write_config(u8 node, u8 func, u16 reg, u32 val);
 u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg);
