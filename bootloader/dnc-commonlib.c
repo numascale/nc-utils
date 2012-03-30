@@ -574,9 +574,7 @@ static u32 get_phy_register(int node, int link, int idx, int direct)
            node, base, idx);
     return 0;
 }
-#endif /* __i386 */
 
-#ifdef UNUSED
 static void set_phy_register(int node, int link, int idx, int direct, u32 val)
 {
 
@@ -593,7 +591,9 @@ static void set_phy_register(int node, int link, int idx, int direct, u32 val)
     printf("Write to phy register HT#%d F4x%x idx %x did not complete!\n",
            node, base, idx);
 }
+#endif /* __i386 */
 
+#ifdef UNUSED
 static void reorganize_mmio(int nc)
 {
     /* Stub for now */
@@ -642,6 +642,23 @@ static void print_phy_lanes(int neigh, int link, char *name, int base, int clk)
     printf("- CTL[ 1]=0x%08x\n", get_phy_register(neigh, link, base + 18 * 0x80, 1));
     if (clk)
 	printf("- CLK[ 1]=0x%08x\n", get_phy_register(neigh, link, base + 19 * 0x80, 1));
+}
+
+/* Set upper sublink to same phy settings as lower sublink */
+static void cht_mirror(int neigh, int link)
+{
+    const int gang_regs[] = {0xc0, 0xc1, 0xc3, 0xc4, 0xc5, 0xcf, 0};
+    const int lane_regs[] = {0x4006, 0x400a, 0x6000, 0};
+    int lane, offset;
+
+    for (offset = 0; lane_regs[offset]; offset++)
+	for (lane = 0; lane < 8; lane++)
+	    set_phy_register(neigh, link, lane_regs[offset] + (lane + 8) * 0x80, 1,
+		get_phy_register(neigh, link, lane_regs[offset] + lane * 0x80, 1));
+
+    for (offset = 0; gang_regs[offset]; offset++)
+	set_phy_register(neigh, link, gang_regs[offset] + 0x10, 0,
+	    get_phy_register(neigh, link, gang_regs[offset], 0));
 }
 
 static void cht_print(int neigh, int link)
@@ -804,10 +821,12 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         }
     }
     
-    if(disable_speedincr) {
+    if (disable_speedincr)
 	printf(".<Keep 200MHz>");
-    }
-	
+
+    if (force_ganged == 2)
+	cht_mirror(neigh, link);
+
     printf(". done.\n");
 
     if (reboot) {
