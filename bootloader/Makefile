@@ -1,17 +1,17 @@
-IFACEPATH = ../interface
-IFACEDEPS = $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
-UCODEDEPS = $(IFACEPATH)/numachip-mseq-ucode.h $(IFACEPATH)/numachip-mseq-table.h
-CFLAGS    = -I$(IFACEPATH)
-COPT      := -g -Wall
+IFACEPATH := ../interface
+IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
+UCODEDEPS := $(IFACEPATH)/numachip-mseq-ucode.h $(IFACEPATH)/numachip-mseq-table.h
+CFLAGS    := -I$(IFACEPATH)
+COPT      := -g -Wall -Wextra -Wno-unused-parameter -O2
 GITLOG    := $(shell ./gen-gitlog.sh auto-dnc-gitlog.c gitlog_dnc_bootloader)
 
-syslinux_version = 3.86
-syslinux_dir     = syslinux-$(syslinux_version)
+syslinux_version := 3.86
+syslinux_dir     := syslinux-$(syslinux_version)
 
-mjson_version    = 1.3
-mjson_dir        = json-$(mjson_version)
+mjson_version    := 1.4
+mjson_dir        := json-$(mjson_version)
 
-COM32DEPS = $(syslinux_dir)/com32/libutil/libutil_com.a $(syslinux_dir)/com32/lib/libcom32.a
+COM32DEPS := $(syslinux_dir)/com32/libutil/libutil_com.a $(syslinux_dir)/com32/lib/libcom32.a
 
 .PHONY: all
 all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-masternode test-slavenode test-routing
@@ -31,7 +31,7 @@ syslinux-%.tar.bz2:
 	wget -O $@ http://www.kernel.org/pub/linux/utils/boot/syslinux/3.xx/$@ || rm -f $@
 
 mjson-%.tar.gz:
-	wget -O $@ http://sourceforge.net/projects/mjson/files/mjson/$(mjson_version)/mjson-$(mjson_version).tar.gz/download || rm -f $@
+	wget -O $@ http://sourceforge.net/projects/mjson/files/latest/download?source=files || rm -f $@
 
 $(syslinux_dir)/com32/samples/Makefile: syslinux-$(syslinux_version).tar.bz2
 	tar -jxf $<

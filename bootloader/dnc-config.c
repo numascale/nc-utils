@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 #include "dnc-config.h"
-#include "json-1.3/src/json.h"
+#include "json-1.4/src/json.h"
 
 struct fabric_info cfg_fabric;
 struct node_info *cfg_nodelist;

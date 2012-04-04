@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <sys/types.h>
@@ -103,7 +104,7 @@ static void _write_config(u8 bus, u8 dev, u8 func, u16 reg, u32 val)
     cfg = get_config_space(bus, dev, func);
     if (cfg <= 0)
 	return;
-    pwrite64(cfg, &val, 4, reg);
+    assert(pwrite64(cfg, &val, 4, reg) == 4);
 }
 
 u32 cht_read_config(u8 node, u8 func, u16 reg)
@@ -134,10 +135,10 @@ static void *_map_mem64(u64 addr, u64 len)
 {
     static int memfd = -1;
     static struct { uint64_t addr; uint64_t len; char *mem; } maps[16];
-    static int map_next = 0, map_cur = 0;
+    static unsigned int map_next = 0, map_cur = 0;
     
     char *mem = NULL;
-    int i;
+    unsigned int i;
     
     if (!len)
         len = PAGE_LEN;
