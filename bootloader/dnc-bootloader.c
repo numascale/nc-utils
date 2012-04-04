@@ -108,13 +108,6 @@ static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 static com32sys_t inreg, outreg;
 
-static inline u64 rdtscll(void)
-{
-    u64 val;
-    asm volatile ("rdtsc" : "=A" (val));
-    return val;
-}
-
 void tsc_wait(u32 mticks) {
     u64 count;
     u64 stop;

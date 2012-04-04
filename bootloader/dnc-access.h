@@ -41,6 +41,13 @@ extern u64 dnc_csr_lim;
 extern int cht_config_use_extd_addressing;
 extern int ht_testmode;
 
+static inline u64 rdtscll(void)
+{
+    u64 val;
+    asm volatile ("rdtsc" : "=A" (val));
+    return val;
+}
+
 static inline u32 u32bswap(u32 val)
 {
     asm volatile("bswap %0" : "+r"(val));
