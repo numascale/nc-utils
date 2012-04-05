@@ -51,6 +51,7 @@ int renumber_bsp = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 static int singleton = 0;
 static int disable_speedincr = 0;
+static int ht_8bit_only = 0;
 int mem_offline = 0;
 u64 trace_buf_size = 0;
 int verbose = 0;
@@ -761,10 +762,10 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     }
 
     /* For ASIC revision 1 and later, optimize width (16b) */
-    /* For FPGA revision 6022 and later, optimize width (16b) */
+    /* For FPGA revision 6453 and later, optimize width (16b) */
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
-    if (force_ganged ||
-	(ganged && ((val >> 16) == 0x11) && ((asic_mode && rev >= 1))))
+    if (!ht_8bit_only && (force_ganged || (ganged && ((val >> 16) == 0x11) &&
+	((asic_mode && rev >= 1) || (!asic_mode && (rev >> 16) >= 6453)))))
     {
 	printf("*");
 	tsc_wait(50);
@@ -1391,6 +1392,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht-testmode",	    &parse_int,    &ht_testmode},
         {"disable-pf",      &parse_int,    &force_probefilteroff}, // Disable probefilter (HT Assist)
         {"force-ganged",    &parse_int,    &force_ganged},    // Force setup of 16bit (ganged) HT link to NC
+        {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
         {"disable-speedup", &parse_int,    &disable_speedincr}, // Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC
         {"disable-smm",     &parse_int,    &disable_smm},
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
