@@ -64,7 +64,7 @@ u32 dnc_top_of_mem;       /* Top of mem, in 16MB chunks */
 u8 post_apic_mapping[256]; /* POST APIC assigments */
 static int scc_started = 0;
 
-/* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
+/* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 u8 nodedata[4096];
 
 static const long long unsigned fixed_mtrr_base[] = {0x00000, 0x80000, 0xA0000,
@@ -213,8 +213,8 @@ static int install_e820_handler(void)
     relocate_size = (&asm_relocate_end - &asm_relocate_start + 1023) / 1024;
     relocate_size *= 1024;
     asm_relocated = (void *)((tom_lower - relocate_size) & ~0xfff);
-    /* http://groups.google.com/group/comp.lang.asm.x86/msg/9b848f2359f78cdf */
-//    *bda_tom_lower = ((u32)asm_relocated) >> 10;
+    /* http://groups.google.com/group/comp.lang.asm.x86/msg/9b848f2359f78cdf
+     * *bda_tom_lower = ((u32)asm_relocated) >> 10; */
 
     memcpy(asm_relocated, &asm_relocate_start, relocate_size);
 
@@ -231,7 +231,7 @@ static int install_e820_handler(void)
 
 	if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_node) {
 	    /* Adjust length to fit */
-	    printf("** Master node exceeds cachable memory range, clamping...\n");
+	    printf("Master node exceeds cachable memory range, clamping...\n");
 	    orig_end = (u64)max_mem_per_node << DRAM_MAP_SHIFT;
 	    orig_e820_map[i].length = orig_end - orig_e820_map[i].base;
 	}
@@ -329,7 +329,7 @@ static void update_e820_map(void)
     if (nc_node[0].nc_ht_id == 1) {
 	/* Truncate SCI 000/HT 0 to SCC ATT granularity if only HT
 	 * node on SCI 000.  Existing adjustment of ht_node_size
-	 * handles rest. */
+	 * handles rest */
 	rest = prev_end & ((SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1);
 	if (rest) {
 	    printf("Deducting %x from e820 entry...\n", (u32)rest);
@@ -408,7 +408,7 @@ static void load_existing_apic_map(void)
     }
 
     /* Use APIC ATT map as scracth area to communicate APIC maps to master */
-    dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); // Select APIC ATT
+    dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
     for (i = 0; i < 16; i++)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, apic_used[i]);
 }
@@ -425,23 +425,23 @@ static int linear_hops(int src, int dst, int size) {
 
 static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
 {
-    const int socket_cost = 5;	/* typically 2.2GHz HyperTransport link */
-    const int nc_cost = 90;	/* fixed NC costs */
-    const int fabric_cost = 20;	/* scaled variable NC costs: 2xSERDES latency + route lookup */
-    int total_cost = 10;	/* memory-controller + SDRAM latency */
+    const int socket_cost = 5;	/* Typically 2.2GHz HyperTransport link */
+    const int nc_cost = 90;	/* Fixed NC costs */
+    const int fabric_cost = 20;	/* Scaled variable NC costs: 2xSERDES latency + route lookup */
+    int total_cost = 10;	/* Memory-controller + SDRAM latency */
 
     int src_sci = cfg_nodelist[src_node].sciid;
     int dst_sci = cfg_nodelist[dst_node].sciid;
     int size = cfg_fabric.z_size << 8 | cfg_fabric.y_size << 4 | cfg_fabric.x_size;
     int hops = 0;
 
-    /* sum hops per axis */
+    /* Sum hops per axis */
     for (int dim = 0; dim < 3; dim++) {
 	if (cfg_fabric.strict)
-	    /* compute shortest path */
+	    /* Compute shortest path */
 	    hops += linear_hops(src_sci & 0xf, dst_sci & 0xf, size & 0xf);
 	else
-	    /* assume average of half ring length */
+	    /* Assume average of half ring length */
 	    hops += (src_sci == dst_sci) ? 0 : (size / 2);
 
 	src_sci >>= 4;
@@ -450,13 +450,13 @@ static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
     }
 
     if (hops) {
-	/* assume linear socket distance to NC */
+	/* Assume linear socket distance to NC */
 	int src_socket_offset = abs(src_ht - nc_node[src_node].nc_neigh);
 	int dst_socket_offset = abs(dst_ht - nc_node[dst_node].nc_neigh);
 
 	total_cost += (src_socket_offset + dst_socket_offset) * socket_cost;
-	total_cost += nc_cost; /* fixed cost of NC */
-	total_cost += hops * fabric_cost; /* variable cost of NC */
+	total_cost += nc_cost; /* Fixed cost of NC */
+	total_cost += hops * fabric_cost; /* Variable cost of NC */
     } else
 	total_cost += abs(dst_ht - src_ht) * socket_cost;
 
@@ -492,12 +492,12 @@ static void update_acpi_tables(void) {
     unsigned int i, j, apicid, pnum;
     unsigned int node, ht;
 
-    /* fixed MTRRs may mark the RSDT and XSDT pointers r/o */
+    /* Fixed MTRRs may mark the RSDT and XSDT pointers r/o */
     disable_fixed_mtrrs();
 
     /* replace_root may fail if rptr is r/o, so we read the pointers
-     * back.  In case of failure, we'll assume the existing rsdt/xsdt
-     * tables can be extended where they are. */
+     * back. In case of failure, we'll assume the existing rsdt/xsdt
+     * tables can be extended where they are */
     oroot = find_root("RSDT");
     if (oroot) {
 	memcpy(rsdt, oroot, oroot->len);
@@ -522,7 +522,7 @@ static void update_acpi_tables(void) {
     }
 
     if (!oapic) {
-	printf("Default ACPI APIC table not found.\n");
+	printf("Default ACPI APIC table not found\n");
         return;
     }
 
@@ -650,7 +650,7 @@ static void update_acpi_tables(void) {
 
     /* With SRAT we reuse the old info and add our new entries */
     if (!osrat) {
-	printf("Default ACPI SRAT table not found.\n");
+	printf("Default ACPI SRAT table not found\n");
 	return;
     }
 
@@ -832,14 +832,14 @@ static void setup_apic_atts(void)
 	apic_shift = 4;
     printf("Using apic shift: %d (%d)\n", apic_shift, apic_per_node);
     
-    // Set APIC ATT for remote interrupts
+    /* Set APIC ATT for remote interrupts */
     for (i = 0; i < dnc_node_count; i++) {
         u16 snode = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
 	u16 dnode, ht;
 
         printf("Initializing sci node %03x APIC ATT tables...\n", nc_node[i].sci_id);
         dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT,    apic_shift-1);
-        dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); // Select APIC ATT
+        dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 
 	for (j = 0; j < 64; j++) {
 	    dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j*4, nc_node[0].sci_id);
@@ -999,25 +999,25 @@ static void setup_other_cores(void)
     printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
            (u32)apic, apic[0x20/4], (u32)icr, *icr);
 
-    // ERRATA #N28: Disable HT Lock mechanism. 
-    // AMD Email dated 31.05.2011 :
-    // There is a switch that can help with these high contention issues,
-    // but it isn't "productized" due to a very rare potential for live lock if turned on.
-    // Given that HUGE caveat, here is the information that I got from a good source:
-    // LSCFG[44] =1 will disable it. MSR number is C001_1020.
+    /* ERRATA #N28: Disable HT Lock mechanism. 
+     * AMD Email dated 31.05.2011 :
+     * There is a switch that can help with these high contention issues,
+     * but it isn't "productized" due to a very rare potential for live lock if turned on.
+     * Given that HUGE caveat, here is the information that I got from a good source:
+     * LSCFG[44] =1 will disable it. MSR number is C001_1020 */
     val = dnc_rdmsr(MSR_LSCFG);
     val = val | (1ULL << 44);
     dnc_wrmsr(MSR_LSCFG, val);
 
-    // AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
-    // Suggested Workaround
-    // BIOS should set MSRC001_102A[27] = 1b.
-    // We do this unconditionally (ie on fam10h as well).
+    /* AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
+     * Suggested Workaround
+     * BIOS should set MSRC001_102A[27] = 1b
+     * We do this unconditionally (ie on fam10h as well) */
     val = dnc_rdmsr(MSR_CU_CFG2);
     val = val | (1ULL << 27);
     dnc_wrmsr(MSR_CU_CFG2, val);
    
-    // Start all local cores (not BSP) and let them run our init_trampoline
+    /* Start all local cores (not BSP) and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
 	for (i = 0; i < nc_node[0].ht[ht].cores; i++) {
 	    if (!nc_node[0].ht[ht].cpuid)
@@ -1042,7 +1042,7 @@ static void setup_other_cores(void)
 		tsc_wait(10);
 	    }
 	    if (*icr & 0x1000)
-		printf("apic %d INIT IPI not delivered.\n", apicid);
+		printf("APIC %d init IPI not delivered\n", apicid);
 
 	    apic[0x310/4] = apicid << 24;
 	    *icr = 0x00004600 | (((u32)REL(init_trampoline) >> 12) & 0xff);
@@ -1052,7 +1052,7 @@ static void setup_other_cores(void)
 		tsc_wait(10);
 	    }
 	    if (*icr & 0x1000)
-		printf("apic %d STARTUP IPI not delivered.\n", apicid);
+		printf("APIC %d startup IPI not delivered\n", apicid);
 	    
 	    for (j = 0; j < 100; j++) {
 		if (*REL(cpu_init_finished))
@@ -1060,15 +1060,15 @@ static void setup_other_cores(void)
 		tsc_wait(10);
 	    }
 	    if (*REL(cpu_init_finished)) {
-		printf("apic %d reported done.\n", apicid);
+		printf("APIC %d reported done\n", apicid);
 		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
-		    printf("Adjusted topmem value from %llx to %llx.\n",
+		    printf("Adjusted topmem from 0x%llx to 0x%llx\n",
 			   *((u64 *)REL(rem_topmem_msr)), *((u64 *)REL(new_topmem_msr)));
 		val = *((u64 *)REL(rem_smm_base_msr));
 		disable_smm_handler(val);
 	    }
 	    else {
-		printf("apic %d did not toggle init flag.\n", apicid);
+		printf("APIC %d did not toggle init flag\n", apicid);
 	    }
 	}
     }
@@ -1092,7 +1092,7 @@ static void renumber_remote_bsp(u16 num)
 	    return;
 	}
 
-        // Disable traffic distribution for now..
+        /* Disable traffic distribution for now.. */
 	dnc_write_conf(node, 0, 24+i, 0, 0x164, 0);
 	
 	/* Route maxnode + 1 as maxnode */
@@ -1199,7 +1199,7 @@ static void renumber_remote_bsp(u16 num)
     }
 
     val = dnc_read_conf(node, 0, 24+0, 0, H2S_CSR_F0_CHTX_NODE_ID);
-    printf("Done.\n");
+    printf("Done\n");
 
     memcpy(&nc_node[num].ht[maxnode], &nc_node[num].ht[0], sizeof(ht_node_info_t));
     nc_node[num].ht[0].cpuid = 0;
@@ -1240,7 +1240,7 @@ static void setup_remote_cores(u16 num)
     for (j = 0; j < 0x1000; j++) {
         if ((j & 0xff) == 0) {
 	    if (verbose > 0)
-		printf("setting remote mmio32 maps page %d...\n", j >> 8);
+		printf("Setting remote MMIO32 maps page %d...\n", j >> 8);
             dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
         }
         dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4,
@@ -1251,10 +1251,10 @@ static void setup_remote_cores(u16 num)
 	renumber_remote_bsp(num);
     ht_id = nc_node[num].nc_ht_id;
 
-    printf("remote dnc mmio32 maps set...\n");
+    printf("Remote MMIO32 maps set...\n");
 
     /* Set H2S_Init */
-    printf("Setting sci node %03x H2S_Init...\n", node);
+    printf("Setting SCI node %03x H2S_Init...\n", node);
     val = dnc_read_csr(node, H2S_CSR_G3_HREQ_CTRL);
     dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, val | (1<<12));
 
@@ -1273,11 +1273,11 @@ static void setup_remote_cores(u16 num)
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x8c, 0x00ffff00 | ht_id);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x88, tom | 3);
     
-	// Enable redirect of VGA to master, default disable where local cores will access local VGA on each node
+	/* Enable redirect of VGA to master, default disable where local cores will access local VGA on each node */
         if (enable_vga_redir) {
-            // Apparently the HP DL165 modes can't handle non-posted writes to the VGA ports...
-            /* Make sure the VGA Enable register is disabled to forward VGA transactions
-               (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
+            /* Apparently the HP DL165 modes can't handle non-posted writes to the VGA ports...
+             * Make sure the VGA Enable register is disabled to forward VGA transactions
+             * (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf4, 0x0);
         }
     }
@@ -1287,13 +1287,13 @@ static void setup_remote_cores(u16 num)
     for (i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
-        // Re-direct everything below our first local address to NumaChip
+        /* Re-direct everything below our first local address to NumaChip */
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44,
                        ((cur_node->ht[0].base - 1) << 16) | ht_id);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40,
                        (nc_node[0].ht[0].base << 16) | 3);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf0,  0);
-        // Clear all other entries for now (we'll get to them later)
+        /* Clear all other entries for now; we'll get to them later */
         for (j = 1; j < 8; j++) {
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8, 0);
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8, 0);
@@ -1323,7 +1323,7 @@ static void setup_remote_cores(u16 num)
 	}
     }
 
-    // Program our local ranges
+    /* Program our local ranges */
     for (map_index = 0, i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
@@ -1344,7 +1344,7 @@ static void setup_remote_cores(u16 num)
         map_index++;
     }
 
-    // Re-direct everything above our last local address (if any) to NumaChip
+    /* Re-direct everything above our last local address (if any) to NumaChip */
     if (num != dnc_node_count-1) {
 	if (map_index > 6)
 	    printf("ERROR: too many DRAM maps on SCI%03x, cannot fit last overflow map\n", node);
@@ -1371,7 +1371,6 @@ static void setup_remote_cores(u16 num)
 		
 	    }
 	}
-
     }
 
     printf("%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
@@ -1419,7 +1418,7 @@ static void setup_remote_cores(u16 num)
     
     *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
 
-    // Start all remote cores and let them run our init_trampoline
+    /* Start all remote cores and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
 	for (i = 0; i < cur_node->ht[ht].cores; i++) {
 	    if (!cur_node->ht[ht].cpuid)
@@ -1444,15 +1443,15 @@ static void setup_remote_cores(u16 num)
 	    }
 
 	    if (*REL(cpu_init_finished)) {
-		printf("apic %d (%d) reported done.\n", apicid, oldid);
+		printf("APIC %d (%d) reported done\n", apicid, oldid);
 		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
-		    printf("Adjusted topmem value from %llx to %llx.\n",
+		    printf("Adjusted topmem value from %llx to %llx\n",
 			   *((u64 *)REL(rem_topmem_msr)), *((u64 *)REL(new_topmem_msr)));
 		qval = *((u64 *)REL(rem_smm_base_msr));
 		disable_smm_handler(qval);
 	    }
 	    else {
-		printf("apic %d (%d) did not toggle init flag.\n", apicid, oldid);
+		printf("APIC %d (%d) did not toggle init flag\n", apicid, oldid);
 	    }
 	}
     }
@@ -1478,7 +1477,7 @@ static void setup_local_mmio_maps(void)
 
     tom = dnc_rdmsr(MSR_TOPMEM);
     if (tom >= 0x100000000) {
-	printf("TOP_MEM above 4G boundary, aborting!\n");
+	printf("Error: TOP_MEM above 4G boundary\n");
 	return;
     }
 
@@ -1488,7 +1487,7 @@ static void setup_local_mmio_maps(void)
     dst[0] = (sbnode << 8) | 3;
     next = 1;
 
-    /* Apply default maps so we can bail without losing all hope. */
+    /* Apply default maps so we can bail without losing all hope */
     for (i = 0; i < 8; i++) {
 	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
@@ -1502,7 +1501,7 @@ static void setup_local_mmio_maps(void)
         curbase = cht_read_config(sbnode, NB_FUNC_MAPS, 0x80 + i*8);
         curlim = cht_read_config(sbnode, NB_FUNC_MAPS, 0x84 + i*8);
 	curdst = ((curlim & 0x7) << 8) | (curbase & 0x3);
-	/* This strips NP-bit. */
+	/* This strips NP-bit */
 	curbase = curbase & ~0xff;
 	curlim = curlim & ~0xff;
 	if (verbose > 0)
@@ -1609,7 +1608,7 @@ static int read_file(const char *filename, void *buf, int bufsz)
     
     printf("Trying to open %s....", filename);
     strcpy(buf, filename);
-    inargs.eax.w[0] = 0x0006; // Open file
+    inargs.eax.w[0] = 0x0006; /* Open file */
     inargs.esi.w[0] = OFFS(buf);
     inargs.es = SEG(buf);
     __intcall(0x22, &inargs, &outargs);
@@ -1634,7 +1633,7 @@ static int read_file(const char *filename, void *buf, int bufsz)
     
     blocks = (len / bsize) + 1;
     printf("Reading %s (%d bytes, %d blocks)\n", filename, len, blocks);
-    inargs.eax.w[0] = 0x0007; // Read file
+    inargs.eax.w[0] = 0x0007; /* Read file */
     inargs.esi.w[0] = fd;
     inargs.ecx.w[0] = blocks;
     inargs.ebx.w[0] = OFFS(buf);
@@ -1644,7 +1643,7 @@ static int read_file(const char *filename, void *buf, int bufsz)
     len = outargs.ecx.l;
     
     if (outargs.esi.w[0] != 0) {
-        inargs.eax.w[0] = 0x0008; // Close file
+        inargs.eax.w[0] = 0x0008; /* Close file */
         inargs.esi.w[0] = outargs.esi.w[0];
         __intcall(0x22, &inargs, NULL);
     }
@@ -1799,8 +1798,8 @@ static int pxeapi_call(int func, u8 *buf)
 {
     static com32sys_t inargs, outargs;
 
-    inargs.eax.w[0] = 0x0009; // Call PXE Stack
-    inargs.ebx.w[0] = func; // PXE function number
+    inargs.eax.w[0] = 0x0009; /* Call PXE Stack */
+    inargs.ebx.w[0] = func; /* PXE function number */
     inargs.esi.w[0] = OFFS(buf);
     inargs.es = SEG(buf);
     __intcall(0x22, &inargs, &outargs);
@@ -1888,7 +1887,7 @@ static void wait_status(void)
 {
     printf("Waiting for");
 
-    /* skip first node */
+    /* Skip first node */
     for (int i = 1; i < cfg_nodes; i++)
 	if (nodedata[cfg_nodelist[i].sciid] != 0x80)
 	    printf(" 0x%03x (%s)",
@@ -1981,7 +1980,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			 (rsp.state == RSP_FABRIC_NOT_OK))
 		{
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%s) aborted!  Restarting process...\n",
+			printf("Node 0x%03x (%s) aborted! Restarting process...\n",
 			       rsp.sciid, cfg_nodelist[i].desc);
 			do_restart = 1;
 			nodedata[rsp.sciid] = 0x80;
@@ -2175,7 +2174,7 @@ static void local_chipset_fixup(void)
     if (val == 0x43851002) {
 	printf("Adjusting local configuration of AMD SP5100...\n");
 	if (!disable_smm) {
-	    // Disable config-space triggered SMI
+	    /* Disable config-space triggered SMI */
 	    outb(0xa8, 0xcd6);
 	    val = inb(0xcd7);
 	    val = val & ~0x10;
@@ -2215,7 +2214,7 @@ static void local_chipset_fixup(void)
 	for (i = 0; i < dnc_master_ht_id; i++)
 	    del_extd_mmio_maps(0xfff0, i, 3);
     }
-    printf("Chipset-specific setup done.\n");
+    printf("Chipset-specific setup done\n");
 }
 
 static void global_chipset_fixup(void)
@@ -2231,8 +2230,8 @@ static void global_chipset_fixup(void)
 	if ((val == 0x5a101002) || (val == 0x5a121002) || (val == 0x5a131002)) {
 	    printf("Adjusting configuration of AMD SR56x0 on node 0x%04x...\n",
 		   node);
-	    /* NBHTIU_INDEX is 0x94 */
-	    /* Set TOM2; HTIU 0x30/0x31 are TOM2 lo/hi */
+	    /* NBHTIU_INDEX is 0x94
+	     * Set TOM2; HTIU 0x30/0x31 are TOM2 lo/hi */
 	    dnc_write_conf(node, 0, 0, 0, 0x94, 0x30|0x100);
 	    dnc_write_conf(node, 0, 0, 0, 0x98, 
 			   ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
@@ -2248,14 +2247,14 @@ static void global_chipset_fixup(void)
 	    dnc_write_conf(node, 0, 0, 0, 0x90, val & ~(1<<31));
 	}
     }
-    printf("Chipset-specific setup done.\n");
+    printf("Chipset-specific setup done\n");
 }
 
 static void setup_c1e_osvw(void)
 {
     u64 msr;
 
-    // Disable C1E in MSRs
+    /* Disable C1E in MSRs */
     msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
     dnc_wrmsr(MSR_HWCR, msr);
     *((u64 *)REL(new_hwcr_msr)) = 0;
@@ -2264,10 +2263,10 @@ static void setup_c1e_osvw(void)
     dnc_wrmsr(MSR_INT_HALT, msr);
     *((u64 *)REL(new_int_halt_msr)) = msr;
 
-    // Disable OS Vendor Workaround bit for errata #400, as C1E is disabled
+    /* Disable OS Vendor Workaround bit for errata #400, as C1E is disabled */
     msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
     if (msr < 2) {
-	// Extend ID length to cover errata 400 status bit
+	/* Extend ID length to cover errata 400 status bit */
 	dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
 	*((u64 *)REL(new_osvw_id_len_msr)) = 2;
 	msr = dnc_rdmsr(MSR_OSVW_STATUS) & ~2;
@@ -2331,7 +2330,7 @@ static int unify_all_nodes(void)
 	    if ((cpu_family(nc_node[node].sci_id, i) >> 16) >= 0x15) {
 		val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, NB_FUNC_DRAM, 0x118);
 		if (val & (1<<19)) {
-		    printf("** [%04x#%d] has LockDramCfg set (F2x118 = 0x%08x), cannot continue.\n",
+		    printf("** [%04x#%d] has LockDramCfg set (F2x118 = 0x%08x), cannot continue\n",
 			   nc_node[node].sci_id, i, (u32)val);
 		    abort = 1;
 		}
@@ -2339,11 +2338,11 @@ static int unify_all_nodes(void)
 	}
     }
     if (abort) {
-	printf("   Please ensure that BIOS is not set to enable CState C6, then retry.\n");
+	printf("Error: Please ensure that CState C6 isn't enabled in the BIOS\n");
 	return -1;
     }
 
-    // Set up local mapping registers etc. from 0 - master node max
+    /* Set up local mapping registers etc from 0 - master node max */
     for (i = 0; i < dnc_master_ht_id; i++) {
 	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
@@ -2355,10 +2354,10 @@ static int unify_all_nodes(void)
 			    (nc_node[0].ht[i].base << 8) | 3);
     }
 
-    // DRAM map on local CPUs to redirect all accesses outside our local range to NC
-    // NB: Assuming that memory is assigned sequentially to SCI nodes and HT nodes.
+    /* DRAM map on local CPUs to redirect all accesses outside our local range to NC
+     * NB: Assuming that memory is assigned sequentially to SCI nodes and HT nodes */
     for (i = 0; i < dnc_master_ht_id; i++) {
-	// TODO: Verify that this DRAM slot is actually unused
+	/* TODO: Verify that this DRAM slot is actually unused */
 	cht_write_config(i, 1, 0x7c, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
 	cht_write_config(i, 1, 0x78, (nc_node[1].ht[0].base << 16) | 3);
     }
@@ -2403,25 +2402,25 @@ static int unify_all_nodes(void)
 
     for (i = 0; i < dnc_node_count; i++) {
         node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-        printf("Loading SCC microcode on node %03x.\n", nc_node[i].sci_id);
+        printf("Loading SCC microcode on node %03x\n", nc_node[i].sci_id);
         load_scc_microcode(node);
     }
 
     scc_started = 1;
-    printf("SCC microcode loaded.\n");
+    printf("SCC microcode loaded\n");
 
     if (update_mtrr() < 0) {
         printf("Error updating MTRRs!\n");
 	return -1;
     }
 
-    // Set TOPMEM2 for ourselves and other cores
+    /* Set TOPMEM2 for ourselves and other cores */
     dnc_wrmsr(MSR_TOPMEM2, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
     *((u64 *)REL(new_topmem2_msr)) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
-    // Harmonize TOPMEM
+    /* Harmonize TOPMEM */
     *((u64 *)REL(new_topmem_msr)) = dnc_rdmsr(MSR_TOPMEM);
 
-    /* update OS visible workaround MSRs */
+    /* Update OS visible workaround MSRs */
     setup_c1e_osvw();
 
     if (verbose > 0)
@@ -2467,7 +2466,7 @@ static int check_api_version(void)
     printf("Detected SYSLINUX API version %d.%02d\n", major, minor);
 
     if ((major * 100 + minor) < 372) {
-        printf("SYSLINUX API version >= 3.72 is required! Exiting.\n");
+        printf("Error: SYSLINUX API version >= 3.72 is required\n");
         return -1;
     }
 
@@ -2502,15 +2501,15 @@ static void cleanup_stack(void)
 /*
  * HcControl (control) register masks
  */
-#define OHCI_CTRL_CBSR  (3 << 0)        /* control/bulk service ratio */
-#define OHCI_CTRL_PLE   (1 << 2)        /* periodic list enable */
-#define OHCI_CTRL_IE    (1 << 3)        /* isochronous enable */
-#define OHCI_CTRL_CLE   (1 << 4)        /* control list enable */
-#define OHCI_CTRL_BLE   (1 << 5)        /* bulk list enable */
-#define OHCI_CTRL_HCFS  (3 << 6)        /* host controller functional state */
-#define OHCI_CTRL_IR    (1 << 8)        /* interrupt routing */
-#define OHCI_CTRL_RWC   (1 << 9)        /* remote wakeup connected */
-#define OHCI_CTRL_RWE   (1 << 10)       /* remote wakeup enable */
+#define OHCI_CTRL_CBSR  (3 << 0)        /* Control/bulk service ratio */
+#define OHCI_CTRL_PLE   (1 << 2)        /* Periodic list enable */
+#define OHCI_CTRL_IE    (1 << 3)        /* Isochronous enable */
+#define OHCI_CTRL_CLE   (1 << 4)        /* Control list enable */
+#define OHCI_CTRL_BLE   (1 << 5)        /* Bulk list enable */
+#define OHCI_CTRL_HCFS  (3 << 6)        /* Host controller functional state */
+#define OHCI_CTRL_IR    (1 << 8)        /* Interrupt routing */
+#define OHCI_CTRL_RWC   (1 << 9)        /* Remote wakeup connected */
+#define OHCI_CTRL_RWE   (1 << 10)       /* Remote wakeup enable */
 
 
 #define HcCommandStatus 0x08
@@ -2518,38 +2517,38 @@ static void cleanup_stack(void)
 /*
  * HcCommandStatus (cmdstatus) register masks
  */
-#define OHCI_HCR        (1 << 0)        /* host controller reset */
-#define OHCI_CLF        (1 << 1)        /* control list filled */
-#define OHCI_BLF        (1 << 2)        /* bulk list filled */
-#define OHCI_OCR        (1 << 3)        /* ownership change request */
-#define OHCI_SOC        (3 << 16)       /* scheduling overrun count */
+#define OHCI_HCR        (1 << 0)        /* Host controller reset */
+#define OHCI_CLF        (1 << 1)        /* Control list filled */
+#define OHCI_BLF        (1 << 2)        /* Bulk list filled */
+#define OHCI_OCR        (1 << 3)        /* Ownership change request */
+#define OHCI_SOC        (3 << 16)       /* Scheduling overrun count */
 
 #define HcInterruptStatus 0x0C
 #define HcInterruptEnable 0x10
 #define HcInterruptDisable 0x14
 
 /*
- * masks used with interrupt registers:
+ * Masks used with interrupt registers:
  * HcInterruptStatus (intrstatus)
  * HcInterruptEnable (intrenable)
  * HcInterruptDisable (intrdisable)
  */
-#define OHCI_INTR_SO	(1 << 0)	/* scheduling overrun */
-#define OHCI_INTR_WDH	(1 << 1)	/* writeback of done_head */
-#define OHCI_INTR_SF	(1 << 2)	/* start frame */
-#define OHCI_INTR_RD	(1 << 3)	/* resume detect */
-#define OHCI_INTR_UE	(1 << 4)	/* unrecoverable error */
-#define OHCI_INTR_FNO	(1 << 5)	/* frame number overflow */
-#define OHCI_INTR_RHSC	(1 << 6)	/* root hub status change */
-#define OHCI_INTR_OC	(1 << 30)	/* ownership change */
-#define OHCI_INTR_MIE	(1 << 31)	/* master interrupt enable */
+#define OHCI_INTR_SO	(1 << 0)	/* Scheduling overrun */
+#define OHCI_INTR_WDH	(1 << 1)	/* Writeback of done_head */
+#define OHCI_INTR_SF	(1 << 2)	/* Start frame */
+#define OHCI_INTR_RD	(1 << 3)	/* Resume detect */
+#define OHCI_INTR_UE	(1 << 4)	/* Unrecoverable error */
+#define OHCI_INTR_FNO	(1 << 5)	/* Frame number overflow */
+#define OHCI_INTR_RHSC	(1 << 6)	/* Root hub status change */
+#define OHCI_INTR_OC	(1 << 30)	/* Ownership change */
+#define OHCI_INTR_MIE	(1 << 31)	/* Master interrupt enable */
 
 #define HcHCCA 0x18
 
-// Legacy emulation registers (if enabled in the revision register, bit8)
+/* Legacy emulation registers (if enabled in the revision register, bit8) */
 #define HceControl 0x100
 
-static int _stop_ohci(u8 bus, u8 dev, u8 fn)
+static void _stop_ohci(u8 bus, u8 dev, u8 fn)
 {
     u32 val, bar0;
 
@@ -2559,48 +2558,46 @@ static int _stop_ohci(u8 bus, u8 dev, u8 fn)
         printf("Found OHCI controller at %02x:%02x:%x, BAR0 @%08x, HCCA @%08x\n",
                bus, dev, fn, bar0, val);
         val = mem64_read32(bar0 + HcControl);
-        if (val & OHCI_CTRL_IR) { // Interrupt routing enabled, we must request change of ownership
+        if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
             u32 temp;
             printf("Requesting Change of Ownership on OHCI controller %02x:%02x:%x\n",
                    bus, dev, fn);
-            /* this timeout is arbitrary.  we make it long, so systems
+            /* This timeout is arbitrary.  we make it long, so systems
              * depending on usb keyboards may be usable even if the
-             * BIOS/SMM code seems pretty broken.
+             * BIOS/SMM code seems pretty broken
              */
-            temp = 500;	/* arbitrary: five seconds */
+            temp = 500;	/* Arbitrary: five seconds */
             
-            mem64_write32(bar0 + HcInterruptEnable, OHCI_INTR_OC); // Enable OwnershipChange interrupt
-            mem64_write32(bar0 + HcCommandStatus, OHCI_OCR); // Request OwnershipChange
+            mem64_write32(bar0 + HcInterruptEnable, OHCI_INTR_OC); /* Enable OwnershipChange interrupt */
+            mem64_write32(bar0 + HcCommandStatus, OHCI_OCR); /* Request OwnershipChange */
             while (mem64_read32(bar0 + HcControl) & OHCI_CTRL_IR) {
                 tsc_wait(1000);
                 if (--temp == 0) {
-                    printf("OHCI HC takeover failed on %02x:%02x:%x ! (BIOS/SMM bug)\n",
+                    printf("OHCI HC takeover failed on %02x:%02x:%x! (BIOS/SMM bug)\n",
                            bus, dev, fn);
-                    return -1;
+                    return;
                 }
             }
 
-            // Shutdown
+            /* Shutdown */
             mem64_write32(bar0 + HcInterruptDisable, OHCI_INTR_MIE);
             val = mem64_read32(bar0 + HcControl);
             val &= OHCI_CTRL_RWC;
             mem64_write32(bar0 + HcControl, val);
-            /* flush the writes */
+            /* Flush the writes */
             val = mem64_read32(bar0 + HcControl);
         } else {
             printf("OHCI controller %02x:%02x:%x not in use by BIOS/SMM, skipping\n",
                    bus, dev, fn);
         }
         val = mem64_read32(bar0 + HcRevision);
-        if (val & (1 << 8)) { // Legacy emulation is supported
+        if (val & (1 << 8)) { /* Legacy emulation is supported */
             val = mem64_read32(bar0 + HceControl);
             if (val & (1 << 0)) {
                 printf("Legacy support enabled!\n");
             }
         }
     }
-
-    return 0;
 }
 
 #define PCI_CLASS_SERIAL_USB_OHCI     0x0c0310
@@ -2612,16 +2609,16 @@ static void stop_usb(void)
     u8 dev;
     u8 fn;
 
-    // If SMM is disabled, USB functionality may have been lost.
+    /* If SMM is disabled, USB functionality may have been lost */
     if (disable_smm)
 	return;
 
-    // Scan bus 0 for OHCI controllers and disable them if used by BIOS/SMM
-    for (dev=0; dev<0x18; dev++) {
-        for (fn=0; fn<7; fn++) {
+    /* Scan bus 0 for OHCI controllers and disable them if used by BIOS/SMM */
+    for (dev = 0; dev < 0x18; dev++) {
+        for (fn = 0; fn < 7; fn++) {
             val = dnc_read_conf(0xfff0, bus, dev, fn, 8);
-            if ((val>>8) == PCI_CLASS_SERIAL_USB_OHCI)
-                (void)_stop_ohci(bus, dev, fn);
+            if ((val >> 8) == PCI_CLASS_SERIAL_USB_OHCI)
+                _stop_ohci(bus, dev, fn);
         }
     }
 }
@@ -2646,30 +2643,30 @@ static void get_hostname(void)
     if (pxe_get_cached_info(PXENV_PACKET_TYPE_DHCP_ACK, (void **)&dhcpdata, &dhcplen))
 	return;
 
-    /* skip standard fields, as hostname is an option */
+    /* Skip standard fields, as hostname is an option */
     unsigned int offset = 4 + offsetof(pxe_bootp_t, vendor.d);
 
     while (offset < dhcplen) {
 	int code = dhcpdata[offset];
 	int len = dhcpdata[offset + 1];
 
-	/* sanity-check length */
+	/* Sanity-check length */
 	if (len == 0)
 	    return;
 
-	/* skip non-hostname options */
+	/* Skip non-hostname options */
 	if (code != 12) {
 	    offset += 2 + len;
 	    continue;
 	}
 
-	/* sanity-check length */
+	/* Sanity-check length */
 	if ((offset + len) > dhcplen)
 	    break;
 
-	/* create a private copy */
+	/* Create a private copy */
 	hostname = strndup(&dhcpdata[offset + 2], len);
-	printf("hostname is %s\n", hostname);
+	printf("Hostname is %s\n", hostname);
 	return;
     }
 
@@ -2790,11 +2787,11 @@ static int nc_start(void)
 
         stop_usb();
 
-        // Set G3x02c FAB_CONTROL bit 30.
+        /* Set G3x02c FAB_CONTROL bit 30 */
         dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);
  
         printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
-	// print_status();
+	/* print_status(); */
         while (1) {
             val = dnc_check_mctr_status(0);
             val = dnc_check_mctr_status(1);
@@ -2809,7 +2806,7 @@ static int nc_start(void)
             tsc_wait(1000);
         }
 
-        /* Disable legacy PIC interrupts and cache*/
+        /* Disable legacy PIC interrupts and cache */
         disable_xtpic();
 	disable_cache();
 
@@ -2834,8 +2831,7 @@ int main(void)
     ret = nc_start();
     if (ret < 0)
       {
-	printf("ERROR! nc_start() failed with error code %d!\n", ret);
-	printf("Please check configuration files and HW (e.g. UUID etc.");
+	printf("Error: nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
 	wait_key();
       }
     return ret;
