@@ -53,6 +53,7 @@ int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-th
 static int singleton = 0;
 static int disable_speedincr = 0;
 static int ht_8bit_only = 0;
+static int ht_suppress = 0;
 int mem_offline = 0;
 u64 trace_buf_size = 0;
 int verbose = 0;
@@ -946,19 +947,20 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     val = cht_read_config(0, NB_FUNC_HT, 0x60);
     nodes = (val >> 4) & 7;
 
-    /* Disable HT sync flood for harmless (?) error conditions */
-    for (i = 0; i <= nodes; i++) {
-	val = cht_read_config(i, NB_FUNC_MISC, 0x44);
-	cht_write_config(i, NB_FUNC_MISC, 0x44, val &
-			 ~((1 << 30) | (1 << 21) | (1 << 20)
-			   | (1 << 4) | (1 << 3) | (1 << 2)));
+    if (ht_suppress)
+	/* Disable HT sync flood for debugging purposes */
+	for (i = 0; i <= nodes; i++) {
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x44);
+	    cht_write_config(i, NB_FUNC_MISC, 0x44, val &
+		    ~((1 << 30) | (1 << 21) | (1 << 20)
+		    | (1 << 4) | (1 << 3) | (1 << 2)));
 
-	val = cht_read_config(i, NB_FUNC_MISC, 0x180);
-	cht_write_config(i, NB_FUNC_MISC, 0x180, val &
-			 ~((1 << 22) | (1 << 21) | (1 << 20) 
-			   | (1 << 9) | (1 << 8) | (1 << 7)
-			   | (1 << 6) | (1 << 1)));
-    }
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x180);
+	    cht_write_config(i, NB_FUNC_MISC, 0x180, val &
+		    ~((1 << 22) | (1 << 21) | (1 << 20)
+		    | (1 << 9) | (1 << 8) | (1 << 7)
+		    | (1 << 6) | (1 << 1)));
+	}
 
     use = 1;
     for (neigh = 0; neigh <= nodes; neigh++) {
@@ -1394,6 +1396,7 @@ static int parse_cmdline(const char *cmdline)
         {"disable-pf",      &parse_int,    &force_probefilteroff}, // Disable probefilter (HT Assist)
         {"force-ganged",    &parse_int,    &force_ganged},    // Force setup of 16bit (ganged) HT link to NC
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
+        {"ht.suppress",     &parse_int,    &ht_suppress},     // Disable HT sync flood and related
         {"disable-speedup", &parse_int,    &disable_speedincr}, // Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC
         {"disable-smm",     &parse_int,    &disable_smm},
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
