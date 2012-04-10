@@ -26,6 +26,7 @@
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-fabric.h"
+#include "dnc-mmio.h"
 
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
@@ -389,5 +390,21 @@ int tally_all_remote_nodes(void)
             continue;
         ret = tally_remote_node(node) && ret;
     }
+
+    /* MMIO is added after DRAM */
+    dnc_top_of_dram = dnc_top_of_mem;
+
+    if (!remote_io)
+	return ret;
+
+    for (node = 0; node < dnc_node_count; node++)
+	tally_remote_node_mmio(node);
+
+    for (node = 0; node < dnc_node_count; node++)
+	ret &= setup_remote_node_mmio(node);
+
+    printf("DRAM top is 0x%016llx; MMIO top is 0x%016llx\n",
+	(u64)dnc_top_of_dram << DRAM_MAP_SHIFT, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
+
     return ret;
 }

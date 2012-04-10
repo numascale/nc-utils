@@ -48,6 +48,7 @@ int force_probefilteroff = 0;
 static int force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
+int remote_io = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 static int singleton = 0;
 static int disable_speedincr = 0;
@@ -1401,6 +1402,7 @@ static int parse_cmdline(const char *cmdline)
         {"mem-offline",     &parse_int,    &mem_offline},
         {"trace-buf",       &parse_u64,    &trace_buf_size},
         {"verbose",         &parse_int,    &verbose},
+        {"remote-io",       &parse_int,    &remote_io},
         {"print-git-log",   &print_git_log, NULL},
     };
     char arg[256];

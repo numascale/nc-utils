@@ -74,14 +74,14 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 
 $(mjson_dir)/src/json.o: $(mjson_dir)/src/json.c
 
-dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-masterlib.o \
+dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-masterlib.o dnc-mmio.o \
 	dnc-fabric.o dnc-access.o dnc-route.o dnc-acpi.o dnc-config.o \
 	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS) \
 	auto-dnc-gitlog.o
 
 dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-types.h dnc-regs.h \
 	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h \
-	dnc-commonlib.h dnc-masterlib.h dnc-debug.h hw-config.h
+	dnc-commonlib.h dnc-masterlib.h dnc-mmio.h dnc-debug.h hw-config.h
 
 dnc-e820-handler.o: hw-config.h dnc-defs.h
 
@@ -89,7 +89,9 @@ dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-access.h ../interface/regco
 
 dnc-config.o: dnc-config.c dnc-config.h $(mjson_dir)/src/json.h
 
-dnc-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-masterlib.h hw-config.h dnc-access.h
+dnc-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
+
+dnc-mmio.o: dnc-mmio.c dnc-mmio.h
 
 dnc-fabric.o: dnc-fabric.c dnc-fabric.h
 
@@ -103,7 +105,7 @@ auto-dnc-gitlog.c:
 
 remreset.elf: remreset.o dnc-access.o $(COM32DEPS)
 
-test-masternode: test-masternode.o dnc-test-commonlib.o dnc-test-masterlib.o \
+test-masternode: test-masternode.o dnc-test-commonlib.o dnc-test-masterlib.o dnc-test-mmio.o \
 	dnc-test-fabric.o dnc-test-access.o dnc-test-route.o dnc-test-config.o \
 	test-json.o \
 	auto-dnc-test-gitlog.o
@@ -118,7 +120,7 @@ test-routing: test-routing.o dnc-test-access.o
 	$(CC) $(COPT) $^ -o $@
 
 test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h \
-	dnc-masterlib.h dnc-fabric.h dnc-types.h dnc-regs.h dnc-access.h \
+	dnc-masterlib.h dnc-mmio.h dnc-fabric.h dnc-types.h dnc-regs.h dnc-access.h \
 	dnc-route.h  dnc-config.h
 	$(CC) $(COPT) -c $< -o $@
 
@@ -137,7 +139,10 @@ test-json.o: $(mjson_dir)/src/json.c
 dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 	$(CC) $(COPT) -c $< -o $@
 
-dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-masterlib.h hw-config.h dnc-access.h
+dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
+	$(CC) $(COPT) -c $< -o $@
+
+dnc-test-mmio.o: dnc-mmio.c $(UCODEDEPS) dnc-mmio.h
 	$(CC) $(COPT) -c $< -o $@
 
 dnc-test-fabric.o: dnc-fabric.c dnc-fabric.h

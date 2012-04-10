@@ -71,15 +71,16 @@ int udp_read_state(int handle, void *buf, int len) {
     return 0;
 }
 
-int dnc_master_ht_id;     /* HT id of NC on master node, equivalent to nc_node[0].nc_ht_id */
+int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nc_node[0].nc_ht_id */
 int dnc_asic_mode;
 int dnc_chip_rev;
 u16 dnc_node_count = 0;
 nc_node_info_t nc_node[128];
 u16 ht_pdom_count = 0;
 u16 apic_per_node;
+u32 dnc_top_of_dram;       /* Top of DRAM, before MMIO, in 16MB chunks */
 u16 ht_next_apic;
-u32 dnc_top_of_mem;       /* Top of mem, in 16MB chunks */
+u32 dnc_top_of_mem;        /* Top of mem, in 16MB chunks */
 u8 post_apic_mapping[256]; /* POST APIC assigments */
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */

@@ -70,11 +70,13 @@ typedef struct ht_node_info {
 } ht_node_info_t;
 
 typedef struct nc_node_info {
-    u16 sci_id;		/* Maps logical dnc node ids to physical (sci) ids */
     u32 node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
     u32 addr_base;
     u32 addr_end;
+    u32 mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
+    u32 mmio_end;
     ht_node_info_t ht[8];
+    u16 sci_id;		/* Maps logical dnc node ids to physical (sci) ids */
     u16 nc_ht_id;	/* HT id of dnc node dnc controller on local system */
     u16 apic_offset;	/* Offset to shift APIC ids by when unifying */
     u8 nc_neigh;	/* Our nearest neighbour HT node on local system */
@@ -89,8 +91,8 @@ extern nc_node_info_t nc_node[128];
 extern u16 ht_pdom_count;
 extern u16 apic_per_node;
 extern u16 ht_next_apic;
+extern u32 dnc_top_of_dram;
 extern u32 dnc_top_of_mem;
-
 
 void wait_key(void);
 unsigned char msleep(unsigned int msec);
