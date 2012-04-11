@@ -1036,6 +1036,9 @@ static void setup_other_cores(void)
 	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
 
 	    apic[0x310/4] = oldid << 24;
+
+	    printf("APIC %d ", apicid);
+
 	    *icr = 0x00004500;
 	    for (j = 0; j < 1000; j++) {
 		if (!(*icr & 0x1000))
@@ -1043,7 +1046,7 @@ static void setup_other_cores(void)
 		tsc_wait(10);
 	    }
 	    if (*icr & 0x1000)
-		printf("APIC %d init IPI not delivered\n", apicid);
+		printf("init IPI not delivered\n");
 
 	    apic[0x310/4] = apicid << 24;
 	    *icr = 0x00004600 | (((u32)REL(init_trampoline) >> 12) & 0xff);
@@ -1053,7 +1056,7 @@ static void setup_other_cores(void)
 		tsc_wait(10);
 	    }
 	    if (*icr & 0x1000)
-		printf("APIC %d startup IPI not delivered\n", apicid);
+		printf("startup IPI not delivered\n");
 	    
 	    for (j = 0; j < 100; j++) {
 		if (*REL(cpu_init_finished))
@@ -1061,7 +1064,7 @@ static void setup_other_cores(void)
 		tsc_wait(10);
 	    }
 	    if (*REL(cpu_init_finished)) {
-		printf("APIC %d reported done\n", apicid);
+		printf("reported done\n");
 		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
 		    printf("Adjusted topmem from 0x%llx to 0x%llx\n",
 			   *((u64 *)REL(rem_topmem_msr)), *((u64 *)REL(new_topmem_msr)));
@@ -1069,7 +1072,7 @@ static void setup_other_cores(void)
 		disable_smm_handler(val);
 	    }
 	    else {
-		printf("APIC %d did not toggle init flag\n", apicid);
+		printf("did not toggle init flag\n");
 	    }
 	}
     }
@@ -2293,6 +2296,7 @@ static int unify_all_nodes(void)
     u16 i;
     u16 node;
     u8 abort = 0;
+    int model, model_first = 0;
     volatile u32 *apic;
 
     val = dnc_rdmsr(MSR_APIC_BAR);
@@ -2310,6 +2314,38 @@ static int unify_all_nodes(void)
 	return 0;
     }
 
+    for (node = 0; node < dnc_node_count; node++)
+	for (i = 0; i < 8; i++) {
+	    if (!nc_node[node].ht[i].cpuid)
+		continue;
+
+	    /* Ensure all processors are the same for compatibility */
+	    model = cpu_family(nc_node[node].sci_id, i);
+	    if (!model_first)
+		model_first = model;
+	    else if (model != model_first) {
+		printf("[%04x#%d] has processor model 0x%08x, different than first processor model 0x%08x\n", nc_node[node].sci_id, i, model, model_first);
+		abort = 1;
+	    }
+
+	    if ((model >> 16) >= 0x15) {
+		val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, NB_FUNC_DRAM, 0x118);
+		if (val & (1<<19)) {
+		    printf("[%04x#%d] has LockDramCfg set (F2x118 = 0x%08x), cannot continue\n",
+			   nc_node[node].sci_id, i, (u32)val);
+		    abort = 2;
+		}
+	    }
+	}
+
+    if (abort == 1) {
+	printf("Error: Please install processors with consistent model and stepping\n");
+	return -1;
+    } else if (abort == 2) {
+	printf("Error: Please ensure that CState C6 isn't enabled in the BIOS\n");
+	return -1;
+    }
+
     if (verbose > 0) {
 	printf("Global memory map :\n");
 	for (node = 0; node < dnc_node_count; node++) {
@@ -2322,25 +2358,6 @@ static int unify_all_nodes(void)
 		       (u64)(nc_node[node].ht[i].base + nc_node[node].ht[i].size) << DRAM_MAP_SHIFT);
 	    }
 	}
-    }
- 
-    for (node = 0; node < dnc_node_count; node++) {
-	for (i = 0; i < 8; i++) {
-	    if (!nc_node[node].ht[i].cpuid)
-		continue;
-	    if ((cpu_family(nc_node[node].sci_id, i) >> 16) >= 0x15) {
-		val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, NB_FUNC_DRAM, 0x118);
-		if (val & (1<<19)) {
-		    printf("** [%04x#%d] has LockDramCfg set (F2x118 = 0x%08x), cannot continue\n",
-			   nc_node[node].sci_id, i, (u32)val);
-		    abort = 1;
-		}
-	    }
-	}
-    }
-    if (abort) {
-	printf("Error: Please ensure that CState C6 isn't enabled in the BIOS\n");
-	return -1;
     }
 
     /* Set up local mapping registers etc from 0 - master node max */
