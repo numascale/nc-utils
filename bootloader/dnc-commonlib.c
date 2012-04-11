@@ -45,13 +45,13 @@ static int disable_sram = 0;
 int enable_vga_redir = 0;
 int enable_selftest = 1;
 int force_probefilteroff = 0;
-static int force_ganged = 0;
+static int ht_force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;
 int remote_io = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 static int singleton = 0;
-static int disable_speedincr = 0;
+static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
 static int ht_suppress = 0;
 int mem_offline = 0;
@@ -758,7 +758,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     /* Make sure link towards NC is ganged, disable LS2En */
     /* XXX: Why do we alter this, optimally the link should be detected as
        ganged anyway if we set our CTL[1] terminations correctly ?? */
-    if (force_ganged) {
+    if (ht_force_ganged) {
 	val = cht_read_config(neigh, 0, 0x170 + link * 4);
 	cht_write_config(neigh, 0, 0x170 + link * 4, (val & ~0x100) | 1);
     }
@@ -766,7 +766,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     /* For ASIC revision 1 and later, optimize width (16b) */
     /* For FPGA revision 6453 and later, optimize width (16b) */
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
-    if (!ht_8bit_only && (force_ganged || (ganged && ((val >> 16) == 0x11) &&
+    if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11) &&
 	((asic_mode && rev >= 1) || (!asic_mode && (rev >> 16) >= 6453)))))
     {
 	printf("*");
@@ -797,7 +797,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     }
 
     /* On ASIC optimize link frequency (800MHz), if option to disable this is not set */
-    if (asic_mode && (disable_speedincr==0)) {
+    if (asic_mode && !ht_200mhz_only) {
         printf("+");
         tsc_wait(50);
         val = cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20);
@@ -824,10 +824,10 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         }
     }
     
-    if (disable_speedincr)
+    if (ht_200mhz_only)
 	printf(".<Keep 200MHz>");
 
-    if (force_ganged == 2)
+    if (ht_force_ganged == 2)
 	cht_mirror(neigh, link);
 
     printf(". done.\n");
@@ -1392,12 +1392,12 @@ static int parse_cmdline(const char *cmdline)
         {"disable-sram",    &parse_int,    &disable_sram},    // Disable SRAM chip, needed for newer cards without SRAM
         {"enable-vga",	    &parse_int,    &enable_vga_redir},// Enable redirect of VGA to master, known issue with this on HP DL165 (default disable)
         {"self-test",       &parse_int,    &enable_selftest},
-        {"ht-testmode",	    &parse_int,    &ht_testmode},
         {"disable-pf",      &parse_int,    &force_probefilteroff}, // Disable probefilter (HT Assist)
-        {"force-ganged",    &parse_int,    &force_ganged},    // Force setup of 16bit (ganged) HT link to NC
+        {"ht.testmode",	    &parse_int,    &ht_testmode},
+        {"ht.force-ganged", &parse_int,    &ht_force_ganged}, // Force setup of 16bit (ganged) HT link to NC
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
         {"ht.suppress",     &parse_int,    &ht_suppress},     // Disable HT sync flood and related
-        {"disable-speedup", &parse_int,    &disable_speedincr}, // Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC
+        {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  // Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC
         {"disable-smm",     &parse_int,    &disable_smm},
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
         {"forwarding-mode", &parse_int,    &forwarding_mode},
