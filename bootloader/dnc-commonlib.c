@@ -767,7 +767,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     /* For FPGA revision 6453 and later, optimize width (16b) */
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
     if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11) &&
-	((asic_mode && rev >= 1) || (!asic_mode && (rev >> 16) >= 6453)))))
+	((asic_mode && rev >= 2) || (!asic_mode && (rev >> 16) >= 6453)))))
     {
 	printf("*");
 	tsc_wait(50);
