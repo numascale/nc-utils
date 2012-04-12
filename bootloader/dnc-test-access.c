@@ -257,12 +257,12 @@ u64 dnc_rdmsr(u32 msr)
     fd = open("/dev/cpu/0/msr", O_RDWR);
     if (fd < 0) {
         fprintf(stderr, "*** Unable to open </dev/cpu/0/msr>\n");
-        return 0xffffffffffffffff;
+        return 0xffffffffffffffffULL;
     }
     if (pread64(fd, &val, 8, msr) != 8) {
         fprintf(stderr, "*** Unable to read msr.\n");
         close(fd);
-        return 0xffffffffffffffff;
+        return 0xffffffffffffffffULL;
     }
     close(fd);
     
