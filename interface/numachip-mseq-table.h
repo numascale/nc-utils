@@ -1,4 +1,4 @@
-u16 numachip_mseq_table[] = {0x0003,
+static u16 numachip_mseq_table[] = {0x0003,
     0xA85E,
     0x0003,
     0x0003,

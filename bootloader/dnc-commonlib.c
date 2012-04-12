@@ -33,18 +33,18 @@
 
 // -------------------------------------------------------------------------
 
-char *config_file_name = "nc-config/fabric.json";
+static char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
 char *microcode_path = "";
 int sync_mode = 1;
-int init_only = 0;
-int route_only = 0;
-int enable_nbmce = 0;
-int enable_nbwdt = 0;
+static int init_only = 0;
+static int route_only = 0;
+static int enable_nbmce = 0;
+static int enable_nbwdt = 0;
 static int disable_sram = 0;
 int enable_vga_redir = 0;
-int enable_selftest = 1;
-int force_probefilteroff = 0;
+static int enable_selftest = 1;
+static int force_probefilteroff = 0;
 static int ht_force_ganged = 0;
 int disable_smm = 0;
 int renumber_bsp = 0;

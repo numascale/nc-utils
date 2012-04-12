@@ -31,14 +31,10 @@
 #include "dnc-access.h"
 #include "dnc-fabric.h"
 
-void tsc_wait(u32 mticks) {
-    usleep((useconds_t)mticks*1000);
-}
-
-u16 shadow_rtbll[7][256];
-u16 shadow_rtblm[7][256];
-u16 shadow_rtblh[7][256];
-u16 shadow_ltbl[7][256];
+static u16 shadow_rtbll[7][256];
+static u16 shadow_rtblm[7][256];
+static u16 shadow_rtblh[7][256];
+static u16 shadow_ltbl[7][256];
 
 static void test_route(u8 bxbarid, u16 dest)
 {

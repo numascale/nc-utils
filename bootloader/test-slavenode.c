@@ -47,7 +47,7 @@ void tsc_wait(u32 mticks) {
     usleep((useconds_t)mticks*1000);
 }
 
-void sighandler(int sig)
+static void sighandler(int sig)
 {
     printf("Received signal %d. aborting!\n", sig);
     dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); // Reset RAW engine
