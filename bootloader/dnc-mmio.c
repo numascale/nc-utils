@@ -37,11 +37,11 @@ static void mmio_pair_read(int node, int range, u32 *base, u32 *limit, int *flag
 
 static void mmio_pair_write(int node, int range, u32 base, u32 limit, int ht, int link, int sublink)
 {
-    u32 base_low = (((u64)base << DRAM_MAP_SHIFT) & 0xffffff0000) >> 8;
-    u32 limit_low = (((((u64)limit << DRAM_MAP_SHIFT) - 1) & 0xffffff0000) >> 8) |
+    u32 base_low = (((u64)base << DRAM_MAP_SHIFT) & 0xffffff0000ULL) >> 8;
+    u32 limit_low = (((((u64)limit << DRAM_MAP_SHIFT) - 1) & 0xffffff0000ULL) >> 8) |
 	ht | (link << 4) | (sublink << 6);
-    u32 high = ((((u64)base << DRAM_MAP_SHIFT) & 0xff0000000000) >> 40) |
-	(((((u64)limit << DRAM_MAP_SHIFT) - 1) & 0xff0000000000) >> (40 - 16));
+    u32 high = ((((u64)base << DRAM_MAP_SHIFT) & 0xff0000000000ULL) >> 40) |
+	(((((u64)limit << DRAM_MAP_SHIFT) - 1) & 0xff0000000000ULL) >> (40 - 16));
     int sci = nc_node[node].sci_id;
 
     dnc_write_conf(sci, 0, 0x18, NB_FUNC_MAPS, 0x80 + range * 8, base_low);
