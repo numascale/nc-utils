@@ -39,8 +39,8 @@ char *microcode_path = "";
 int sync_mode = 1;
 static int init_only = 0;
 static int route_only = 0;
-static int enable_nbmce = 0;
-static int enable_nbwdt = 0;
+static int enable_nbmce = -1;
+static int enable_nbwdt = -1;
 static int disable_sram = 0;
 int enable_vga_redir = 0;
 static int enable_selftest = 1;
@@ -1721,11 +1721,12 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     }
 
     for (i = 0; i < ht_id; i++) {
-        // XXX: Disable Northbridge WatchDog timer to avoid false error situations in these debug times..
+        /* Disable Northbridge WatchDog timer and MCE target/master abort for debugging */
         val = cht_read_config(i, NB_FUNC_MISC, 0x44);
-        val = val & ~((1<<6)|(1<<8)); // Clear both bits
-        if (!enable_nbmce) val |= (1<<6);
-        if (!enable_nbwdt) val |= (1<<8);
+	if (enable_nbmce > -1)
+	    val = (val & ~(1 << 6)) | (!enable_nbmce << 6);
+	if (enable_nbwdt > -1)
+	    val = (val & ~(1 << 8)) | (!enable_nbwdt << 8);
         cht_write_config(i, NB_FUNC_MISC, 0x44, val);
 
 	// XXX: Disable DRAM sequential scrubbing. Optimally we should se the DramScrubAddrLo/Hi register correctly.
