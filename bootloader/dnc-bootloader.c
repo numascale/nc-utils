@@ -2261,7 +2261,7 @@ static void setup_c1e_osvw(void)
     /* Disable C1E in MSRs */
     msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
     dnc_wrmsr(MSR_HWCR, msr);
-    *((u64 *)REL(new_hwcr_msr)) = 0;
+    *((u64 *)REL(new_hwcr_msr)) = msr;
 
     msr = 0;
     dnc_wrmsr(MSR_INT_HALT, msr);
