@@ -1040,7 +1040,7 @@ static void setup_other_cores(void)
 	    printf("APIC %d ", apicid);
 
 	    *icr = 0x00004500;
-	    for (j = 0; j < 1000; j++) {
+	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (!(*icr & 0x1000))
 		    break;
 		tsc_wait(10);
@@ -1050,7 +1050,7 @@ static void setup_other_cores(void)
 
 	    apic[0x310/4] = apicid << 24;
 	    *icr = 0x00004600 | (((u32)REL(init_trampoline) >> 12) & 0xff);
-	    for (j = 0; j < 1000; j++) {
+	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (!(*icr & 0x1000))
 		    break;
 		tsc_wait(10);
@@ -1058,7 +1058,7 @@ static void setup_other_cores(void)
 	    if (*icr & 0x1000)
 		printf("startup IPI not delivered\n");
 	    
-	    for (j = 0; j < 100; j++) {
+	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (*REL(cpu_init_finished))
 		    break;
 		tsc_wait(10);
@@ -1372,7 +1372,6 @@ static void setup_remote_cores(u16 num)
 		       node, i, j,
 		       dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8),
 		       dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8));
-		
 	    }
 	}
     }
@@ -1440,7 +1439,7 @@ static void setup_remote_cores(u16 num)
 	    tsc_wait(50);
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
 			  0xff002600 | (oldid<<16) | (((u32)REL(init_trampoline) >> 12) & 0xff));
-	    for (j = 0; j < 100; j++) {
+	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (*REL(cpu_init_finished))
 		    break;
 		tsc_wait(10);

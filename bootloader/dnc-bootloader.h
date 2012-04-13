@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include "dnc-types.h"
 
+#define BOOTSTRAP_DELAY 10000
+
 struct mp_config_table {
     union {
         char s[4];
