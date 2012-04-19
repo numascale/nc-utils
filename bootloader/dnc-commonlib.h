@@ -28,6 +28,18 @@
 		   #cond);						\
 	   } } while (0)
 
+#define assertf(cond, format, ...) do { if (!(cond)) {			\
+	peinrd("Error: ");						\
+	printf(format, __VA_ARGS__);					\
+	wait_key();							\
+    } } while(0)
+
+#define fatal(format, ...) do {						\
+	printf("Error: ");						\
+	printf(format, __VA_ARGS__);					\
+	wait_key();							\
+   } while (0)
+
 #define disable_cache() do { \
     asm volatile("wbinvd\n" \
 	"mov %%cr0, %%eax\n" \
@@ -82,10 +94,13 @@ struct state_bcast {
     u32 tid;
 };
 
+void wait_key(void);
 int cpu_family(u16 scinode, u8 node);
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest);
 void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx);
-
+void detect_southbridge(void);
+void disable_smi(void);
+void enable_smi(void);
 int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline);
 int dnc_setup_fabric(struct node_info *info);
 int dnc_check_fabric(struct node_info *info);
