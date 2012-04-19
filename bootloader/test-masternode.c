@@ -41,15 +41,6 @@
 
 int ht_testmode = 0;
 
-void wait_key(void)
-{
-    char ch;
-    printf("... (press any key to continue) ... ");
-    while (fread(&ch, 1, 1, stdin) == 0)
-        ;
-    printf("\n");
-}
-
 void tsc_wait(u32 mticks) {
     usleep((useconds_t)mticks*1000);
 }

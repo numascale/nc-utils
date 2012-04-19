@@ -18,9 +18,10 @@
 
 #include <stdio.h>
 
+#include "dnc-regs.h"
+#include "dnc-defs.h"
 #include "dnc-bootloader.h"
 #include "dnc-access.h"
-#include "dnc-regs.h"
 
 #define PCI_CONF_SEL 0xcf8
 #define PCI_CONF_DATA 0xcfc
@@ -43,7 +44,6 @@
 #define DEBUG(...) do { } while (0)
 
 #define WATCHDOG_BASE (u32 *)0xfec000f0 /* AMD recommended */
-#define PMIO_BASE 0xcd6
 
 static volatile u32 *watchdog_ctl = WATCHDOG_BASE;
 static volatile u32 *watchdog_timer = WATCHDOG_BASE + 1;
@@ -54,16 +54,59 @@ int cht_config_use_extd_addressing = 0;
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
 u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
 
-static void pmio_write(u8 offset, u8 val)
+void pmio_writeb(u8 offset, u8 val)
 {
-    outb(offset, PMIO_BASE /* index */);
-    outb(val, PMIO_BASE + 1 /* data */);
+    /* Write offset and value in single 16-bit write */
+    outw(offset | val << 8, IO_PORT);
 }
 
-static u8 pmio_read(u8 offset)
+void pmio_writel(u8 offset, u32 val)
 {
-    outb(offset, PMIO_BASE /* PMIO index */);
-    return inb(PMIO_BASE + 1 /* PMIO data */);
+    unsigned int i;
+
+    for (i = 0; i < sizeof(val); i++)
+	pmio_writeb(offset + i, val >> (i * 8));
+}
+
+u8 pmio_readb(u8 offset)
+{
+    outb(offset, IO_PORT /* PMIO index */);
+    return inb(IO_PORT + 1 /* PMIO data */);
+}
+
+u32 pmio_readl(u8 offset)
+{
+    unsigned int i;
+    u32 val = 0;
+
+    for (i = 0; i < sizeof(val); i++)
+	val |= pmio_readb(offset + i) << (i * 8);
+
+    return val;
+}
+
+void pmio_setb(u8 offset, u8 mask)
+{
+    u8 val = pmio_readb(offset) | mask;
+    pmio_writeb(offset, val);
+}
+
+void pmio_clearb(u8 offset, u8 mask)
+{
+    u8 val = pmio_readb(offset) & ~mask;
+    pmio_writeb(offset, val);
+}
+
+void pmio_setl(u8 offset, u32 mask)
+{
+    u32 val = pmio_readl(offset) | mask;
+    pmio_writel(offset, val);
+}
+
+void pmio_clearl(u8 offset, u32 mask)
+{
+    u32 val = pmio_readb(offset) & ~mask;
+    pmio_writel(offset, val);
 }
 
 static inline void watchdog_run(unsigned int counter)
@@ -80,19 +123,17 @@ static inline void watchdog_stop(void)
 
 void watchdog_setup(void)
 {
-    unsigned int i;
+    /* FIXME: These register offsets are correct for SP5100, but not for (eg) SB810 */
 
     /* enable watchdog timer */
-    u8 val = pmio_read(0x69);
-    pmio_write(0x69, val & ~1);
+    pmio_clearb(0x69, 1);
 
     /* enable watchdog decode */
     u32 val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
     dnc_write_conf(0xfff0, 0, 20, 0, 0x41, val2 | (1 << 3));
 
     /* write watchdog base address */
-    for (i = 0; i < sizeof(watchdog_ctl); i++)
-	pmio_write(0x6c + i, ((unsigned int)watchdog_ctl >> (i * 8)) & 0xff);
+    pmio_writel(0x6c, (unsigned int)watchdog_ctl);
 
     printf("watchdog enabled\n");
 }

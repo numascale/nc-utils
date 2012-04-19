@@ -26,6 +26,7 @@
 #include <sys/io.h>
 
 #include "dnc-regs.h"
+#include "dnc-defs.h"
 #include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
@@ -36,6 +37,7 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
+#include "dnc-devices.h"
 #include "auto-dnc-gitlog.h"
 
 #include "hw-config.h"
@@ -118,15 +120,6 @@ void tsc_wait(u32 mticks) {
     while(stop > count) {
         count = rdtscll() >> 1;
     }
-}
-
-void wait_key(void)
-{
-    char ch;
-    printf("... ( press any key to continue ) ... ");
-    while (fread(&ch, 1, 1, stdin) == 0)
-        ;
-    printf("\n");
 }
 
 unsigned char msleep(unsigned int msec)
@@ -1018,6 +1011,8 @@ static void setup_other_cores(void)
     val = val | (1ULL << 27);
     dnc_wrmsr(MSR_CU_CFG2, val);
    
+    disable_smi();
+
     /* Start all local cores (not BSP) and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
 	for (i = 0; i < nc_node[0].ht[ht].cores; i++) {
@@ -1076,6 +1071,8 @@ static void setup_other_cores(void)
 	    }
 	}
     }
+
+    enable_smi();
 }
 
 static void renumber_remote_bsp(u16 num)
@@ -1286,6 +1283,8 @@ static void setup_remote_cores(u16 num)
         }
     }
 
+    disable_smi();
+
     /* Now, reset all DRAM maps */
     printf("Resetting DRAM maps on sci node %03x\n", node);
     for (i = 0; i < 8; i++) {
@@ -1363,6 +1362,8 @@ static void setup_remote_cores(u16 num)
         }
     }
 
+    enable_smi();
+
     if (verbose > 0) {
 	for (i = 0; i < 8; i++) {
 	    if (!cur_node->ht[i].cpuid)
@@ -1421,6 +1422,8 @@ static void setup_remote_cores(u16 num)
     
     *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
 
+    disable_smi();
+
     /* Start all remote cores and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
 	for (i = 0; i < cur_node->ht[ht].cores; i++) {
@@ -1458,6 +1461,8 @@ static void setup_remote_cores(u16 num)
 	    }
 	}
     }
+
+    enable_smi();
 }
 
 static void setup_local_mmio_maps(void)
@@ -2511,135 +2516,6 @@ static void cleanup_stack(void)
     __intcall(0x22, &rm, NULL);
 }
 
-#define HcRevision 0x00
-
-#define HcControl 0x04
-
-/*
- * HcControl (control) register masks
- */
-#define OHCI_CTRL_CBSR  (3 << 0)        /* Control/bulk service ratio */
-#define OHCI_CTRL_PLE   (1 << 2)        /* Periodic list enable */
-#define OHCI_CTRL_IE    (1 << 3)        /* Isochronous enable */
-#define OHCI_CTRL_CLE   (1 << 4)        /* Control list enable */
-#define OHCI_CTRL_BLE   (1 << 5)        /* Bulk list enable */
-#define OHCI_CTRL_HCFS  (3 << 6)        /* Host controller functional state */
-#define OHCI_CTRL_IR    (1 << 8)        /* Interrupt routing */
-#define OHCI_CTRL_RWC   (1 << 9)        /* Remote wakeup connected */
-#define OHCI_CTRL_RWE   (1 << 10)       /* Remote wakeup enable */
-
-
-#define HcCommandStatus 0x08
-
-/*
- * HcCommandStatus (cmdstatus) register masks
- */
-#define OHCI_HCR        (1 << 0)        /* Host controller reset */
-#define OHCI_CLF        (1 << 1)        /* Control list filled */
-#define OHCI_BLF        (1 << 2)        /* Bulk list filled */
-#define OHCI_OCR        (1 << 3)        /* Ownership change request */
-#define OHCI_SOC        (3 << 16)       /* Scheduling overrun count */
-
-#define HcInterruptStatus 0x0C
-#define HcInterruptEnable 0x10
-#define HcInterruptDisable 0x14
-
-/*
- * Masks used with interrupt registers:
- * HcInterruptStatus (intrstatus)
- * HcInterruptEnable (intrenable)
- * HcInterruptDisable (intrdisable)
- */
-#define OHCI_INTR_SO	(1 << 0)	/* Scheduling overrun */
-#define OHCI_INTR_WDH	(1 << 1)	/* Writeback of done_head */
-#define OHCI_INTR_SF	(1 << 2)	/* Start frame */
-#define OHCI_INTR_RD	(1 << 3)	/* Resume detect */
-#define OHCI_INTR_UE	(1 << 4)	/* Unrecoverable error */
-#define OHCI_INTR_FNO	(1 << 5)	/* Frame number overflow */
-#define OHCI_INTR_RHSC	(1 << 6)	/* Root hub status change */
-#define OHCI_INTR_OC	(1 << 30)	/* Ownership change */
-#define OHCI_INTR_MIE	(1 << 31)	/* Master interrupt enable */
-
-#define HcHCCA 0x18
-
-/* Legacy emulation registers (if enabled in the revision register, bit8) */
-#define HceControl 0x100
-
-static void _stop_ohci(u8 bus, u8 dev, u8 fn)
-{
-    u32 val, bar0;
-
-    bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10);
-    if ((bar0 != 0xffffffff) && (bar0 != 0)) {
-        val = mem64_read32(bar0 + HcHCCA);
-        printf("Found OHCI controller at %02x:%02x:%x, BAR0 @%08x, HCCA @%08x\n",
-               bus, dev, fn, bar0, val);
-        val = mem64_read32(bar0 + HcControl);
-        if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
-            u32 temp;
-            printf("Requesting Change of Ownership on OHCI controller %02x:%02x:%x\n",
-                   bus, dev, fn);
-            /* This timeout is arbitrary.  we make it long, so systems
-             * depending on usb keyboards may be usable even if the
-             * BIOS/SMM code seems pretty broken
-             */
-            temp = 500;	/* Arbitrary: five seconds */
-            
-            mem64_write32(bar0 + HcInterruptEnable, OHCI_INTR_OC); /* Enable OwnershipChange interrupt */
-            mem64_write32(bar0 + HcCommandStatus, OHCI_OCR); /* Request OwnershipChange */
-            while (mem64_read32(bar0 + HcControl) & OHCI_CTRL_IR) {
-                tsc_wait(1000);
-                if (--temp == 0) {
-                    printf("OHCI HC takeover failed on %02x:%02x:%x! (BIOS/SMM bug)\n",
-                           bus, dev, fn);
-                    return;
-                }
-            }
-
-            /* Shutdown */
-            mem64_write32(bar0 + HcInterruptDisable, OHCI_INTR_MIE);
-            val = mem64_read32(bar0 + HcControl);
-            val &= OHCI_CTRL_RWC;
-            mem64_write32(bar0 + HcControl, val);
-            /* Flush the writes */
-            val = mem64_read32(bar0 + HcControl);
-        } else {
-            printf("OHCI controller %02x:%02x:%x not in use by BIOS/SMM, skipping\n",
-                   bus, dev, fn);
-        }
-        val = mem64_read32(bar0 + HcRevision);
-        if (val & (1 << 8)) { /* Legacy emulation is supported */
-            val = mem64_read32(bar0 + HceControl);
-            if (val & (1 << 0)) {
-                printf("Legacy support enabled!\n");
-            }
-        }
-    }
-}
-
-#define PCI_CLASS_SERIAL_USB_OHCI     0x0c0310
-
-static void stop_usb(void)
-{
-    u32 val;
-    u8 bus = 0;
-    u8 dev;
-    u8 fn;
-
-    /* If SMM is disabled, USB functionality may have been lost */
-    if (disable_smm)
-	return;
-
-    /* Scan bus 0 for OHCI controllers and disable them if used by BIOS/SMM */
-    for (dev = 0; dev < 0x18; dev++) {
-        for (fn = 0; fn < 7; fn++) {
-            val = dnc_read_conf(0xfff0, bus, dev, fn, 8);
-            if ((val >> 8) == PCI_CLASS_SERIAL_USB_OHCI)
-                _stop_ohci(bus, dev, fn);
-        }
-    }
-}
-
 static void set_wrap32_disable(void)
 {
     u64 val = dnc_rdmsr(MSR_HWCR);
@@ -2707,10 +2583,10 @@ static int nc_start(void)
     struct part_info *part;
     int wait;
     
-    get_hostname();
-
     if (check_api_version() < 0)
         return ERR_API_VERSION;
+
+    get_hostname();
 
     /* Only in effect on core0, but only required for 32-bit code. */
     set_wrap32_disable();
@@ -2730,6 +2606,12 @@ static int nc_start(void)
     part = get_partition_config(info->partition);
     if (!part)
         return ERR_PARTITION_CONFIG;
+
+    /* On non-root servers, prevent writing to unexpected locations */
+    if (part->master != info->sciid) {
+	stop_usb();
+	disable_smi();
+    }
 
     /* Copy this into NC ram so its available remotely */
     load_existing_apic_map();
@@ -2801,8 +2683,6 @@ static int nc_start(void)
         clear_bsp_flag();
 
         cleanup_stack();
-
-        stop_usb();
 
         /* Set G3x02c FAB_CONTROL bit 30 */
         dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);

@@ -22,6 +22,7 @@
 #include <inttypes.h>
 
 #include "dnc-regs.h"
+#include "dnc-defs.h"
 #include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-fabric.h"
@@ -75,6 +76,14 @@ u32 max_mem_per_node;
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; // 0 - MCTag, 1 - CData
 
+void wait_key(void)
+{
+    char ch;
+    printf("... ( press any key to continue ) ... ");
+    while (fread(&ch, 1, 1, stdin) == 0)
+        ;
+    printf("\n");
+}
 
 static int read_spd_info(int cdata, struct dimm_config *dimm)
 {
@@ -624,6 +633,33 @@ static void reorganize_mmio(int nc)
 }
 #endif /* UNUSED */
 
+static u32 southbridge_id = -1;
+static u8 smi_state;
+
+void detect_southbridge(void)
+{
+    southbridge_id = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
+}
+
+/* Mask southbridge SMI generation */
+void disable_smi(void)
+{
+    if (southbridge_id == 0x43851002) {
+	smi_state = pmio_readb(0x53);
+	pmio_writeb(0x53, smi_state | (1 << 3));
+    } else
+	fatal("Unable to disable SMI due to known southbridge 0x%08x\n", southbridge_id);
+}
+
+/* Restore previous southbridge SMI mask */
+void enable_smi(void)
+{
+    if (southbridge_id == 0x43851002) {
+	pmio_writeb(0x53, smi_state);
+    } else
+	fatal("Unable to enable SMI due to unknown southbridge 0x%08x\n", southbridge_id);
+}
+
 #ifdef __i386
 static void print_phy_gangs(int neigh, int link, char *name, int base)
 {
@@ -753,6 +789,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 
     /* Set T0Time to max */
     val = cht_read_config(neigh, NB_FUNC_HT, 0x16c);
+    printf(".");
     cht_write_config(neigh, NB_FUNC_HT, 0x16c, (val & ~0x3f) | 0x3a);
 
     /* Make sure link towards NC is ganged, disable LS2En */
@@ -765,6 +802,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 
     /* For ASIC revision 1 and later, optimize width (16b) */
     /* For FPGA revision 6453 and later, optimize width (16b) */
+    printf(".");
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
     if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11) &&
 	((asic_mode && rev >= 2) || (!asic_mode && (rev >> 16) >= 6453)))))
@@ -1059,6 +1097,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 	disable_probefilter(nodes);
     }
     
+    disable_smi();
     disable_cache();
 
     for (i = nodes; i >= 0; i--) {
@@ -1082,6 +1121,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     }
 
     enable_cache();
+    enable_smi();
     // reorganize_mmio(nc);
 
     printf("Done!\n");
@@ -1638,6 +1678,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     if (parse_cmdline(cmdline) < 0)
         return -1;
 
+    detect_southbridge();
 #ifdef __i386
     watchdog_setup();
 #endif
@@ -1804,7 +1845,6 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	if (read_config_file(config_file_name) < 0)
 	    return -1;
     }
-    
 
     info = get_node_config(uuid);
     if (!info)
