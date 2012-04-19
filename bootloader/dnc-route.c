@@ -27,12 +27,6 @@
 #define OFFS_RTBLH (LC3_CSR_ROUT_BXTBLH00 - LC3_CSR_ROUT_LCTBL00)
 #define OFFS_LTBL  0
 
-#define ASSERT(cond) do { if (!(cond)) {				\
-	    printf("%s(%d): assert (%s) failed!\n",			\
-		   __FUNCTION__, __LINE__,				\
-		   #cond);						\
-	    wait_key(); } } while (0)
-
 #define DEBUG_ROUTE(fmt, ...)
 //#define DEBUG_ROUTE(fmt, ...) printf(fmt, __VA_ARGS__)
 

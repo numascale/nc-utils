@@ -2071,7 +2071,7 @@ static int update_mtrr(void)
     mtrr_mask = (void *)REL(new_mtrr_mask);
 
     /* Ensure default memory type is uncacheable and MTRRs are enabled */
-    ASSERT(dnc_rdmsr(MSR_MTRR_DEFAULT) == 3 << 10);
+    assert(dnc_rdmsr(MSR_MTRR_DEFAULT) == 3 << 10);
 
     base = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
     mask = ~0ULL;

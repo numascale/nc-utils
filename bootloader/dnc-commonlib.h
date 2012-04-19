@@ -22,14 +22,14 @@
 #include "dnc-types.h"
 #include "dnc-config.h"
 
-#define ASSERT(cond) do { if (!(cond)) {				\
-	    printf("%s(%d): assert (%s) failed!\n",			\
-		   __FUNCTION__, __LINE__,				\
-		   #cond);						\
-	   } } while (0)
+#define assert(cond) do { if (!(cond)) {				\
+	printf("Error: assertion '%s' failed at %s:%d\n",		\
+	    #cond, __FUNCTION__, __LINE__);				\
+	wait_key();							\
+    } } while (0)
 
 #define assertf(cond, format, ...) do { if (!(cond)) {			\
-	peinrd("Error: ");						\
+	printf("Error: ");						\
 	printf(format, __VA_ARGS__);					\
 	wait_key();							\
     } } while(0)
