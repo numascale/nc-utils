@@ -17,6 +17,7 @@
 //
 
 #include <stdio.h>
+#include "dnc-defs.h"
 #include "dnc-access.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"

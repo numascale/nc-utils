@@ -19,8 +19,6 @@
 #ifndef __DNC_TYPES
 #define __DNC_TYPES 1
 
-#include "dnc-defs.h"
-
 typedef	unsigned long long u64;
 typedef unsigned           u32;
 typedef unsigned short     u16;

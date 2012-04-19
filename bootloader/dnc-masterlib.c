@@ -22,6 +22,7 @@
 #include <inttypes.h>
 
 #include "dnc-regs.h"
+#include "dnc-defs.h"
 #include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
