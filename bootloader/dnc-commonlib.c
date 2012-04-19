@@ -2022,7 +2022,7 @@ static int shortest(u8 dim, u16 src, u16 dst) {
     int src2 = (src >> (dim * 4)) & 0xf;
     int dst2 = (dst >> (dim * 4)) & 0xf;
     int len = (dim == 0) ? cfg_fabric.x_size : (dim == 1) ? cfg_fabric.y_size : cfg_fabric.z_size;
-    ASSERT(len);
+    assert(len);
 
     int forward = ((len - src2) + dst2) % len;
     int backward = ((src2 + (len - dst2)) + len) % len;
