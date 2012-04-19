@@ -1068,10 +1068,8 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     printf("NumaChip found (%08x).\n", val);
 
     /* Ramp up link speed and width before adding NC to coherent fabric */
-    tsc_wait(50);
     val = cht_read_config_nc(nc, 0, neigh, link, 0xec);
     if (val == 0) {
-        tsc_wait(50);
         val = cht_read_config_nc(nc, 0, neigh, link,
                                  H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
         printf("Doing link calibration of ASIC chip, rev %d.\n", val & 0xffff);
