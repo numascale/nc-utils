@@ -800,7 +800,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	cht_write_config(neigh, 0, 0x170 + link * 4, (val & ~0x100) | 1);
     }
 
-    /* For ASIC revision 1 and later, optimize width (16b) */
+    /* For ASIC revision 2 and later, optimize width (16b) */
     /* For FPGA revision 6453 and later, optimize width (16b) */
     printf(".");
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
