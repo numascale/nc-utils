@@ -309,6 +309,7 @@ static int dnc_initialize_sram(void) {
 	
 	while (((val >> 24) & 0xff) != 0x3f) {
 	    tsc_wait(100);
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
 	    if ((val & 0xc000000) != 0) {
 		printf("SRAM clock calibration overflow detected (%08x)!\n", val);
 		return -1;
