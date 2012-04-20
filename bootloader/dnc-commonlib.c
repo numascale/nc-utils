@@ -647,7 +647,7 @@ void disable_smi(void)
 	smi_state = pmio_readb(0x53);
 	pmio_writeb(0x53, smi_state | (1 << 3));
     } else
-	fatal("Unable to disable SMI due to known southbridge 0x%08x\n", southbridge_id);
+	fatal("Unable to disable SMI due to unknown southbridge 0x%08x\n", southbridge_id);
 }
 
 /* Restore previous southbridge SMI mask */
@@ -890,8 +890,8 @@ static void disable_probefilter(int nodes)
     printf("Probe filter active; disabling (%d)...\n", nodes);
 
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
-       - F3x58[L3Scrub]=00h.
-       - F3x58[DramScrub]=00h.
+       - F3x58[L3Scrub]=00h
+       - F3x58[DramScrub]=00h
        - F3x5C[ScrubRedirEn]=0 */
     for (i = 0; i <= nodes; i++) {
 	scrub[i] = cht_read_config(i, NB_FUNC_MISC, 0x58);
