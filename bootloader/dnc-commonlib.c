@@ -2,17 +2,17 @@
 // This source code including any derived information including but
 // not limited by net-lists, fpga bit-streams, and object files is the
 // confidential and proprietary property of
-// 
+//
 // Numascale AS
 // Enebakkveien 302A
 // NO-1188 Oslo
 // Norway
-// 
+//
 // Any unauthorized use, reproduction or transfer of the information
 // provided herein is strictly prohibited.
-// 
+//
 // Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
+// Numascale AS Oslo, Norway.
 // All Rights Reserved.
 //
 
@@ -31,8 +31,6 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "auto-dnc-gitlog.h"
-
-// -------------------------------------------------------------------------
 
 static char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
@@ -62,20 +60,20 @@ int verbose = 0;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 
-// Structs to hold DIMM configuration from SPD readout.
+/* Structs to hold DIMM configuration from SPD readout */
 
 struct dimm_config {
     u8 addr_pins;
     u8 column_size;
     u8 cs_map;
     u8 width;
-    int mem_size; // Size of DIMM in GByte powers of 2
+    int mem_size; /* Size of DIMM in GByte powers of 2 */
 };
 
 u32 max_mem_per_node;
 
 int nc_neigh = -1, nc_neigh_link = -1;
-static struct dimm_config dimms[2]; // 0 - MCTag, 1 - CData
+static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
 
 void wait_key(void)
 {
@@ -93,56 +91,56 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
     u32 reg;
     u8 mdata[20];
 
-    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  0); // Read SPD location 0, 1, 2, 3
+    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  0); /* Read SPD location 0, 1, 2, 3 */
     if (((reg >> 8) & 0xff) != 0x08) {
-	printf("ERROR: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
+	printf("Error: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
 	       cdata ? "CData" : "MCTag");
 	return -1;
     }
-    dimm->addr_pins = 16 - (reg & 0xf); // Number of Row address bits (max 16)
+    dimm->addr_pins = 16 - (reg & 0xf); /* Number of Row address bits (max 16) */
     addr_bits = (reg & 0xf);
     
-    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  4); // Read SPD location 4, 5, 6, 7
-    dimm->column_size = 13 - ((reg >> 24) & 0xf); // Number of Column address bits (max 13)
-    dimm->cs_map = ((reg >> 16) & 1) ? 3 : 1; // Single or Dual rank
+    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  4); /* Read SPD location 4, 5, 6, 7 */
+    dimm->column_size = 13 - ((reg >> 24) & 0xf); /* Number of Column address bits (max 13) */
+    dimm->cs_map = ((reg >> 16) & 1) ? 3 : 1; /* Single or Dual rank */
     addr_bits = addr_bits + ((reg >> 24) & 0xf) + ((reg >> 16) & 1);
 
-    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  8); // Read SPD location 8, 9, 10, 11
+    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) +  8); /* Read SPD location 8, 9, 10, 11 */
     if (!(reg & 2)) {
-	printf("ERROR: Unsupported non-ECC %s DIMM!\n", cdata ? "CData" : "MCTag");
+	printf("Error: Unsupported non-ECC %s DIMM\n", cdata ? "CData" : "MCTag");
 	return -1;
     }
 
-    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 12); // Read SPD location 12, 13, 14, 15
+    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 12); /* Read SPD location 12, 13, 14, 15 */
     dimm->width = (reg >> 8) & 0xff;
     if ((dimm->width != 4) && (dimm->width != 8)) {
-	printf("ERROR: Unsupported %s SDRAM width %d!\n", cdata ? "CData" : "MCTag", dimm->width);
+	printf("Error: Unsupported %s SDRAM width %d\n", cdata ? "CData" : "MCTag", dimm->width);
 	return -1;
     }
     
-    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 20); // Read SPD location 20, 21, 22, 23
+    reg = dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 20); /* Read SPD location 20, 21, 22, 23 */
     if (!(reg & 0x11000000)) {
-	printf("ERROR: Unsupported non-Registered %s DIMM!\n", cdata ? "CData" : "MCTag");
+	printf("Error: Unsupported non-Registered %s DIMM\n", cdata ? "CData" : "MCTag");
 	return -1;
     }
 
     u32 *mdataw = (u32 *)mdata;
-    mdataw[0] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 72)); // Read SPD location 72, 73, 74, 75
-    mdataw[1] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 76)); // Read SPD location 76, 77, 78, 79
-    mdataw[2] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 80)); // Read SPD location 80, 81, 82, 83
-    mdataw[3] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 84)); // Read SPD location 84, 85, 86, 87
-    mdataw[4] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 88)); // Read SPD location 88, 89, 90, 91
+    mdataw[0] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 72)); /* Read SPD location 72, 73, 74, 75 */
+    mdataw[1] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 76)); /* Read SPD location 76, 77, 78, 79 */
+    mdataw[2] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 80)); /* Read SPD location 80, 81, 82, 83 */
+    mdataw[3] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 84)); /* Read SPD location 84, 85, 86, 87 */
+    mdataw[4] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 88)); /* Read SPD location 88, 89, 90, 91 */
 
     mdata[19] = 0;
     printf("%s is a %s module (x%d, %d MByte)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1<<(addr_bits - 14));
 
     switch (addr_bits) {
-	case 28: dimm->mem_size = 4; break; // 16G
-	case 27: dimm->mem_size = 3; break; //  8G
-	case 26: dimm->mem_size = 2; break; //  4G
-	case 25: dimm->mem_size = 1; break; //  2G
-	case 24: dimm->mem_size = 0; break; //  1G
-	default: dimm->mem_size = 0; printf("ERROR: Unsupported %s DIMM SIZE (%d MByte)\n",
+	case 28: dimm->mem_size = 4; break; /* 16G */
+	case 27: dimm->mem_size = 3; break; /*  8G */
+	case 26: dimm->mem_size = 2; break; /*  4G */
+	case 25: dimm->mem_size = 1; break; /*  2G */
+	case 24: dimm->mem_size = 0; break; /*  1G */
+	default: dimm->mem_size = 0; printf("Error: Unsupported %s DIMM size of %dMB\n",
 					    cdata ? "CData" : "MCTag", 1<<(addr_bits - 14)); return -1;
     }
 
@@ -260,31 +258,31 @@ u32 dnc_check_mctr_status(int cdata)
     
     val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_STATUS_ADDR<<2));
     if (val & 0x001) {
-        printf("ERROR: %s Single access outside the defined Physical memory space\n", me);
+        printf("Error: %s single access outside the defined Physical memory space detected\n", me);
         ack |= 0x001;
     }
     if (val & 0x002) {
-        printf("ERROR: %s Multiple access outside the defined Physical memory space\n", me);
+        printf("Error: %s multiple access outside the defined Physical memory space detected\n", me);
         ack |= 0x002;
     }
     if (val & 0x004) {
-        printf("ERROR: %s Single correctable ECC event detected\n", me);
+        printf("Error: %s single correctable ECC event detected\n", me);
         ack |= 0x004;
     }
     if (val & 0x008) {
-        printf("ERROR: %s Multiple correctable ECC event detected\n", me);
+        printf("Error: %s multiple correctable ECC event detected\n", me);
         ack |= 0x008;
     }
     if (val & 0x010) {
-        printf("ERROR: %s Single uncorrectable ECC event detected\n", me);
+        printf("Error: %s single uncorrectable ECC event detected\n", me);
         ack |= 0x010;
     }
     if (val & 0x020) {
-        printf("ERROR: %s Multiple uncorrectable ECC event detected\n", me);
+        printf("Error: %s multiple uncorrectable ECC event detected\n", me);
         ack |= 0x020;
     }
     if (val & 0xf80) {
-        printf("ERROR: %s error interrupts detected INT_STATUS = %03x\n", me, val & 0xfff);
+        printf("Error: %s error interrupts detected INT_STATUS=%03x\n", me, val & 0xfff);
         ack |= (val & 0xf80);
     }
     
@@ -301,24 +299,24 @@ u32 dnc_check_mctr_status(int cdata)
 static int dnc_initialize_sram(void) {
     u32 val;
     
-    // ASIC
+    /* ASIC */
     if (dnc_chip_rev < 2) {
 	val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
 
 	if (((val >> 24) & 0xff) != 0x3f)
-	    printf("Waiting for SRAM clock calibration!\n");
+	    printf("Waiting for SRAM clock calibration\n");
 	
 	while (((val >> 24) & 0xff) != 0x3f) {
 	    tsc_wait(100);
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
 	    if ((val & 0xc000000) != 0) {
-		printf("SRAM clock calibration overflow detected (%08x)!\n", val);
+		printf("SRAM clock calibration overflow detected (%08x)\n", val);
 		return -1;
 	    }
 	}
-	printf("SRAM clock calibration complete!\n");
+	printf("SRAM clock calibration complete\n");
 
-	// Zero out FTag SRAM
+	/* Zero out FTag SRAM */
 	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
 	while (1) { 
 	    tsc_wait(100);
@@ -329,7 +327,7 @@ static int dnc_initialize_sram(void) {
 	printf("Enabling FTag SRAM\n");
 	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
     } else {
-	    printf("ASIC Revision %d detected, no FTag SRAM\n", dnc_chip_rev);
+	    printf("ASIC revision %d detected, no FTag SRAM\n", dnc_chip_rev);
     }
 
     return 0;
@@ -345,18 +343,18 @@ int dnc_init_caches(void) {
         int mem_size = dimms[cdata].mem_size;
         
         if (!dnc_asic_mode) {
-            // On FPGA, just check that the PHY is initialized
+            /* On FPGA, just check that the phy is initialized */
             val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
             if (!(val & 0x1000)) {
-                printf("%s Controller not calibrated (%x)\n", name, val);
+                printf("%s controller not calibrated (%x)\n", name, val);
                 return -1;
             }
         } else {
-            val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00) + (START_ADDR<<2)); // Read the Denali START parameter
+            val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00) + (START_ADDR<<2)); /* Read the Denali START parameter */
             if (((val >> START_OFFSET) & 1) == 0) {
-                printf("RESET and Load Denali Controller, Denali PHY and external DDR2 Ram (MODE- EMODE-Register)\n");
+                printf("Resetting and loading Denali Controller, Denali phy and external DDR2 RAM (EMODE-register)\n");
                 _denali_mctr_reset(cdata, &dimms[cdata]);
-                printf("START Denali Controller\n");
+                printf("Start Denali Controller\n");
                 val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(START_ADDR<<2));
                 dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(START_ADDR<<2), val | (1<<START_OFFSET));
                 
@@ -365,12 +363,12 @@ int dnc_init_caches(void) {
                     val = dnc_check_mctr_status(cdata);
                 } while (!(val & 0x40));
                 
-                // Reset DRAM initialization complete interrupt
+                /* Reset DRAM initialization complete interrupt */
                 val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_ACK_ADDR<<2));
                 dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_ACK_ADDR<<2), val | 0x40);
                 
-                // Mask DRAM initialization complete interrupt
-                // Mask the out-of-bounds interrupts on CData since they happen all the time
+                /* Mask DRAM initialization complete interrupt */
+                /* Mask the out-of-bounds interrupts on CData since they happen all the time */
                 val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_MASK_ADDR<<2));
                 dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_MASK_ADDR<<2),
                               val | ((cdata ? 0x43 : 0x40)<<INT_MASK_OFFSET));
@@ -380,7 +378,7 @@ int dnc_init_caches(void) {
                     printf("ERROR: No Denali interrupt seen by H2S (%08x)\n", val);
                     return -1;
                 }
-                dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR, val); // Clear Error status
+                dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR, val); /* Clear Error status */
             } else {
                 val = dnc_check_mctr_status(cdata);
             }
@@ -391,28 +389,27 @@ int dnc_init_caches(void) {
 	    (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6251))) {
 	    int tmp = mem_size;
 
-	    // New Rev2 MCTag setting for supporting larger local memory.
-
+	    /* New Rev2 MCTag setting for supporting larger local memory */
 	    if (!cdata) {
 		if (dnc_asic_mode || (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6254))) {
-		    if        (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) { // 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory
+		    if        (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) { /* 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory */
 			tmp = 0;
-		    } else if (dimms[0].mem_size == 0 && dimms[1].mem_size == 2) { // 1GB MCTag_Size  4GB Remote Cache   16GB Coherent Local Memory
+		    } else if (dimms[0].mem_size == 0 && dimms[1].mem_size == 2) { /* 1GB MCTag_Size  4GB Remote Cache   16GB Coherent Local Memory */
 			tmp = 1;
-		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { // 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory
+		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { /* 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory */
 			tmp = 2;
-		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { // 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory
+		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { /* 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory */
 			tmp = 3;
-		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { // 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory
+		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { /* 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory */
 			tmp = 4;
-		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { // 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory
+		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { /* 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory */
 			tmp = 5;
-		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { // 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory
+		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { /* 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory */
 			tmp = 6;
-		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { // 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory
+		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
 			tmp = 7;
 		    } else {
-			printf("ERROR: Unsupported MCTag/CData combination (%d/%d GByte)\n",
+			printf("Error: Unsupported MCTag/CData combination (%d/%dGB)\n",
 			       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
 			return -1;
 		    }
@@ -426,12 +423,12 @@ int dnc_init_caches(void) {
 
 	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 	    dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
-			  (val & ~7) | (1<<12) | ((tmp & 7)<<4)); // DRAM_AVAILABLE, MEMSIZE[2:0]
-	} else { // Older than Rev2
-	    // On Rev1 and older there's a direct relationship between the MTag size and RCache size.
+			  (val & ~7) | (1<<12) | ((tmp & 7)<<4)); /* DRAM_AVAILABLE, MEMSIZE[2:0] */
+	} else { /* Older than Rev2 */
+	    /* On Rev1 and older there's a direct relationship between the MTag size and RCache size */
 
             if (cdata && mem_size == 0) {
-                printf("ERROR: Unsupported CData SIZE (%d GByte)\n",
+                printf("Error: Unsupported CData size of %dGB\n",
                        (1<<mem_size));
                 return -1;
             }
@@ -444,11 +441,11 @@ int dnc_init_caches(void) {
 	    }
 	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 	    dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
-			  (val & ~7) | (1<<12) | (1<<7) | ((mem_size & 7)<<4)); // DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0]
+			  (val & ~7) | (1<<12) | (1<<7) | ((mem_size & 7)<<4)); /* DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0] */
 	}
 
-        // Initialize DRAM
-        printf("Initializing %s (%d GByte)\n", cdata ? "CData" : "MCTag", 1<<mem_size);
+        /* Initialize DRAM */
+        printf("Initializing %dGB %s\n", 1 << mem_size, cdata ? "CData" : "MCTag");
         val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
         dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1<<4));
         do {
@@ -459,31 +456,31 @@ int dnc_init_caches(void) {
         dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<4));
 
         if (cdata) {
-            printf("Setting RCache size to %d GByte\n", 1<<mem_size);
+            printf("Setting RCache size to %dGB\n", 1 << mem_size);
 			
-            // Set the cache size in HReq and MIU
+            /* Set the cache size in HReq and MIU */
             val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-            dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3<<26)) | ((mem_size-1)<<26)); // [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB
-            dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, mem_size+1); //  ((2^(N-1))*1 Gbyte)
+            dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3<<26)) | ((mem_size-1)<<26)); /* [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB */
+            dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, mem_size+1); /* ((2 ^ (N - 1)) * 1GB) */
         }
     }
 
-    // Initialize SRAM
-    if (!dnc_asic_mode) { // Special FPGA considerations for Ftag SRAM
+    /* Initialize SRAM */
+    if (!dnc_asic_mode) { /* Special FPGA considerations for Ftag SRAM */
 	    if ((dnc_chip_rev>>16) < 6233) {
 		printf("Disabling FTag SRAM\n");
-		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  // Disable SRAM on NC
+		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
 	    } else {
-		printf("FPGA Revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
+		printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
 	    }
 	} else {
-	    // We are on ASIC, default initailize SRAM if not disable_sram is set
+	    /* ASIC; initialize SRAM if disable_sram is unset */
 	    if(!disable_sram) {
 		if((ret=dnc_initialize_sram())<0)
 		    return ret;
 	    } else {
-		printf("No SRAM will be initialized!\n");
-		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  // Disable SRAM on NC
+		printf("No SRAM will be initialized\n");
+		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
 	    }
 	}
 
@@ -539,7 +536,7 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
 	 * register set.  To avoid trampling over existing mappings,
 	 * use the (also new) 9-12 mapping entries when invoked here. */
 	if (idx > 4) {
-	    printf("add_extd_mmio_maps: index (%d) out of range for family 15h!\n", idx);
+	    printf("add_extd_mmio_maps: index (%d) out of range for family 15h\n", idx);
 	    return;
 	}
 	if (verbose > 0)
@@ -584,7 +581,7 @@ static u32 get_phy_register(int node, int link, int idx, int direct)
         if (reg & 0x80000000)
             return cht_read_config(node, 4, base + 4);
     }
-    printf("Read from phy register HT#%d F4x%x idx %x did not complete!\n",
+    printf("Read from phy register HT#%d F4x%x idx %x did not complete\n",
            node, base, idx);
     return 0;
 }
@@ -602,7 +599,7 @@ static void set_phy_register(int node, int link, int idx, int direct, u32 val)
         if (reg & 0x80000000)
             return;
     }
-    printf("Write to phy register HT#%d F4x%x idx %x did not complete!\n",
+    printf("Write to phy register HT#%d F4x%x idx %x did not complete\n",
            node, base, idx);
 }
 #endif /* __i386 */
@@ -711,7 +708,7 @@ static void cht_print(int neigh, int link)
 	cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20));
     printf("HT#%d L%d Link Ext. Control  : 0x%08x\n", neigh, link,
 	cht_read_config(neigh, 0, 0x170 + link * 4));
-    val = get_phy_register(neigh, link, 0xe0, 0); /* link phy compensation and calibration control 1 */
+    val = get_phy_register(neigh, link, 0xe0, 0); /* Link phy compensation and calibration control 1 */
     printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
 
     if (!(ht_testmode & HT_TESTMODE_PRINT))
@@ -738,7 +735,7 @@ static void cht_print(int neigh, int link)
 	get_phy_register(neigh, link, 0x6884, 1),
 	get_phy_register(neigh, link, 0x6984, 1));
 
-/* these cause hangs
+/* These cause hangs on fam10h:
     print_phy_lanes("link phy receiver DLL control and test 5", 0x400f, 0);
     print_phy_lanes("link phy receiver process control", 0x4011, 0);
     print_phy_lanes("link phy tx deemphasis and margin test control", 0x600c, 1); */
@@ -748,7 +745,7 @@ static void cht_print(int neigh, int link)
 static void ht_optimize_link(int nc, int rev, int asic_mode)
 {
 #ifndef __i386
-    printf("(Only doing HT reconfig in 32-bit mode.)\n");
+    printf("(Only doing HT reconfig in 32-bit mode)\n");
     return;
 #else
     int reboot = 0;
@@ -783,9 +780,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     nc_neigh_link = link;
 
     ganged = cht_read_config(neigh, 0, 0x170 + link * 4) & 1;
-    
-    printf("Found link to NC on HT#%d L%d (%s)\n", neigh, link,
-           ganged ? "GANGED" : "UNGANGED");
+    printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
 
     printf("Checking width/freq ");
 
@@ -870,7 +865,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     if (ht_force_ganged == 2)
 	cht_mirror(neigh, link);
 
-    printf(". done.\n");
+    printf(". done\n");
 
     if (reboot) {
 	printf("Rebooting to make new link settings effective...\n");
@@ -897,7 +892,7 @@ static void disable_probefilter(int nodes)
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
        - F3x58[L3Scrub]=00h.
        - F3x58[DramScrub]=00h.
-       - F3x5C[ScrubRedirEn]=0. */
+       - F3x5C[ScrubRedirEn]=0 */
     for (i = 0; i <= nodes; i++) {
 	scrub[i] = cht_read_config(i, NB_FUNC_MISC, 0x58);
 	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i] & ~0x1f00001f);
@@ -905,24 +900,24 @@ static void disable_probefilter(int nodes)
 	cht_write_config(i, NB_FUNC_MISC, 0x5c, val & ~1);
     }
 
-    /* 2.  Wait 40us for outstanding scrub requests to complete. */
+    /* 2.  Wait 40us for outstanding scrub requests to complete */
     printf(".");
 	
     /* 3.  Disable all cache activity in the system by setting
-       CR0.CD for all active cores in the system. */
+       CR0.CD for all active cores in the system */
     disable_cache();
-    /* 4.  Issue WBINVD on all active cores in the system. */
+    /* 4.  Issue WBINVD on all active cores in the system */
     asm volatile("wbinvd" ::: "memory");
     printf(".");
 
-    /* 5.  Set F3x1C4[L3TagInit]=1. */
+    /* 5.  Set F3x1C4[L3TagInit]=1 */
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
 	cht_write_config(i, NB_FUNC_MISC, 0x1c4, val | (1 << 31));
     }
     printf(".");
 
-    /* 6.  Wait for F3x1C4[L3TagInit]=0. */
+    /* 6.  Wait for F3x1C4[L3TagInit]=0 */
     for (i = 0; i <= nodes; i++) {
 	do {
 	    val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
@@ -931,7 +926,7 @@ static void disable_probefilter(int nodes)
     }
     printf(".");
 
-    /* 7.  Set F3x1D4[PFMode]=00b. */
+    /* 7.  Set F3x1D4[PFMode]=00b */
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1d4);
 	cht_write_config(i, NB_FUNC_MISC, 0x1d4, val & ~3);
@@ -945,11 +940,11 @@ static void disable_probefilter(int nodes)
     printf(".");
 
     /* 8.  Enable all cache activity in the system by clearing
-       CR0.CD for all active cores in the system. */
+       CR0.CD for all active cores in the system */
     enable_cache();
     printf(".");
 
-    /* 9. Restore L3 and DRAM scrubber register values. */
+    /* 9. Restore L3 and DRAM scrubber register values */
     for (i = 0; i <= nodes; i++) {
 	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i]);
 	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
@@ -978,7 +973,7 @@ static int disable_nc = 0;
 static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 {
 #ifndef __i386
-    printf("(Only doing HT discovery and reconfig in 32-bit mode.)\n");
+    printf("(Only doing HT discovery and reconfig in 32-bit mode)\n");
     return -1;
 #else
     int nodes, neigh, link, rt, use, nc, i;
@@ -1056,7 +1051,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     cht_print(neigh, link);
 #endif
 
-    /* earliest opportunity to test HT link */
+    /* Earliest opportunity to test HT link */
     if (ht_testmode & HT_TESTMODE_TEST)
 	cht_test(nc, neigh, link);
 
@@ -1074,12 +1069,12 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     if (val == 0) {
         val = cht_read_config_nc(nc, 0, neigh, link,
                                  H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
-        printf("Doing link calibration of ASIC chip, rev %d.\n", val & 0xffff);
+        printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
         ht_optimize_link(nc, val & 0xffff, 1);
         *p_asic_mode = 1;
         *p_chip_rev = val & 0xffff;
     } else {
-        printf("Doing link calibration of FPGA chip, rev %d_%d.\n", val>>16, val & 0xffff);
+        printf("Doing link calibration of FPGA chip rev %d_%d\n", val>>16, val & 0xffff);
         ht_optimize_link(nc, val, 0);
         *p_asic_mode = 0;
         *p_chip_rev = val;
@@ -1122,9 +1117,9 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 
     enable_cache();
     enable_smi();
-    // reorganize_mmio(nc);
+    /* reorganize_mmio(nc); */
 
-    printf("Done!\n");
+    printf("Done\n");
 
     return nc;
 #endif
@@ -1151,17 +1146,17 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
     if (val == 0x06011b47) {
         printf("NumaChip already present on HT node %d\n", dnc_ht_id);
 
-        // Chip already found, just make sure we run the desired with/frequency
+        /* Chip already found; make sure the desired width/frequency is set */
         val = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link, 0xec);
         if (val == 0) {
             val = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
                                      H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
-            printf("Doing link calibration of ASIC chip, rev %d.\n", val & 0xffff);
+            printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
             ht_optimize_link(dnc_ht_id, val & 0xffff, 1);
             *p_asic_mode = 1;
             *p_chip_rev = val & 0xffff;
         } else {
-            printf("Doing link calibration of FPGA chip, rev %d_%d.\n", val>>16, val & 0xffff);
+            printf("Doing link calibration of FPGA chip rev %d_%d\n", val>>16, val & 0xffff);
             ht_optimize_link(dnc_ht_id, val, 0);
             *p_asic_mode = 0;
             *p_chip_rev = val;
@@ -1170,7 +1165,7 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
     else {
         dnc_ht_id = ht_fabric_find_nc(p_asic_mode, p_chip_rev);
         if (dnc_ht_id < 0) {
-            printf("NumaChip not found.\n");
+            printf("NumaChip not found\n");
             *p_asic_mode = -1;
             *p_chip_rev = -1;
             return -1;
@@ -1189,7 +1184,7 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
                         (dnc_ht_id << 8) | /* NodeCnt */
                         dnc_ht_id); /* NodeId */
 
-    /* XXX: Adjust global CSR_BASE to 46 bits in order to access it in Linux */
+    /* Adjust global CSR_BASE to 46 bits in order to access it in Linux */
     DNC_CSR_BASE = 0x3fff00000000ULL;
     DNC_CSR_LIM = 0x3fffffffffffULL;
 
@@ -1206,12 +1201,12 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
                             H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
     }
 
-    /* Check the expansion rom base address register if this has already been done. */
+    /* Check the expansion rom base address register if this has already been done */
     val = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
                              H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
     if (val != 0 && !(val & 1)) {
         if ((val & 0xffff0000) != (DNC_CSR_BASE >> 16)) {
-            printf("Mismatching CSR space hi addresses, warm-reset needed! (%04x != %04x).\n",
+            printf("Mismatching CSR space hi addresses %04x and %04x; warm-reset needed .\n",
                    (u32)(val >> 16), (u32)(DNC_CSR_BASE >> 32));
             return -1;
         }
@@ -1219,7 +1214,7 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
     else {
 #ifdef __i386
         /* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
-         * and set this value in expansion rom base address register. */
+         * and set this value in expansion rom base address register */
         for (node = 0; node < dnc_ht_id; node++) {
             printf("Setting default CSR maps for node %d\n", node);
             add_extd_mmio_maps(0xfff0, node, 0, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
@@ -1229,10 +1224,10 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
                       u32bswap(DNC_CSR_BASE >> 32));
         cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
                             H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS,
-                            (DNC_CSR_BASE >> 16)); // Put DNC_CSR_BASE[47:32] in the rom address register offset[31:16]
+                            (DNC_CSR_BASE >> 16)); /* Put DNC_CSR_BASE[47:32] in the rom address register offset[31:16] */
 #else
-        /* XXX: perhaps we could try default global map in userspace too ? */
-        printf("Unable to determine CSR space address.\n");
+        /* XXX: Perhaps we could try default global map in userspace too ? */
+        printf("Unable to determine CSR space address\n");
         return -1;
 #endif
     }
@@ -1314,16 +1309,14 @@ static void _pic_reset_ctrl(int val)
 {
     dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, val);
     tsc_wait(500);
-    (void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); // Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC
+    (void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC */
 }
 
 static int adjust_oscillator(char *type, u8 osc_setting)
 {
     u32 val;
     
-    /* Check if we have the possibility to actually
-       adjust the frequency.
-    */
+    /* Check if adjusting the frequency is possible */
     if ((strncmp("313001CC", type, 8) == 0) ||
         (strncmp("313001cc", type, 8) == 0) ||
         (strncmp("313001CD", type, 8) == 0) ||
@@ -1331,24 +1324,24 @@ static int adjust_oscillator(char *type, u8 osc_setting)
 	(strncmp("N313001CDB", type, 10) == 0))
     {
         if (osc_setting > 2) {
-            printf("Invalid Oscillator setting read from eeprom (%d), skipping\n", osc_setting);
+            printf("Invalid Oscillator setting %d read from EEPROM; skipping\n", osc_setting);
             return 0;
         }
-        dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); // Set the indirect read address register
+        dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
         tsc_wait(500);
         val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
-        // On the RevC cards the micro controller isn't quite fast enough
-        // to send bit7 of every byte correctly on the I2C bus when reading.
-        // The bits we care about is in bit[1:0] of the high order byte.
+        /* On the RevC cards the micro controller isn't quite fast enough
+         * to send bit7 of every byte correctly on the I2C bus when reading.
+         * The bits we care about is in bit[1:0] of the high order byte. */
         printf("Current oscillator setting : %d\n", (val>>24) & 3);
         if (((val>>24) & 3) != osc_setting) {
-            // Write directly to the frequency selct register
+            /* Write directly to the frequency selct register */
             val = 0x0000b0e9 | (osc_setting<<24);
             printf("Writing new oscillator setting : %d\n", osc_setting);
             dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
-            // Wait for the new frequency to settle
+            /* Wait for the new frequency to settle */
             tsc_wait(500);
-            // Trigger a HSS PLL reset
+            /* Trigger a HSS PLL reset */
             _pic_reset_ctrl(1);
             tsc_wait(500);
         }
@@ -1420,29 +1413,29 @@ static int print_git_log(const char *val __attribute__((unused)),
 static int parse_cmdline(const char *cmdline) 
 {
     static struct optargs options[] = {
-        {"config",	    &parse_string, &config_file_name},// Config (JSON) file to use
-        {"next-label",	    &parse_string, &next_label},      // Next PXELINUX label to boot after loader
-        {"microcode",	    &parse_string, &microcode_path},  // Path to microcode to be loaded into chip
-        {"sync-mode",	    &parse_int,    &sync_mode},       // Use network supported syncronization
-        {"init-only",	    &parse_int,    &init_only},       // Only initialize chip, but then load <nest-label> without setting up a full system
+        {"config",	    &parse_string, &config_file_name},/* Config (JSON) file to use */
+        {"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
+        {"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */
+        {"sync-mode",	    &parse_int,    &sync_mode},       /* Use network supported syncronization */
+        {"init-only",	    &parse_int,    &init_only},       /* Only initialize chip, but then load <nest-label> without setting up a full system */
         {"route-only",	    &parse_int,    &route_only},
-        {"disable-nc",	    &parse_int,    &disable_nc},      // Disable the HT link to NumaChip
-        {"enablenbmce",	    &parse_int,    &enable_nbmce},    // Enable northbridge MCE (will be disabled by default)
-        {"enablenbwdt",	    &parse_int,    &enable_nbwdt},    // Enbale northbridge WDT (will be disabled by default)
-        {"disable-sram",    &parse_int,    &disable_sram},    // Disable SRAM chip, needed for newer cards without SRAM
-        {"enable-vga",	    &parse_int,    &enable_vga_redir},// Enable redirect of VGA to master, known issue with this on HP DL165 (default disable)
+        {"disable-nc",	    &parse_int,    &disable_nc},      /* Disable the HT link to NumaChip */
+        {"enablenbmce",	    &parse_int,    &enable_nbmce},    /* Enable northbridge MCE (will be disabled by default) */
+        {"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enbale northbridge WDT (will be disabled by default) */
+        {"disable-sram",    &parse_int,    &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
+        {"enable-vga",	    &parse_int,    &enable_vga_redir},/* Enable redirect of VGA to master, known issue with this on HP DL165 (default disable) */
         {"self-test",       &parse_int,    &enable_selftest},
-        {"disable-pf",      &parse_int,    &force_probefilteroff}, // Disable probefilter (HT Assist)
+        {"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter (HT Assist) */
         {"ht.testmode",	    &parse_int,    &ht_testmode},
-        {"ht.force-ganged", &parse_int,    &ht_force_ganged}, // Force setup of 16bit (ganged) HT link to NC
+        {"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
-        {"ht.suppress",     &parse_int,    &ht_suppress},     // Disable HT sync flood and related
-        {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  // Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC
-        {"disable-smm",     &parse_int,    &disable_smm},
+        {"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
+        {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
+        {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
-        {"forwarding-mode", &parse_int,    &forwarding_mode},
-        {"singleton",       &parse_int,    &singleton},       // Loopback test with cables
+        {"forwarding-mode", &parse_int,    &forwarding_mode}, 
+        {"singleton",       &parse_int,    &singleton},       /* Loopback test with cables */
         {"mem-offline",     &parse_int,    &mem_offline},
         {"trace-buf",       &parse_u64,    &trace_buf_size},
         {"verbose",         &parse_int,    &verbose},
@@ -1455,7 +1448,7 @@ static int parse_cmdline(const char *cmdline)
     if (!cmdline)
         return 1;
 
-    printf("options:");
+    printf("Options:");
 
     lstart = 0;
     while (cmdline[lstart] != '\0') {
@@ -1508,10 +1501,10 @@ static int perform_selftest(int asic_mode)
     printf("Performing self test: ");
 
     for (pass=0; pass<10 && res==0; pass++) {
-        const u16 maxchunk = asic_mode ? 16 : 1; // On FPGA all these rams are reduced in size
+        const u16 maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
         int i, chunk;
 
-        // Test PCII/O ATT
+        /* Test PCII/O ATT */
         printf("1");
         dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000000);
         for (i = 0; i < 256; i++) {
@@ -1528,8 +1521,8 @@ static int perform_selftest(int asic_mode)
         if (res < 0) break;
 
         if (asic_mode) {
-            // XXX: MMIO32 ATT has a slightly different layout on FPGA, so we just skip it for now..
-            // Test MMIO32 ATT
+            /* XXX: MMIO32 ATT has a slightly different layout on FPGA, so skip it for now */
+            /* Test MMIO32 ATT */
             printf("2");
             for (chunk = 0; chunk < maxchunk; chunk++) {
                 dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
@@ -1551,7 +1544,7 @@ static int perform_selftest(int asic_mode)
 
         if (res < 0) break;
 
-        // Test APIC ATT
+        /* Test APIC ATT */
         printf("3");
         for (chunk = 0; chunk < maxchunk; chunk++) {
             dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | chunk);
@@ -1572,7 +1565,7 @@ static int perform_selftest(int asic_mode)
 
         if (res < 0) break;
 
-        // Test IntRecNode ATT
+        /* Test IntRecNode ATT */
         printf("4");
         for (chunk = 0; chunk < maxchunk; chunk++) {
             dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000040 | chunk);
@@ -1593,7 +1586,7 @@ static int perform_selftest(int asic_mode)
 
         if (res < 0) break;
         
-        // Test SCC routing tables, no readback verify
+        /* Test SCC routing tables, no readback verify */
         printf("5");
         for (chunk = 0; chunk < maxchunk; chunk++) {
             dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
@@ -1606,7 +1599,7 @@ static int perform_selftest(int asic_mode)
 
         printf("-PASS%d ", pass);
     }
-    printf("\nSelftest %s\n", (res==0) ? "PASSED" : "FAILED");
+    printf("\nSelftest %s\n", (res == 0) ? "passed" : "failed");
 
     return res;
 }
@@ -1631,7 +1624,7 @@ static const u32 msrs[] = {
     0xc0011004, 0xc0011005, 0xc001100c, 0xc0011029, 0xc001102a, 0xffffffff,
 };
 
-// MSRs that cause hanging on fam10h: 0x000000e7 0x000000e8 0xc0010020 0xc0010072 0xc0010073 0xc001116
+/* MSRs that cause hanging on fam10h: 0x000000e7 0x000000e8 0xc0010020 0xc0010072 0xc0010073 0xc001116 */
 
 static void dump_northbridge_regs(int ht_id)
 {
@@ -1688,11 +1681,11 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     if (verbose > 1)
 	dump_northbridge_regs(ht_id);
 
-    /* Indicate immediate jump to next-label (-2) if init-only is also given. */
+    /* Indicate immediate jump to next-label (-2) if init-only is also given */
     if ((disable_nc > 0) && (init_only > 0))
         return -2;
 
-    /* Indicate immediate jump to next-label (-2) if route_only issued. */
+    /* Indicate immediate jump to next-label (-2) if route_only issued */
     if (route_only > 0)
         return -2;
 
@@ -1702,62 +1695,62 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     /* ====================== START ERRATA WORKAROUNDS ====================== */
 
     if (asic_mode && (chip_rev == 0)) {
-        // ERRATA #N9: Reduce the number of HReq buffers to 2 (29:28), HPrb buffers to 2 (15:14)
-        // and SReq buffers to 4 (7:4), to take off some pressure on the response channel.
-        // ERRATA #N20: Covered by the above, HReq uses different TransIDs (29:28) than HPrb (15:14)
+        /* ERRATA #N9: Reduce the number of HReq buffers to 2 (29:28), HPrb buffers to 2 (15:14)
+         * and SReq buffers to 4 (7:4), to take off some pressure on the response channel
+         * ERRATA #N20: Covered by the above, HReq uses different TransIDs (29:28) than HPrb (15:14) */
         val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
         dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1<<4) | (1<<3) | (1<<2) | (1<<0));
         dnc_write_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL, 0x3fff0000);
         dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, 0x000f0000);
     } else if (asic_mode && (chip_rev == 1)) {
-        // ERRATA #N20: Disable buffer 0-15 to ensure that HPrb and HReq have different
-        // transIDs (HPrb: 0-15, HReq: 16-30)
+        /* ERRATA #N20: Disable buffer 0-15 to ensure that HPrb and HReq have different
+         * transIDs (HPrb: 0-15, HReq: 16-30) */
         val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
         dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1<<4));
     }
 
-    // Set LockControl=0 to enable HT Lock functionality and avoid data corruption on split transactions.
-    // Also set LockDelay to 7.
-    // We can do this now since we've disabled HT Locking on non-split transactions, even for high contention
-    // cases (ref Errata #N28).
+    /* Set LockControl=0 to enable HT Lock functionality and avoid data corruption on split transactions.
+     * Also set LockDelay to 7.
+     * We can do this now since we've disabled HT Locking on non-split transactions, even for high contention
+     * cases (ref Errata #N28) */
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
     dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3<<24) | (7<<13))) | (3<<24) | (7<<13));
 
-    // Since our microcode now supports remote owner state, we disable the
-    // error responses on shared probes to GONE cache lines.
+    /* Since our microcode now supports remote owner state, we disable the
+     * error responses on shared probes to GONE cache lines. */
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL);
-    dnc_write_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL, val | (1<<1)); // disableErrorResponse=1
+    dnc_write_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL, val | (1<<1)); /* disableErrorResponse=1 */
     
     if (asic_mode && (chip_rev < 2)) {
-	// Unknown ERRATA: Disable the Early CData read. It causes data corruption.
+	/* Unknown ERRATA: Disable the Early CData read. It causes data corruption */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3<<6)) | (3<<6));
-	// Unknown ERRATA: Disable CTag cache.
+	/* Unknown ERRATA: Disable CTag cache */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR);
 	dnc_write_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<2));
-	// Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations.
+	/* Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
 	dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf<<4)) | (1<<4));
-    } else { // ASIC Rev2 and FPGA
+    } else { /* ASIC Rev2 and FPGA */
         val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-        dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1<<19)); // Enable WeakOrdering
+        dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1<<19)); /* Enable WeakOrdering */
     }
 
     if (asic_mode && (chip_rev < 2)) {
-	// ERRATA #N17: Disable SCC Context #0 to avoid false baPiuTHit assertions when buffer #0 is active.
-	// ERRATA #N23: Disable 8 SCC Contexts (0-7) to avoid SPrb filling up completely and thus asserting
-	// pmInhRemoteReq and causing the pre-grant of pmGrant to de-assert which causes issues when both
-	// BIU and MIU sends requests to an almost full SReq module.
-	// Also disable the MIB timer completely (bit6) for now (debugging purposes).
+	/* ERRATA #N17: Disable SCC Context #0 to avoid false baPiuTHit assertions when buffer #0 is active.
+	 * ERRATA #N23: Disable 8 SCC Contexts (0-7) to avoid SPrb filling up completely and thus asserting
+	 * pmInhRemoteReq and causing the pre-grant of pmGrant to de-assert which causes issues when both
+	 * BIU and MIU sends requests to an almost full SReq module.
+	 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x00ff << 8) | (1 << 6));
-    } else { // ASIC Rev2 and FPGA
-	// ERRATA #N37: On FPGA now we have an RTL fix in SCC buffers to throttle the amount of
-	// local memory requests to accept (bit[27:24] in MIB_IBC). SReq has 4 buffers available
-	// on FGPA, but cannot accept more than coherent requests total (1 reserved for
-	// non-coherent transactions). We need atleast 1 free buffer to receive the retried
-	// coherent requests to ensure forward progress on probes.
-	// Also disable the MIB timer completely (bit6) for now (debugging purposes).
+    } else { /* ASIC Rev2 and FPGA */
+	/* ERRATA #N37: On FPGA now we have an RTL fix in SCC buffers to throttle the amount of
+	 * local memory requests to accept (bit[27:24] in MIB_IBC). SReq has 4 buffers available
+	 * on FGPA, but cannot accept more than coherent requests total (1 reserved for
+	 * non-coherent transactions). We need atleast 1 free buffer to receive the retried
+	 * coherent requests to ensure forward progress on probes.
+	 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (1 << 6));
     }
@@ -1771,7 +1764,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	    val = (val & ~(1 << 8)) | (!enable_nbwdt << 8);
         cht_write_config(i, NB_FUNC_MISC, 0x44, val);
 
-	// XXX: Disable DRAM sequential scrubbing. Optimally we should se the DramScrubAddrLo/Hi register correctly.
+	/* XXX: Disable DRAM sequential scrubbing. Optimally we should se the DramScrubAddrLo/Hi register correctly */
 	val = cht_read_config(i, NB_FUNC_MISC, 0x58);
 	if (val & 0x1f) {
 	    printf("Disabling DRAM sequential scrubbing on HT#%d\n", i);
@@ -1788,29 +1781,29 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	}
 
 	if (asic_mode && (chip_rev < 2)) {
-	    // InstallStateS to avoid exclusive state
+	    /* InstallStateS to avoid exclusive state */
 	    val = cht_read_config(i, NB_FUNC_HT, 0x68);
 	    cht_write_config(i, NB_FUNC_HT, 0x68, val | (1<<23));
 
-	    // ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
-	    // which have bad side-effects with NumaChip in certain scenarios.
+	    /* ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
+	     * which have bad side-effects with NumaChip in certain scenarios */
 	    val = cht_read_config(i, NB_FUNC_DRAM, 0x11c);
 	    cht_write_config(i, NB_FUNC_DRAM, 0x11c, val | (0x1f<<2));
 
 	}
-	// ERRATA #N27: Disable Coherent Prefetch Probes (Query probes) as NumaChip don't handle them correctly
+	/* ERRATA #N27: Disable Coherent Prefetch Probes (Query probes) as NumaChip don't handle them correctly */
 	val = cht_read_config(i, NB_FUNC_DRAM, 0x1b0);
-	cht_write_config(i, NB_FUNC_DRAM, 0x1b0, val & ~(7<<8)); // CohPrefPrbLimit=000b
+	cht_write_config(i, NB_FUNC_DRAM, 0x1b0, val & ~(7<<8)); /* CohPrefPrbLimit=000b */
 
-	// XXX: In case Traffic distribution is enabled on 2 socket systems, we
-	// need to disable it for Directed Probes. Ref email to AMD dated 4/28/2010.
+	/* XXX: In case Traffic distribution is enabled on 2 socket systems, we
+	 * need to disable it for Directed Probes. Ref email to AMD dated 4/28/2010 */
 	val = cht_read_config(i, NB_FUNC_HT, 0x164);
 	cht_write_config(i, NB_FUNC_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
 
-	// Fix for IBS setup on certain BIOS'es and Linux. Set IBS to use LVT offset 1.
+	/* Fix for IBS setup on certain BIOSes and Linux; set IBS to use LVT offset 1 */
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1cc);
 	if ((val & (1<<8)) && ((val & 0xf) == 0)) {
-	    printf("Enable IBS LVT Offset workaround, forcing to '1' on HT#%d)\n", i);
+	    printf("Enable IBS LVT offset workaround on HT#%d\n", i);
 	    cht_write_config(i, NB_FUNC_MISC, 0x1cc, (1<<8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
 	}
     }
@@ -1820,14 +1813,14 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     uuid = identify_eeprom(0xfff0, type, &osc_setting);
     printf("UUID: %06d, TYPE: %s\n", uuid, type);
 
-    // Read the SPD info from our DIMMs to see if they are supported.
+    /* Read the SPD info from our DIMMs to see if they are supported */
     for (i = 0; i < 2; i++) {
         if (read_spd_info(i, &dimms[i]) < 0)
             return -1;
     }
 
     if (!asic_mode && ((chip_rev>>16) < 6251)) {
-	// On FPGA cards we only have 1 GB MCTag and 2GB CData
+	/* On earlier FPGA cards we only have 1GB MCTag and 2GB CData */
 	dimms[0].mem_size = 0;
 	dimms[1].mem_size = 1;
     }
@@ -1837,7 +1830,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
             return -1;
     }
      
-    /* If init-only parameter is given, we stop here and return */
+    /* If init-only parameter is given, stop here and return */
     if (init_only > 0)
         return -2;
 
@@ -1896,7 +1889,7 @@ static void save_scc_routing(u16 rtbll[], u16 rtblm[], u16 rtblh[])
 	printf(".");
         dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
         for (offs = 0; offs < 16; offs++) {
-            // SCC
+            /* SCC */
             dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLL00 + (offs<<2), rtbll[(chunk<<4)+offs]);
             dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BLTBL00  + (offs<<2), rtblm[(chunk<<4)+offs]);
             dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLH00 + (offs<<2), rtblh[(chunk<<4)+offs]);
@@ -1910,7 +1903,7 @@ static u16 shadow_rtblm[7][256];
 static u16 shadow_rtblh[7][256];
 static u16 shadow_ltbl[7][256];
 
-/* Add route on "bxbarid" towards "dest" over "link". */
+/* Add route on "bxbarid" towards "dest" over "link" */
 static void _add_route(u16 dest, u8 bxbarid, u8 link)
 {
     u16 offs = (dest >> 4) & 0xff;
@@ -1920,10 +1913,10 @@ static void _add_route(u16 dest, u8 bxbarid, u8 link)
     shadow_rtbll[bxbarid][offs] |= ((link & 1) ? mask : 0);
     shadow_rtblm[bxbarid][offs] |= ((link & 2) ? mask : 0);
     shadow_rtblh[bxbarid][offs] |= ((link & 4) ? mask : 0);
-//    printf("add_route: ltbl[%d][%02x] = %04x\n", bxbarid, offs, shadow_ltbl[bxbarid][offs]);
-//    printf("add_route: rtbll[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtbll[bxbarid][offs]);
-//    printf("add_route: rtblm[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblm[bxbarid][offs]);
-//    printf("add_route: rtblh[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblh[bxbarid][offs]);
+/*    printf("add_route: ltbl[%d][%02x] = %04x\n", bxbarid, offs, shadow_ltbl[bxbarid][offs]); */
+/*    printf("add_route: rtbll[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtbll[bxbarid][offs]); */
+/*    printf("add_route: rtblm[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblm[bxbarid][offs]); */
+/*    printf("add_route: rtblh[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblh[bxbarid][offs]); */
 }
 
 #ifdef UNUSED
@@ -1934,21 +1927,21 @@ static void test_route(u8 bxbarid, u16 dest)
     u8 out = 0;
     
     printf("Testing route on bxbarid %d to target ID %04x (offs=%02x, mask=%04x)\n", bxbarid, dest, offs, mask);
-//    printf("ltbl[%d][%02x] = %04x\n", bxbarid, offs, shadow_ltbl[bxbarid][offs]);
-//    printf("rtbll[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtbll[bxbarid][offs]);
-//    printf("rtblm[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblm[bxbarid][offs]);
-//    printf("rtblh[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblh[bxbarid][offs]);
+/*    printf("ltbl[%d][%02x] = %04x\n", bxbarid, offs, shadow_ltbl[bxbarid][offs]); */
+/*    printf("rtbll[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtbll[bxbarid][offs]); */
+/*    printf("rtblm[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblm[bxbarid][offs]); */
+/*    printf("rtblh[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblh[bxbarid][offs]); */
     if (bxbarid > 0 && (shadow_ltbl[bxbarid][offs] & mask)) {
         printf("bxbarid %d will pick up packet\n", bxbarid);
         out += ((shadow_rtbll[bxbarid][offs] & mask) >> (dest & 0xf))*1;
         out += ((shadow_rtblm[bxbarid][offs] & mask) >> (dest & 0xf))*2;
         out += ((shadow_rtblh[bxbarid][offs] & mask) >> (dest & 0xf))*4;
-        printf("packet will be routed to bxbarid %d\n", out);
+        printf("Packet will be routed to bxbarid %d\n", out);
     } else if (bxbarid == 0) {
         out += ((shadow_rtbll[bxbarid][offs] & mask) >> (dest & 0xf))*1;
         out += ((shadow_rtblm[bxbarid][offs] & mask) >> (dest & 0xf))*2;
         out += ((shadow_rtblh[bxbarid][offs] & mask) >> (dest & 0xf))*4;
-        printf("packet will be routed to bxbarid %d\n", out);
+        printf("Packet will be routed to bxbarid %d\n", out);
     }   
 }
 #endif
@@ -1963,7 +1956,7 @@ static int _verify_save_id(u16 nodeid, int lc)
         return -1;
 
     if (val != expected_id) {
-        printf("LC3%s SAVE_ID (%04x) is not matching expected value (%04x)!\n",
+        printf("LC3%s SAVE_ID (%04x) doesn't match expected value (%04x)\n",
                linkname, val, expected_id);
         return -1;
     }
@@ -1981,16 +1974,16 @@ static int _check_dim(int dim)
     ok &= (dnc_check_phy(linkidb) == 0);
     
     if (!ok) {
-        printf("PHY errors on PHY%s and PHY%s, issuing PHY reset!\n",
+        printf("Errors detected on PHY%s and PHY%s; resetting\n",
                _get_linkname(linkida), _get_linkname(linkidb));
-        // Counter rotating rings, reset both PHYs
+        /* Counter-rotating rings, reset both phys */
         dnc_reset_phy(linkida); dnc_reset_phy(linkidb);
         tsc_wait(1000);
 
 	ok = (dnc_check_phy(linkida) == 0);
 	ok &= (dnc_check_phy(linkidb) == 0);
 	if (!ok) {
-	    printf("PHY errors still present on PHY%s and PHY%s!\n",
+	    printf("Errors still present on PHY%s and PHY%s\n",
 		   _get_linkname(linkida), _get_linkname(linkidb));
 	    return -1;
 	}
@@ -2000,9 +1993,9 @@ static int _check_dim(int dim)
     ok &= (dnc_check_lc3(linkidb) == 0);
 
     if (!ok) {
-        printf("LC3 errors on LC3%s and LC3%s, issuing PHY reset!\n",
+        printf("LC3 errors detected on LC3%s and LC3%s; resetting\n",
                _get_linkname(linkida), _get_linkname(linkidb));
-        // Counter rotating rings, reset both PHYs
+        /* Counter-rotating rings, reset both phys */
         dnc_reset_phy(linkida); dnc_reset_phy(linkidb);
         tsc_wait(1000);
 
@@ -2011,7 +2004,7 @@ static int _check_dim(int dim)
 	ok &= (dnc_check_lc3(linkida) == 0);
 	ok &= (dnc_check_lc3(linkidb) == 0);
         if (!ok) {
-	    printf("LC3 reset not successful!\n");
+	    printf("LC3 reset not successful\n");
 	    return -1;
 	}
     }
@@ -2021,7 +2014,7 @@ static int _check_dim(int dim)
 
 #ifdef UNUSED
 static int shortest(u8 dim, u16 src, u16 dst) {
-    /* extract positions on ring */
+    /* Extract positions on ring */
     int src2 = (src >> (dim * 4)) & 0xf;
     int dst2 = (dst >> (dim * 4)) & 0xf;
     int len = (dim == 0) ? cfg_fabric.x_size : (dim == 1) ? cfg_fabric.y_size : cfg_fabric.z_size;
@@ -2031,7 +2024,7 @@ static int shortest(u8 dim, u16 src, u16 dst) {
     int backward = ((src2 + (len - dst2)) + len) % len;
 
     if (forward == backward)
-	return src2 & 1; /* load balance */
+	return src2 & 1; /* Load balance */
     return backward < forward;
 }
 #endif
@@ -2051,13 +2044,13 @@ int dnc_setup_fabric(struct node_info *info)
     printf("Using %s path routing\n", cfg_fabric.strict ? "shortest" : "unoptimised");
 
     if (cfg_fabric.x_size > 0)
-        _add_route(info->sciid, 0, 1); // Self route via LC3XA.
+        _add_route(info->sciid, 0, 1); /* Self route via LC3XA */
     else if (cfg_fabric.y_size > 0)
-        _add_route(info->sciid, 0, 3); // Self route via LC3YA.
+        _add_route(info->sciid, 0, 3); /* Self route via LC3YA */
     else
-        _add_route(info->sciid, 0, 5); // Self route via LC3ZA.
+        _add_route(info->sciid, 0, 5); /* Self route via LC3ZA */
 
-    // Make sure responses get back to SCC
+    /* Make sure responses get back to SCC */
     for (lc = 1; lc <= 6; lc++) {
         _add_route(info->sciid, lc, 0);
     }
@@ -2077,15 +2070,16 @@ int dnc_setup_fabric(struct node_info *info)
             dst >>= 4;
         }
         out = dim * 2 + 1;
-	out += ((src ^ dst) & 0x1); // load balance pairs
+	out += ((src ^ dst) & 0x1); /* Load balance pairs */
 
-//	if (cfg_fabric.strict)
-//	    /* SCI IDs correspond to position on the rings */
-//	    out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
-//	else
-//	    /* SCI IDs may not correspond; load-balance route */
-//	    out += src & 1;
-
+#ifdef UNUSED
+	if (cfg_fabric.strict)
+	    /* SCI IDs correspond to position on the rings */
+	    out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
+	else
+	    /* SCI IDs may not correspond; load-balance route */
+	    out += src & 1;
+#endif
         printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
                info->sciid, cfg_nodelist[i].sciid, dim, out);
 
@@ -2100,7 +2094,7 @@ int dnc_setup_fabric(struct node_info *info)
 
     save_scc_routing(shadow_rtbll[0], shadow_rtblm[0], shadow_rtblh[0]);
     
-    // Make sure all necessary links are up and working
+    /* Make sure all necessary links are up and working */
     if (cfg_fabric.x_size > 0) {
         if (_check_dim(0) != 0)
 	    return -1;
@@ -2214,7 +2208,7 @@ static enum node_state enter_reset(struct node_info *info)
 		return enter_reset(info);
 	}
     } else {
-	// No external reset control, simply reset all PHYs to start training sequence
+	/* No external reset control, simply reset all phys to start training sequence */
         dnc_reset_phy(0); dnc_reset_phy(1);
         dnc_reset_phy(2); dnc_reset_phy(3);
         dnc_reset_phy(4); dnc_reset_phy(5);
@@ -2247,7 +2241,7 @@ static void phy_print_error(int mask)
 {
     int i;
 
-    printf("PHY training failure - check cables to ports");
+    printf("phy training failure - check cables to ports");
 
     for (i = 0; i < 6; i++)
 	if (mask & (1 << i))
@@ -2259,7 +2253,7 @@ static void phy_print_error(int mask)
 static enum node_state release_reset(struct node_info *info __attribute__((unused)))
 {
     int pending, i;
-    printf("Releasing reset.\n");
+    printf("Releasing reset\n");
 
     if (dnc_asic_mode && dnc_chip_rev >= 1) {
 	/* Release reset */
@@ -2290,7 +2284,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
 	    pending |= phy_check_status(5);
 	}
 	if (!pending) {
-	    printf("Done.\n");
+	    printf("Done\n");
 	    return RSP_PHY_TRAINED;
 	}
 	if (i++ > 10) {
@@ -2319,7 +2313,7 @@ static enum node_state validate_rings(struct node_info *info)
 {
     int pending, i;
 
-    printf("Validating rings.\n");
+    printf("Validating rings\n");
     i = 0;
     while (1) {
 	pending = 0;
@@ -2407,7 +2401,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 
 	int len;
 	/* In order to avoid jamming, broadcast own status at least
-	 * once every 2*cfg_nodes packet seen. */
+	 * once every 2*cfg_nodes packet seen */
 	for (i = 0; i < 2*cfg_nodes; i++) {
 	    len = udp_read_state(handle, &cmd, sizeof(cmd));
 	    if (!len)
@@ -2415,11 +2409,11 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	    if (len != sizeof(cmd))
 		continue;
 
-            //printf("Got cmd packet. state = %d, sciid = %03x, uuid = %d, tid = %d\n",
-            //       cmd.state, cmd.sciid, cmd.uuid, cmd.tid);
+            /* printf("Got cmd packet. state = %d, sciid = %03x, uuid = %d, tid = %d\n",
+             *       cmd.state, cmd.sciid, cmd.uuid, cmd.tid); */
 	    if (cmd.uuid == builduuid) {
 		if (cmd.tid == last_cmd) {
-		    // Ignoring seen command
+		    /* Ignoring seen command */
 		    continue;
 		}
 		last_cmd = cmd.tid;
@@ -2429,8 +2423,8 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 		    rsp.tid = cmd.tid;
 		}
 		else if (cmd.state == CMD_CONTINUE) {
-		    printf("Master signalled go-ahead.\n");
-		    /* Belts and suspenders: slaves re-broadcast go-ahead command */
+		    printf("Master signalled go-ahead\n");
+		    /* Belt and suspenders: slaves re-broadcast go-ahead command */
 		    udp_broadcast_state(handle, &cmd, sizeof(cmd));
 		    go_ahead = 1;
 		    break;
