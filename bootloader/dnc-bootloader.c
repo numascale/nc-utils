@@ -2443,7 +2443,8 @@ static int unify_all_nodes(void)
     *((u64 *)REL(new_topmem_msr)) = dnc_rdmsr(MSR_TOPMEM);
 
     /* Update OS visible workaround MSRs */
-    setup_c1e_osvw();
+    if (disable_c1e)
+	setup_c1e_osvw();
 
     if (verbose > 0)
 	debug_acpi();

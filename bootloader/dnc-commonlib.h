@@ -119,6 +119,7 @@ extern int sync_mode;
 extern char *microcode_path;
 extern int enable_vga_redir;
 extern int disable_smm;
+extern int disable_c1e;
 extern int renumber_bsp;
 extern int mem_offline;
 extern u64 trace_buf_size;

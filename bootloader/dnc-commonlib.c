@@ -48,6 +48,7 @@ static int enable_selftest = 1;
 static int force_probefilteroff = 0;
 static int ht_force_ganged = 0;
 int disable_smm = 0;
+int disable_c1e = 0;
 int renumber_bsp = 0;
 int remote_io = 0;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
@@ -1438,6 +1439,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht.suppress",     &parse_int,    &ht_suppress},     // Disable HT sync flood and related
         {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  // Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC
         {"disable-smm",     &parse_int,    &disable_smm},
+        {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
         {"forwarding-mode", &parse_int,    &forwarding_mode},
         {"singleton",       &parse_int,    &singleton},       // Loopback test with cables
@@ -1776,11 +1778,13 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	    cht_write_config(i, NB_FUNC_MISC, 0x58, val & ~0x1f);
 	}
 
-	// disable C1E sleep mode in northbridge, since it requires correct LDTSTOP# behaviour
-	val = cht_read_config(i, NB_FUNC_MISC, 0xd4);
-	if (val & (1 << 13)) {
-	    printf("Disabling C1E sleep state on HT#%d\n", i);
-	    cht_write_config(i, NB_FUNC_MISC, 0xd4, val & ~(1 << 13));
+	if (disable_c1e) {
+	    /* Disable C1E sleep mode in northbridge */
+	    val = cht_read_config(i, NB_FUNC_MISC, 0xd4);
+	    if (val & (1 << 13)) {
+		printf("Disabling C1E sleep state on HT#%d\n", i);
+		cht_write_config(i, NB_FUNC_MISC, 0xd4, val & ~(1 << 13));
+	    }
 	}
 
 	if (asic_mode && (chip_rev < 2)) {
