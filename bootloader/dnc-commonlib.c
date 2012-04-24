@@ -132,7 +132,7 @@ static int read_spd_info(int cdata, struct dimm_config *dimm)
     mdataw[4] = u32bswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 88)); /* Read SPD location 88, 89, 90, 91 */
 
     mdata[19] = 0;
-    printf("%s is a %s module (x%d, %d MByte)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1<<(addr_bits - 14));
+    printf("%s is a %s module (x%d, %dMB)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1<<(addr_bits - 14));
 
     switch (addr_bits) {
 	case 28: dimm->mem_size = 4; break; /* 16G */
