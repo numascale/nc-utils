@@ -31,8 +31,8 @@
 
 #include "dnc-access.h"
 
-#define MCFG_LEN (1ULL<<28)  // MMCFG space is 256MByte per node
-#define CSR_LEN  (1ULL<<16)  // CSR space is 64KByte per node
+#define MCFG_LEN (1ULL<<28)  // MMCFG space is 256MB per node
+#define CSR_LEN  (1ULL<<16)  // CSR space is 64KB per node
 
 #define PCI_MMIO_CONF(bus, device, func, reg)                   \
     (((bus) << 20) | ((device) << 15) | ((func) << 12) | (reg))

@@ -1350,7 +1350,7 @@ static void setup_remote_cores(u16 num)
     /* Re-direct everything above our last local address (if any) to NumaChip */
     if (num != dnc_node_count-1) {
 	if (map_index > 6)
-	    printf("ERROR: too many DRAM maps on SCI%03x, cannot fit last overflow map\n", node);
+	    printf("Error: Too many DRAM maps on SCI%03x, cannot fit last overflow map\n", node);
 
 	for (i = 0; i < 8; i++) {
 	    if (!cur_node->ht[i].cpuid)
@@ -1369,7 +1369,7 @@ static void setup_remote_cores(u16 num)
 	    if (!cur_node->ht[i].cpuid)
 		continue;
 	    for (j = 0; j < 8; j++) {
-		printf("SCI%03x/HT#%d dram base/limit[%d] %08x/%08x\n",
+		printf("SCI%03x/HT#%d DRAM base/limit[%d] %08x/%08x\n",
 		       node, i, j,
 		       dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8),
 		       dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8));
@@ -2078,7 +2078,7 @@ static int update_mtrr(void)
     i = 0;
     while (base & mask) {
 	if (i >= 8) {
-	    printf("*** Not enough room for required MTRR entries!\n");
+	    printf("Error: Not enough room for required MTRR entries\n");
 	    return -1;
 	}
 	if (base & ~mask) {
@@ -2092,7 +2092,7 @@ static int update_mtrr(void)
     }
     if ((prev != ~0ULL) && (prev != 0ULL)) {
 	if (i >= 8) {
-	    printf("*** Not enough room for required MTRR entries!\n");
+	    printf("Error: Not enough room for required MTRR entries\n");
 	    return -1;
 	}
 	mtrr_base[i] = 0x006;
@@ -2115,7 +2115,7 @@ static int update_mtrr(void)
     
     while (base & mask) {
 	if (i >= 8) {
-	    printf("*** Not enough room for required MTRR entries!\n");
+	    printf("Error: Not enough room for required MTRR entries\n");
 	    return -1;
 	}
 	prev = mask;
@@ -2154,7 +2154,7 @@ static int update_mtrr(void)
     enable_cache();
 
     if (verbose) {
-	printf("default MTRR type: %s\n", MTRR_TYPE(dnc_rdmsr(MSR_MTRR_DEFAULT) & 0xff));
+	printf("Default MTRR type: %s\n", MTRR_TYPE(dnc_rdmsr(MSR_MTRR_DEFAULT) & 0xff));
 	for (i = 0; i < 11; i++)
 	    printf("MTRR F%d: value 0x%016llx\n", i, dnc_rdmsr(fixed_mtrr_reg[i]));
 
@@ -2350,7 +2350,7 @@ static int unify_all_nodes(void)
     }
 
     if (verbose > 0) {
-	printf("Global memory map :\n");
+	printf("Global memory map:\n");
 	for (node = 0; node < dnc_node_count; node++) {
 	    for (i = 0; i < 8; i++) {
 		if (!nc_node[node].ht[i].cpuid)
@@ -2430,10 +2430,8 @@ static int unify_all_nodes(void)
     scc_started = 1;
     printf("SCC microcode loaded\n");
 
-    if (update_mtrr() < 0) {
-        printf("Error updating MTRRs!\n");
+    if (update_mtrr() < 0)
 	return -1;
-    }
 
     /* Set TOPMEM2 for ourselves and other cores */
     dnc_wrmsr(MSR_TOPMEM2, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
