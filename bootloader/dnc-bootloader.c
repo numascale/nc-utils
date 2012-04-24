@@ -1795,10 +1795,9 @@ int read_config_file(char *file_name)
     config = __com32.cs_bounce;
     config[config_len] = '\0';
 
-    if (!parse_config_file(config)) {
-	printf("Error reading config file!\n");
+    if (!parse_config_file(config))
 	return -1;
-    }
+
     return 0;
 }
 

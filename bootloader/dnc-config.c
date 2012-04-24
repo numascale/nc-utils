@@ -21,6 +21,7 @@
 #include <stdlib.h>
 
 #include "dnc-config.h"
+#include "dnc-commonlib.h"
 #include "json-1.4/src/json.h"
 
 struct fabric_info cfg_fabric;
@@ -116,26 +117,39 @@ static int parse_json(json_t *root)
 
     fab = json_find_first_label(root, "fabric");
     if (!fab) {
-        printf("** parse error: (PJ) object <fabric> not found!\n");
-        return 0;
+        printf("Error: tag <fabric> not found in fabric configuration");
+        goto out1;
     }
-    if (!(parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0) &&
-          parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0) &&
-          parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)))
-        return 0;
+    if (!parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0)) {
+	printf("Error: tag <x-size> not found in fabric configuration");
+	goto out1;
+    }
+
+    if (!parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0)) {
+	printf("Error: tag <y-size> not found in fabric configuration");
+	goto out1;
+    }
+
+    if (!parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)) {
+	printf("Error: tag <z-size> not found in fabric configuration");
+        goto out1;
+    }
 
     if (!parse_json_bool(fab->child, "strict", &cfg_fabric.strict, 0))
 	cfg_fabric.strict = 0;
 
     list = json_find_first_label(fab->child, "nodes");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("** parse error: (PJ) array <nodes> not found!\n");
-        return 0;
+        printf("Error: tag <nodes> not found in fabric configuration");
+        goto out1;
     }
 
     for (cfg_nodes = 0, obj = list->child->child; obj; obj = obj->next)
         cfg_nodes++;
+
     cfg_nodelist = malloc(cfg_nodes * sizeof(*cfg_nodelist));
+    assert(cfg_nodelist);
+
     for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
 	/* UUID is optional */
 	if (!parse_json_num(obj, "uuid", &cfg_nodelist[i].uuid, 1)) {
@@ -143,45 +157,67 @@ static int parse_json(json_t *root)
 	    name_matching = 1;
 	}
 
-        if (!(parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0) &&
-              parse_json_num(obj, "partition", &cfg_nodelist[i].partition, 0) &&
-              parse_json_num(obj, "osc", &cfg_nodelist[i].osc, 0) &&
-              parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)))
-        {
-            free(cfg_nodelist);
-            return 0;
-        }
+	if (!parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0)) {
+	    printf("Error: tag <sciid> not found in fabric configuration");
+	    goto out2;
+	}
 
-	if (name_matching)
-	    printf("UUIDs omitted - falling back to name matching\n");
+        if (!parse_json_num(obj, "partition", &cfg_nodelist[i].partition, 0)) {
+	    printf("Error: tag <partition> not found in fabric configuration");
+	    goto out2;
+	}
+
+	/* OSC is optional */
+	if (parse_json_num(obj, "osc", &cfg_nodelist[i].osc, 1))
+	    cfg_nodelist[i].osc = 0;
+
+	if (parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)) {
+	    printf("Error: tag <desc> not found in fabric configuration");
+	    goto out2;
+        }
 
 	if (parse_json_num(obj, "sync-only", &val, 1))
 	    cfg_nodelist[i].sync_only = val;
-	else 
+	else
 	    cfg_nodelist[i].sync_only = 0;
     }
 
+    if (name_matching)
+	printf("UUIDs omitted - matching hostname to desc tag\n");
+
     list = json_find_first_label(fab->child, "partitions");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("** parse error: (PJ) array <paritions> not found!\n");
+        printf("Error: tag <partitions> not found in fabric configuration");
         free(cfg_nodelist);
         return 0;
     }
 
     for (cfg_partitions = 0, obj = list->child->child; obj; obj = obj->next)
         cfg_partitions++;
+
     cfg_partlist = malloc(cfg_partitions * sizeof(*cfg_partlist));
+    assert(cfg_partlist);
+
     for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
-	if (!(parse_json_num(obj, "master", &cfg_partlist[i].master, 0) &&
-	      parse_json_num(obj, "builder", &cfg_partlist[i].builder, 0)))
-        {
-            free(cfg_nodelist);
-            free(cfg_partlist);
-            return 0;
-        }
+	if (!parse_json_num(obj, "master", &cfg_partlist[i].master, 0)) {
+	    printf("Error: tag <master> not found in fabric configuration");
+	    goto out3;
+	}
+
+	if (!parse_json_num(obj, "builder", &cfg_partlist[i].builder, 0)) {
+	    printf("Error: tag <builder> not found in fabric configuration");
+	    goto out3;
+	}
     }
 
     return 1;
+
+out3:
+	free(cfg_nodelist);
+out2:
+	free(cfg_partlist);
+out1:
+	return 0;
 }
 
 int parse_config_file(char *data)
