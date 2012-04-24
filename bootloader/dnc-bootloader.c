@@ -1788,7 +1788,7 @@ int read_config_file(char *file_name)
 
     config_len = read_file(file_name, __com32.cs_bounce, __com32.cs_bounce_size);
     if (config_len < 0) {
-	printf("Config file <%s> not found!\n", file_name);
+	printf("Error: Fabric configuration file <%s> not found\n", file_name);
         return -1;
     }
 

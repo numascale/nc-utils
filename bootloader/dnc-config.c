@@ -117,21 +117,21 @@ static int parse_json(json_t *root)
 
     fab = json_find_first_label(root, "fabric");
     if (!fab) {
-        printf("Error: tag <fabric> not found in fabric configuration");
+        printf("Error: Tag <fabric> not found in fabric configuration");
         goto out1;
     }
     if (!parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0)) {
-	printf("Error: tag <x-size> not found in fabric configuration");
+	printf("Error: Tag <x-size> not found in fabric configuration");
 	goto out1;
     }
 
     if (!parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0)) {
-	printf("Error: tag <y-size> not found in fabric configuration");
+	printf("Error: Tag <y-size> not found in fabric configuration");
 	goto out1;
     }
 
     if (!parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)) {
-	printf("Error: tag <z-size> not found in fabric configuration");
+	printf("Error: Tag <z-size> not found in fabric configuration");
         goto out1;
     }
 
@@ -140,7 +140,7 @@ static int parse_json(json_t *root)
 
     list = json_find_first_label(fab->child, "nodes");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("Error: tag <nodes> not found in fabric configuration");
+        printf("Error: Tag <nodes> not found in fabric configuration");
         goto out1;
     }
 
@@ -158,12 +158,12 @@ static int parse_json(json_t *root)
 	}
 
 	if (!parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0)) {
-	    printf("Error: tag <sciid> not found in fabric configuration");
+	    printf("Error: Tag <sciid> not found in fabric configuration");
 	    goto out2;
 	}
 
         if (!parse_json_num(obj, "partition", &cfg_nodelist[i].partition, 0)) {
-	    printf("Error: tag <partition> not found in fabric configuration");
+	    printf("Error: Tag <partition> not found in fabric configuration");
 	    goto out2;
 	}
 
@@ -172,7 +172,7 @@ static int parse_json(json_t *root)
 	    cfg_nodelist[i].osc = 0;
 
 	if (parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)) {
-	    printf("Error: tag <desc> not found in fabric configuration");
+	    printf("Error: Tag <desc> not found in fabric configuration");
 	    goto out2;
         }
 
@@ -187,7 +187,7 @@ static int parse_json(json_t *root)
 
     list = json_find_first_label(fab->child, "partitions");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("Error: tag <partitions> not found in fabric configuration");
+        printf("Error: Tag <partitions> not found in fabric configuration");
         free(cfg_nodelist);
         return 0;
     }
@@ -200,12 +200,12 @@ static int parse_json(json_t *root)
 
     for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
 	if (!parse_json_num(obj, "master", &cfg_partlist[i].master, 0)) {
-	    printf("Error: tag <master> not found in fabric configuration");
+	    printf("Error: Tag <master> not found in fabric configuration");
 	    goto out3;
 	}
 
 	if (!parse_json_num(obj, "builder", &cfg_partlist[i].builder, 0)) {
-	    printf("Error: tag <builder> not found in fabric configuration");
+	    printf("Error: Tag <builder> not found in fabric configuration");
 	    goto out3;
 	}
     }
@@ -224,51 +224,37 @@ int parse_config_file(char *data)
 {
     json_t *root = NULL;
     enum json_error err;
-    int ret = 0;
+    int i;
 
-#ifdef DEBUG_CONFIG
-    printf("+++++++ START JSON +++++++++\n");
-    printf("%s", data);
-    printf("+++++++ END   JSON +++++++++\n");
-#endif
+    if (verbose >= 2)
+	printf("Fabric configuration file:\n%s", data);
 
     err = json_parse_document(&root, data);
-#ifdef DEBUG_CONFIG
-    if (!root) printf("No json root????\n");
-#endif
-    if (err == JSON_OK && root) {
-        if (parse_json(root)) {
-#ifdef DEBUG_CONFIG            
-            int i;
-            printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
-                   cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
-
-            for (i = 0; i < cfg_nodes; i++) {
-                printf("Node %d: <%s> uuid: %08x, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
-                       i,
-                       cfg_nodelist[i].desc,
-                       cfg_nodelist[i].uuid,
-                       cfg_nodelist[i].sciid,
-                       cfg_nodelist[i].partition,
-                       cfg_nodelist[i].osc,
-                       cfg_nodelist[i].sync_only);
-            }
-
-            for (i = 0; i < cfg_partitions; i++) {
-                printf("Partition %d: master: 0x%03x, builder: 0x%03x\n",
-                       i, cfg_partlist[i].master, cfg_partlist[i].builder);
-            }
-#endif
-            ret = 1;
-        }
-#ifdef DEBUG_CONFIG
-        else printf("Error parsing json root????\n");
-#endif
-
-        json_free_value(&root);
+    if (err != JSON_OK) {
+	printf("Error: Failed to parse fabric configuration (reason %d)\n", err);
+	return 0;
     }
 
-    return ret;
+    if (!parse_json(root)) {
+	printf("Error: Parsing fabric configuration root failed\n");
+	json_free_value(&root);
+	return 0;
+    }
+
+    printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
+	cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
+
+    for (i = 0; i < cfg_nodes; i++)
+	printf("Node %d: <%s> uuid: %08x, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
+	    i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
+	    cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
+	    cfg_nodelist[i].osc, cfg_nodelist[i].sync_only);
+
+    for (i = 0; i < cfg_partitions; i++)
+	printf("Partition %d: master: 0x%03x, builder: 0x%03x\n",
+	    i, cfg_partlist[i].master, cfg_partlist[i].builder);
+
+    return 1;
 }
 
 void make_singleton_config(u32 uuid)
@@ -304,7 +290,7 @@ struct node_info* get_node_config(u32 uuid)
 		return &cfg_nodelist[i];
 	}
     }
-    printf("error: failed to find node config\n");
+    printf("Error: Failed to find node config\n");
     return NULL;
 }
 

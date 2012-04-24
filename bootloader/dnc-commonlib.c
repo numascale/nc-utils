@@ -1867,6 +1867,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     info = get_node_config(uuid);
     if (!info)
         return -1;
+
     printf("Node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
            info->desc, info->uuid, info->sciid, info->partition, info->osc);
     part = get_partition_config(info->partition);
