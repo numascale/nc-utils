@@ -1113,32 +1113,31 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff) {
 	disable_probefilter(nodes);
     }
-    
-    disable_smi();
+
     disable_cache();
 
     for (i = nodes; i >= 0; i--) {
-        u32 ltcr;
+        u32 ltcr, val2;
         /* Disable probes while adjusting */
         ltcr = cht_read_config(i, NB_FUNC_HT, 0x68);
         cht_write_config(i, NB_FUNC_HT, 0x68,
-                         ltcr | (1 << 10) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
+	    ltcr | (1 << 10) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
 
         /* Update "neigh" bcast values for node about to increment fabric size */
         val = cht_read_config(neigh, NB_FUNC_HT, 0x40 + i * 4);
+        val2 = cht_read_config(i, NB_FUNC_HT, 0x60);
         cht_write_config(neigh, NB_FUNC_HT, 0x40 + i * 4, val | (0x80000 << link));
 
+	/* FIXME: Race condition observered to cause lockups at this point */
+
         /* Increase fabric size */
-        val = cht_read_config(i, NB_FUNC_HT, 0x60);
-        cht_write_config(i, NB_FUNC_HT, 0x60, val + (1<<4));
+        cht_write_config(i, NB_FUNC_HT, 0x60, val2 + (1 << 4));
 
         /* Reassert LimitCldtCfg */
-        cht_write_config(i, NB_FUNC_HT, 0x68,
-                         ltcr | (1 << 15));
+        cht_write_config(i, NB_FUNC_HT, 0x68, ltcr | (1 << 15));
     }
 
     enable_cache();
-    enable_smi();
     /* reorganize_mmio(nc); */
 
     printf("Done\n");
