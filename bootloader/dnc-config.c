@@ -168,7 +168,7 @@ static int parse_json(json_t *root)
 	}
 
 	/* OSC is optional */
-	if (parse_json_num(obj, "osc", &cfg_nodelist[i].osc, 1))
+	if (!parse_json_num(obj, "osc", &cfg_nodelist[i].osc, 1))
 	    cfg_nodelist[i].osc = 0;
 
 	if (!parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)) {

@@ -1338,11 +1338,10 @@ static int adjust_oscillator(char *type, u8 osc_setting)
     u32 val;
     
     /* Check if adjusting the frequency is possible */
-    if ((strncmp("313001CC", type, 8) == 0) ||
-        (strncmp("313001cc", type, 8) == 0) ||
-        (strncmp("313001CD", type, 8) == 0) ||
-	(strncmp("N313001CDA", type, 10) == 0) ||
-	(strncmp("N313001CDB", type, 10) == 0))
+    if ((strncmp("313001", type, 6) == 0) ||
+	(strncmp("N313001", type, 7) == 0) ||
+	(strncmp("N323011", type, 7) == 0) ||
+	(strncmp("N323023", type, 7) == 0))
     {
         if (osc_setting > 2) {
             printf("Invalid Oscillator setting %d read from EEPROM; skipping\n", osc_setting);
@@ -1366,7 +1365,10 @@ static int adjust_oscillator(char *type, u8 osc_setting)
             _pic_reset_ctrl(1);
             tsc_wait(500);
         }
+    } else {
+	printf("Oscillator not set, card is of type %s and doesn't support this\n", type);
     }
+	
         
     return 0;
 }
