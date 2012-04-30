@@ -1381,21 +1381,28 @@ struct optargs {
 
 static int parse_string(const char *val, void *stringp)
 {
-    *(char **)stringp = strdup(val);
+    char **string = (char **)stringp;
+
+    *string = strdup(val);
+    assert(*string);
     return 1;
 }
 
 static int parse_int(const char *val, void *intp)
 {
+    int *int32 = (int *)intp;
+
     if (val[0] != '\0')
-	*(int *)intp = atoi(val);
+	*int32 = atoi(val);
     else
-	*(int *)intp = 1;
+	*int32 = 1;
     return 1;
 }
 
 static int parse_u64(const char *val, void *intp)
 {
+    u64 *int64 = (u64 *)intp;
+
     if (val[0] != '\0') {
 	char *endptr;
 	u64 ret = strtoull(val, &endptr, 0);
@@ -1413,10 +1420,10 @@ static int parse_u64(const char *val, void *intp)
 	    default:
 		break;
 	}
-	*(u64 *)intp = ret;
+	*int64 = ret;
     }
     else
-	*(u64 *)intp = 1;
+	*int64 = 1;
     return 1;
 }
 

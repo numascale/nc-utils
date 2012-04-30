@@ -265,6 +265,8 @@ void make_singleton_config(u32 uuid)
 
     cfg_nodes = 1;
     cfg_nodelist = malloc(sizeof(*cfg_nodelist));
+    assert(cfg_nodelist);
+
     cfg_nodelist[0].uuid = uuid;
     cfg_nodelist[0].sciid = 0;
     cfg_nodelist[0].osc = 0;
@@ -274,6 +276,8 @@ void make_singleton_config(u32 uuid)
 
     cfg_partitions = 1;
     cfg_partlist = malloc(sizeof(*cfg_partlist));
+    assert(cfg_partlist);
+
     cfg_partlist[0].master = 0;
     cfg_partlist[0].builder = 0;
 }

@@ -190,6 +190,7 @@ static void load_orig_e820_map(void)
         }
 
         orig_e820_map = malloc(e820_len);
+        assert(orig_e820_map);
         memcpy(orig_e820_map, e820_map, e820_len);
         orig_e820_len = e820_len;
     }
@@ -1721,7 +1722,7 @@ static void read_microcode_update(void)
     }
 
     memset(path, 0, sizeof(path));
-    strncpy(path, microcode_path, 500);
+    strncpy(path, microcode_path, sizeof(path));
     psep = strlen(path);
     if (psep == 0) {
         printf("Microcode update not specified, continuing with built-in version (xor = %u, %u)\n",
@@ -2557,6 +2558,7 @@ static void get_hostname(void)
 
 	/* Create a private copy */
 	hostname = strndup(&dhcpdata[offset + 2], len);
+	assert(hostname);
 	printf("Hostname is %s\n", hostname);
 	return;
     }
