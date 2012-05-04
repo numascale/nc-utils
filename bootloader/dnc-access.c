@@ -37,8 +37,7 @@
      PCI_EXT_CONF(255, ((((node))<<3)|(func)), (reg)) :	\
      PCI_EXT_CONF(0, (((24+(node))<<3)|(func)), (reg)))
 
-#define cli() asm volatile("cli")
-#define sti() asm volatile("sti")
+int lirq_nest = 0, lirq_print = 0;
 
 //#define DEBUG(...) printf(__VA_ARGS__)
 #define DEBUG(...) do { } while (0)

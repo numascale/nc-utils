@@ -38,6 +38,7 @@
     (((bus) << 20) | ((device) << 15) | ((func) << 12) | (reg))
 
 int cht_config_use_extd_addressing = 0;
+int lirq_nest = 0, lirq_print = 0;
 
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
 u64 dnc_csr_lim = DEF_DNC_CSR_LIM;

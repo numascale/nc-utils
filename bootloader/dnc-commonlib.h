@@ -101,6 +101,8 @@ void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx);
 void detect_southbridge(void);
 void disable_smi(void);
 void enable_smi(void);
+void critical_enter(void);
+void critical_leave(void);
 int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline);
 int dnc_setup_fabric(struct node_info *info);
 int dnc_check_fabric(struct node_info *info);

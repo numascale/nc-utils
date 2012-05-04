@@ -659,6 +659,18 @@ void enable_smi(void)
 	fatal("Unable to enable SMI due to unknown southbridge 0x%08x\n", southbridge_id);
 }
 
+void critical_enter(void)
+{
+    disable_smi();
+    cli();
+}
+
+void critical_leave(void)
+{
+    sti();
+    enable_smi();
+}
+
 #ifdef __i386
 static void print_phy_gangs(int neigh, int link, char *name, int base)
 {
@@ -1115,7 +1127,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 	disable_probefilter(nodes);
     }
 
-    disable_cache();
+    critical_enter();
 
     for (i = nodes; i >= 0; i--) {
         u32 ltcr, val2;
@@ -1138,7 +1150,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         cht_write_config(i, NB_FUNC_HT, 0x68, ltcr | (1 << 15));
     }
 
-    enable_cache();
+    critical_leave();
     /* reorganize_mmio(nc); */
 
     printf("Done\n");
