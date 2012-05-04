@@ -19,6 +19,13 @@
 #ifndef __DNC_MONITOR
 #define __DNC_MONITOR 1
 
+struct perf_ev {
+    int event;
+    int unitmask;
+    char *name;
+};
+
 void lc3_activity(void);
+void system_activity(void);
 
 #endif
