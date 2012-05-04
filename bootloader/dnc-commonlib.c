@@ -1077,8 +1077,11 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         *p_chip_rev = val;
     }
 
-    if (ht_suppress || (*p_asic_mode && *p_chip_rev < 3)) {
-	printf("suppressing HT\n");
+    /* RevB ASIC requires syncflood to be disabled */
+    if (*p_asic_mode && *p_chip_rev < 3)
+	ht_suppress = -1;
+
+    if (ht_suppress) {
 	for (i = 0; i <= nodes; i++) {
 	    val = cht_read_config(i, NB_FUNC_MISC, 0x44);
 	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
@@ -1114,7 +1117,8 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 	    if (ht_suppress & 0x2000) val &= ~(1 << 22);
 	    cht_write_config(i, NB_FUNC_MISC, 0x180, val);
 	}
-}
+    }
+
     /* HT looping testmode useful after link is up at 16-bit 800MHz */
     if (ht_testmode & HT_TESTMODE_LOOP)
 	while (1)
