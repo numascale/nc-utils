@@ -74,22 +74,22 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 
 $(mjson_dir)/src/json.o: $(mjson_dir)/src/json.c
 
-dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-devices.o dnc-masterlib.o dnc-mmio.o \
+dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-devices.o dnc-monitor.o dnc-masterlib.o dnc-mmio.o \
 	dnc-fabric.o dnc-access.o dnc-route.o dnc-acpi.o dnc-config.o \
 	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS) \
 	auto-dnc-gitlog.o
 
 dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-types.h dnc-regs.h \
 	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h \
-	dnc-commonlib.h dnc-devices.h dnc-masterlib.h dnc-mmio.h dnc-debug.h hw-config.h
+	dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-masterlib.h dnc-mmio.h dnc-debug.h hw-config.h
 
 dnc-e820-handler.o: hw-config.h dnc-defs.h
 
-dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h dnc-access.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
+dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-access.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 
 dnc-config.o: dnc-config.c dnc-config.h $(mjson_dir)/src/json.h
 
-dnc-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
+dnc-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
 
 dnc-mmio.o: dnc-mmio.c dnc-mmio.h
 
@@ -119,27 +119,27 @@ test-slavenode: test-slavenode.o dnc-test-commonlib.o dnc-test-fabric.o \
 test-routing: test-routing.o dnc-test-access.o
 	$(CC) $(COPT) $^ -o $@
 
-test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h \
+test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h \
 	dnc-masterlib.h dnc-mmio.h dnc-fabric.h dnc-types.h dnc-regs.h dnc-access.h \
 	dnc-route.h  dnc-config.h
 	$(CC) $(COPT) -c $< -o $@
 
-test-slavenode.o: test-slavenode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h \
+test-slavenode.o: test-slavenode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h \
 	dnc-fabric.h dnc-types.h dnc-regs.h dnc-access.h \
 	dnc-route.h  dnc-config.h
 	$(CC) $(COPT) -c $< -o $@
 
-test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h \
+test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h \
 	dnc-types.h dnc-regs.h dnc-access.h dnc-fabric.h
 	$(CC) $(COPT) -c $< -o $@
 
 test-json.o: $(mjson_dir)/src/json.c
 	$(CC) $(COPT) -c $< -o $@
 
-dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
+dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h dnc-monitor.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 	$(CC) $(COPT) -c $< -o $@
 
-dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
+dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
 	$(CC) $(COPT) -c $< -o $@
 
 dnc-test-mmio.o: dnc-mmio.c $(UCODEDEPS) dnc-mmio.h
