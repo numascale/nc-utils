@@ -982,43 +982,6 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     val = cht_read_config(0, NB_FUNC_HT, 0x60);
     nodes = (val >> 4) & 7;
 
-    if (ht_suppress)
-	for (i = 0; i <= nodes; i++) {
-	    val = cht_read_config(i, NB_FUNC_MISC, 0x44);
-	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
-	    if (ht_suppress & 0x1) val &= ~(1 << 2);
-	    /* SyncPktGenDis: sync packet generation disable */
-	    if (ht_suppress & 0x2) val &= ~(1 << 3);
-	    /* SyncPktPropDis: sync packet propagation disable */
-	    if (ht_suppress & 0x4) val &= ~(1 << 4);
-	    /* SyncOnWDTEn: sync flood on watchdog timer error enable */
-	    if (ht_suppress & 0x8) val &= ~(1 << 20);
-	    /* SyncOnAnyErrEn: sync flood on any error enable */
-	    if (ht_suppress & 0x10) val &= ~(1 << 21);
-	    /* SyncOnDramAdrParErrEn: sync flood on DRAM address parity error enable */
-	    if (ht_suppress & 0x20) val &= ~(1 << 30);
-	    cht_write_config(i, NB_FUNC_MISC, 0x44, val);
-
-	    val = cht_read_config(i, NB_FUNC_MISC, 0x180);
-	    /* SyncFloodOnUsPwDataErr: sync flood on upstream posted write data error */
-	    if (ht_suppress & 0x40) val &= ~(1 << 1);
-	    /* SyncFloodOnDatErr */
-	    if (ht_suppress & 0x80) val &= ~(1 << 6);
-	    /* SyncFloodOnTgtAbtErr */
-	    if (ht_suppress & 0x100) val &= ~(1 << 7);
-	    /* SyncOnProtEn: sync flood on protocol error enable */
-	    if (ht_suppress & 0x200) val &= ~(1 << 8);
-	    /* SyncOnUncNbAryEn: sync flood on uncorrectable NB array error enable */
-	    if (ht_suppress & 0x400) val &= ~(1 << 9);
-	    /* SyncFloodOnL3LeakErr: sync flood on L3 cache leak error enable */
-	    if (ht_suppress & 0x800) val &= ~(1 << 20);
-	    /* SyncFloodOnCpuLeakErr: sync flood on CPU leak error enable */
-	    if (ht_suppress & 0x1000) val &= ~(1 << 21);
-	    /* SyncFloodOnTblWalkErr: sync flood on table walk error enable */
-	    if (ht_suppress & 0x2000) val &= ~(1 << 22);
-	    cht_write_config(i, NB_FUNC_MISC, 0x180, val);
-	}
-
     use = 1;
     for (neigh = 0; neigh <= nodes; neigh++) {
         u32 aggr = cht_read_config(neigh, NB_FUNC_HT, 0x164);
@@ -1084,7 +1047,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         return -1;
     }
 
-    printf("NumaChip found (%08x).\n", val);
+    printf("NumaChip found (%08x)\n", val);
 
     /* Ramp up link speed and width before adding NC to coherent fabric */
     val = cht_read_config_nc(nc, 0, neigh, link, 0xec);
@@ -1102,6 +1065,44 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         *p_chip_rev = val;
     }
 
+    if (ht_suppress || (*p_asic_mode && *p_chip_rev < 3)) {
+	printf("suppressing HT\n");
+	for (i = 0; i <= nodes; i++) {
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x44);
+	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
+	    if (ht_suppress & 0x1) val &= ~(1 << 2);
+	    /* SyncPktGenDis: sync packet generation disable */
+	    if (ht_suppress & 0x2) val &= ~(1 << 3);
+	    /* SyncPktPropDis: sync packet propagation disable */
+	    if (ht_suppress & 0x4) val &= ~(1 << 4);
+	    /* SyncOnWDTEn: sync flood on watchdog timer error enable */
+	    if (ht_suppress & 0x8) val &= ~(1 << 20);
+	    /* SyncOnAnyErrEn: sync flood on any error enable */
+	    if (ht_suppress & 0x10) val &= ~(1 << 21);
+	    /* SyncOnDramAdrParErrEn: sync flood on DRAM address parity error enable */
+	    if (ht_suppress & 0x20) val &= ~(1 << 30);
+	    cht_write_config(i, NB_FUNC_MISC, 0x44, val);
+
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x180);
+	    /* SyncFloodOnUsPwDataErr: sync flood on upstream posted write data error */
+	    if (ht_suppress & 0x40) val &= ~(1 << 1);
+	    /* SyncFloodOnDatErr */
+	    if (ht_suppress & 0x80) val &= ~(1 << 6);
+	    /* SyncFloodOnTgtAbtErr */
+	    if (ht_suppress & 0x100) val &= ~(1 << 7);
+	    /* SyncOnProtEn: sync flood on protocol error enable */
+	    if (ht_suppress & 0x200) val &= ~(1 << 8);
+	    /* SyncOnUncNbAryEn: sync flood on uncorrectable NB array error enable */
+	    if (ht_suppress & 0x400) val &= ~(1 << 9);
+	    /* SyncFloodOnL3LeakErr: sync flood on L3 cache leak error enable */
+	    if (ht_suppress & 0x800) val &= ~(1 << 20);
+	    /* SyncFloodOnCpuLeakErr: sync flood on CPU leak error enable */
+	    if (ht_suppress & 0x1000) val &= ~(1 << 21);
+	    /* SyncFloodOnTblWalkErr: sync flood on table walk error enable */
+	    if (ht_suppress & 0x2000) val &= ~(1 << 22);
+	    cht_write_config(i, NB_FUNC_MISC, 0x180, val);
+	}
+}
     /* HT looping testmode useful after link is up at 16-bit 800MHz */
     if (ht_testmode & HT_TESTMODE_LOOP)
 	while (1)
