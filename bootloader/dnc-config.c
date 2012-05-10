@@ -245,7 +245,7 @@ int parse_config_file(char *data)
 	cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
 
     for (i = 0; i < cfg_nodes; i++)
-	printf("Node %d: <%s> uuid: %08x, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
+	printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
 	    i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
 	    cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
 	    cfg_nodelist[i].osc, cfg_nodelist[i].sync_only);

@@ -1357,6 +1357,7 @@ static int adjust_oscillator(char *type, u8 osc_setting)
     /* Check if adjusting the frequency is possible */
     if ((strncmp("313001", type, 6) == 0) ||
 	(strncmp("N313001", type, 7) == 0) ||
+	(strncmp("N313002", type, 7) == 0) ||
 	(strncmp("N323011", type, 7) == 0) ||
 	(strncmp("N323023", type, 7) == 0))
     {
@@ -1367,18 +1368,27 @@ static int adjust_oscillator(char *type, u8 osc_setting)
         dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
         tsc_wait(500);
         val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+	
         /* On the RevC cards the micro controller isn't quite fast enough
          * to send bit7 of every byte correctly on the I2C bus when reading.
          * The bits we care about is in bit[1:0] of the high order byte. */
-        printf("Current oscillator setting : %d\n", (val>>24) & 3);
+        printf("Current oscillator setting : %d (raw=%08x)\n", (val>>24) & 3, val);
         if (((val>>24) & 3) != osc_setting) {
             /* Write directly to the frequency selct register */
             val = 0x0000b0e9 | (osc_setting<<24);
-            printf("Writing new oscillator setting : %d\n", osc_setting);
+            printf("Writing new oscillator setting : %d (raw=%08x)\n", osc_setting, val);
             dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
-            /* Wait for the new frequency to settle */
+            
+	    /* Wait for the new frequency to settle */
             tsc_wait(500);
-            /* Trigger a HSS PLL reset */
+            
+	    /* Read back value, to verify */
+	    dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
+	    tsc_wait(500);
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+	    printf("New current set oscillator setting: %d (raw=%08x)\n", (val>>24) & 3, val);
+	    
+	    /* Trigger a HSS PLL reset */
             _pic_reset_ctrl(1);
             tsc_wait(500);
         }
@@ -1860,18 +1870,6 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     uuid = identify_eeprom(0xfff0, type, &osc_setting);
     printf("UUID: %06d, TYPE: %s\n", uuid, type);
 
-    /* Read the SPD info from our DIMMs to see if they are supported */
-    for (i = 0; i < 2; i++) {
-        if (read_spd_info(i, &dimms[i]) < 0)
-            return -1;
-    }
-
-    if (!asic_mode && ((chip_rev>>16) < 6251)) {
-	/* On earlier FPGA cards we only have 1GB MCTag and 2GB CData */
-	dimms[0].mem_size = 0;
-	dimms[1].mem_size = 1;
-    }
-
     if (enable_selftest > 0) {
         if (perform_selftest(asic_mode) < 0)
             return -1;
@@ -1919,6 +1917,19 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 
     if (adjust_oscillator(type, osc_setting) < 0)
         return -1;
+
+
+    /* Read the SPD info from our DIMMs to see if they are supported */
+    for (i = 0; i < 2; i++) {
+        if (read_spd_info(i, &dimms[i]) < 0)
+            return -1;
+    }
+
+    if (!asic_mode && ((chip_rev>>16) < 6251)) {
+	/* On earlier FPGA cards we only have 1GB MCTag and 2GB CData */
+	dimms[0].mem_size = 0;
+	dimms[1].mem_size = 1;
+    }
 
     *p_asic_mode = asic_mode;
     *p_chip_rev = chip_rev;
