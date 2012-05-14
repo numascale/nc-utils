@@ -638,6 +638,8 @@ static u8 smi_state;
 void detect_southbridge(void)
 {
     southbridge_id = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
+    if (southbridge_id != 0x43851002)
+	printf("Warning: Unable to disable SMI due to unknown southbridge 0x%08x; this may cause issues\n", southbridge_id);
 }
 
 /* Mask southbridge SMI generation */
@@ -646,8 +648,7 @@ void disable_smi(void)
     if (southbridge_id == 0x43851002) {
 	smi_state = pmio_readb(0x53);
 	pmio_writeb(0x53, smi_state | (1 << 3));
-    } else
-	fatal("Unable to disable SMI due to unknown southbridge 0x%08x\n", southbridge_id);
+    }
 }
 
 /* Restore previous southbridge SMI mask */
@@ -655,8 +656,7 @@ void enable_smi(void)
 {
     if (southbridge_id == 0x43851002) {
 	pmio_writeb(0x53, smi_state);
-    } else
-	fatal("Unable to enable SMI due to unknown southbridge 0x%08x\n", southbridge_id);
+    }
 }
 
 void critical_enter(void)
