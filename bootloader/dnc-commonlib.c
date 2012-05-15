@@ -661,14 +661,14 @@ void enable_smi(void)
 
 void critical_enter(void)
 {
-    disable_smi();
     cli();
+    disable_smi();
 }
 
 void critical_leave(void)
 {
-    sti();
     enable_smi();
+    sti();
 }
 
 #ifdef __i386
