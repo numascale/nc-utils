@@ -20,7 +20,7 @@
 #define __NUMACHIP_USER_H
 
 #include <stdint.h>
-
+#include "../interface/numachip-defines.h"
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
@@ -31,8 +31,19 @@
 
 BEGIN_C_DECLS
 
+typedef enum {
+  SCC = 0,
+  LCXA,
+  LCXB,
+  LCYA,
+  LCYB,
+  LCZA,
+  LCZB
+} numachip_device_type_t;
+
 struct numachip_device;
 struct numachip_context;
+
 
 struct numachip_sge {
     uint64_t from;
@@ -63,7 +74,7 @@ void numachip_free_device_list(struct numachip_device **list);
 /**
  * numachip_open_device - Initialize device for use
  */
-struct numachip_context *numachip_open_device(struct numachip_device *device);
+struct numachip_context *numachip_open_device(struct numachip_device *device, numachip_device_type_t numachip_device);
 
 /**
  * numachip_close_device - Release device
@@ -89,7 +100,7 @@ uint32_t numachip_read_config(struct numachip_context *context,
 			      uint8_t fn, uint16_t offset);
 
 /**
- * numachip_write_csr - Write Config Space
+ * numachip_write_config - Write Config Space
  */
 void numachip_write_config(struct numachip_context *context,
 			   uint8_t fn, uint16_t offset, uint32_t value);

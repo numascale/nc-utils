@@ -11,7 +11,7 @@
 // Any unauthorized use, reproduction or transfer of the information
 // provided herein is strictly prohibited.
 //
-// Copyright © 2008-2011
+// Copyright © 2008-2012
 // Numascale AS Oslo, Norway.
 // All Rights Reserved.
 //
@@ -26,6 +26,7 @@
 enum {
     NUMACHIP_SYSFS_PATH_MAX = 256
 };
+
 
 struct numachip_device {
     char dev_path[NUMACHIP_SYSFS_PATH_MAX];
