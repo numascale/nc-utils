@@ -1012,7 +1012,7 @@ static void setup_other_cores(void)
     val = val | (1ULL << 27);
     dnc_wrmsr(MSR_CU_CFG2, val);
    
-    disable_smi();
+    critical_enter();
 
     /* Start all local cores (not BSP) and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
@@ -1073,7 +1073,7 @@ static void setup_other_cores(void)
 	}
     }
 
-    enable_smi();
+    critical_leave();
 }
 
 static void renumber_remote_bsp(u16 num)
@@ -1284,7 +1284,7 @@ static void setup_remote_cores(u16 num)
         }
     }
 
-    disable_smi();
+    critical_enter();
 
     /* Now, reset all DRAM maps */
     printf("Resetting DRAM maps on sci node %03x\n", node);
@@ -1363,7 +1363,7 @@ static void setup_remote_cores(u16 num)
         }
     }
 
-    enable_smi();
+    critical_leave();
 
     if (verbose > 0) {
 	for (i = 0; i < 8; i++) {
@@ -1423,7 +1423,7 @@ static void setup_remote_cores(u16 num)
     
     *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
 
-    disable_smi();
+    critical_enter();
 
     /* Start all remote cores and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
@@ -1463,7 +1463,7 @@ static void setup_remote_cores(u16 num)
 	}
     }
 
-    enable_smi();
+    critical_leave();
 }
 
 static void setup_local_mmio_maps(void)

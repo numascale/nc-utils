@@ -73,8 +73,13 @@
 /* Legacy emulation registers (if enabled in the revision register, bit8) */
 #define HceControl 0x100
 
+#define PCI_CLASS_DISPLAY_VGA         0x030000
+#define PCI_CLASS_DISPLAY_CONTROLLER  0x038000
 #define PCI_CLASS_SERIAL_USB_OHCI     0x0c0310
 
+void disable_vga(void);
+void enable_vga(void);
 void stop_usb(void);
+void disable_dma_all(void);
 
 #endif

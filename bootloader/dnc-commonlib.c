@@ -638,6 +638,8 @@ static u8 smi_state;
 void detect_southbridge(void)
 {
     southbridge_id = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
+    if (southbridge_id != 0x43851002)
+	printf("Warning: Unable to disable SMI due to unknown southbridge 0x%08x; this may cause issues\n", southbridge_id);
 }
 
 /* Mask southbridge SMI generation */
@@ -646,8 +648,7 @@ void disable_smi(void)
     if (southbridge_id == 0x43851002) {
 	smi_state = pmio_readb(0x53);
 	pmio_writeb(0x53, smi_state | (1 << 3));
-    } else
-	fatal("Unable to disable SMI due to unknown southbridge 0x%08x\n", southbridge_id);
+    }
 }
 
 /* Restore previous southbridge SMI mask */
@@ -655,8 +656,19 @@ void enable_smi(void)
 {
     if (southbridge_id == 0x43851002) {
 	pmio_writeb(0x53, smi_state);
-    } else
-	fatal("Unable to enable SMI due to unknown southbridge 0x%08x\n", southbridge_id);
+    }
+}
+
+void critical_enter(void)
+{
+    cli();
+    disable_smi();
+}
+
+void critical_leave(void)
+{
+    enable_smi();
+    sti();
 }
 
 #ifdef __i386
@@ -982,43 +994,6 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     val = cht_read_config(0, NB_FUNC_HT, 0x60);
     nodes = (val >> 4) & 7;
 
-    if (ht_suppress)
-	for (i = 0; i <= nodes; i++) {
-	    val = cht_read_config(i, NB_FUNC_MISC, 0x44);
-	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
-	    if (ht_suppress & 0x1) val &= ~(1 << 2);
-	    /* SyncPktGenDis: sync packet generation disable */
-	    if (ht_suppress & 0x2) val &= ~(1 << 3);
-	    /* SyncPktPropDis: sync packet propagation disable */
-	    if (ht_suppress & 0x4) val &= ~(1 << 4);
-	    /* SyncOnWDTEn: sync flood on watchdog timer error enable */
-	    if (ht_suppress & 0x8) val &= ~(1 << 20);
-	    /* SyncOnAnyErrEn: sync flood on any error enable */
-	    if (ht_suppress & 0x10) val &= ~(1 << 21);
-	    /* SyncOnDramAdrParErrEn: sync flood on DRAM address parity error enable */
-	    if (ht_suppress & 0x20) val &= ~(1 << 30);
-	    cht_write_config(i, NB_FUNC_MISC, 0x44, val);
-
-	    val = cht_read_config(i, NB_FUNC_MISC, 0x180);
-	    /* SyncFloodOnUsPwDataErr: sync flood on upstream posted write data error */
-	    if (ht_suppress & 0x40) val &= ~(1 << 1);
-	    /* SyncFloodOnDatErr */
-	    if (ht_suppress & 0x80) val &= ~(1 << 6);
-	    /* SyncFloodOnTgtAbtErr */
-	    if (ht_suppress & 0x100) val &= ~(1 << 7);
-	    /* SyncOnProtEn: sync flood on protocol error enable */
-	    if (ht_suppress & 0x200) val &= ~(1 << 8);
-	    /* SyncOnUncNbAryEn: sync flood on uncorrectable NB array error enable */
-	    if (ht_suppress & 0x400) val &= ~(1 << 9);
-	    /* SyncFloodOnL3LeakErr: sync flood on L3 cache leak error enable */
-	    if (ht_suppress & 0x800) val &= ~(1 << 20);
-	    /* SyncFloodOnCpuLeakErr: sync flood on CPU leak error enable */
-	    if (ht_suppress & 0x1000) val &= ~(1 << 21);
-	    /* SyncFloodOnTblWalkErr: sync flood on table walk error enable */
-	    if (ht_suppress & 0x2000) val &= ~(1 << 22);
-	    cht_write_config(i, NB_FUNC_MISC, 0x180, val);
-	}
-
     use = 1;
     for (neigh = 0; neigh <= nodes; neigh++) {
         u32 aggr = cht_read_config(neigh, NB_FUNC_HT, 0x164);
@@ -1084,7 +1059,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         return -1;
     }
 
-    printf("NumaChip found (%08x).\n", val);
+    printf("NumaChip found (%08x)\n", val);
 
     /* Ramp up link speed and width before adding NC to coherent fabric */
     val = cht_read_config_nc(nc, 0, neigh, link, 0xec);
@@ -1102,6 +1077,48 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         *p_chip_rev = val;
     }
 
+    /* RevB ASIC requires syncflood to be disabled */
+    if (*p_asic_mode && *p_chip_rev < 3)
+	ht_suppress = -1;
+
+    if (ht_suppress) {
+	for (i = 0; i <= nodes; i++) {
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x44);
+	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
+	    if (ht_suppress & 0x1) val &= ~(1 << 2);
+	    /* SyncPktGenDis: sync packet generation disable */
+	    if (ht_suppress & 0x2) val &= ~(1 << 3);
+	    /* SyncPktPropDis: sync packet propagation disable */
+	    if (ht_suppress & 0x4) val &= ~(1 << 4);
+	    /* SyncOnWDTEn: sync flood on watchdog timer error enable */
+	    if (ht_suppress & 0x8) val &= ~(1 << 20);
+	    /* SyncOnAnyErrEn: sync flood on any error enable */
+	    if (ht_suppress & 0x10) val &= ~(1 << 21);
+	    /* SyncOnDramAdrParErrEn: sync flood on DRAM address parity error enable */
+	    if (ht_suppress & 0x20) val &= ~(1 << 30);
+	    cht_write_config(i, NB_FUNC_MISC, 0x44, val);
+
+	    val = cht_read_config(i, NB_FUNC_MISC, 0x180);
+	    /* SyncFloodOnUsPwDataErr: sync flood on upstream posted write data error */
+	    if (ht_suppress & 0x40) val &= ~(1 << 1);
+	    /* SyncFloodOnDatErr */
+	    if (ht_suppress & 0x80) val &= ~(1 << 6);
+	    /* SyncFloodOnTgtAbtErr */
+	    if (ht_suppress & 0x100) val &= ~(1 << 7);
+	    /* SyncOnProtEn: sync flood on protocol error enable */
+	    if (ht_suppress & 0x200) val &= ~(1 << 8);
+	    /* SyncOnUncNbAryEn: sync flood on uncorrectable NB array error enable */
+	    if (ht_suppress & 0x400) val &= ~(1 << 9);
+	    /* SyncFloodOnL3LeakErr: sync flood on L3 cache leak error enable */
+	    if (ht_suppress & 0x800) val &= ~(1 << 20);
+	    /* SyncFloodOnCpuLeakErr: sync flood on CPU leak error enable */
+	    if (ht_suppress & 0x1000) val &= ~(1 << 21);
+	    /* SyncFloodOnTblWalkErr: sync flood on table walk error enable */
+	    if (ht_suppress & 0x2000) val &= ~(1 << 22);
+	    cht_write_config(i, NB_FUNC_MISC, 0x180, val);
+	}
+    }
+
     /* HT looping testmode useful after link is up at 16-bit 800MHz */
     if (ht_testmode & HT_TESTMODE_LOOP)
 	while (1)
@@ -1114,7 +1131,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 	disable_probefilter(nodes);
     }
 
-    disable_cache();
+    critical_enter();
 
     for (i = nodes; i >= 0; i--) {
         u32 ltcr, val2;
@@ -1137,7 +1154,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         cht_write_config(i, NB_FUNC_HT, 0x68, ltcr | (1 << 15));
     }
 
-    enable_cache();
+    critical_leave();
     /* reorganize_mmio(nc); */
 
     printf("Done\n");
@@ -1340,6 +1357,7 @@ static int adjust_oscillator(char *type, u8 osc_setting)
     /* Check if adjusting the frequency is possible */
     if ((strncmp("313001", type, 6) == 0) ||
 	(strncmp("N313001", type, 7) == 0) ||
+	(strncmp("N313002", type, 7) == 0) ||
 	(strncmp("N323011", type, 7) == 0) ||
 	(strncmp("N323023", type, 7) == 0))
     {
@@ -1350,18 +1368,27 @@ static int adjust_oscillator(char *type, u8 osc_setting)
         dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
         tsc_wait(500);
         val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+	
         /* On the RevC cards the micro controller isn't quite fast enough
          * to send bit7 of every byte correctly on the I2C bus when reading.
          * The bits we care about is in bit[1:0] of the high order byte. */
-        printf("Current oscillator setting : %d\n", (val>>24) & 3);
+        printf("Current oscillator setting : %d (raw=%08x)\n", (val>>24) & 3, val);
         if (((val>>24) & 3) != osc_setting) {
             /* Write directly to the frequency selct register */
             val = 0x0000b0e9 | (osc_setting<<24);
-            printf("Writing new oscillator setting : %d\n", osc_setting);
+            printf("Writing new oscillator setting : %d (raw=%08x)\n", osc_setting, val);
             dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
-            /* Wait for the new frequency to settle */
+            
+	    /* Wait for the new frequency to settle */
             tsc_wait(500);
-            /* Trigger a HSS PLL reset */
+            
+	    /* Read back value, to verify */
+	    dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
+	    tsc_wait(500);
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+	    printf("New current set oscillator setting: %d (raw=%08x)\n", (val>>24) & 3, val);
+	    
+	    /* Trigger a HSS PLL reset */
             _pic_reset_ctrl(1);
             tsc_wait(500);
         }
@@ -1843,18 +1870,6 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     uuid = identify_eeprom(0xfff0, type, &osc_setting);
     printf("UUID: %06d, TYPE: %s\n", uuid, type);
 
-    /* Read the SPD info from our DIMMs to see if they are supported */
-    for (i = 0; i < 2; i++) {
-        if (read_spd_info(i, &dimms[i]) < 0)
-            return -1;
-    }
-
-    if (!asic_mode && ((chip_rev>>16) < 6251)) {
-	/* On earlier FPGA cards we only have 1GB MCTag and 2GB CData */
-	dimms[0].mem_size = 0;
-	dimms[1].mem_size = 1;
-    }
-
     if (enable_selftest > 0) {
         if (perform_selftest(asic_mode) < 0)
             return -1;
@@ -1902,6 +1917,19 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 
     if (adjust_oscillator(type, osc_setting) < 0)
         return -1;
+
+
+    /* Read the SPD info from our DIMMs to see if they are supported */
+    for (i = 0; i < 2; i++) {
+        if (read_spd_info(i, &dimms[i]) < 0)
+            return -1;
+    }
+
+    if (!asic_mode && ((chip_rev>>16) < 6251)) {
+	/* On earlier FPGA cards we only have 1GB MCTag and 2GB CData */
+	dimms[0].mem_size = 0;
+	dimms[1].mem_size = 1;
+    }
 
     *p_asic_mode = asic_mode;
     *p_chip_rev = chip_rev;

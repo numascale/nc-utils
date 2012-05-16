@@ -40,6 +40,10 @@ extern u64 dnc_csr_lim;
 
 #define IO_PORT 0xcd6
 
+extern int lirq_nest, lirq_print;
+#define cli() if (lirq_nest++ == 0) { asm volatile("cli"); if (lirq_print) printf("cli\n"); }
+#define sti() if (--lirq_nest == 0) { asm volatile("sti"); if (lirq_print) printf("sti\n"); }
+
 extern int cht_config_use_extd_addressing;
 extern int ht_testmode;
 
