@@ -27,6 +27,7 @@
 
 #include "numachip_user.h"
 
+#define DEBUG_STATEMENT(x) 
 /* check for link instability */
 //static int cht_error(int node, int link)
 //{
@@ -42,11 +43,11 @@ int lfb_to_count(unsigned int val)
     unsigned long start = 1 << cMSB;
     unsigned long lfsr = start;
 
-    printf ("cMSB %lx start/lfsr %lx val %x\n",cMSB, start, val);
+    DEBUG_STATEMENT(printf ("cMSB %lx start/lfsr %lx val %x\n",cMSB, start, val));
     
-    while (lfsr != val) {
+    while ((lfsr != val) || (lfsr == start)) {
 //        printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val);
-	printf("seq %5d, countervalue %5d (0x%04x)\n",seq,lfsr,lfsr);
+	DEBUG_STATEMENT(printf("seq %5d, countervalue %5d (0x%04x)\n",seq,lfsr,lfsr));
 
         lsb = lfsr;
         lfsr >>= 1;
@@ -62,7 +63,7 @@ int lfb_to_count(unsigned int val)
 
         seq++;
     }
-    printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val);
+    DEBUG_STATEMENT(printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val));
     sleep(1);
 
     /* Subtract fixed offset */
@@ -113,14 +114,14 @@ unsigned int lc3_perf() {
     }
 
     sleep(1);
-    printf("I cant get no SLEEEEP\n");
+    DEBUG_STATEMENT(printf("I cant get no SLEEEEP\n"));
 
     for (lc = 1; lc <= 2; lc++) {
       unsigned int val = numachip_read_csr(cntxt, LC3_CSR_PCCNT, lc);
-      printf("READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val);
-      printf("READ PCCNT (after translate)- %x events on LC%x\n", lfb_to_count(val), lc);
-      printf("AFTER READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val);
-      sleep(5);
+      DEBUG_STATEMENT(printf("READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val));
+      printf("READ PCCNT (after translate)- %d(0x%x) events on LC#%x\n", lfb_to_count(val),lfb_to_count(val), lc);
+      DEBUG_STATEMENT(printf("AFTER READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val);
+		      sleep(5));
 
     }
 
