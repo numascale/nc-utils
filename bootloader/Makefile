@@ -5,7 +5,7 @@ CFLAGS    := -I$(IFACEPATH)
 COPT      := -g -Wall -Wextra -Wno-unused-parameter -O2
 GITLOG    := $(shell ./gen-gitlog.sh auto-dnc-gitlog.c gitlog_dnc_bootloader)
 
-syslinux_version := 3.86
+syslinux_version := 4.05
 syslinux_dir     := syslinux-$(syslinux_version)
 
 mjson_version    := 1.4
@@ -28,7 +28,7 @@ realclean: clean
 	rm -rf $(syslinux_dir) syslinux-$(syslinux_version).tar.bz2
 
 syslinux-%.tar.bz2:
-	wget -O $@ http://www.kernel.org/pub/linux/utils/boot/syslinux/3.xx/$@ || rm -f $@
+	wget -O $@ http://www.kernel.org/pub/linux/utils/boot/syslinux/4.xx/$@ || rm -f $@
 
 mjson-%.tar.gz:
 	wget -O $@ http://sourceforge.net/projects/mjson/files/latest/download?source=files || rm -f $@
@@ -38,14 +38,14 @@ $(syslinux_dir)/com32/samples/Makefile: syslinux-$(syslinux_version).tar.bz2
 	touch -c $(syslinux_dir)/com32/samples/Makefile
 	(cd $(syslinux_dir) && make all-local)
 
-## Needed for syslinux 4.04
-#$(syslinux_dir)/com32/tools/relocs: $(syslinux_dir)/com32/samples/Makefile
-#	(cd $(syslinux_dir)/com32/tools && make all)
+# Needed for syslinux 4
+$(syslinux_dir)/com32/tools/relocs: $(syslinux_dir)/com32/samples/Makefile
+	(cd $(syslinux_dir)/com32/tools && make all)
 
-$(syslinux_dir)/com32/libutil/libutil_com.a: $(syslinux_dir)/com32/samples/Makefile #$(syslinux_dir)/com32/tools/relocs
+$(syslinux_dir)/com32/libutil/libutil_com.a: $(syslinux_dir)/com32/samples/Makefile $(syslinux_dir)/com32/tools/relocs
 	(cd $(syslinux_dir)/com32/libutil && make all)
 
-$(syslinux_dir)/com32/lib/libcom32.a: $(syslinux_dir)/com32/samples/Makefile #$(syslinux_dir)/com32/tools/relocs
+$(syslinux_dir)/com32/lib/libcom32.a: $(syslinux_dir)/com32/samples/Makefile $(syslinux_dir)/com32/tools/relocs
 	(cd $(syslinux_dir)/com32/lib && make all)
 
 $(mjson_dir)/src/json.h \
@@ -54,6 +54,7 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 	tar -zxf $<
 	touch -c $(mjson_dir)/src/json.h
 	perl -npi -e 's/#include <memory.h>/#include <string.h>/' $(mjson_dir)/src/json.c
+	perl -npi -e 's/SIZE_MAX/10485760/' $(mjson_dir)/src/json.h
 
 %.o: %.c $(syslinux_dir)/com32/samples/Makefile
 	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make $(CURDIR)/$@ NOGPL=1)
