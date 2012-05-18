@@ -32,11 +32,9 @@
 static pthread_mutex_t device_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static int num_devices;
 static struct numachip_device **device_list;
-//#define CSR_SPACE_SIZE 32*1024
-#define CSR_LEN  (1ULL<<16)  // CSR space is 64KB per node
 #define CSR_SPACE_SIZE 32*1024
-#define DEBUG(...) printf(__VA_ARGS__)
-//#define DEBUG(...) do { } while (0)
+//#define DEBUG(...) printf(__VA_ARGS__)
+#define DEBUG(...) do { } while (0)
 
 static inline uint32_t u32bswap(uint32_t val)
 {
@@ -102,11 +100,10 @@ void numachip_free_device_list(struct numachip_device **list)
 /**
  * numachip_open_device - Initialize device for use
  */
-struct numachip_context *numachip_open_device(struct numachip_device *device,
-			   numachip_device_type_t nc_device )
+struct numachip_context *numachip_open_device(struct numachip_device *device)
 {
     struct numachip_context *context;
-    void *csr = MAP_FAILED;
+    int i=0;
     off_t csr_base;
     int memfd = -1;
     char cfgpath[NUMACHIP_SYSFS_PATH_MAX];
@@ -226,33 +223,38 @@ struct numachip_context *numachip_open_device(struct numachip_device *device,
 	 */
 	
 
-	csr_base = (((off_t)val & 0xffff0000ULL) << 16) | 0x0000fff00000ULL | (1ULL<<15) | nc_device<<16;
-    }
+	csr_base = (((off_t)val & 0xffff0000ULL) << 16) | 0x0000fff00000ULL | (1ULL<<15);
+    }    
 
     memfd = open("/dev/mem", O_RDWR);
     if (memfd < 0) {
-        fprintf(stderr, "Unable to open </dev/mem>\n");
-        goto err;
+      fprintf(stderr, "Unable to open </dev/mem>\n");
+      goto err;
     }
-
-    csr = mmap(NULL, CSR_SPACE_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, memfd, csr_base);
-    if (csr == MAP_FAILED)
-	goto err;
-
-    DEBUG("Mapped CSR base @ %012llx\n", (unsigned long long)csr_base);
-
+    for (i=0; i<7; i++) {
+        context->csr_space[i].csr = MAP_FAILED;
+	DEBUG("Loop %d: Initialize 0x%x\n", i,i);
+    }
+    for (i=0; i<7; i++) {
+	context->csr_space[i].csr = mmap(NULL, CSR_SPACE_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, memfd, csr_base | i<<16);  	
+	if (context->csr_space[i].csr == MAP_FAILED)
+	    goto err;
+	DEBUG("Loop %d: Mapped CSR base @ %012llx\n",i, (unsigned long long)csr_base | i<<16);
+	DEBUG("CSR  @ %012llx\n", (unsigned long long)context->csr_space[i].csr);
+	//sleep(1);
+    }
     context->device = device;
     context->cfg_space_fd[0] = cfg_space_fn0;
     context->cfg_space_fd[1] = cfg_space_fn1;
     context->memfd = memfd;
-    context->csr_space = (uint32_t *)csr;
-
     return context;
 
 err:
+    for (i=0; i<7; i++) {
+        if (context->csr_space[i].csr != MAP_FAILED) munmap(context->csr_space[i].csr, CSR_SPACE_SIZE);
+    }
+    
     free(context);
-
-    if (csr != MAP_FAILED) munmap(csr, CSR_SPACE_SIZE);
     if (memfd >= 0) close(memfd);
     if (cfg_space_fn1 >= 0) close(cfg_space_fn1);
     if (cfg_space_fn0 >= 0) close(cfg_space_fn0);
@@ -265,40 +267,47 @@ err:
  */
 int numachip_close_device(struct numachip_context *context)
 {
+    int i=0;
     int memfd = context->memfd;
     int cfg_space_fn0 = context->cfg_space_fd[0];
     int cfg_space_fn1 = context->cfg_space_fd[1];
-    void *csr = context->csr_space;
-
-    free(context);
-
-    if (csr != MAP_FAILED) munmap(csr, CSR_SPACE_SIZE);
+    
     if (memfd >= 0) close(memfd);
     if (cfg_space_fn1 >= 0) close(cfg_space_fn1);
     if (cfg_space_fn0 >= 0) close(cfg_space_fn0);
+    for (i=0; i<7; i++) {
+      if (context->csr_space[i].csr != MAP_FAILED) {
+	DEBUG("UnMapped CSR base @ %012llx\n", (unsigned long long)context->csr_space[i].csr);
+	munmap(context->csr_space[i].csr, CSR_SPACE_SIZE);
+	
+      }
+    }
+    free(context);
 
     return 0;
 }
-
 /**
  * numachip_read_csr - Read CSR
  */
 uint32_t numachip_read_csr(struct numachip_context *context,
-			   uint16_t offset
+			   uint16_t offset, 
+			   numachip_device_type_t nc_device
 			   )
 {
-  DEBUG("csr = 0x%x", context->csr_space[offset/4]);
+  DEBUG("csr = 0x%x", context->csr_space[nc_device].csr[offset/4]);
   DEBUG("\n");
-  return u32bswap(context->csr_space[offset/4] );
+  return u32bswap(context->csr_space[nc_device].csr[offset/4]);
 }
 
 /**
  * numachip_write_csr - Write CSR
  */
 void numachip_write_csr(struct numachip_context *context,
-			uint16_t offset, uint32_t value)
+			uint16_t offset, 
+			numachip_device_type_t nc_device, uint32_t value
+			)
 {
-    context->csr_space[offset/4] = u32bswap(value);
+    context->csr_space[nc_device].csr[offset/4] = u32bswap(value);
 }
 
 /**

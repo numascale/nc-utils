@@ -74,7 +74,7 @@ void numachip_free_device_list(struct numachip_device **list);
 /**
  * numachip_open_device - Initialize device for use
  */
-struct numachip_context *numachip_open_device(struct numachip_device *device, numachip_device_type_t numachip_device);
+struct numachip_context *numachip_open_device(struct numachip_device *device);
 
 /**
  * numachip_close_device - Release device
@@ -85,13 +85,16 @@ int numachip_close_device(struct numachip_context *context);
  * numachip_read_csr - Read CSR
  */
 uint32_t numachip_read_csr(struct numachip_context *context,
-			   uint16_t offset);
-
+			   uint16_t offset, 
+			   numachip_device_type_t nc_device
+			   );
 /**
  * numachip_write_csr - Write CSR
  */
 void numachip_write_csr(struct numachip_context *context,
-			uint16_t offset, uint32_t value);
+			uint16_t offset, 
+			numachip_device_type_t nc_device, uint32_t value
+			);
 
 /**
  * numachip_read_config - Read Config Space
