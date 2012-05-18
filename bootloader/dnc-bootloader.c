@@ -2607,12 +2607,6 @@ static int nc_start(void)
     if (!part)
         return ERR_PARTITION_CONFIG;
 
-    /* On non-root servers, prevent writing to unexpected locations */
-    if (part->master != info->sciid) {
-	stop_usb();
-	disable_smi();
-    }
-
     /* Copy this into NC ram so its available remotely */
     load_existing_apic_map();
 
@@ -2679,6 +2673,10 @@ static int nc_start(void)
     } else {
         /* Slave */
 	u32 val;
+
+	/* On non-root servers, prevent writing to unexpected locations */
+	stop_usb();
+	disable_smi();
 
         clear_bsp_flag();
 
