@@ -36,21 +36,38 @@
 
 int lfb_to_count(unsigned int val)
 {
-    unsigned long cMSB = 15;
+    unsigned long cMSB = 14;
     unsigned long lsb;
     unsigned long seq = 0;
     unsigned long start = 1 << cMSB;
     unsigned long lfsr = start;
 
+    printf ("cMSB %lx start/lfsr %lx val %x\n",cMSB, start, val);
+    
     while (lfsr != val) {
-    lsb = lfsr;
-    lfsr >>= 1;
-    lfsr |= ((lsb ^ lfsr) & 1) << cMSB;
-    seq++;
+//        printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val);
+	printf("seq %5d, countervalue %5d (0x%04x)\n",seq,lfsr,lfsr);
+
+        lsb = lfsr;
+        lfsr >>= 1;
+
+/*
+	printf("lsb 0x%lx lfsr 0x%lx seq %lx \n",lsb, lfsr,seq);
+	printf("Hatt: 0x%lx\n",lsb ^ lfsr);
+	printf("Hatt &1: 0x%lx\n",(lsb ^ lfsr) & 1);
+	printf("Hatt &1 << 0x%lx : 0x%lx\n",cMSB,(lsb ^ lfsr) & 1 << cMSB  );
+	printf("lfsr |= ((lsb ^ lfsr) & 1) << cMSB 0x%lx\n",lfsr | ((lsb ^ lfsr) & 1) << cMSB  );		
+*/     
+	lfsr |= ((lsb ^ lfsr) & 1) << cMSB;
+
+        seq++;
     }
+    printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val);
+    sleep(1);
 
     /* Subtract fixed offset */
-    return seq - 2;
+    //return seq - 2;
+    return seq;
 } 
 
 unsigned int lc3_perf() {
@@ -82,22 +99,33 @@ unsigned int lc3_perf() {
     if (!cntxt)
 	return -1;
   
-     /* Count LC3 B-Link grant, packet reject and accept events */
-    for (lc = 1; lc <= 1; lc++)
+    /* Count LC3 B-Link grant, packet reject and accept events */
+    printf("Count LC3 B-Link grant, packet reject and accept events \n");
+    for (lc = 1; lc <= 2; lc++) {
       numachip_write_csr(cntxt, LC3_CSR_PCSEL,lc,0x13);
+      //printf("WRITE PCSEL Readback LC %d:@ 0x%x =%03x\n", lc,LC3_CSR_PCSEL, numachip_read_csr(cntxt, LC3_CSR_PCSEL,lc));
+    }
 
     /* Clear count */
-    for (lc = 1; lc <= 2; lc++)
+    for (lc = 1; lc <= 2; lc++) {
       numachip_write_csr(cntxt, LC3_CSR_PCCNT,lc, 0);
+      //printf("WRITE PCCNT (CLEAR) Readback LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT, numachip_read_csr(cntxt, LC3_CSR_PCCNT,lc));
+    }
 
     sleep(1);
+    printf("I cant get no SLEEEEP\n");
 
     for (lc = 1; lc <= 2; lc++) {
       unsigned int val = numachip_read_csr(cntxt, LC3_CSR_PCCNT, lc);
-      printf("- %d events on LC%d", lfb_to_count(val), lc);
+      printf("READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val);
+      printf("READ PCCNT (after translate)- %x events on LC%x\n", lfb_to_count(val), lc);
+      printf("AFTER READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val);
+      sleep(5);
+
     }
 
     /* Disable counting */
+    printf("Disable counting\n");
     for (lc = 1; lc < 2; lc++)
       numachip_write_csr(cntxt, LC3_CSR_PCSEL,lc, 0);
 
@@ -219,6 +247,7 @@ unsigned int init_test() {
 int main(int argc, char **argv)
 {
 
-    init_test();
+    //init_test();
+    lc3_perf();
     return 0;
 }
