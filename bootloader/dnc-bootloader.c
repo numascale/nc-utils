@@ -327,7 +327,7 @@ static void update_e820_map(void)
 	 * handles rest */
 	rest = prev_end & ((SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1);
 	if (rest) {
-	    printf("Deducting %x from e820 entry...\n", (u32)rest);
+	    printf("Deducting 0x%x from e820 entry...\n", (u32)rest);
 	    e820[max].length -= rest;
 	    prev_end -= rest;
 	}
@@ -2502,7 +2502,7 @@ static void start_user_os(void)
     rm.eax.w[0] = 0x0003;
     rm.ebx.w[0] = OFFS(__com32.cs_bounce);
     rm.es = SEG(__com32.cs_bounce);
-    printf("Loading %s...\n", next_label);
+    printf("Unification succeeded; loading %s...\n", next_label);
     __intcall(0x22, &rm, NULL);
 }
 

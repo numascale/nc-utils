@@ -182,7 +182,7 @@ void tally_local_node(int enforce_alignment)
 
     rest = dnc_top_of_mem & (SCC_ATT_GRAN-1);
     if (rest && enforce_alignment) {
-	printf("Deducting %x from node %d to accommodate granularity requirements.\n",
+	printf("Deducting 0x%x from node %d to accommodate granularity requirements\n",
 	       rest, last);
 	asm volatile("wbinvd" ::: "memory");
 	nc_node[0].ht[last].size -= rest;
