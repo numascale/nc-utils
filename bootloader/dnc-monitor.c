@@ -27,7 +27,7 @@
 /* Linear feedback register to count */
 static int lfb_to_count(u32 val)
 {
-    unsigned long cMSB = 15;
+    unsigned long cMSB = 14;
     unsigned long lsb;
     unsigned long seq = 0;
     unsigned long start = 1 << cMSB;
