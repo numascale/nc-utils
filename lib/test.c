@@ -224,21 +224,28 @@ unsigned int phy_regs(struct numachip_context *cntxt) {
     return 0;
 }
 
+/*
+ * Note that the LC3 registers will *not* be
+ * accessible if the PHY is not up yet.
+ * This is why any access to the LC3 registers
+ * should be preceeded by a check to the respective 
+ * PHYxx_LINK_STAT register and check if the "linkup" bit is set.
+ * Also, note that since the PHYs are connected to the LC3s in a
+ * crossing fashion, *both* PHYs must be checked before either of
+ * the LC3XA or LC3XB registers are accessed. 
+ */
 unsigned int link_up(struct numachip_context *cntxt, unsigned int lc) {
 
     switch (lc) {
 	case LCXA:
-	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYXA_LINK_STAT ,SCC) & 1);
 	case LCXB:
-	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYXB_LINK_STAT ,SCC) & 1);
-	case LCYA:
-	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYYA_LINK_STAT ,SCC) & 1);
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYXA_LINK_STAT ,SCC) & numachip_read_csr(cntxt, H2S_CSR_G0_PHYXB_LINK_STAT ,SCC) & 1);
+	case LCYA:	    
 	case LCYB:
-	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYYB_LINK_STAT ,SCC) & 1);
-	case LCZA:
-	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYZA_LINK_STAT ,SCC) & 1);
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYYA_LINK_STAT ,SCC) & numachip_read_csr(cntxt, H2S_CSR_G0_PHYYB_LINK_STAT ,SCC) & 1);
+	case LCZA:	    
 	case LCZB:
-	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYZB_LINK_STAT ,SCC) & 1);
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYZA_LINK_STAT ,SCC) & numachip_read_csr(cntxt, H2S_CSR_G0_PHYZB_LINK_STAT ,SCC) & 1);
 	default:
 	    printf("%d is not a valid lc entry. Valid entries are (LCXA %d - LCZB %d)\n", lc, LCXA,LCZB);
 	    
@@ -269,6 +276,7 @@ int main(int argc, char **argv)
     init_test(cntxt);
     phy_regs(cntxt);
     read_lcregs(cntxt);
+    
     for(ncd=LCXA; ncd<=LCZB;ncd++) {
 	if (link_up(cntxt,ncd)) {
 	    printf("Numachip device %s is UP (%d)\n",
