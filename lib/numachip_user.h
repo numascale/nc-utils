@@ -41,16 +41,18 @@ typedef enum {
   LCZB
 } numachip_device_type_t;
 
+
 struct numachip_device;
 struct numachip_context;
-
 
 struct numachip_sge {
     uint64_t from;
     uint64_t to;
     uint32_t length;
 } __attribute__((aligned(16)));
-    
+
+const char *numachip_device_str(numachip_device_type_t str);
+
 /**
  * numachip_get_device_list - Get list of NumaChip devices currently available
  * @num_devices: optional. If non-NULL, set to the number of devices

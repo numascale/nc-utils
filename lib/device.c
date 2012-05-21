@@ -42,6 +42,19 @@ static inline uint32_t u32bswap(uint32_t val)
     return val;
 }
 
+const char *numachip_device_str(numachip_device_type_t str) {
+
+    switch (str) {
+	case SCC: return "SCC";
+	case LCXA: return "LCXA";
+	case LCXB: return "LCXB";
+	case LCYA: return "LCYA";
+	case LCYB: return "LCYB";
+	case LCZA: return "LCZA";
+	case LCZB: return "LCZB";
+	default: return "UNKNOWN_ENUM_VALUE";	    
+    }
+}
 /**
  * numachip_get_device_list - Get list of NumaChip devices currently available
  * @num_devices: optional. If non-NULL, set to the number of devices

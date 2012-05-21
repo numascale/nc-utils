@@ -71,12 +71,11 @@ int lfb_to_count(unsigned int val)
     return seq;
 } 
 
-unsigned int lc3_perf() {
+unsigned int lc3_perf(unsigned int lc) {
 
     struct numachip_device **devices;
     struct numachip_context *cntxt;
     int num_devices;
-    int lc=0;
 
     devices = numachip_get_device_list(&num_devices);
 
@@ -150,25 +149,8 @@ unsigned int read_lcregs(struct numachip_context *cntxt) {
     return 0;
 }
 
-unsigned int init_test() {
+unsigned int init_test(struct numachip_context *cntxt) {
 
-    struct numachip_device **devices;
-    struct numachip_context *cntxt;
-    int num_devices;
-
-#if 1
-    devices = numachip_get_device_list(&num_devices);
-
-    printf("Found %d NumaChip devices\n", num_devices);
-
-    if (!devices)
-	return -1;
-
-    cntxt = numachip_open_device(devices[0]);
-    numachip_free_device_list(devices);
-    
-    if (!cntxt)
-	return -1;
 
     /*SCC Configuraton Registers*/
     printf("Read config DeviceID/VendorID %03x\n", numachip_read_config(cntxt,0,0x0));
@@ -217,18 +199,59 @@ unsigned int init_test() {
     printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS,SCC));
     printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS,SCC));
 
-#endif
-    read_lcregs(cntxt);
-
-    (void)numachip_close_device(cntxt);
     return 0;
 }
 
-unsigned int phy_regs() {
 
+unsigned int phy_regs(struct numachip_context *cntxt) {
+
+    /*PHY*/
+    printf("H2S_CSR_G0_PHYXA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYXA_LINK_STAT ,SCC));
+    printf("H2S_CSR_G0_PHYXA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYXA_ELOG,SCC));
+    printf("H2S_CSR_G0_PHYXB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYXB_LINK_STAT ,SCC));
+    printf("H2S_CSR_G0_PHYXB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYXB_ELOG,SCC));
+    
+    printf("H2S_CSR_G0_PHYYA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYYA_LINK_STAT ,SCC));
+    printf("H2S_CSR_G0_PHYYA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYYA_ELOG,SCC));
+    printf("H2S_CSR_G0_PHYYB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYYB_LINK_STAT ,SCC));
+    printf("H2S_CSR_G0_PHYYB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYYB_ELOG,SCC));
+
+    printf("H2S_CSR_G0_PHYZA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYZA_LINK_STAT ,SCC));
+    printf("H2S_CSR_G0_PHYZA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYZA_ELOG,SCC));
+    printf("H2S_CSR_G0_PHYZB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYZB_LINK_STAT ,SCC));
+    printf("H2S_CSR_G0_PHYZB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYZB_ELOG,SCC));
+
+    return 0;
+}
+
+unsigned int link_up(struct numachip_context *cntxt, unsigned int lc) {
+
+    switch (lc) {
+	case LCXA:
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYXA_LINK_STAT ,SCC) & 1);
+	case LCXB:
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYXB_LINK_STAT ,SCC) & 1);
+	case LCYA:
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYYA_LINK_STAT ,SCC) & 1);
+	case LCYB:
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYYB_LINK_STAT ,SCC) & 1);
+	case LCZA:
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYZA_LINK_STAT ,SCC) & 1);
+	case LCZB:
+	    return (numachip_read_csr(cntxt, H2S_CSR_G0_PHYZB_LINK_STAT ,SCC) & 1);
+	default:
+	    printf("%d is not a valid lc entry. Valid entries are (LCXA %d - LCZB %d)\n", lc, LCXA,LCZB);
+	    
+	    return 0;
+    }
+}
+
+int main(int argc, char **argv)
+{
     struct numachip_device **devices;
     struct numachip_context *cntxt;
-    int num_devices;
+    numachip_device_type_t ncd=LCXA;
+    int num_devices; 
 
     devices = numachip_get_device_list(&num_devices);
     printf("Found %d NumaChip devices\n", num_devices);
@@ -243,31 +266,19 @@ unsigned int phy_regs() {
 	return -1;
 
 
-    /*PHY*/
-    printf("H2S_CSR_G0_PHYXA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYXA_LINK_STAT ,SCC));
-    printf("H2S_CSR_G0_PHYXA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYXA_ELOG,SCC));
-    printf("H2S_CSR_G0_PHYXB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYXB_LINK_STAT ,SCC));
-    printf("H2S_CSR_G0_PHYXB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYXB_ELOG,SCC));
-    
-    printf("H2S_CSR_G0_PHYYA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYYA_LINK_STAT ,SCC));
-    printf("H2S_CSR_G0_PHYYA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYYA_ELOG,SCC));
-    printf("H2S_CSR_G0_PHYYB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYYB_LINK_STAT ,SCC));
-    printf("H2S_CSR_G0_PHYYB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYYB_ELOG,SCC));
-    printf("H2S_CSR_G0_PHYZA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYZA_LINK_STAT ,SCC));
-    printf("H2S_CSR_G0_PHYZA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYZA_ELOG,SCC));
-    printf("H2S_CSR_G0_PHYZB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYZB_LINK_STAT ,SCC));
-    printf("H2S_CSR_G0_PHYZB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYZB_ELOG,SCC));
+    init_test(cntxt);
+    phy_regs(cntxt);
+    read_lcregs(cntxt);
+    for(ncd=LCXA; ncd<=LCZB;ncd++) {
+	if (link_up(cntxt,ncd)) {
+	    printf("Numachip device %s is UP (%d)\n",
+		   numachip_device_str(ncd),
+		   link_up(cntxt,ncd));
+	    
+	} else printf("Numachip device %s is DOWN (%d)\n", numachip_device_str(ncd),link_up(cntxt,ncd));
+    }
+    //lc3_perf();
 
     (void)numachip_close_device(cntxt);
-
-    return 0;
-}
-
-int main(int argc, char **argv)
-{
-
-    init_test();
-    phy_regs();
-    //lc3_perf();
     return 0;
 }
