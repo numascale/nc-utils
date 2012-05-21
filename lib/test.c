@@ -28,6 +28,8 @@
 #include "numachip_user.h"
 
 #define DEBUG_STATEMENT(x) 
+
+unsigned int link_up(struct numachip_context *cntxt, unsigned int lc);
 /* check for link instability */
 //static int cht_error(int node, int link)
 //{
@@ -136,15 +138,20 @@ unsigned int lc3_perf(unsigned int lc) {
 
 unsigned int read_lcregs(struct numachip_context *cntxt) {
 
-    //We have to change bit [18-16] in order to read the LC3s
-    printf("LC3 NodeID=%03x\n", numachip_read_csr(cntxt, LC3_CSR_NODE_IDS,LCXA));
-    printf("State Clear=%03x\n", numachip_read_csr(cntxt,LC3_CSR_STATE_CLEAR,LCXA ));
-    printf("INTR MASK=%03x\n", numachip_read_csr(cntxt, LC3_CSR_ROUT_MASK,LCXA));   
+    numachip_device_type_t ncd=LCXA;
+    for(ncd=LCXA; ncd<=LCZB;ncd++) {
+	if (link_up(cntxt,ncd)) {
+	    printf("Numachip device %s is UP (%d)\n",
+		   numachip_device_str(ncd),
+		   link_up(cntxt,ncd));
+	    //We have to change bit [18-16] in order to read the LC3s
+	    printf("LC3 NodeID=%03x\n", numachip_read_csr(cntxt, LC3_CSR_NODE_IDS,ncd));
+	    printf("State Clear=%03x\n", numachip_read_csr(cntxt,LC3_CSR_STATE_CLEAR,ncd ));
+	    printf("INTR MASK=%03x\n", numachip_read_csr(cntxt, LC3_CSR_ROUT_MASK,ncd));   
+	    
+	} else printf("Numachip device %s is DOWN (%d)\n", numachip_device_str(ncd),link_up(cntxt,ncd));
+    }
 
-    //We have to change bit [18-16] in order to read the LC3s
-    printf("LC3 NodeID=%03x\n", numachip_read_csr(cntxt, LC3_CSR_NODE_IDS,LCXB));
-    printf("State Clear=%03x\n", numachip_read_csr(cntxt,LC3_CSR_STATE_CLEAR,LCXB ));
-    printf("INTR MASK=%03x\n", numachip_read_csr(cntxt, LC3_CSR_ROUT_MASK,LCXB));
 
     return 0;
 }
@@ -257,7 +264,7 @@ int main(int argc, char **argv)
 {
     struct numachip_device **devices;
     struct numachip_context *cntxt;
-    numachip_device_type_t ncd=LCXA;
+
     int num_devices; 
 
     devices = numachip_get_device_list(&num_devices);
@@ -277,14 +284,7 @@ int main(int argc, char **argv)
     phy_regs(cntxt);
     read_lcregs(cntxt);
     
-    for(ncd=LCXA; ncd<=LCZB;ncd++) {
-	if (link_up(cntxt,ncd)) {
-	    printf("Numachip device %s is UP (%d)\n",
-		   numachip_device_str(ncd),
-		   link_up(cntxt,ncd));
-	    
-	} else printf("Numachip device %s is DOWN (%d)\n", numachip_device_str(ncd),link_up(cntxt,ncd));
-    }
+
     //lc3_perf();
 
     (void)numachip_close_device(cntxt);
