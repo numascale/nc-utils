@@ -2675,7 +2675,7 @@ static int nc_start(void)
 	u32 val;
 
 	/* On non-root servers, prevent writing to unexpected locations */
-	stop_usb();
+	handover_legacy();
 	disable_smi();
 
         clear_bsp_flag();

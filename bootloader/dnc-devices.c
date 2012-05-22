@@ -86,16 +86,18 @@ static void stop_ohci(int bus, int dev, int fn)
 {
     u32 val, bar0;
 
-    bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10);
-    if ((bar0 != 0xffffffff) && (bar0 != 0)) {
-        val = mem64_read32(bar0 + HcHCCA);
-        printf("Found OHCI controller at %02x:%02x.%x, BAR0 @%08x, HCCA @%08x\n",
-               bus, dev, fn, bar0, val);
-        val = mem64_read32(bar0 + HcControl);
-        if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
-            u32 temp;
-            printf("Requesting Change of Ownership on OHCI controller %02x:%02x.%x\n",
-                   bus, dev, fn);
+    printf("OHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
+
+    bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+    if ((bar0 == 0xffffffff) || (bar0 == 0)) {
+	printf("BAR not configured\n");
+	return;
+    }
+
+    val = mem64_read32(bar0 + HcHCCA);
+    val = mem64_read32(bar0 + HcControl);
+    if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
+	u32 temp;
             /* This timeout is arbitrary.  we make it long, so systems
              * depending on usb keyboards may be usable even if the
              * BIOS/SMM code seems pretty broken
@@ -107,8 +109,7 @@ static void stop_ohci(int bus, int dev, int fn)
             while (mem64_read32(bar0 + HcControl) & OHCI_CTRL_IR) {
                 tsc_wait(1000);
                 if (--temp == 0) {
-                    printf("Error: OHCI HC takeover failed on %02x:%02x.%x (BIOS/SMM bug)\n",
-                           bus, dev, fn);
+                    printf("legacy handoff timed out\n");
                     return;
                 }
             }
@@ -120,26 +121,111 @@ static void stop_ohci(int bus, int dev, int fn)
             mem64_write32(bar0 + HcControl, val);
             /* Flush the writes */
             val = mem64_read32(bar0 + HcControl);
+	    printf("legacy handoff succeeded\n");
         } else {
-            printf("OHCI controller %02x:%02x.%x not in use by BIOS/SMM, skipping\n",
-                   bus, dev, fn);
+            printf("legacy support not enabled\n");
         }
         val = mem64_read32(bar0 + HcRevision);
         if (val & (1 << 8)) { /* Legacy emulation is supported */
             val = mem64_read32(bar0 + HceControl);
             if (val & (1 << 0)) {
-                printf("Legacy support enabled\n");
+                printf("legacy support enabled\n");
             }
         }
-    }
 }
 
-void stop_usb(void)
+static void stop_ehci(int bus, int dev, int fn)
+{
+    printf("EHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
+
+    u32 bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+    if (bar0 == 0) {
+	printf("BAR not configured\n");
+	return;
+    }
+
+    /* Get EHCI Extended Capabilities Pointer */
+    u32 ecp = (mem64_read32(bar0 + 0x8) >> 8) & 0xff;
+    if (ecp == 0) {
+	printf("extended capabilities absent\n");
+	return;
+    }
+
+    /* Check legacy support register shows BIOS ownership */
+    u32 legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
+    if ((legsup & 0x10100ff) != 0x0010001) {
+	printf("legacy support not enabled\n");
+	return;
+    }
+
+    /* Set OS owned semaphore */
+    legsup |= 1 << 24;
+    dnc_write_conf(0xfff0, bus, dev, fn, ecp, legsup);
+
+    int limit = 500;
+
+    do {
+	tsc_wait(1000);
+	legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
+	if ((legsup & (1 << 16)) == 0) {
+	    printf("legacy handoff succeeded\n");
+	    return;
+	}
+    } while (--limit);
+
+    printf("legacy handoff timed out\n");
+}
+
+static void stop_xhci(int bus, int dev, int fn)
+{
+    printf("XHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
+
+    u32 bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+    if (bar0 == 0) {
+	printf("BAR not configured\n");
+	return;
+    }
+
+    /* Get XHCI Extended Capabilities Pointer */
+    u32 ecp = (mem64_read32(bar0 + 0x10) & 0xffff0000) >> (16 - 2);
+    if (ecp == 0) {
+	printf("extended capabilities absent\n");
+	return;
+    }
+
+    /* Check legacy support register shows BIOS ownership */
+    u32 legsup = mem64_read32(bar0 + ecp);
+    if ((legsup & 0x10100ff) != 0x0010001) {
+	printf("legacy support not enabled\n");
+	return;
+    }
+
+    /* Set OS owned semaphore */
+    legsup |= 1 << 24;
+    mem64_write32(bar0 + ecp, legsup);
+
+    int limit = 500;
+
+    do {
+	tsc_wait(1000);
+	legsup = mem64_read32(bar0 + ecp);
+	if ((legsup & (1 << 16)) == 0) {
+	    printf("legacy handoff succeeded\n");
+	    return;
+	}
+    } while (--limit);
+
+    printf("legacy handoff timed out\n");
+}
+
+void handover_legacy(void)
 {
     /* If SMM is disabled, USB handover functionality may have been lost */
     if (disable_smm)
 	return;
 
     pci_search(PCI_CLASS_SERIAL_USB_OHCI, stop_ohci);
+    pci_search(PCI_CLASS_SERIAL_USB_EHCI, stop_ehci);
+    pci_search(PCI_CLASS_SERIAL_USB_XHCI, stop_xhci);
 }
 

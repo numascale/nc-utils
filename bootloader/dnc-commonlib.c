@@ -2236,7 +2236,7 @@ static enum node_state enter_reset(struct node_info *info)
 {
     int tries = 0;
     u32 val;
-    printf("Entering reset.\n");
+    printf("Entering reset\n");
 
     if (dnc_asic_mode && dnc_chip_rev >= 1) {
 	/* Reset already held?  Toggle reset logic to ensure reset
