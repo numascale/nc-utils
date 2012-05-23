@@ -19,6 +19,8 @@
 #ifndef __DNC_DEVICES
 #define __DNC_DEVICES 1
 
+#include <stdint.h>
+
 #define HcRevision 0x00
 
 #define HcControl 0x04
@@ -81,13 +83,19 @@
 #define PCI_CLASS_SERIAL_USB_EHCI       0x0c0320
 #define PCI_CLASS_SERIAL_USB_XHCI       0x0c0330
 
-#define PCI_CLASS_STORAGE_SATA_AHCI     0x010601
+#define PCI_CLASS_STORAGE_RAID          0x0104
+#define PCI_CLASS_STORAGE_SATA          0x0106
+
+struct devspec {
+    uint32_t class;
+    uint8_t classlen;
+    void (*handler)(int, int, int);
+};
 
 void disable_vga(void);
 void enable_vga(void);
 void stop_usb(void);
 void disable_dma_all(void);
-
 void handover_legacy(void);
 
 #endif

@@ -22,15 +22,21 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 
-static void pci_search(const u32 class, void (*const func)(int, int, int))
+static void pci_search(const struct devspec *list)
 {
     int bus, dev, fn;
+    u32 val;
+    const struct devspec *listp;
 
     for (bus = 0; bus < 0x100; bus++)
 	for (dev = 0; dev < 0x100; dev++)
-	    for (fn = 0; fn < 0x10; fn++)
-		if ((dnc_read_conf(0xfff0, bus, dev, fn, 8) >> 8) == class)
-		    func(bus, dev, fn);
+	    for (fn = 0; fn < 0x10; fn++) {
+		val = dnc_read_conf(0xfff0, bus, dev, fn, 8);
+
+		for (listp = list; listp->class; listp++)
+		    if ((val >> ((4 - listp->classlen) * 8)) == listp->class)
+			listp->handler(bus, dev, fn);
+	    }
 }
 
 static void disable_dma(int bus, int dev, int fn)
@@ -53,14 +59,22 @@ static void enable_dma(int bus, int dev, int fn)
 
 void disable_vga(void)
 {
-    pci_search(PCI_CLASS_DISPLAY_VGA, disable_dma);
-    pci_search(PCI_CLASS_DISPLAY_CONTROLLER, disable_dma);
+    const struct devspec devices[] = {
+	{PCI_CLASS_DISPLAY_VGA, 3, disable_dma},
+	{PCI_CLASS_DISPLAY_CONTROLLER, 3, disable_dma},
+    };
+
+    pci_search(devices);
 }
 
 void enable_vga(void)
 {
-    pci_search(PCI_CLASS_DISPLAY_VGA, enable_dma);
-    pci_search(PCI_CLASS_DISPLAY_CONTROLLER, enable_dma);
+    const struct devspec devices[] = {
+	{PCI_CLASS_DISPLAY_VGA, 3, enable_dma},
+	{PCI_CLASS_DISPLAY_CONTROLLER, 3, enable_dma},
+    };
+
+    pci_search(devices);
 }
 
 void disable_dma_all(void)
@@ -154,7 +168,7 @@ static void stop_ehci(int bus, int dev, int fn)
     /* Check legacy support register shows BIOS ownership */
     u32 legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
     if ((legsup & 0x10100ff) != 0x0010001) {
-	printf("legacy support not enabled\n");
+	printf("legacy support not enabled (status 0x%08x)\n", legsup);
 	return;
     }
 
@@ -196,7 +210,7 @@ static void stop_xhci(int bus, int dev, int fn)
     /* Check legacy support register shows BIOS ownership */
     u32 legsup = mem64_read32(bar0 + ecp);
     if ((legsup & 0x10100ff) != 0x0010001) {
-	printf("legacy support not enabled\n");
+	printf("legacy support not enabled (status 0x%08x)\n", legsup);
 	return;
     }
 
@@ -218,14 +232,62 @@ static void stop_xhci(int bus, int dev, int fn)
     printf("legacy handoff timed out\n");
 }
 
+static void stop_ahci(int bus, int dev, int fn)
+{
+    printf("AHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
+
+    /* BAR5 (ABAR) contains legacy control registers */
+    u32 bar5 = dnc_read_conf(0xfff0, bus, dev, fn, 0x24) & ~0xf;
+    if (bar5 == 0) {
+	printf("BAR not configured\n");
+	return;
+    }
+
+    /* Check legacy support register shows BIOS ownership */
+    u32 legsup = mem64_read32(bar5 + 0x24);
+    if ((legsup & 1) == 0) {
+	printf("legacy support not implemented\n");
+	return;
+    }
+
+    legsup = mem64_read32(bar5 + 0x28);
+    if ((legsup & 1) != 1) {
+	printf("legacy support not enabled (status 0x%08x)\n", legsup);
+	return;
+    }
+
+    /* Set OS owned semaphore */
+    legsup |= (1 << 1);
+    mem64_write32(bar5 + 0x28, legsup);
+
+    int limit = 500;
+
+    do {
+	tsc_wait(1000);
+	legsup = mem64_read32(bar5 + 0x28);
+	if ((legsup & 1) == 0) {
+	    printf("legacy handoff succeeded\n");
+	    return;
+	}
+    } while (--limit);
+
+    printf("legacy handoff timed out\n");
+}
+
 void handover_legacy(void)
 {
     /* If SMM is disabled, USB handover functionality may have been lost */
     if (disable_smm)
 	return;
 
-    pci_search(PCI_CLASS_SERIAL_USB_OHCI, stop_ohci);
-    pci_search(PCI_CLASS_SERIAL_USB_EHCI, stop_ehci);
-    pci_search(PCI_CLASS_SERIAL_USB_XHCI, stop_xhci);
+    const struct devspec devices[] = {
+	{PCI_CLASS_SERIAL_USB_OHCI, 3, stop_ohci},
+	{PCI_CLASS_SERIAL_USB_EHCI, 3, stop_ehci},
+	{PCI_CLASS_SERIAL_USB_XHCI, 3, stop_xhci},
+	{PCI_CLASS_STORAGE_SATA, 2, stop_ahci},
+	{PCI_CLASS_STORAGE_RAID, 2, stop_ahci},
+    };
+
+    pci_search(devices);
 }
 
