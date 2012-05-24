@@ -278,6 +278,9 @@ static int install_e820_handler(void)
 	    (orig_e820_map[i].type == 1))
 	    last_32b = j-1;
     }
+
+    free(orig_e820_map);
+
     *((u16 *)REL(new_e820_len))  = j;
     *((u32 *)REL(old_int15_vec)) = int_vecs[0x15];
 
@@ -2497,6 +2500,10 @@ static int check_api_version(void)
 static void start_user_os(void)
 {
     static com32sys_t rm;
+
+    /* Release resources to reduce allocator fragmentation */
+    free(cfg_nodelist);
+    free(cfg_partlist);
 
     strcpy(__com32.cs_bounce, next_label);
     rm.eax.w[0] = 0x0003;
