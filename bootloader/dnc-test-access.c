@@ -250,37 +250,37 @@ void dnc_write_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg, u32 val)
     }
 }
 
-void pmio_writeb(u8 offset, u8 val)
+void pmio_writeb(u16 offset, u8 val)
 {
 }
 
-void pmio_writel(u8 offset, u32 val)
+void pmio_writel(u16 offset, u32 val)
 {
 }
 
-u8 pmio_readb(u8 offset)
+u8 pmio_readb(u16 offset)
 {
     return 0xff;
 }
 
-u32 pmio_readl(u8 offset)
+u32 pmio_readl(u16 offset)
 {
     return 0xffffffff;
 }
 
-void pmio_setb(u8 offset, u8 val)
+void pmio_setb(u16 offset, u8 val)
 {
 }
 
-void pmio_clearb(u8 offset, u8 val)
+void pmio_clearb(u16 offset, u8 val)
 {
 }
 
-void pmio_setl(u8 offset, u32 val)
+void pmio_setl(u16 offset, u32 val)
 {
 }
 
-void pmio_clearl(u8 offset, u32 val)
+void pmio_clearl(u16 offset, u32 val)
 {
 }
 

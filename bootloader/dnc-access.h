@@ -60,14 +60,15 @@ static inline u32 u32bswap(u32 val)
     return val;
 }
 
-void pmio_writeb(u8 offset, u8 val);
-void pmio_writel(u8 offset, u32 val);
-u8 pmio_readb(u8 offset);
-u32 pmio_readl(u8 offset);
-void pmio_setb(u8 offset, u8 val);
-void pmio_clearb(u8 offset, u8 val);
-void pmio_setl(u8 offset, u32 val);
-void pmio_clearl(u8 offset, u32 val);
+void pmio_writeb(u16 offset, u8 val);
+void pmio_writel(u16 offset, u32 val);
+u8 pmio_readb(u16 offset);
+u16 pmio_reads(u16 offset);
+u32 pmio_readl(u16 offset);
+void pmio_setb(u16 offset, u8 val);
+void pmio_clearb(u16 offset, u8 val);
+void pmio_setl(u16 offset, u32 val);
+void pmio_clearl(u16 offset, u32 val);
 void watchdog_setup(void);
 void reset_cf9(int mode, int last);
 void cht_test(u8 node, int neigh, int neigh_link);

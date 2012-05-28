@@ -53,13 +53,13 @@ int cht_config_use_extd_addressing = 0;
 u64 dnc_csr_base = DEF_DNC_CSR_BASE;
 u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
 
-void pmio_writeb(u8 offset, u8 val)
+void pmio_writeb(u16 offset, u8 val)
 {
     /* Write offset and value in single 16-bit write */
     outw(offset | val << 8, IO_PORT);
 }
 
-void pmio_writel(u8 offset, u32 val)
+void pmio_writel(u16 offset, u32 val)
 {
     unsigned int i;
 
@@ -67,13 +67,24 @@ void pmio_writel(u8 offset, u32 val)
 	pmio_writeb(offset + i, val >> (i * 8));
 }
 
-u8 pmio_readb(u8 offset)
+u8 pmio_readb(u16 offset)
 {
     outb(offset, IO_PORT /* PMIO index */);
     return inb(IO_PORT + 1 /* PMIO data */);
 }
 
-u32 pmio_readl(u8 offset)
+u16 pmio_reads(u16 offset)
+{
+    unsigned int i;
+    u16 val = 0;
+
+    for (i = 0; i < sizeof(val); i++)
+	val |= pmio_readb(offset + i) << (i * 8);
+
+    return val;
+}
+
+u32 pmio_readl(u16 offset)
 {
     unsigned int i;
     u32 val = 0;
@@ -84,25 +95,25 @@ u32 pmio_readl(u8 offset)
     return val;
 }
 
-void pmio_setb(u8 offset, u8 mask)
+void pmio_setb(u16 offset, u8 mask)
 {
     u8 val = pmio_readb(offset) | mask;
     pmio_writeb(offset, val);
 }
 
-void pmio_clearb(u8 offset, u8 mask)
+void pmio_clearb(u16 offset, u8 mask)
 {
     u8 val = pmio_readb(offset) & ~mask;
     pmio_writeb(offset, val);
 }
 
-void pmio_setl(u8 offset, u32 mask)
+void pmio_setl(u16 offset, u32 mask)
 {
     u32 val = pmio_readl(offset) | mask;
     pmio_writel(offset, val);
 }
 
-void pmio_clearl(u8 offset, u32 mask)
+void pmio_clearl(u16 offset, u32 mask)
 {
     u32 val = pmio_readb(offset) & ~mask;
     pmio_writel(offset, val);
