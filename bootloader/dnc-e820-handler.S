@@ -44,10 +44,32 @@ EXPORT(init_trampoline)
 	cmp	$MSR_MTRR_PHYS_MASK7, %ecx
 	jna	1b
 
-	/* Add stored MTTRs */
+	/* Set default memory type */
+	mov	%cs:SYM_OFFSET(new_mtrr_default), %eax
+	mov	%cs:SYM_OFFSET(new_mtrr_default+4), %edx
+	mov	$MSR_MTRR_DEFAULT, %ecx
+	wrmsr
+
+	/* Set fixed MTRRs */
+	mov	$SYM_OFFSET(fixed_mtrr_regs), %edi /* 32-bit MSR to use */
+	mov	$SYM_OFFSET(new_mtrr_fixed), %esi  /* 64-bit value to write */
+1:
+	mov	%cs:(%edi), %ecx /* MSR register */
+	add	$4, %edi
+
+	mov	%cs:(%esi), %eax /* value[0] */
+	add	$4, %esi
+	mov	%cs:(%esi), %edx /* value[1] */
+	add	$4, %esi
+
+	wrmsr
+	cmp	$0, %edi
+	jna	1b
+
+	/* Set variable MTRRs */
 	mov	$MSR_MTRR_PHYS_BASE0, %ecx
-	mov	$SYM_OFFSET(new_mtrr_base), %esi
-	mov	$SYM_OFFSET(new_mtrr_mask), %edi
+	mov	$SYM_OFFSET(new_mtrr_var_base), %esi
+	mov	$SYM_OFFSET(new_mtrr_var_mask), %edi
 1:	
 	mov	%cs:(%esi), %eax
 	add	$4, %esi
@@ -85,6 +107,12 @@ EXPORT(init_trampoline)
 	mov	%cs:SYM_OFFSET(new_topmem2_msr), %eax
 	mov	%cs:SYM_OFFSET(new_topmem2_msr+4), %edx
 	mov	$MSR_TOPMEM2, %ecx
+	wrmsr
+
+	/* Set SYSCFG MSR */
+	mov	%cs:SYM_OFFSET(new_syscfg_msr), %eax
+	mov	%cs:SYM_OFFSET(new_syscfg_msr+4), %edx
+	mov	$MSR_SYSCFG, %ecx
 	wrmsr
 
 	/* Set OSVW_ID_LEN MSR */
@@ -230,10 +258,29 @@ EXPORT(new_topmem_msr)
 	.long 0, 0
 EXPORT(new_topmem2_msr)
 	.long 0, 0
-EXPORT(new_mtrr_base)
+EXPORT(new_mtrr_default)
+	.long 0, 0
+EXPORT(fixed_mtrr_regs)
+	.long MSR_MTRR_FIX64K_00000
+	.long MSR_MTRR_FIX16K_80000
+	.long MSR_MTRR_FIX16K_A0000
+	.long MSR_MTRR_FIX4K_C0000
+	.long MSR_MTRR_FIX4K_C8000
+	.long MSR_MTRR_FIX4K_D0000
+	.long MSR_MTRR_FIX4K_D8000
+	.long MSR_MTRR_FIX4K_E0000
+	.long MSR_MTRR_FIX4K_E8000
+	.long MSR_MTRR_FIX4K_F0000
+	.long MSR_MTRR_FIX4K_F8000
+	.long 0
+EXPORT(new_mtrr_fixed)
+	.skip 11*8, 0
+EXPORT(new_mtrr_var_base)
 	.skip 8*8, 0
-EXPORT(new_mtrr_mask)
+EXPORT(new_mtrr_var_mask)
 	.skip 8*8, 0
+EXPORT(new_syscfg_msr)
+	.long 0, 0
 EXPORT(rem_topmem_msr)
 	.long 0, 0
 EXPORT(rem_smm_base_msr)

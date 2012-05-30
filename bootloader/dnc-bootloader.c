@@ -70,13 +70,6 @@ static int scc_started = 0;
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 u8 nodedata[4096];
 
-static const long long unsigned fixed_mtrr_base[] = {0x00000, 0x80000, 0xA0000,
-    0xC0000, 0xC8000, 0xD0000, 0xD8000, 0xE0000, 0xE8000, 0xF0000, 0xF8000};
-static const int fixed_mtrr_reg[] = {MSR_MTRR_FIX64K_00000, MSR_MTRR_FIX16K_80000,
-    MSR_MTRR_FIX16K_A0000, MSR_MTRR_FIX4K_C0000, MSR_MTRR_FIX4K_C8000,
-    MSR_MTRR_FIX4K_D0000, MSR_MTRR_FIX4K_D8000, MSR_MTRR_FIX4K_E0000,
-    MSR_MTRR_FIX4K_E8000, MSR_MTRR_FIX4K_F0000, MSR_MTRR_FIX4K_F8000};
-
 extern unsigned char asm_relocate_start;
 extern unsigned char asm_relocate_end;
 static char *asm_relocated;
@@ -95,8 +88,12 @@ IMPORT_RELOCATED(new_e820_len);
 IMPORT_RELOCATED(new_e820_map);
 IMPORT_RELOCATED(new_mpfp);
 IMPORT_RELOCATED(new_mptable);
-IMPORT_RELOCATED(new_mtrr_base);
-IMPORT_RELOCATED(new_mtrr_mask);
+IMPORT_RELOCATED(new_mtrr_default);
+IMPORT_RELOCATED(fixed_mtrr_regs);
+IMPORT_RELOCATED(new_mtrr_fixed);
+IMPORT_RELOCATED(new_mtrr_var_base);
+IMPORT_RELOCATED(new_mtrr_var_mask);
+IMPORT_RELOCATED(new_syscfg_msr);
 IMPORT_RELOCATED(rem_topmem_msr);
 IMPORT_RELOCATED(rem_smm_base_msr);
 IMPORT_RELOCATED(new_osvw_id_len_msr);
@@ -2053,124 +2050,35 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
     }
 }
 
-#ifdef UNUSED
-static void mtrr_add(u64 *mtrr_base, u64 *mtrr_mask, u64 base, u64 limit, int type)
+static void update_mtrr(void)
 {
-    *mtrr_base = base | type;
-    *mtrr_mask = (1ULL << 48) - 1;
-    *mtrr_mask &= ~(limit - base - 1);
-    *mtrr_mask |= 0x800;
-}
-#endif
+    /* Ensure Tom2ForceMemTypeWB (bit 22) is set, so mem above TOM2 is writeback */
+    uint64_t *syscfg_msr = (void *)REL(new_syscfg_msr);
+    *syscfg_msr = dnc_rdmsr(MSR_SYSCFG) | (1 << 22);
+    dnc_wrmsr(MSR_SYSCFG, *syscfg_msr);
 
-static int update_mtrr(void)
-{
-    u64 base, mask, prev;
-    u64 *mtrr_base;
-    u64 *mtrr_mask;
-    int i;
+    /* Ensure default memory type is uncacheable */
+    uint64_t *mtrr_default = (void *)REL(new_mtrr_default);
+    *mtrr_default = 3 << 10;
+    dnc_wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
 
-    mtrr_base = (void *)REL(new_mtrr_base);
-    mtrr_mask = (void *)REL(new_mtrr_mask);
+    /* Store fixed MTRRs */
+    uint64_t *mtrr_fixed = (void *)REL(new_mtrr_fixed);
+    uint32_t *fixed_mtrr_regs = (void *)REL(fixed_mtrr_regs);
 
-    /* Ensure default memory type is uncacheable and MTRRs are enabled */
-    assert(dnc_rdmsr(MSR_MTRR_DEFAULT) == 3 << 10);
-
-    base = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
-    mask = ~0ULL;
-    prev = mask;
-    i = 0;
-    while (base & mask) {
-	if (i >= 8) {
-	    printf("Error: Not enough room for required MTRR entries\n");
-	    return -1;
-	}
-	if (base & ~mask) {
-	    base = base & mask;
-	    mtrr_base[i] = (base & 0x0000fffffffff000) | 0x006;
-	    mtrr_mask[i] = (prev & 0x0000fffffffff000) | 0x800;
-	    i++;
-	}
-	prev = mask;
-	mask = mask << 1ULL;
-    }
-    if ((prev != ~0ULL) && (prev != 0ULL)) {
-	if (i >= 8) {
-	    printf("Error: Not enough room for required MTRR entries\n");
-	    return -1;
-	}
-	mtrr_base[i] = 0x006;
-	mtrr_mask[i] = (prev & 0x0000fffffffff000) | 0x800;
-	i++;
+    for (int i = 0; i < 11; i++) {
+	mtrr_fixed[i] = dnc_rdmsr(fixed_mtrr_regs[i]);
+	printf("i=%d mtrr_fixed=%p fixed_mtrr_regs=%p mtrr_fixed[i]=0x%016llx fixed_mtrr_regs[i]=0x%08x\n", i, mtrr_fixed, fixed_mtrr_regs, mtrr_fixed[i], fixed_mtrr_regs[i]);
     }
 
-#ifdef UNUSED
-    /* Add writeback entry for DRAM before <4GB MMIO hole */
-    mtrr_add(&mtrr_base[i], &mtrr_mask[i], 0, dnc_rdmsr(MSR_TOPMEM), 6 /* WB */);
-    i += 1;
-    /* Add writeback entry for DRAM above 4GB */
-    mtrr_add(&mtrr_base[i], &mtrr_mask[i], 0x100000000ULL, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT, 6 /* WB */);
-    i += 1;
-#else
-    /* Add entries for MMIO hole under 4G */
-    base = dnc_rdmsr(MSR_TOPMEM);
-    mask = ~0ULL;
-    prev = mask;
-    
-    while (base & mask) {
-	if (i >= 8) {
-	    printf("Error: Not enough room for required MTRR entries\n");
-	    return -1;
-	}
-	prev = mask;
-	mask = mask << 1ULL;
-	if (((base & mask) < base) || ((base + ~mask + 1) > 0x100000000)) {
-	    mtrr_base[i] = (base & 0x0000fffffffff000) | 0x000;
-	    mtrr_mask[i] = (prev & 0x0000fffffffff000) | 0x800;
-	    i++;
-	    base = base + ~prev + 1;
-	    if (base >= 0x100000000)
-		break;
-	    mask = ~0;
-	    prev = mask;
-	}
+    /* Store variable MTRRs */
+    uint64_t *mtrr_var_base = (void *)REL(new_mtrr_var_base);
+    uint64_t *mtrr_var_mask = (void *)REL(new_mtrr_var_mask);
+
+    for (int i = 0; i < 8; i++) {
+	mtrr_var_base[i] = dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
+	mtrr_var_mask[i] = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
     }
-#endif
-
-    /* Blank remaining */
-    while (i < 8) {
-	mtrr_base[i] = 0;
-	mtrr_mask[i] = 0;
-	i++;
-    }
-
-    disable_cache();
-
-    /* Disable all entries */
-    for (i = 0; i < 8; i++)
-	dnc_wrmsr(MSR_MTRR_PHYS_MASK0 + i*2, 0);
-    
-    for (i = 0; i < 8; i++) {
-	dnc_wrmsr(MSR_MTRR_PHYS_BASE0 + i*2, mtrr_base[i]);
-	dnc_wrmsr(MSR_MTRR_PHYS_MASK0 + i*2, mtrr_mask[i]);
-    }
-
-    enable_cache();
-
-    if (verbose) {
-	printf("Default MTRR type: %s\n", MTRR_TYPE(dnc_rdmsr(MSR_MTRR_DEFAULT) & 0xff));
-	for (i = 0; i < 11; i++)
-	    printf("MTRR F%d: value 0x%016llx\n", i, dnc_rdmsr(fixed_mtrr_reg[i]));
-
-	for (i = 0; i < 8; i++) {
-	    u64 base = dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
-	    u64 mask = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
-	    if (mask & 0x800)
-		printf("MTRR %d: base 0x%012llx, mask 0x%012llx %s\n", i, base & ~0xfffULL, mask & ~0xfffULL, MTRR_TYPE(base & 0xff));
-	}
-    }
-
-    return 0;
 }
 
 static void local_chipset_fixup(void)
@@ -2434,8 +2342,7 @@ static int unify_all_nodes(void)
     scc_started = 1;
     printf("SCC microcode loaded\n");
 
-    if (update_mtrr() < 0)
-	return -1;
+    update_mtrr();
 
     /* Set TOPMEM2 for ourselves and other cores */
     dnc_wrmsr(MSR_TOPMEM2, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
