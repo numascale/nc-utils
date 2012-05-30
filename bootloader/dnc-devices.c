@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "dnc-devices.h"
 #include "dnc-access.h"
+#include "dnc-acpi.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 
@@ -263,7 +264,7 @@ static void stop_ahci(int bus, int dev, int fn)
     int limit = 500;
 
     do {
-	tsc_wait(1000);
+	tsc_wait(100);
 	legsup = mem64_read32(bar5 + 0x28);
 	if ((legsup & 1) == 0) {
 	    printf("legacy handoff succeeded\n");
@@ -272,6 +273,44 @@ static void stop_ahci(int bus, int dev, int fn)
     } while (--limit);
 
     printf("legacy handoff timed out\n");
+}
+
+extern void system_activity(void);
+
+static void stop_acpi(void)
+{
+    printf("AHCI handoff: ");
+
+    acpi_sdt_p fadt = find_sdt("FACP");
+    if (!fadt) {
+	printf("ACPI FACP table not found\n");
+	return;
+    }
+
+    uint32_t smi_cmd = *(uint32_t *)&fadt->data[48 - 36];
+    uint8_t acpi_enable = fadt->data[52 - 36];
+    if (!smi_cmd || !acpi_enable) {
+	printf("legacy support not enabled\n");
+	return;
+    }
+
+    uint32_t acpipm1cntblk = *(uint32_t *)&fadt->data[64 - 36];
+    uint16_t sci_en = inb(acpipm1cntblk);
+
+    outb(acpi_enable, smi_cmd);
+
+    int limit = 100;
+
+    do {
+	tsc_wait(100);
+	sci_en = inb(acpipm1cntblk);
+	if ((sci_en & 1) == 1) {
+	    printf("legacy handoff succeeded\n");
+	    return;
+	}
+    } while (--limit);
+
+    printf("ACPI handoff timed out\n");
 }
 
 void handover_legacy(void)
@@ -289,5 +328,6 @@ void handover_legacy(void)
     };
 
     pci_search(devices);
+    stop_acpi();
 }
 
