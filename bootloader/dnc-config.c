@@ -294,7 +294,7 @@ struct node_info* get_node_config(u32 uuid)
 		return &cfg_nodelist[i];
 	}
     }
-    printf("Error: Failed to find node config\n");
+    printf("Error: Failed to find node config (hostname %s)\n", hostname ? hostname : "<none>");
     return NULL;
 }
 
