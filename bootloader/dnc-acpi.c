@@ -38,13 +38,13 @@ uint8_t checksum(void *addr, int len)
 }
 
 
-int checksum_ok(void *addr, int len)
+static int checksum_ok(void *addr, int len)
 {
     return checksum(addr, len) == 0;
 }
 
 
-void *find_rsdp(void *start, int len)
+static void *find_rsdp(void *start, int len)
 {
     void *ret = NULL;
     int i;
@@ -73,7 +73,7 @@ static int rdsp_exists(void)
 }
 
 
-acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
+static acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
 			    int ptrsize)
 {
     uint64_t childp;
@@ -305,7 +305,7 @@ int replace_root(const char *sig, acpi_sdt_p new) {
 
 acpi_sdt_p find_sdt(char *sig)
 {
-    acpi_sdt_p root = NULL;
+    acpi_sdt_p root;
     acpi_sdt_p res = NULL;
 
     root = find_root("XSDT");
@@ -319,7 +319,7 @@ acpi_sdt_p find_sdt(char *sig)
     return res;
 }
 
-
+#ifdef UNUSED
 void debug_acpi_srat(acpi_sdt_p srat)
 {
     int i = 12;
@@ -357,7 +357,7 @@ void debug_acpi_srat(acpi_sdt_p srat)
 }
 
 
-void debug_acpi_apic(acpi_sdt_p apic)
+static void debug_acpi_apic(acpi_sdt_p apic)
 {
     unsigned int i;
     for (i = 44; i < apic->len; ) {
@@ -377,7 +377,7 @@ void debug_acpi_apic(acpi_sdt_p apic)
 	i += lapic->len;
     }
 }
-
+#endif
 
 void debug_acpi(void)
 {
@@ -451,13 +451,14 @@ void debug_acpi(void)
 		   dsdt->revision,
 		   dsdt->len);
 	}
-                
-//	if (table->sig.l == STR_DW_H("SRAT")) {
-//	    debug_acpi_srat(table);
-//	}
-//	else if (table->sig.l == STR_DW_H("APIC")) {
-//	    debug_acpi_apic(table);
-//	}
+#ifdef UNUSED
+	if (table->sig.l == STR_DW_H("SRAT")) {
+	    debug_acpi_srat(table);
+	}
+	else if (table->sig.l == STR_DW_H("APIC")) {
+	    debug_acpi_apic(table);
+	}
+#endif
     }
 
     if ((rptr->len >= 33) && checksum_ok(rptr, rptr->len)) {

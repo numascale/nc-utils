@@ -125,9 +125,6 @@ typedef struct acpi_sdt *acpi_sdt_p;
 void debug_acpi(void);
 uint8_t checksum(void *addr, int len);
 acpi_sdt_p find_sdt(char *sig);
-acpi_sdt_p find_child(const char *sig,
-				   acpi_sdt_p parent,
-				   int ptrsize);
 int replace_child(const char *sig, acpi_sdt_p new,
 			 acpi_sdt_p parent,
 			 int ptrsize);
