@@ -48,7 +48,7 @@ int lfb_to_count(unsigned int val)
     DEBUG_STATEMENT(printf ("cMSB %lx start/lfsr %lx val %x\n",cMSB, start, val));
     
     while ((lfsr != val) || (lfsr == start)) {
-//        printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val);
+        // printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val);
 	DEBUG_STATEMENT(printf("seq %5d, countervalue %5d (0x%04x)\n",seq,lfsr,lfsr));
 
         lsb = lfsr;
@@ -67,22 +67,22 @@ int lfb_to_count(unsigned int val)
     }
     DEBUG_STATEMENT(printf("linear feedback sr 0x%lx val 0x%x\n", lfsr,val));
     sleep(1);
-
+    
     /* Subtract fixed offset */
     //return seq - 2;
     return seq;
 } 
 
 unsigned int lc3_perf(unsigned int lc) {
-
+    
     struct numachip_device **devices;
     struct numachip_context *cntxt;
     int num_devices;
-
+    
     devices = numachip_get_device_list(&num_devices);
-
+    
     printf("Found %d NumaChip devices\n", num_devices);
-
+    
     if (!devices)
 	return -1;
 
@@ -91,53 +91,53 @@ unsigned int lc3_perf(unsigned int lc) {
     
     if (!cntxt)
 	return -1;
-
+    
     //We have to change bit [18-16] in order to read the LC3s
     printf("LC3 NodeID=%03x\n", numachip_read_csr(cntxt, LC3_CSR_NODE_IDS,LCXA));
     printf("State Clear=%03x\n", numachip_read_csr(cntxt,LC3_CSR_STATE_CLEAR,LCXA ));
     printf("INTR MASK=%03x\n", numachip_read_csr(cntxt, LC3_CSR_ROUT_MASK, LCXA));   
-
+    
     
     if (!cntxt)
 	return -1;
-  
+    
     /* Count LC3 B-Link grant, packet reject and accept events */
     printf("Count LC3 B-Link grant, packet reject and accept events \n");
     for (lc = 1; lc <= 2; lc++) {
-      numachip_write_csr(cntxt, LC3_CSR_PCSEL,lc,0x13);
-      //printf("WRITE PCSEL Readback LC %d:@ 0x%x =%03x\n", lc,LC3_CSR_PCSEL, numachip_read_csr(cntxt, LC3_CSR_PCSEL,lc));
+	numachip_write_csr(cntxt, LC3_CSR_PCSEL,lc,0x13);
+	//printf("WRITE PCSEL Readback LC %d:@ 0x%x =%03x\n", lc,LC3_CSR_PCSEL, numachip_read_csr(cntxt, LC3_CSR_PCSEL,lc));
     }
-
+    
     /* Clear count */
     for (lc = 1; lc <= 2; lc++) {
-      numachip_write_csr(cntxt, LC3_CSR_PCCNT,lc, 0);
-      //printf("WRITE PCCNT (CLEAR) Readback LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT, numachip_read_csr(cntxt, LC3_CSR_PCCNT,lc));
+	numachip_write_csr(cntxt, LC3_CSR_PCCNT,lc, 0);
+	//printf("WRITE PCCNT (CLEAR) Readback LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT, numachip_read_csr(cntxt, LC3_CSR_PCCNT,lc));
     }
-
+    
     sleep(1);
     DEBUG_STATEMENT(printf("I cant get no SLEEEEP\n"));
-
+    
     for (lc = 1; lc <= 2; lc++) {
-      unsigned int val = numachip_read_csr(cntxt, LC3_CSR_PCCNT, lc);
-      DEBUG_STATEMENT(printf("READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val));
-      printf("READ PCCNT (after translate)- %d(0x%x) events on LC#%x\n", lfb_to_count(val),lfb_to_count(val), lc);
-      DEBUG_STATEMENT(printf("AFTER READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val);
-		      sleep(5));
+	unsigned int val = numachip_read_csr(cntxt, LC3_CSR_PCCNT, lc);
+	DEBUG_STATEMENT(printf("READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val));
+	printf("READ PCCNT (after translate)- %d(0x%x) events on LC#%x\n", lfb_to_count(val),lfb_to_count(val), lc);
+	DEBUG_STATEMENT(printf("AFTER READ PCCNT LC %d:@0x%x =%03x\n",lc, LC3_CSR_PCCNT,val);
+			sleep(5));
 
     }
-
+    
     /* Disable counting */
     printf("Disable counting\n");
     for (lc = 1; lc < 2; lc++)
-      numachip_write_csr(cntxt, LC3_CSR_PCSEL,lc, 0);
-
+	numachip_write_csr(cntxt, LC3_CSR_PCSEL,lc, 0);
+    
     //(note lfb_to_count is used to translate the count [1]) 
-
+    
     return 0;
 }
 
 unsigned int read_lcregs(struct numachip_context *cntxt) {
-
+    
     numachip_device_type_t ncd=LCXA;
     for(ncd=LCXA; ncd<=LCZB;ncd++) {
 	if (link_up(cntxt,ncd)) {
@@ -151,13 +151,13 @@ unsigned int read_lcregs(struct numachip_context *cntxt) {
 	    
 	} else printf("Numachip device %s is DOWN (%d)\n", numachip_device_str(ncd),link_up(cntxt,ncd));
     }
-
-
+    
+    
     return 0;
 }
 
 unsigned int init_test(struct numachip_context *cntxt) {
-
+    
 
     /*SCC Configuraton Registers*/
     printf("Read config DeviceID/VendorID %03x\n", numachip_read_config(cntxt,0,0x0));
@@ -170,8 +170,8 @@ unsigned int init_test(struct numachip_context *cntxt) {
     printf("Read config Link controller register %03x\n", numachip_read_config(cntxt,0,H2S_CSR_F0_LINK_CONTROL_REGISTER));
     printf("Read config Base Channel Buffer Count Register %03x\n", numachip_read_config(cntxt,0,H2S_CSR_F0_LINK_BASE_CHANNEL_BUFFER_COUNT_REGISTER ));
     printf("H2S_CSR_F0_CHTX_NODE_ID =%03x\n", numachip_read_config(cntxt,0,H2S_CSR_F0_CHTX_NODE_ID));
-
-
+    
+    
     printf("FN1 Read config BADR#0 %03x\n", numachip_read_config(cntxt,1,H2S_CSR_F1_BASE_ADDRESS_REGISTER_0));
     printf("FN1 Read config BADR#1 %03x\n", numachip_read_config(cntxt,1,H2S_CSR_F1_BASE_ADDRESS_REGISTER_1));
     printf("FN1 Read config BADR#2 %03x\n", numachip_read_config(cntxt,1,H2S_CSR_F1_BASE_ADDRESS_REGISTER_2));
@@ -180,8 +180,8 @@ unsigned int init_test(struct numachip_context *cntxt) {
     printf("FN1 Read config BADR#5 %03x\n", numachip_read_config(cntxt,1,H2S_CSR_F1_BASE_ADDRESS_REGISTER_5));
 
     printf("FN1 Read config DRAM BADR %03x\n", numachip_read_config(cntxt,1,H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS));
-
-
+    
+    
     /*H2S Configuration and Status Registers - Group 2:*/
     printf("H2S_CSR_G2_FTAG_STATUS  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G2_FTAG_STATUS,SCC));
     printf("H2S_CSR_G2_DDL_STATUS   =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G2_DDL_STATUS,SCC));
@@ -205,13 +205,13 @@ unsigned int init_test(struct numachip_context *cntxt) {
     printf("H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0,SCC));
     printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS,SCC));
     printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS,SCC));
-
+    
     return 0;
 }
 
 
 unsigned int phy_regs(struct numachip_context *cntxt) {
-
+    
     /*PHY*/
     printf("H2S_CSR_G0_PHYXA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYXA_LINK_STAT ,SCC));
     printf("H2S_CSR_G0_PHYXA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYXA_ELOG,SCC));
@@ -222,12 +222,12 @@ unsigned int phy_regs(struct numachip_context *cntxt) {
     printf("H2S_CSR_G0_PHYYA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYYA_ELOG,SCC));
     printf("H2S_CSR_G0_PHYYB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYYB_LINK_STAT ,SCC));
     printf("H2S_CSR_G0_PHYYB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYYB_ELOG,SCC));
-
+    
     printf("H2S_CSR_G0_PHYZA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYZA_LINK_STAT ,SCC));
     printf("H2S_CSR_G0_PHYZA_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYZA_ELOG,SCC));
     printf("H2S_CSR_G0_PHYZB_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYZB_LINK_STAT ,SCC));
     printf("H2S_CSR_G0_PHYZB_ELOG  =%03x\n", numachip_read_csr(cntxt,H2S_CSR_G0_PHYZB_ELOG,SCC));
-
+    
     return 0;
 }
 
@@ -242,7 +242,7 @@ unsigned int phy_regs(struct numachip_context *cntxt) {
  * the LC3XA or LC3XB registers are accessed. 
  */
 unsigned int link_up(struct numachip_context *cntxt, unsigned int lc) {
-
+    
     switch (lc) {
 	case LCXA:
 	case LCXB:
@@ -260,33 +260,382 @@ unsigned int link_up(struct numachip_context *cntxt, unsigned int lc) {
     }
 }
 
+unsigned int perf_cnt(struct numachip_context *cntxt, unsigned int lc) {
+    //Performance counter - LOC (HPrb) ??
+    return 0;
+}
+
+unsigned int tracer_setup(struct numachip_context *cntxt) {
+    
+
+    // TRACER SETUP
+    unsigned int value=0x3;
+    
+    
+    // Stop Tracer - so that the CSR accesses don' show up when ALL is selected    
+    //`Node0.local_write_csr(CSR_H2S_TRACER_CTRL, 32'h0000_0003);
+    value=numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC);
+    numachip_write_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC,0x3);
+    printf("INFO: H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+    if (value & 0x1) {
+	printf("INFO: H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+	numachip_write_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC,0x3);
+	value=numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC);
+    }
+
+
+    // Check if tracer stopped
+    if (value & 0x1) {
+	printf("H2S_CSR_G3_TRACERCTRL=%03x. Tracer did not stop\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+	
+	return 1;
+    }
+    
+    
+    value=numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC);
+    printf("INFO: Tracer stopped H2S_CSR_G3_HREQ_CTRL (at 0x%x)=%03x\n",H2S_CSR_G3_HREQ_CTRL, value);
+    value=numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC);
+    
+    // Check if registers were setup correctly
+    //`Node0.local_read_csr(CSR_H2S_HREQ_CTRL, data[31:0]);
+    
+    //`Node0.local_read_csr(CSR_H2S_TRACER_CTRL, data[31:0]);
+    printf("INFO: H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+    
+    // `Node0.local_read_csr(CSR_H2S_TRACER_STATUS, data[31:0]);
+    printf("INFO: H2S_CSR_G3_TRACERSTAT=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC));
+    
+    //`Node0.local_read_csr(CSR_MTAG_MAINT_UTIL, data[31:0]);
+    printf("INFO: H2S_CSR_G4_MCTAG_MAINTR=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G4_MCTAG_MAINTR,SCC));
+    
+    //`Node0.local_read_csr(CSR_H2S_WATCH_BUS_SEL, data[31:0]);
+    printf("INFO: H2S_CSR_G3_WATCH_BUS_SELECT=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT,SCC));
+    
+    printf("************************SET UP THE REGS******************************* \n");
+    // G3xC00 Watch Bus Select, Limit
+    // Select Tracer as input instead of REM
+    // 5 RW Watch Bus Select - H2S: 0: REM module 1: Tracer module
+    //`Node0.local_write_csr(CSR_H2S_WATCH_BUS_SEL, 32'h0000_0020);
+    printf("READBEFORE:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT,SCC));
+    printf("WRITE: H2S_CSR_G3_WATCH_BUS_SELECT=%03x\n", 0x20);
+    numachip_write_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT,SCC,0x20);
+    printf("READBACK:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT,SCC));
+    {
+	//unsigned int mpu1_addr_plus200[63:0] = 64'h1001_0000_0000 + 64'h0200;     
+	// G3xC0C Tracer Event Address (Upper Bits)
+	// Atle:mpu1_addr_plus200[63:0] = 64'h1001_0000_0000 + 64'h0200;     
+	//`Node0.local_write_csr(CSR_H2S_TRACER_ADDR0, mpu1_addr_plus200[47:38]);
+	//numachip_write_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS,SCC,mpu1_addr_plus200[47:38]);
+	printf("READBEFORE:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS,SCC));
+	numachip_write_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS,SCC,0x40);
+	printf("WRITE:H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS =%0x\n", 0x40);
+	printf("READBACK:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS,SCC));
+	// G3xC10 Tracer Event Address (Lower Bits)
+	// `Node0.local_write_csr(CSR_H2S_TRACER_ADDR1, mpu1_addr_plus200[37:6]);
+	//numachip_write_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS,mpu1_addr_plus200[37:6]);
+	printf("READBEFORE:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS,SCC));
+	numachip_write_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS,SCC,0x4000008);
+	printf("WRITE:H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS =0x%x\n", 0x4000008);
+	printf("READBACK:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS,SCC));
+	// G3xC14 Tracer Select, Compare and Mask
+	//Node0.local_write_csr(CSR_H2S_TRACER_SCM, 32'h0001_3F3F);
+	printf("READBEFORE:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK,SCC));
+	numachip_write_csr(cntxt,H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK,SCC,0x13F3F);
+	printf("WRITE:H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK 0x%x\n",0x13F3F);
+	printf("READBACK:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK,SCC));
+	// G4x700 MCTAG MAINTR (Maintenance Register)
+	// 8: RW Diagnose: Enable Tracer
+	//`Node0.local_write_csr(CSR_MTAG_MAINT_UTIL, 32'h0000_0107);
+	printf("READBEFORE:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G4_MCTAG_MAINTR,SCC));
+	numachip_write_csr(cntxt,H2S_CSR_G4_MCTAG_MAINTR,SCC,0x107);
+	printf("WRITE:H2S_CSR_G4_MCTAG_MAINTR 0x%x\n",0x107);
+	printf("READBACK:=%x\n", numachip_read_csr(cntxt,H2S_CSR_G4_MCTAG_MAINTR,SCC));
+	// G4xF00 MCTAG MAINTR (Maintenance Register)
+	// 8: RW Diagnose: Enable Tracer
+	// 7: RW Diagnose: Select Port1 at watchbus and tracer (only CDATA)
+	// `Node0.local_write_csr(CSR_CDAT_MAINT_UTIL, 32'h0000_0107);
+	printf("READBEFORE:%x\n", numachip_read_csr(cntxt,H2S_CSR_G4_CDATA_MAINTR,SCC));
+	numachip_write_csr(cntxt,H2S_CSR_G4_CDATA_MAINTR,SCC,0x107);
+	printf("WRITE:H2S_CSR_G4_CDATA_MAINTR 0x%x\n",0x107);
+	printf("READBACK:%x\n", numachip_read_csr(cntxt,H2S_CSR_G4_CDATA_MAINTR,SCC));
+
+	// G3x400 HReq Ctrl (REM)
+	// 31:30 RW Tracer address mode: 0= block, 1= ctag entry, 2= mtag sector, 3= all
+	// 29:28 RW Tracer event mode: 0 - requests and no conflicts, 
+	//                             1 - requests and conflicts, 
+	//                             2 - requests, state changes and no conflicts, 
+	//                             3 - requests, state changes and conflicts
+	//`Node0.local_write_csr(CSR_H2S_HREQ_CTRL, 32'hB002_0000);
+	value=numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC);
+	printf("READBEFORE:H2S_CSR_G3_HREQ_CTRL=%x read %x\n", value, numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC));
+	
+	numachip_write_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC,0xB0020000|value);
+	printf("WRITE:H2S_CSR_G3_HREQ_CTRL 0x%x\n",0xB0020000|value);
+	// G3xC00 Watch Bus Select, Limit
+	// Check if registers were setup correctly
+	// `Node0.local_read_csr(CSR_H2S_HREQ_CTRL, data[31:0]);
+	
+	printf("READBACK:H2S_CSR_G3_HREQ_CTRL=%x read %x\n", value, numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC));
+	
+
+	if (value & 0x1000) {
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x) H2S initialized after firmware initialization.(value 0x%x ) bit 12 is 1\n", H2S_CSR_G3_HREQ_CTRL, value);
+	} else {
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x) H2S initialized after reset (value 0x%x ) bit 12 is 0\n", H2S_CSR_G3_HREQ_CTRL, value);
+	}
+	
+	if (value&0xe000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 30 * 1024 cycles(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	else if (value&0xc000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 16 * 1024 cycles(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	else if (value&0xa000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 8 * 1024 cycles(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	else if (value&0x8000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 4 * 1024 cycles(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	else if (value&0x6000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 2 * 1024 cycles(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	else if (value&0x4000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 1 * 1024 cycles(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	else if (value&0x2000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 0,5 * 1024 cycles(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	else
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Delay for lock assertion: 0 * 1024 cycles (value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	
+	
+	if (value & 0x10000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Enable SMI Shutdown(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	if (value & 0x20000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Value of Error bit in coherent error responses(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	if (value & 0x40000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Value of NXA bit in coherent error responses(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	if (value & 0x60000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x): Enable weak ordering on coherent Posted WrSized(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	
+	if (value&0x30000000) 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer event mode:3 - requests, state changes and conflicts(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	else if (value&0x20000000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer event mode: 2 - requests, state changes and no conflicts(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+		   
+	else if (value&0x10000000) printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer event mode: 1 - requests and conflicts(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	else 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer event mode: 0 - requests and no conflicts,(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+
+	
+	if (value&0xa0000000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer address mode: block, ctag entry, mtag sector, 3 - all(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	else if (value&0x90000000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer address mode: 2 - mtag sector(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+
+	else if (value&0xa0000000)
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer address mode: 1 - ctag entry(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	else 
+	    printf("H2S_CSR_G3_HREQ_CTRL (0x%x):Tracer address mode: 0 - block(value 0x%x )\n", H2S_CSR_G3_HREQ_CTRL, value);
+	
+	
+	
+	//`Node0.local_read_csr(CSR_H2S_TRACER_CTRL, data[31:0]);
+	printf("INFO: H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+	// `Node0.local_read_csr(CSR_H2S_TRACER_STATUS, data[31:0]); // G3xC08 TracerStat
+	printf("INFO: H2S_CSR_G3_TRACERSTAT=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC));
+	//`Node0.local_read_csr(CSR_H2S_TRACER_ADDR0, data[31:0]);
+	printf("INFO: H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS,SCC));
+	//`Node0.local_read_csr(CSR_H2S_TRACER_ADDR1, data[31:0]);
+	printf("INFO: H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS,SCC));
+	//`Node0.local_read_csr(CSR_H2S_TRACER_SCM, data[31:0]);
+	printf("INFO: H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK,SCC));
+	//`Node0.local_read_csr(CSR_MTAG_MAINT_UTIL, data[31:0]);
+	printf("INFO: H2S_CSR_G4_MCTAG_MAINTR=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G4_MCTAG_MAINTR,SCC));
+	//`Node0.local_read_csr(CSR_CDAT_MAINT_UTIL, data[31:0]);
+	printf("INFO: H2S_CSR_G4_CDATA_MAINTR=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G4_CDATA_MAINTR,SCC));
+	//`Node0.local_read_csr(CSR_H2S_HREQ_CTRL, data[31:0]);
+	printf("H2S_CSR_G3_HREQ_CTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC));
+	//`Node0.local_read_csr(CSR_H2S_WATCH_BUS_SEL, data[31:0]);
+	printf("INFO: H2S_CSR_G3_WATCH_BUS_SELECT=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT,SCC));
+	
+	// Start Tracer
+	//`Node0.local_write_csr(CSR_H2S_TRACER_CTRL, 32'h0000_00002);
+	printf("READBEFORE: CSR_H2S_TRACER_CTRL=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+	printf("READBEFORE: CSR_H2S_TRACERSTAT =%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC));
+	numachip_write_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC,0x2);
+	printf("READBACK: CSR_H2S_TRACER_CTRL=%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+	printf("READBACK: CSR_H2S_TRACERSTAT =%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC));
+	
+	// Check if tracer stopped
+	//`Node0.local_read_csr(CSR_H2S_TRACER_STATUS, data[31:0]);
+	{
+	    unsigned int stopped=numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC);
+	    printf("INFO: H2S_CSR_G3_TRACERSTAT=%x\n", stopped);
+	    
+	    if (!(stopped & 0x1)) {
+		
+		printf("ERROR: Tracer not running!!! CSR_H2S_TRACER_STATUS = 0x%x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC));
+	    }
+	}
+    }
+    
+
+    /*
+      printf("H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+      printf("H2S_CSR_G3_TRACERSTAT=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC));
+      printf("H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS,SCC));
+      printf("H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS=%03x\n", numachip_read_csr(cntxt, H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS,SCC));
+      printf("H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK,SCC));
+      printf("H2S_CSR_G3_SELECT_COUNTER=%03x\n", numachip_read_csr(cntxt, H2S_CSR_G3_SELECT_COUNTER,SCC));
+      printf("H2S_CSR_G3_OVERFLOW_COUNTER_0_7=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_OVERFLOW_COUNTER_0_7,SCC));
+      printf("H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0,SCC));
+      printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS,SCC));
+      printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS,SCC));
+    */
+    
+    return 0;
+}
+
+unsigned int tracer_runtest(struct numachip_context *cntxt) {
+    // Start coherent test
+    sleep(60);
+    return 0;
+}
+    
+unsigned int tracer_result(struct numachip_context *cntxt) {
+    
+    
+
+    // TRACER SETUP
+    unsigned int  data=0x0, result=1;    
+    
+    result = 0x1; // Anticipate success, it will be set to 0 if tests fail.
+    
+    // Atle: Fill in??? coherence_testsi.cachestate_test(mpu0_addr,mpu1_addr,result);
+    sleep(10);
+    
+    // ============================================
+    // TRACER END STATUS
+    printf("INFO: TRACER END STATUS");
+    
+    // Stop Tracer
+    //`Node0.local_write_csr(CSR_H2S_TRACER_CTRL, 32'h0000_0003);
+    numachip_write_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC,0x3);
+    // Check if tracer stopped
+    //`Node0.local_read_csr(CSR_H2S_TRACER_CTRL, data[31:0]);
+    printf("INFO: H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+    
+    // Check if registers were setup correctly
+    //`Node0.local_read_csr(CSR_H2S_HREQ_CTRL, data[31:0]);
+    printf("H2S_CSR_G3_HREQ_CTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC));
+    
+    //`Node0.local_read_csr(CSR_H2S_TRACER_CTRL, data[31:0]);
+    printf("INFO: H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+    
+    // `Node0.local_read_csr(CSR_H2S_TRACER_SCM, data[31:0]);
+    printf("INFO: H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK,SCC));
+    // `Node0.local_read_csr(CSR_MTAG_MAINT_UTIL, data[31:0]);
+    printf("INFO: H2S_CSR_G4_MCTAG_MAINTR=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G4_MCTAG_MAINTR,SCC));
+    
+    // `Node0.local_read_csr(CSR_CDAT_MAINT_UTIL, data[31:0]);
+    printf("INFO: H2S_CSR_G4_CDATA_MAINTR=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G4_CDATA_MAINTR,SCC));
+    // `Node0.local_read_csr(CSR_H2S_HREQ_CTRL, data[31:0]);
+    printf("H2S_CSR_G3_HREQ_CTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_HREQ_CTRL,SCC));
+    
+    // `Node0.local_read_csr(CSR_H2S_WATCH_BUS_SEL, data[31:0]);
+    printf("INFO: H2S_CSR_G3_WATCH_BUS_SELECT=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT,SCC));
+    
+    
+    // Find the last valid tracer address (obtained from CSR_H2S_TRACER_STATUS bit 10:1)
+    // `Node0.local_read_csr(CSR_H2S_TRACER_STATUS, data[31:0]); // G3xC08 TracerStat
+    {
+	unsigned int zeroCnt = 0;
+	unsigned int tracerEndAddr=0, tracerLoop=0; 
+	data=numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC);
+	
+	printf("INFO: H2S_CSR_G3_TRACERSTAT=%03x\n", data);
+	
+	//Tracer address is bit 10:1 bit 0 is Running (1) / Stopped (0)
+	//tracerEndAddr[11:0] = {data[10:1], 2'b00};
+	tracerEndAddr=data & 0xFFE;
+	
+	// Dump tracer RAM contents
+	// G5x000 - G5xFFC Tracer RAM (1024x 32Bit)
+	//Starting at H2S_CSR_G5_TRACER_RAM_1024X_32BIT_0
+	// Read the tracer only up to the last valid address
+	if (tracerEndAddr == 0) printf("ERROR: Tracer RAM is EMPTY - nothing was captured!\n");		  
+	else {
+	    for (tracerLoop = 0; tracerLoop <= tracerEndAddr; tracerLoop = tracerLoop + 4)
+	    {
+		
+		//`Node0.local_read_csr((CSR_TRC_000 + tracerLoop), data[31:0]);
+		data=numachip_read_csr(cntxt,H2S_CSR_G5_TRACER_RAM_1024X_32BIT_0+tracerLoop,SCC);
+		printf("INFO: H2S_CSR_G3_TRACERSTAT=%03x\n", data);
+		if (data != 0) {
+		    printf("INFO: Tracer RAM data at address: 0x%x = 0x%x",
+			   (H2S_CSR_G5_TRACER_RAM_1024X_32BIT_0 + tracerLoop),
+			   data);
+		    zeroCnt = 0;
+		}
+	    }
+	}
+	
+    }	 
+    
+    printf("=====================================================================");
+    
+
+    
+    
+    /*
+      printf("H2S_CSR_G3_TRACERCTRL=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERCTRL,SCC));
+      printf("H2S_CSR_G3_TRACERSTAT=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT,SCC));
+      printf("H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS,SCC));
+      printf("H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS=%03x\n", numachip_read_csr(cntxt, H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS,SCC));
+      printf("H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK,SCC));
+      printf("H2S_CSR_G3_SELECT_COUNTER=%03x\n", numachip_read_csr(cntxt, H2S_CSR_G3_SELECT_COUNTER,SCC));
+      printf("H2S_CSR_G3_OVERFLOW_COUNTER_0_7=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_OVERFLOW_COUNTER_0_7,SCC));
+      printf("H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0,SCC));
+      printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS,SCC));
+      printf("H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS=%03x\n", numachip_read_csr(cntxt,H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS,SCC));
+    */
+    
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     struct numachip_device **devices;
     struct numachip_context *cntxt;
-
+    
     int num_devices; 
-
+    
     devices = numachip_get_device_list(&num_devices);
     printf("Found %d NumaChip devices\n", num_devices);
-
+    
     if (!devices)
 	return -1;
-
+    
     cntxt = numachip_open_device(devices[0]);
     numachip_free_device_list(devices);
     
     if (!cntxt)
 	return -1;
-
-
-    init_test(cntxt);
-    phy_regs(cntxt);
-    read_lcregs(cntxt);
     
-
+    /*
+      init_test(cntxt);
+      phy_regs(cntxt);
+      read_lcregs(cntxt);
+    */
+    tracer_setup(cntxt);
+    //tracer_runtest(cntxt);
+    tracer_result(cntxt);
+    
     //lc3_perf();
-
+    
     (void)numachip_close_device(cntxt);
     return 0;
 }
