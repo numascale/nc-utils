@@ -2066,10 +2066,8 @@ static void update_mtrr(void)
     uint64_t *mtrr_fixed = (void *)REL(new_mtrr_fixed);
     uint32_t *fixed_mtrr_regs = (void *)REL(fixed_mtrr_regs);
 
-    for (int i = 0; i < 11; i++) {
+    for (int i = 0; i < 11; i++)
 	mtrr_fixed[i] = dnc_rdmsr(fixed_mtrr_regs[i]);
-	printf("i=%d mtrr_fixed=%p fixed_mtrr_regs=%p mtrr_fixed[i]=0x%016llx fixed_mtrr_regs[i]=0x%08x\n", i, mtrr_fixed, fixed_mtrr_regs, mtrr_fixed[i], fixed_mtrr_regs[i]);
-    }
 
     /* Store variable MTRRs */
     uint64_t *mtrr_var_base = (void *)REL(new_mtrr_var_base);
