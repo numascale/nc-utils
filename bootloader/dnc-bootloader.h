@@ -96,7 +96,6 @@ extern u16 ht_next_apic;
 extern u32 dnc_top_of_dram;
 extern u32 dnc_top_of_mem;
 
-unsigned char msleep(unsigned int msec);
 void tsc_wait(u32 mticks);
 int read_config_file(char *file_name);
 int udp_open(void);

@@ -55,7 +55,8 @@ static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
 static int ht_suppress = 0;
 int mem_offline = 0;
-u64 trace_buf_size = 0;
+u64 trace_buf = 0;
+u32 trace_buf_size = 0;
 int verbose = 0;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
