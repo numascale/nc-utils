@@ -11,7 +11,7 @@
 // Any unauthorized use, reproduction or transfer of the information
 // provided herein is strictly prohibited.
 //
-// Copyright © 2008-2011
+// Copyright © 2008-2012
 // Numascale AS Oslo, Norway.
 // All Rights Reserved.
 //
@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include "../interface/numachip-defines.h"
+#include "numachip_error.h"
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
@@ -41,7 +42,62 @@ typedef enum {
   LCZB
 } numachip_device_type_t;
 
+// --------------------------------------------------------------------------------------------- //
+// Select Counter: (Atle you should create enum.)
+// --------------------------------------------------------------------------------------------- //
+//       7 - cHT Cave [7:0]
+//       6 - MCTag [7:0]
+//       5 - FLAG [7:0]
+//       4 - CDATA [7:0]
+//       3 - LOC (HPrb)
+//       2 - LOC (SPrb) [7:0] - 
+//       1 - REM (Hreq) [7:0] - 
+//       0 - REM (SPrb) [7:0] - Probes from SCC
+//
 
+typedef enum {
+    REM_SPRB,
+    REM_HREQ,
+    LOC_SPRB,
+    LOC_HPRB,
+    CDATA,
+    FLAG,
+    MCTAG,
+    CHT_CAVE	
+} numachip_counter_value_t;
+
+typedef struct numachip_counter {
+
+    unsigned int counterno; //0-7
+    numachip_counter_value_t selection; //0-7
+    unsigned int event;
+
+} numachip_counter_t;
+
+/*
+struct numachip_perf_count {
+    unsigned int counters[8];
+    
+
+
+    unsigned int counterno=0;
+
+    // --------------------------------------------------------------------------------------------- //
+    // Event counter : (from r_hrqaddr.v)
+    // --------------------------------------------------------------------------------------------- //
+    //       7 - HT-Request start processing
+    //       6 - HT-Request with ctag miss
+    //       5 - HT-Request with ctag hit
+    //       4 - HT-Request with HReq conflict
+    //       3 - HT-Request with SPrb conflict
+    //       2 - HT-command unknown
+    //       1 - Broadcast messages
+    //       0 - Direct interrupt (no broadcast) - Arne
+
+    
+    
+}
+*/
 struct numachip_device;
 struct numachip_context;
 

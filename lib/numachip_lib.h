@@ -39,7 +39,7 @@ struct numachip_context {
     struct numachip_device      *device;
     int                         cfg_space_fd[2];
     int                         memfd;
-    struct numachip_csr_space            csr_space[7];
+    struct numachip_csr_space   csr_space[7];
 };
 
 HIDDEN int numachip_init(struct numachip_device ***list);
