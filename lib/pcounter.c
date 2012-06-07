@@ -61,6 +61,23 @@ void numachip_select_pcounter(struct numachip_context *cntxt,
 
 }
 
+unsigned int numachip_get_pcounter_select(struct numachip_context *cntxt,
+			      unsigned int counterno,
+			      nc_error_t *error) { 
+
+    *error = NUMACHIP_ERR_OK;
+    
+    if (counterno > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return 0;
+    }
+    
+    
+    return numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC);
+
+}
+
+
 /**
  * numachip_mask_counter - Apply counter mask
  *

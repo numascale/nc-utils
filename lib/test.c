@@ -667,13 +667,13 @@ void count_api_test2(struct numachip_context *cntxt) {
     numachip_select_pcounter(cntxt,0,0x1, &retval);
     if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
     numachip_select_pcounter(cntxt,1,0x1, &retval);
-    if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
-    
+    if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);    
     numachip_select_pcounter(cntxt,2,0x6, &retval);
     if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
     numachip_select_pcounter(cntxt,3,0x6, &retval);
     if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
-
+    
+    
     printf("/** Apply Mask **/\n");
     
     numachip_mask_pcounter(cntxt,0,6, &retval);
@@ -687,7 +687,12 @@ void count_api_test2(struct numachip_context *cntxt) {
     
     for (counter=0; counter<4; counter++) {
 	
-	printf("%d: mask 0x%x is 0x%llx (%lld) \n", counter,numachip_get_pcounter_mask(cntxt,counter,&retval),numachip_get_pcounter(cntxt,counter,&retval), numachip_get_pcounter(cntxt,counter,&retval));
+	printf("%d: select is 0x%x mask 0x%x is 0x%llx (%lld) \n",
+	       counter,
+	       numachip_get_pcounter_select(cntxt,counter,&retval),
+	       numachip_get_pcounter_mask(cntxt,counter,&retval),
+	       numachip_get_pcounter(cntxt,counter,&retval),
+	       numachip_get_pcounter(cntxt,counter,&retval));
 	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
     }
     
