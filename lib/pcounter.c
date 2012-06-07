@@ -34,12 +34,23 @@
 /**
  * numachip_select_counter - Select Performance Counter
  */
-nc_error_t numachip_select_pcounter(struct numachip_context *cntxt, unsigned int counterno, unsigned int eventreg) {
-    nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int current_counter_val=0;
+void numachip_select_pcounter(struct numachip_context *cntxt,
+			      unsigned int counterno,
+			      unsigned int eventreg,
+			      nc_error_t *error) { 
 
-    if (counterno > 7) return NUMACHIP_ERR_INVALID_PARAMETER;
-    if (eventreg > 7) return NUMACHIP_ERR_INVALID_PARAMETER;
+    unsigned int current_counter_val=0;
+    *error = NUMACHIP_ERR_OK;
+    
+    if (counterno > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return;
+    }
+    
+    if (eventreg > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return;
+    }
     
     
     current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC);
@@ -47,7 +58,7 @@ nc_error_t numachip_select_pcounter(struct numachip_context *cntxt, unsigned int
     current_counter_val=current_counter_val | ((eventreg << (counterno*4)));
     numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC,current_counter_val);
     DEBUG_STATEMENT(printf("Current counterval written 0x%x readback 0x%x\n",current_counter_val,numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER, SCC)));
-    return retval;
+
 }
 
 /**
@@ -164,17 +175,27 @@ nc_error_t numachip_select_pcounter(struct numachip_context *cntxt, unsigned int
  */
 
 
-nc_error_t numachip_mask_pcounter(struct numachip_context *cntxt, unsigned int counterno, unsigned int mask) 
-{
-    nc_error_t retval = NUMACHIP_ERR_OK;
+void numachip_mask_pcounter(struct numachip_context *cntxt,
+			    unsigned int counterno,
+			    unsigned int mask,
+			    nc_error_t *error) { 
+
     unsigned int mask_register, mask_value;
 
-    
-    if (counterno > 7) return NUMACHIP_ERR_INVALID_PARAMETER;
+    *error = NUMACHIP_ERR_OK;
+    if (counterno > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return;
+    }
+
     /*
-     * We will accept values from 0-7. And translage them in here
+     * We will accept values from 0-7. And translate them in here
      */
-    if (mask>7) return NUMACHIP_ERR_INVALID_PARAMETER;
+    
+    if (mask>7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return;
+    }
     //6,5,3,2
     
 
@@ -191,16 +212,19 @@ nc_error_t numachip_mask_pcounter(struct numachip_context *cntxt, unsigned int c
     numachip_write_csr(cntxt,mask_register,SCC,mask_value);
     DEBUG_STATEMENT(printf("Mask register at 0x%x is set to 0x%x READBACK: 0x%x\n",mask_register, mask_value,numachip_read_csr(cntxt,mask_register,SCC)));
 
-    return retval;
-
 }
 
 /*Stop also clears the mask. Not obvius*/
-nc_error_t numachip_stop_pcounter(struct numachip_context *cntxt, unsigned int counterno) {
-    nc_error_t retval = NUMACHIP_ERR_OK;
+void numachip_stop_pcounter(struct numachip_context *cntxt, unsigned int counterno, nc_error_t *error) {
+
     unsigned int current_counter_val, mask_register;
+
+    *error = NUMACHIP_ERR_OK;
+    if (counterno > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return;
+    }
 	
-    if (counterno > 7) return NUMACHIP_ERR_INVALID_PARAMETER;
     current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC);
     current_counter_val=0x77777777 & (~(0x7 << (counterno*4)));
     DEBUG_STATEMENT(printf("Current counterval to be stopped 0x%x\n",current_counter_val));
@@ -209,17 +233,21 @@ nc_error_t numachip_stop_pcounter(struct numachip_context *cntxt, unsigned int c
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
     numachip_write_csr(cntxt,mask_register,SCC,0);
     DEBUG_STATEMENT(printf("Mask register at 0x%x is set to 0x%x READBACK: 0x%x\n",mask_register, 0,numachip_read_csr(cntxt,mask_register,SCC)));
-    return retval;
 }
 
 /**
  * numachip_clear_counter - Clear Performance Counter Register
  */
-nc_error_t numachip_clear_pcounter(struct numachip_context *cntxt, unsigned int counterno) {
+void numachip_clear_pcounter(struct numachip_context *cntxt,
+			     unsigned int counterno,
+			     nc_error_t *error) { 
     unsigned int mask_register,  perf_reg, current_counter_val;
-    unsigned int retval = NUMACHIP_ERR_OK;
 
-    if (counterno > 7) return NUMACHIP_ERR_INVALID_PARAMETER;
+    *error = NUMACHIP_ERR_OK;
+    if (counterno > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return;
+    } 
     /*
      * 1. Clear: First we clear the counter selection, mask-register and the
      * corresponding performance register.
@@ -247,42 +275,21 @@ nc_error_t numachip_clear_pcounter(struct numachip_context *cntxt, unsigned int 
     numachip_write_csr(cntxt, perf_reg,SCC,0x0);
     perf_reg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + (0x8*counterno);
     numachip_write_csr(cntxt, perf_reg ,SCC,0x0);
-    return retval;
-    
+        
 }
 
    
 /**
- * numachip_clear_counter - Clear Performance Counter Register
+ * numachip_get_counter - Read Performance Counter Register
  */
-
-nc_error_t numachip_read_pcounter(struct numachip_context *cntxt,
-				  unsigned int counterno,
-				  unsigned int *upper_bits,
-				  unsigned int *lower_bits) {
-    
-    nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int perfreg=0;
-    if (counterno > 7) return NUMACHIP_ERR_INVALID_PARAMETER;
-
-    perfreg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS + (0x8*counterno);
-    *upper_bits=numachip_read_csr(cntxt,perfreg,SCC);
-    DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%x \n",perfreg, *upper_bits));
-
-    perfreg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + (0x8*counterno);
-    *lower_bits=numachip_read_csr(cntxt,perfreg,SCC);
-    DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%x \n", perfreg, *lower_bits));
-    
-    return retval;
-
-}
 
 unsigned long long numachip_get_pcounter(struct numachip_context *cntxt,
 					 unsigned int counterno, nc_error_t *error)
 {
     unsigned int perfreg=0;
     unsigned long long counterval=0;
-    
+
+    *error = NUMACHIP_ERR_OK;
     if (counterno > 7) {
 	*error=NUMACHIP_ERR_INVALID_PARAMETER;
 	return 0;
@@ -297,6 +304,6 @@ unsigned long long numachip_get_pcounter(struct numachip_context *cntxt,
     DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%x \n", perfreg, counterval));
     
     return counterval;
-
+    
 }
 
