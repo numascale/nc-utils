@@ -687,7 +687,7 @@ void count_api_test2(struct numachip_context *cntxt) {
     
     for (counter=0; counter<4; counter++) {
 	
-	printf("%d: select is 0x%x mask 0x%x is 0x%llx (%lld) \n",
+	printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
 	       counter,
 	       numachip_get_pcounter_select(cntxt,counter,&retval),
 	       numachip_get_pcounter_mask(cntxt,counter,&retval),
@@ -719,6 +719,22 @@ void count_api_test2(struct numachip_context *cntxt) {
 	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
     }
 
+    printf("Summary: \n");
+    printf("REM CAHCE HIT: %lld MISS %lld \n",
+	   numachip_get_pcounter(cntxt,1,&retval),
+	   numachip_get_pcounter(cntxt,0,&retval));
+
+    
+    printf("REM CAHCE HIT + MISS %lld \n",  numachip_get_pcounter(cntxt,0,&retval) + numachip_get_pcounter(cntxt,1,&retval));
+
+    {
+	unsigned long long total=numachip_get_pcounter(cntxt,0,&retval) + numachip_get_pcounter(cntxt,1,&retval);
+	double long  missrate = 100*numachip_get_pcounter(cntxt,0,&retval)/total;
+	double long hitrate=100*numachip_get_pcounter(cntxt,1,&retval)/total;
+	printf("REM CAHCE HIT + MISS %lld Miss rate %Lf \n",  total,missrate);
+	printf("REM CAHCE HIT + MISS %lld Hit rate %Lf \n",  total,hitrate);
+	
+    }
         
 }
 
