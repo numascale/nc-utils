@@ -291,8 +291,6 @@ u32 dnc_check_mctr_status(int cdata)
         ack |= dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_ACK_ADDR<<2));
         dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_ACK_ADDR<<2), ack);
     }
-    
-    tsc_wait(100);
 
     return val;
 }
@@ -361,6 +359,7 @@ int dnc_init_caches(void) {
                 
                 printf("Polling the Denali Interrupt Status Register\n");
                 do {
+                    tsc_wait(100);
                     val = dnc_check_mctr_status(cdata);
                 } while (!(val & 0x40));
                 
