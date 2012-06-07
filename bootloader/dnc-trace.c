@@ -16,6 +16,8 @@
  * All Rights Reserved.
  */
 
+#ifdef TRACING
+
 #include "dnc-trace.h"
 #include "dnc-commonlib.h"
 #include "dnc-bootloader.h"
@@ -39,3 +41,10 @@ void system_trace(void)
     stop_ht_trace(0);
 }
 
+#else
+
+void system_trace(void)
+{
+}
+
+#endif
