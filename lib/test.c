@@ -597,7 +597,17 @@ unsigned int tracer_result(struct numachip_context *cntxt) {
     return 0;
 }
 void usage () {
+/*    int counterno=0;
 
+
+    for (counterno=0;counterno<8; counterno++) {
+	printf("0x%x ~& ( 0x7 << (0x%x * 4 ) which is 0x%x = 0x%x\n",
+	       0x77777777,
+	       counterno,
+	       0x7 << (counterno * 4),
+	       (0x77777777 & (~(0x7 << (counterno *4)))));
+    }
+*/
     printf("./test [-dump-scc-csr] [-dump-phy-regs] [-dump-lc-csr] [-setup-tracer] [-tracer-result] [-lc3-perftest]\n");
 }
 
@@ -632,26 +642,26 @@ void select_h2s_count(struct numachip_context *cntxt, unsigned int counterno, un
 nc_error_t write_mask(struct numachip_context *cntxt, unsigned int mask_register, unsigned int mask) {
 
     
-    //       7 - HT-Request start processing
-    //       6 - HT-Request with ctag miss
-    //       5 - HT-Request with ctag hit
-    //       4 - HT-Request with HReq conflict
-    //       3 - HT-Request with SPrb conflict 
-    //       2 - HT-command unknown
-    //       1 - Broadcast messages
-    //       0 - Direct interrupt (no broadcast) - Arne
-
-    // assign prfMask0  = CSR_H2S_G3xFA0[`prfMask0Range];
-    // assign prfCom0   = CSR_H2S_G3xFA0[`prfCom0Range];
-    // assign pc0Event = |(prfMask0 & (prfCom0 ~^ Sel0Event));
-
-    /*
+    /*       7 - HT-Request start processing
+     *       6 - HT-Request with ctag miss
+     *      5 - HT-Request with ctag hit
+     *       4 - HT-Request with HReq conflict
+     *       3 - HT-Request with SPrb conflict 
+     *       2 - HT-command unknown
+     *       1 - Broadcast messages
+     *       0 - Direct interrupt (no broadcast) - Arne
+     *
+     * assign prfMask0  = CSR_H2S_G3xFA0[`prfMask0Range];
+     * assign prfCom0   = CSR_H2S_G3xFA0[`prfCom0Range];
+     * assign pc0Event = |(prfMask0 & (prfCom0 ~^ Sel0Event));
+     *(The or above means that we all all sevenregisters.
+     *
      * With the hdl code above (which is the documentation we got) we get the following if only we want look at event 6:
-     * prfCom0       100 0000 (0x40)
-     * ~^ Sel0Event  101 1010 (Event on some channels among them "6 - HT-Request with ctag miss")
-     * =             110 0101
-     * & prfMask0    100 0000
-     * =             100 0000
+     * prfCom0       10 0000 (0x40)
+     * ~^ Sel0Event  11 1010 (Event on some channels among them "6 - HT-Request with ctag miss")
+     * =             10 0101
+     * & prfMask0    10 0000
+     * =             10 0000
      * 
      */
 
@@ -705,9 +715,6 @@ nc_error_t start_h2s_count(struct numachip_context *cntxt, unsigned int countern
 
 void count(struct numachip_context *cntxt) {
 
-
-    
-
     // --------------------------------------------------------------------------------------------- //
     // Select Counter: (Atle you should create enum.)
     // --------------------------------------------------------------------------------------------- //
@@ -758,6 +765,171 @@ void count(struct numachip_context *cntxt) {
     print_h2s_count(cntxt);
         
 }
+
+void count_api_test(struct numachip_context *cntxt) {
+    unsigned int counter=0;
+    //unsigned int mask=0x20;
+    unsigned int mask=0x40;
+    nc_error_t retval = NUMACHIP_ERR_OK;
+
+    
+    printf("Timer or counter 0x%x\n", numachip_read_csr(cntxt, H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7,SCC));
+    //Counter mode
+    numachip_write_csr(cntxt,
+		       H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7,SCC,
+		       numachip_read_csr(cntxt, H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7,SCC) & 0xFFFFFFFE);
+    printf("Timer or counter 0x%x\n", numachip_read_csr(cntxt, H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7,SCC));
+
+    
+    printf("/** CLEAR CNT **/\n");
+    //for (counter=0; counter<8; counter++) 
+	retval=numachip_clear_pcounter(cntxt,counter);
+
+    printf("/** SELECT COUNTER **/\n");
+    //for (counter=0; counter<8; counter++) 
+    retval=numachip_select_pcounter(cntxt,counter,0x40);
+
+    printf("/** Apply Mask **/\n");
+    //for (counter=0; counter<8; counter++) 
+	retval=numachip_mask_pcounter(cntxt,counter,mask);
+    
+	//for (counter=0; counter<8; counter++)
+	{
+	unsigned int upper=0, lower=0;
+	retval=numachip_read_pcounter(cntxt,counter,&upper, &lower);
+	printf("%d: upper=0x%x lower=0x%x \n",counter, upper, lower);
+	printf("%d: 0x%llx (%lld) \n", counter,numachip_get_pcounter(cntxt,counter,&retval), numachip_get_pcounter(cntxt,counter,&retval));
+    }
+    sleep(10);
+    
+    printf("/*AFTER 10s*/\n");
+//    for (counter=0; counter<8; counter++) 
+	retval=numachip_stop_pcounter(cntxt,counter);
+    
+    printf("*STOP COUNTER* \n");
+//   for (counter=0; counter<8; counter++)
+    {
+	unsigned int upper=0, lower=0;
+	retval=numachip_read_pcounter(cntxt,counter,&upper, &lower);
+	printf("%d: upper=0x%x lower=0x%x \n",counter, upper, lower);
+	printf("%d: 0x%llx (%lld) \n", counter,numachip_get_pcounter(cntxt,counter,&retval), numachip_get_pcounter(cntxt,counter,&retval));
+    }
+    
+    
+    sleep(10);
+    printf("*CONFIRM STOPPED COUNTER AFTER 10s*/\n");
+
+    //for (counter=0; counter<8; counter++)
+    {
+	unsigned int upper=0, lower=0;
+	retval=numachip_read_pcounter(cntxt,counter,&upper, &lower);
+	printf("%d: upper=0x%x lower=0x%x (%d,%d)\n",counter, upper, lower, upper, lower);
+	printf("%d: 0x%llx (%lld) \n", counter,numachip_get_pcounter(cntxt,counter,&retval), numachip_get_pcounter(cntxt,counter,&retval));
+    }
+        
+}
+
+void count_api_test2(struct numachip_context *cntxt) {
+    nc_error_t retval = NUMACHIP_ERR_OK;
+    unsigned int counter=0;
+    printf("/** CLEAR CNT **/\n");
+    for (counter=0; counter<8; counter++) 
+	retval=numachip_clear_pcounter(cntxt,counter);
+
+    printf("/** SELECT COUNTER **/\n");
+    //for (counter=0; counter<8; counter++) 
+    retval=numachip_select_pcounter(cntxt,0,0x1);
+    retval=numachip_select_pcounter(cntxt,1,0x1);
+    
+    retval=numachip_select_pcounter(cntxt,2,0x6);
+    retval=numachip_select_pcounter(cntxt,3,0x6);	
+    printf("/** Apply Mask **/\n");
+    //for (counter=0; counter<8; counter++) 
+    retval=numachip_mask_pcounter(cntxt,0,6);
+    retval=numachip_mask_pcounter(cntxt,1,5);
+
+    retval=numachip_mask_pcounter(cntxt,2,3);
+    retval=numachip_mask_pcounter(cntxt,3,2);
+
+    
+    
+    for (counter=0; counter<4; counter++)
+	printf("%d: 0x%llx (%lld) \n", counter,numachip_get_pcounter(cntxt,counter,&retval), numachip_get_pcounter(cntxt,counter,&retval));
+
+    
+    sleep(10);
+    
+    printf("/*AFTER 10s*/\n");
+    for (counter=0; counter<4; counter++) 
+	retval=numachip_stop_pcounter(cntxt,counter);
+    
+    printf("*STOP COUNTER* \n");
+   for (counter=0; counter<4; counter++)
+	printf("%d: 0x%llx (%lld) \n", counter,numachip_get_pcounter(cntxt,counter,&retval), numachip_get_pcounter(cntxt,counter,&retval));
+    
+    sleep(10);
+    printf("*CONFIRM STOPPED COUNTER AFTER 10s*/\n");
+
+
+    for (counter=0; counter<4; counter++)
+	printf("%d: 0x%llx (%lld) \n", counter,numachip_get_pcounter(cntxt,counter,&retval), numachip_get_pcounter(cntxt,counter,&retval));
+
+        
+}
+
+void count_api_compare_test(struct numachip_context *cntxt) {
+    unsigned int counter=0;
+    unsigned int mask=6;
+    nc_error_t retval = NUMACHIP_ERR_OK;
+    printf("/**************/\n");
+    printf(" * CLEAR CNT **/\n");
+    printf("/**************/\n");
+    for (counter=0; counter<8; counter++) 
+	retval=numachip_clear_pcounter(cntxt,counter);
+    counter=0;
+    printf("/**************/\n");
+    printf(" ** SELE CNT **/\n");
+    printf("/**************/\n");
+
+    for (counter=0; counter<8; counter++) 
+	retval=numachip_mask_pcounter(cntxt,counter,mask);
+
+/*    for (counter=0; counter<8; counter++)
+      retval=numachip_select_pcounter(cntxt,counter);*/
+    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC,0x77777777);
+
+
+    sleep(10);
+    printf("/**************/\n");
+    printf("*AFTER 10s*/\n");
+    printf("/**************/\n");
+    
+    /*for (counter=0; counter<8; counter++) 
+	retval=numachip_stop_pcounter(cntxt,counter);
+    */
+    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC,0x0);
+    
+    printf("/**************/\n");
+    printf("*STOP COUNTER* \n");
+    printf("/**************/\n");
+    
+    for (counter=0; counter<8; counter++) {
+	unsigned int upper=0, lower=0;
+	retval=numachip_read_pcounter(cntxt,counter,&upper, &lower);
+	printf("%d: upper=0x%x lower=0x%x \n",counter, upper, lower);
+    }
+    sleep(10);
+    printf("/**************/\n");
+    printf("*CONFIRM STOPPED COUNTER AFTER 10s*/\n");
+    printf("/**************/\n");
+    for (counter=0; counter<8; counter++) {
+	unsigned int upper=0, lower=0;
+	retval=numachip_read_pcounter(cntxt,counter,&upper, &lower);
+	printf("%d: upper=0x%x lower=0x%x \n",counter, upper, lower);
+    }
+        
+}
+
 void close_device(struct numachip_context *cntxt) {
     (void)numachip_close_device(cntxt);
 }
@@ -821,6 +993,21 @@ int main(int argc, char **argv)
 	    continue;
 	}
 
+	if (!strcmp("-count-api",argv[counter])) {	    
+	    count_api_test(cntxt);
+	    continue;
+	}
+
+	if (!strcmp("-count-api2",argv[counter])) {	    
+	    count_api_test2(cntxt);
+	    continue;
+	}
+
+	if (!strcmp("-count-api-compare",argv[counter])) {	    
+	    count_api_compare_test(cntxt);
+	    continue;
+	}
+	
 	if (!strcmp("-count",argv[counter])) {	    
 	    count(cntxt);
 	    continue;
@@ -828,7 +1015,7 @@ int main(int argc, char **argv)
 	
     }
 
-
+    
     //
     close_device(cntxt);
  

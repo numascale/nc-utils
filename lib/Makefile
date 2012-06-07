@@ -2,7 +2,7 @@ TARGETS   = libnumachip_user.so test
 
 CFLAGS    = -O2 -D_GNU_SOURCE -Wall -g
 
-LIBSRC    = init.c device.c sysfs.c memops.c
+LIBSRC    = init.c device.c pcounter.c sysfs.c memops.c
 
 .PHONY: all
 all: $(TARGETS)

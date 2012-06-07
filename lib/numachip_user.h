@@ -167,6 +167,17 @@ void numachip_write_config(struct numachip_context *context,
 			   uint8_t fn, uint16_t offset, uint32_t value);
 
 /**
+ * numachip_select_counter - Select Performance Counter
+ */
+nc_error_t numachip_select_pcounter(struct numachip_context *cntxt, unsigned int counterno, unsigned int eventreg);
+nc_error_t numachip_clear_pcounter(struct numachip_context *cntxt, unsigned int counterno);
+nc_error_t numachip_mask_pcounter(struct numachip_context *cntxt, unsigned int counterno, unsigned int mask);
+nc_error_t numachip_stop_pcounter(struct numachip_context *cntxt, unsigned int counterno);
+nc_error_t numachip_read_pcounter(struct numachip_context *cntxt, unsigned int counterno, unsigned int *upper, unsigned int *lower);
+unsigned long long numachip_get_pcounter(struct numachip_context *cntxt,
+					 unsigned int counterno, nc_error_t *error);
+
+/**
  * numachip_sge_copy - Optimized SG Copy
  */
 void numachip_sge_copy(struct numachip_sge *sg_list, int num_sge);
