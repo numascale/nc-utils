@@ -214,6 +214,23 @@ void numachip_mask_pcounter(struct numachip_context *cntxt,
 
 }
 
+unsigned int numachip_get_pcounter_mask(struct numachip_context *cntxt,
+			    unsigned int counterno,
+			    nc_error_t *error) { 
+
+    unsigned int mask_register;
+
+    *error = NUMACHIP_ERR_OK;
+    if (counterno > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return 0;
+    }
+
+    mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
+    return numachip_read_csr(cntxt,mask_register,SCC);
+
+}
+
 /*Stop also clears the mask. Not obvius*/
 void numachip_stop_pcounter(struct numachip_context *cntxt, unsigned int counterno, nc_error_t *error) {
 

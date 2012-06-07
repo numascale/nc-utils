@@ -182,10 +182,13 @@ void numachip_mask_pcounter(struct numachip_context *cntxt,
 			    nc_error_t *error);
 void numachip_stop_pcounter(struct numachip_context *cntxt,
 			    unsigned int counterno,
-			    nc_error_t *error);				  
+			    nc_error_t *error);
+unsigned int numachip_get_pcounter_mask(struct numachip_context *cntxt,
+					unsigned int counterno,
+					nc_error_t *error) ;
 unsigned long long numachip_get_pcounter(struct numachip_context *cntxt,
 					 unsigned int counterno,
-			    nc_error_t *error);				  
+					 nc_error_t *error);				  
 
 /**
  * numachip_sge_copy - Optimized SG Copy
