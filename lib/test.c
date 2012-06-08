@@ -729,10 +729,10 @@ void count_api_test2(struct numachip_context *cntxt) {
 
     {
 	unsigned long long total=numachip_get_pcounter(cntxt,0,&retval) + numachip_get_pcounter(cntxt,1,&retval);
-	double long  missrate = 100*numachip_get_pcounter(cntxt,0,&retval)/total;
-	double long hitrate=100*numachip_get_pcounter(cntxt,1,&retval)/total;
-	printf("REM CAHCE HIT + MISS %lld Miss rate %Lf \n",  total,missrate);
-	printf("REM CAHCE HIT + MISS %lld Hit rate %Lf \n",  total,hitrate);
+	double long  missrate = (double long) 100*numachip_get_pcounter(cntxt,0,&retval)/total;
+	double long hitrate=(double long)100*numachip_get_pcounter(cntxt,1,&retval)/total;
+	printf("REM CAHCE HIT + MISS %lld Miss rate %0.2Lf \n",  total,missrate);
+	printf("REM CAHCE HIT + MISS %lld Hit rate %0.2Lf \n",  total,hitrate);
 	
     }
         
