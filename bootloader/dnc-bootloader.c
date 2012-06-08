@@ -106,7 +106,6 @@ extern u8 smm_handler_end;
 
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
-static com32sys_t inreg, outreg;
 
 void tsc_wait(u32 mticks) {
     u64 count;
@@ -117,17 +116,6 @@ void tsc_wait(u32 mticks) {
     while(stop > count) {
         count = rdtscll() >> 1;
     }
-}
-
-unsigned char msleep(unsigned int msec)
-{
-    unsigned long micro = 1000*msec;
-
-    inreg.eax.b[1] = 0x86;
-    inreg.ecx.w[0] = (micro >> 16);
-    inreg.edx.w[0] = (micro & 0xFFFF);
-    __intcall(0x15, &inreg, &outreg);
-    return outreg.eax.b[1];
 }
 
 static void disable_xtpic(void) {
@@ -333,8 +321,10 @@ static void update_e820_map(void)
 	}
     }
 
-    if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size))
+    if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size)) {
 	e820[max].length -= trace_buf_size;
+	trace_buf = e820[max].base + e820[max].length;
+    }
 
     /* Add remote nodes */
     for (i = 0; i < dnc_node_count; i++) {

@@ -17,6 +17,7 @@
 //
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include "dnc-regs.h"
 #include "dnc-defs.h"
