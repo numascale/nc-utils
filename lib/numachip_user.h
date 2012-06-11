@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include "../interface/numachip-defines.h"
 #include "numachip_error.h"
+#include "dnc-types.h"
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
@@ -98,6 +99,28 @@ struct numachip_perf_count {
     
 }
 */
+struct fabric_info {
+    u32 x_size;
+    u32 y_size;
+    u32 z_size;
+    u32 strict;
+};
+
+struct node_info {
+    u32 uuid;
+    u32 sciid;
+    u32 partition;
+    u32 osc;
+    char desc[32];
+    u32 sync_only;
+};
+
+struct part_info {
+    u32 master;
+    u32 builder;
+};
+
+
 struct numachip_device;
 struct numachip_context;
 
@@ -106,6 +129,11 @@ struct numachip_sge {
     uint64_t to;
     uint32_t length;
 } __attribute__((aligned(16)));
+
+
+int parse_config_file(const char *filename,
+		      struct node_info **cfg_nodelist,
+		      int *num_nodes);
 
 const char *numachip_device_str(numachip_device_type_t str);
 

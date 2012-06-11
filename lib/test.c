@@ -29,6 +29,9 @@
 
 #define DEBUG_STATEMENT(x)
 
+int cfg_nodes;
+struct node_info *cfg_nodelist;
+
 unsigned int link_up(struct numachip_context *cntxt, unsigned int lc);
 /* check for link instability */
 //static int cht_error(int node, int link)
@@ -597,7 +600,7 @@ unsigned int tracer_result(struct numachip_context *cntxt) {
     return 0;
 }
 void usage () {
-    printf("./test [-dump-scc-csr] [-dump-phy-regs] [-dump-lc-csr] [-setup-tracer] [-tracer-result] [-lc3-perftest]\n");
+    printf("./test [-dump-scc-csr] [-dump-phy-regs] [-dump-lc-csr] [-setup-tracer] [-tracer-result] [-lc3-perftest] [-count-api] [-count-api2] [-count-api-compare] [-parse-json]\n");
 }
 
 void count_api_test(struct numachip_context *cntxt) {
@@ -805,7 +808,8 @@ int main(int argc, char **argv)
     struct numachip_context *cntxt;
     int counter=0;
     int num_devices; 
-
+    const char *filename = "fabric-loop-05.json";
+    
     if (argc<2) {
         usage();
         return(-1);
@@ -871,7 +875,16 @@ int main(int argc, char **argv)
 	    count_api_compare_test(cntxt);
 	    continue;
 	}
-	
+	if (!strcmp("-parse-json",argv[counter])) {
+	    int i = 0;
+	    parse_config_file(filename,&cfg_nodelist,&cfg_nodes);
+	    for (i = 0; i < cfg_nodes; i++)
+		printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
+		       i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
+		       cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
+		       cfg_nodelist[i].osc, cfg_nodelist[i].sync_only);
+	    
+	}
     }
 
     
