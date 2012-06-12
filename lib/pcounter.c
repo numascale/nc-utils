@@ -53,11 +53,11 @@ void numachip_select_pcounter(struct numachip_context *cntxt,
     }
     
     
-    current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC);
+    current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
     DEBUG_STATEMENT(printf("Current counterval read 0x%x eventreg 0x%x\n", current_counter_val, eventreg));
     current_counter_val=current_counter_val | ((eventreg << (counterno*4)));
-    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC,current_counter_val);
-    DEBUG_STATEMENT(printf("Current counterval written 0x%x readback 0x%x\n",current_counter_val,numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER, SCC)));
+    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,current_counter_val);
+    DEBUG_STATEMENT(printf("Current counterval written 0x%x readback 0x%x\n",current_counter_val,numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER)));
 
 }
 
@@ -73,7 +73,7 @@ unsigned int numachip_get_pcounter_select(struct numachip_context *cntxt,
     }
     
     
-    return numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC);
+    return numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
 
 }
 
@@ -226,8 +226,8 @@ void numachip_mask_pcounter(struct numachip_context *cntxt,
     //We use the same value for compare and mask to only count this event.
     mask_value= (mask_value << 8) | mask_value;
     DEBUG_STATEMENT(printf("2.We program the mask_register to count 6 - HT-Request with ctag miss  (and the counting starts) mask value 0x%x\n", mask_value));
-    numachip_write_csr(cntxt,mask_register,SCC,mask_value);
-    DEBUG_STATEMENT(printf("Mask register at 0x%x is set to 0x%x READBACK: 0x%x\n",mask_register, mask_value,numachip_read_csr(cntxt,mask_register,SCC)));
+    numachip_write_csr(cntxt,mask_register,mask_value);
+    DEBUG_STATEMENT(printf("Mask register at 0x%x is set to 0x%x READBACK: 0x%x\n",mask_register, mask_value,numachip_read_csr(cntxt,mask_register)));
 
 }
 
@@ -244,7 +244,7 @@ unsigned int numachip_get_pcounter_mask(struct numachip_context *cntxt,
     }
 
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
-    return numachip_read_csr(cntxt,mask_register,SCC);
+    return numachip_read_csr(cntxt,mask_register);
 
 }
 
@@ -259,14 +259,14 @@ void numachip_stop_pcounter(struct numachip_context *cntxt, unsigned int counter
 	return;
     }
 	
-    current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC);
+    current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
     current_counter_val=0x77777777 & (~(0x7 << (counterno*4)));
     DEBUG_STATEMENT(printf("Current counterval to be stopped 0x%x\n",current_counter_val));
-    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC,current_counter_val);
-    DEBUG_STATEMENT(printf("Select register at 0x%x is set to 0x%x READBACK: 0x%x\n",H2S_CSR_G3_SELECT_COUNTER,current_counter_val,numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC)));
+    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,current_counter_val);
+    DEBUG_STATEMENT(printf("Select register at 0x%x is set to 0x%x READBACK: 0x%x\n",H2S_CSR_G3_SELECT_COUNTER,current_counter_val,numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER)));
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
-    numachip_write_csr(cntxt,mask_register,SCC,0);
-    DEBUG_STATEMENT(printf("Mask register at 0x%x is set to 0x%x READBACK: 0x%x\n",mask_register, 0,numachip_read_csr(cntxt,mask_register,SCC)));
+    numachip_write_csr(cntxt,mask_register,0);
+    DEBUG_STATEMENT(printf("Mask register at 0x%x is set to 0x%x READBACK: 0x%x\n",mask_register, 0,numachip_read_csr(cntxt,mask_register)));
 }
 
 /**
@@ -291,24 +291,24 @@ void numachip_clear_pcounter(struct numachip_context *cntxt,
      */
     
     DEBUG_STATEMENT(printf("1. Clear: First we clear the counter selection %d .\n", counterno));
-    current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC);
+    current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
     DEBUG_STATEMENT(printf("Current counterval before to be cleared 0x%x\n",current_counter_val));
     current_counter_val=current_counter_val & (~(0x7 << (counterno*4)));
     DEBUG_STATEMENT(printf("Current counterval to be cleared 0x%x\n",current_counter_val));
-    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,SCC,current_counter_val);
+    numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,current_counter_val);
     /* We need to clear the corresponing comare and mask register we are planning to use:
      * H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 (0xFA0 + 0x4*counterno)
      */
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
-    numachip_write_csr(cntxt,mask_register,SCC,0x0);
+    numachip_write_csr(cntxt,mask_register,0x0);
 
     /* We need to clear the corresponding Performance counter register we plan to use
      * H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS (0xFC0 + (0x8
      */
     perf_reg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS + (0x8*counterno);
-    numachip_write_csr(cntxt, perf_reg,SCC,0x0);
+    numachip_write_csr(cntxt, perf_reg,0x0);
     perf_reg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + (0x8*counterno);
-    numachip_write_csr(cntxt, perf_reg ,SCC,0x0);
+    numachip_write_csr(cntxt, perf_reg ,0x0);
         
 }
 
@@ -330,11 +330,11 @@ unsigned long long numachip_get_pcounter(struct numachip_context *cntxt,
     }
     
     perfreg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS + (0x8*counterno);
-    counterval= (unsigned long long) numachip_read_csr(cntxt,perfreg,SCC) << 32;
+    counterval= (unsigned long long) numachip_read_csr(cntxt,perfreg) << 32;
     DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%x \n",perfreg, counterval));
     
     perfreg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + (0x8*counterno);
-    counterval= (unsigned long long) counterval | numachip_read_csr(cntxt,perfreg,SCC);
+    counterval= (unsigned long long) counterval | numachip_read_csr(cntxt,perfreg);
     DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%x \n", perfreg, counterval));
     
     return counterval;

@@ -29,20 +29,55 @@ enum {
 
 
 struct numachip_device {
-    char dev_path[NUMACHIP_SYSFS_PATH_MAX];
+    //char dev_path[NUMACHIP_SYSFS_PATH_MAX];
+    int nodeid;
 };
+
 struct numachip_csr_space {
     uint32_t                    *csr;
 };
 
 struct numachip_context {
     struct numachip_device      *device;
-    int                         cfg_space_fd[2];
     int                         memfd;
-    struct numachip_csr_space   csr_space[7];
+    struct numachip_csr_space   csr_space;
+    
 };
 
-HIDDEN int numachip_init(struct numachip_device ***list);
+
+// --------------------------------------------------------------------------------------------- //
+// Select Counter: 
+// --------------------------------------------------------------------------------------------- //
+//       7 - cHT Cave [7:0]
+//       6 - MCTag [7:0]
+//       5 - FLAG [7:0]
+//       4 - CDATA [7:0]
+//       3 - LOC (HPrb)
+//       2 - LOC (SPrb) [7:0] - 
+//       1 - REM (Hreq) [7:0] - 
+//       0 - REM (SPrb) [7:0] - Probes from SCC
+//
+typedef enum {
+    REM_SPRB,
+    REM_HREQ,
+    LOC_SPRB,
+    LOC_HPRB,
+    CDATA,
+    FLAG,
+    MCTAG,
+    CHT_CAVE	
+} numachip_counter_value_t;
+
+typedef struct numachip_counter {
+
+    unsigned int counterno; //0-7
+    numachip_counter_value_t selection; //0-7
+    unsigned int event;
+
+} numachip_counter_t;
+
+
+HIDDEN int numachip_init(struct numachip_device ***list, const char *filename);
 
 /*
  * sysfs helper functions

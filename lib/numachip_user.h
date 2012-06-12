@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include "../interface/numachip-defines.h"
 #include "numachip_error.h"
-#include "dnc-types.h"
+
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
@@ -32,6 +32,9 @@
 #endif /* __cplusplus */
 
 BEGIN_C_DECLS
+
+#define NUMACHIP_CSR_BASE 0x3fff00000000ULL;
+
 
 typedef enum {
   SCC = 0,
@@ -43,84 +46,6 @@ typedef enum {
   LCZB
 } numachip_device_type_t;
 
-// --------------------------------------------------------------------------------------------- //
-// Select Counter: (Atle you should create enum.)
-// --------------------------------------------------------------------------------------------- //
-//       7 - cHT Cave [7:0]
-//       6 - MCTag [7:0]
-//       5 - FLAG [7:0]
-//       4 - CDATA [7:0]
-//       3 - LOC (HPrb)
-//       2 - LOC (SPrb) [7:0] - 
-//       1 - REM (Hreq) [7:0] - 
-//       0 - REM (SPrb) [7:0] - Probes from SCC
-//
-
-typedef enum {
-    REM_SPRB,
-    REM_HREQ,
-    LOC_SPRB,
-    LOC_HPRB,
-    CDATA,
-    FLAG,
-    MCTAG,
-    CHT_CAVE	
-} numachip_counter_value_t;
-
-typedef struct numachip_counter {
-
-    unsigned int counterno; //0-7
-    numachip_counter_value_t selection; //0-7
-    unsigned int event;
-
-} numachip_counter_t;
-
-/*
-struct numachip_perf_count {
-    unsigned int counters[8];
-    
-
-
-    unsigned int counterno=0;
-
-    // --------------------------------------------------------------------------------------------- //
-    // Event counter : (from r_hrqaddr.v)
-    // --------------------------------------------------------------------------------------------- //
-    //       7 - HT-Request start processing
-    //       6 - HT-Request with ctag miss
-    //       5 - HT-Request with ctag hit
-    //       4 - HT-Request with HReq conflict
-    //       3 - HT-Request with SPrb conflict
-    //       2 - HT-command unknown
-    //       1 - Broadcast messages
-    //       0 - Direct interrupt (no broadcast) - Arne
-
-    
-    
-}
-*/
-struct fabric_info {
-    u32 x_size;
-    u32 y_size;
-    u32 z_size;
-    u32 strict;
-};
-
-struct node_info {
-    u32 uuid;
-    u32 sciid;
-    u32 partition;
-    u32 osc;
-    char desc[32];
-    u32 sync_only;
-};
-
-struct part_info {
-    u32 master;
-    u32 builder;
-};
-
-
 struct numachip_device;
 struct numachip_context;
 
@@ -131,11 +56,7 @@ struct numachip_sge {
 } __attribute__((aligned(16)));
 
 
-int parse_config_file(const char *filename,
-		      struct node_info **cfg_nodelist,
-		      int *num_nodes);
-
-const char *numachip_device_str(numachip_device_type_t str);
+//const char *numachip_device_str(numachip_device_type_t str);
 
 /**
  * numachip_get_device_list - Get list of NumaChip devices currently available
@@ -145,7 +66,7 @@ const char *numachip_device_str(numachip_device_type_t str);
  * Return a NULL-terminated array of NumaChip devices.  The array can be
  * released with numachip_free_device_list().
  */
-struct numachip_device **numachip_get_device_list(int *num_devices);
+struct numachip_device **numachip_get_device_list(int *num_devices, const char *filename);
 
 /**
  * numachip_free_device_list - Free list from numachip_get_device_list()
@@ -171,15 +92,13 @@ int numachip_close_device(struct numachip_context *context);
  * numachip_read_csr - Read CSR
  */
 uint32_t numachip_read_csr(struct numachip_context *context,
-			   uint16_t offset, 
-			   numachip_device_type_t nc_device
+			   uint16_t offset
 			   );
 /**
  * numachip_write_csr - Write CSR
  */
 void numachip_write_csr(struct numachip_context *context,
-			uint16_t offset, 
-			numachip_device_type_t nc_device, uint32_t value
+			uint16_t offset, uint32_t value
 			);
 
 /**

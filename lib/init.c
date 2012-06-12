@@ -26,11 +26,12 @@
 #include <sys/stat.h>
 
 #include "numachip_lib.h"
+#include "numachip_config.h"
 
 #define NUMASCALE_VENDOR_ID   0x1B47
 #define NUMACHIP_DEVICE_ID    0x0601
-
-static void add_device(char *dev_path,
+#define DEBUG_STATEMENT(x)
+static void add_device(int nodeid,
 		       struct numachip_device ***dev_list,
 		       int *ndevices,
 		       int *list_size)
@@ -42,7 +43,7 @@ static void add_device(char *dev_path,
     if (!dev)
 	return;
 
-    strncpy(dev->dev_path, dev_path, NUMACHIP_SYSFS_PATH_MAX);
+    dev->nodeid=nodeid;
 
     if (*list_size <= *ndevices) {
 	*list_size = *list_size ? *list_size * 2 : 1;
@@ -57,12 +58,27 @@ static void add_device(char *dev_path,
     (*dev_list)[(*ndevices)++] = dev;
 }
 
-HIDDEN int numachip_init(struct numachip_device ***list)
+
+HIDDEN int numachip_init(struct numachip_device ***list, const char *filename)
 {
     int ndevices = 0;
     int list_size = 0;
+    int cfg_nodes;
+    struct node_info *cfg_nodelist;
+    int i = 0;
 
-    add_device("/sys/devices/pci0000:00/0000:00:1a", list, &ndevices, &list_size);
+    //parse_json_file
+    
 
+    parse_config_file(filename,&cfg_nodelist,&cfg_nodes);
+    for (i = 0; i < cfg_nodes; i++) {
+	DEBUG_STATEMENT(printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
+			       i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
+			       cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
+			       cfg_nodelist[i].osc, cfg_nodelist[i].sync_only));
+	
+	add_device(cfg_nodelist[i].sciid, list, &ndevices, &list_size);
+    }
+  
     return ndevices;
 }
