@@ -734,7 +734,7 @@ void count_api_stop4(struct numachip_context **cntxt, unsigned int num_nodes) {
 void count_api_read4(struct numachip_context **cntxt, unsigned int num_nodes) {
     nc_error_t retval = NUMACHIP_ERR_OK;
     unsigned int node=0;
-    
+    printf("************************************************\n");
     for(node=0; node<num_nodes; node++) {
 	unsigned long long hit=numachip_get_pcounter(cntxt[node],1,&retval);
 	unsigned long long miss=numachip_get_pcounter(cntxt[node],0,&retval);
@@ -742,9 +742,8 @@ void count_api_read4(struct numachip_context **cntxt, unsigned int num_nodes) {
 	double long  missrate = (double long) 100*miss/total;
 	double long hitrate=(double long)100*hit/total;
 
-	printf("************************************************");
-	printf("Node %d: REM CAHCE HIT: %lld MISS %lld total %lld\n",node,
-	       hit,miss, total);
+
+	//printf("Node %d: REM CAHCE HIT: %lld MISS %lld total %lld\n",node, hit,miss, total);
         if (total==0) {
 	    printf("Node %d: NO hits or miss in remote cache\n", node);
 	} else if (miss==0) {
@@ -752,11 +751,13 @@ void count_api_read4(struct numachip_context **cntxt, unsigned int num_nodes) {
 	} else if (hit==0) {
 	    printf("Node %d: Miss rate 100 percent \n", node);
 	} else {
-	    printf("Node %d: Miss rate %0.2Lf  Hit rate %0.2Lf \n",  node,misrate,hitrate);
+	    printf("Node %d: Miss rate %0.2Lf  Hit rate %0.2Lf \n",  node,missrate,hitrate);
 	    
 	}
-	printf("************************************************");
+
     }
+    printf("************************************************\n");
+	
 }
 void count_api_compare_test(struct numachip_context *cntxt) {
     unsigned int counter=0;
