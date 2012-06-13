@@ -731,6 +731,80 @@ void count_api_stop4(struct numachip_context **cntxt, unsigned int num_nodes) {
     
 }
 
+void count_api_start_silent(struct numachip_context **cntxt, unsigned int num_nodes) {
+
+    nc_error_t retval = NUMACHIP_ERR_OK;
+    unsigned int node=0, counter=0;
+    //printf("/** CLEAR CNT **/\n");
+    for(node=0; node<num_nodes; node++) {
+	for (counter=0; counter<8; counter++) {
+	    numachip_clear_pcounter(cntxt[node],counter,&retval);
+	    if (retval != NUMACHIP_ERR_OK) printf("API failed for node %d retval = 0x%x", node, retval);
+	}
+    }
+    
+    //printf("/** SELECT COUNTER **/\n");
+    for(node=0; node<num_nodes; node++) {
+    //for (counter=0; counter<8; counter++) 
+	numachip_select_pcounter(cntxt[node],0,0x1, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	numachip_select_pcounter(cntxt[node],1,0x1, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);    
+	numachip_select_pcounter(cntxt[node],2,0x6, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	numachip_select_pcounter(cntxt[node],3,0x6, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+    }
+    
+    
+    //printf("/** Apply Mask **/\n");
+    for(node=0; node<num_nodes; node++) {
+	numachip_mask_pcounter(cntxt[node],0,6, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	numachip_mask_pcounter(cntxt[node],1,5, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	numachip_mask_pcounter(cntxt[node],2,3, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	numachip_mask_pcounter(cntxt[node],3,2, &retval);
+	if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);    
+	/*
+	for (counter=0; counter<4; counter++) {
+	    
+	    printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
+		   counter,
+		   numachip_get_pcounter_select(cntxt[node],counter,&retval),
+		   numachip_get_pcounter_mask(cntxt[node],counter,&retval),
+		   numachip_get_pcounter(cntxt[node],counter,&retval),
+		   numachip_get_pcounter(cntxt[node],counter,&retval));
+	    if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	}
+	*/
+    }
+    
+	
+}
+void count_api_stop_silent(struct numachip_context **cntxt, unsigned int num_nodes) {
+
+    nc_error_t retval = NUMACHIP_ERR_OK;
+    unsigned int node=0, counter=0;
+//    printf("*STOP COUNTER* \n");
+    for(node=0; node<num_nodes; node++) {
+	for (counter=0; counter<4; counter++) {
+	    numachip_stop_pcounter(cntxt[node],counter, &retval);
+	    if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	}
+
+	
+	/*
+	for (counter=0; counter<4; counter++) {
+	    printf("node %d counter %d: 0x%llx (%lld) \n",node, counter,numachip_get_pcounter(cntxt[node],counter,&retval), numachip_get_pcounter(cntxt[node],counter,&retval));
+	    if (retval != NUMACHIP_ERR_OK) printf("API failed retval = 0x%x", retval);
+	}
+	*/
+    }
+    
+}
+
 void count_api_read4(struct numachip_context **cntxt, unsigned int num_nodes) {
     nc_error_t retval = NUMACHIP_ERR_OK;
     unsigned int node=0;
@@ -894,9 +968,15 @@ int main(int argc, char **argv)
 	
 	if (!strcmp("-count-read",argv[counter])) {	    
 	    count_api_read4(cntxt, num_devices);
+	    count_api_stop_silent(cntxt, num_devices);
+	    count_api_start_silent(cntxt, num_devices);
 	    continue;
 	}
 
+	if (!strcmp("-count-full",argv[counter])) {	    
+	    count_api_test4(cntxt, num_devices);
+	    continue;
+	}
 
     }
 
