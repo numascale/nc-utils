@@ -23,11 +23,16 @@ using namespace std;
 class HistGraph;
 class SizeHistGraph;
 class BandwidthGraph;
+class CacheGraph;
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
 
+
+struct cachestats_t {
+	double hitrate [4];
+};
 struct msgstats_t {
 	int32_t  maxrank;
 	int32_t  rank;
@@ -61,6 +66,7 @@ private:
 	HistGraph* graph1;
 	HistGraph* graph2;
 	BandwidthGraph* graph4;
+	CacheGraph* graph5;
 	SOCKET toServer;
 	QTimer timer;
 	struct msgstats_t statmsg;
@@ -72,6 +78,8 @@ private:
 
 private slots:
 	void getstat();
+
+	void getcache();
 };
 
 
@@ -107,6 +115,26 @@ public slots:
 protected:
 	const int _idx;
 	QColor _color[8];
+};
+
+
+class CacheGraph : public QWidget {
+	Q_OBJECT   
+public:
+
+	CacheGraph(QWidget* parent = 0);
+
+	QwtPlot* plot;
+	vector<QwtPlotCurve*> curves;
+	void showstat(const struct cachestats_t& statmsg);
+
+public slots:
+	void showCurve(QwtPlotItem*, bool on);
+
+private:
+	double sample_x[240], sample_y1[240], sample_y2[240],sample_y3[240], sample_y0[240];
+	unsigned int counter;
+
 };
 
 
