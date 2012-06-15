@@ -6,6 +6,7 @@
 #include <QTimer>
 #include "ui_mpistat.h"
 #include <vector>
+#include <string>
 #include <time.h>
 
 #include <stdlib.h>
@@ -33,6 +34,7 @@ struct cachestats_t {
 	double hitrate [4];
 	uint64_t transactions[4];
 };
+
 struct msgstats_t {
 	int32_t  maxrank;
 	int32_t  rank;
@@ -43,43 +45,52 @@ struct msgstats_t {
 	uint64_t timesample;
 	uint32_t cpuid;
 	uint64_t cpufreq;
-	uint32_t dist[16];     // message size ditribution
-	uint64_t sticks[16];   // send ticks
-	uint64_t rticks[16];   // receive ticks
+	uint32_t dist[32];     // message size ditribution
+	uint64_t sticks[32];   // send ticks (eager msgs only)
+	uint64_t rticks[32];   // receive ticks (eager msgs only)
 	uint64_t pticks;	   // progress ticks
 	uint64_t mticks;       // memcpy ticks
-	uint32_t icnt;		   // messages sync send
-	uint32_t qcnt;		   // messages queued send
+	uint64_t icnt;		   // ring no space ticks
+	uint64_t scnt;		   // sync buf lock failed ticks
 };
-
 
 class mpistat : public QMainWindow
 {
 	Q_OBJECT
 
 public:
-	mpistat(QWidget *parent = 0, Qt::WFlags flags = 0);
+	mpistat(const string& strCacheAddr, const string& strMpiAddr);
 	~mpistat();
 
 private:
 	Ui::mpistatClass ui;
+	const string cacheAddr;
+	const string mpiAddr;
+
+	SOCKET cacheSocket;
+	SOCKET mpiSocket;
+
+	bool  cacheConnected;
+	bool  mpiConnected;
+
 	HistGraph* graph1;
 	HistGraph* graph2;
 	BandwidthGraph* graph4;
 	CacheGraph* graph5;
-	SOCKET toServer;
+
 	QTimer timer;
 	struct msgstats_t statmsg;
-	bool  connected;
 	bool init;
 
-	void srvconnect();
+	void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
+	void showConnectionStatus();
 	bool getstat(int rank);
 
-private slots:
 	void getstat();
-
 	void getcache();
+
+private slots:
+	void getinfo();
 };
 
 
