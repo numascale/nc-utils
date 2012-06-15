@@ -143,8 +143,8 @@ public slots:
 	void showCurve(QwtPlotItem*, bool on);
 
 private:
-	double sample_x[240], sample_y1[240], sample_y2[240],sample_y3[240], sample_y0[240];
-	uint64_t t_x[240], t_y1[240], t_y2[240],t_y3[240], t_y0[240];
+	double sample_x[250], sample_y1[250], sample_y2[240],sample_y3[250], sample_y0[250];
+	uint64_t t_x[250], t_y1[250], t_y2[250],t_y3[250], t_y0[250];
 	unsigned int counter;
 
 };
