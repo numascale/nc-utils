@@ -1,4 +1,4 @@
-#ifndef MPISTAT_H
+﻿#ifndef MPISTAT_H
 #define MPISTAT_H
 
 #include <QtGui/QMainWindow>
@@ -109,7 +109,7 @@ class Curve : public QwtPlotHistogram {
 class HistGraph : public QWidget {
 	Q_OBJECT   
 public:
-	enum {curve_rt, curve_mpi, curve_mbsend, curve_sbw, curve_rbw, curve_cpy};
+	enum {curve_rt, curve_mpi, curve_mbsend, curve_sbw, curve_rbw, curve_cpy, curve_blocking};
 
 	HistGraph(QWidget* parent = 0, const int idx = -1);
 

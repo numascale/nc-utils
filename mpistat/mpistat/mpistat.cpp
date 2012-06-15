@@ -1,4 +1,4 @@
-﻿#include "mpistat.hpp"
+#include "mpistat.hpp"
 #include "log2scale.hpp"
 
 #include <QtGui/QPainter>
