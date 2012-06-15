@@ -20,6 +20,7 @@
 
 struct msgstats_t {
    double hitrate[4];
+    unsigned long long total[4];
 };
 
 
@@ -33,9 +34,11 @@ void count_rate(struct numachip_context **cntxt, unsigned int num_nodes, struct 
     for(node=0; node<num_nodes; node++) {
 	double missrate = 0;
 	double hitrate=0;
-	count_api_read_rate( cntxt[node], &missrate, &hitrate, &retval);
+	unsigned long long total;
+	count_api_read_rate( cntxt[node], &missrate, &hitrate, &total, &retval);
 	countstat->hitrate[node]=hitrate;
-	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f \n",  node,missrate,hitrate);
+	countstat->total[node]=total;
+	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %lld\n",  node,missrate,hitrate, total);
     }
     printf("************************************************\n");
 	

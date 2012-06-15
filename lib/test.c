@@ -427,11 +427,12 @@ void count_rate(struct numachip_context **cntxt, unsigned int num_nodes) {
     printf("************************************************\n");
     
     for(node=0; node<num_nodes; node++) {
-	double long missrate = 0;
-	double long hitrate=0;
-	count_api_read_rate( cntxt[node], &missrate, &hitrate, &retval);
+	unsigned long long total=0;
+	double missrate = 0;
+	double hitrate=0;
+	count_api_read_rate( cntxt[node], &missrate, &hitrate, &total, &retval);
 
-	printf("Node %d: Miss rate %0.2Lf  Hit rate %0.2Lf \n",  node,missrate,hitrate);
+	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f \n",  node,missrate,hitrate);
     }
     printf("************************************************\n");
 	
@@ -520,7 +521,9 @@ int main(int argc, char **argv)
 	    continue;
 	}
 
-	if (!strcmp("-count-rate",argv[counter])) {	    
+	if (!strcmp("-count-rate",argv[counter])) {
+	    count_api_stop_silent(cntxt, num_devices);
+	    count_api_start_silent(cntxt, num_devices);
 	    count_rate(cntxt, num_devices);
 
 	    continue;

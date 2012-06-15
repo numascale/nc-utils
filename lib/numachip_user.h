@@ -149,7 +149,7 @@ void count_api_stop4(struct numachip_context **cntxt, unsigned int num_nodes);
 void count_api_start_silent(struct numachip_context **cntxt, unsigned int num_nodes);
 void count_api_stop_silent(struct numachip_context **cntxt, unsigned int num_nodes);
 void count_api_read4(struct numachip_context **cntxt, unsigned int num_nodes);
-void count_api_read_rate(struct numachip_context *cntxt, double long *missrate, double long *hitrate, nc_error_t *error);
+void count_api_read_rate(struct numachip_context *cntxt, double *missrate, double *hitrate, unsigned long long *total,nc_error_t *error);
     
 /**
  * numachip_sge_copy - Optimized SG Copy
