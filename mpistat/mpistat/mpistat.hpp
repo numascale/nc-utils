@@ -1,4 +1,4 @@
-#ifndef MPISTAT_H
+﻿#ifndef MPISTAT_H
 #define MPISTAT_H
 
 #include <QtGui/QMainWindow>
