@@ -51,10 +51,14 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 	resize(800, 480);
 
     connect(&timer, SIGNAL(timeout()), this, SLOT(getinfo()));	
-	if (! cacheAddr.empty())
+
+	if( !cacheAddr.empty() ) {
 		srvconnect(cacheAddr, cacheSocket, cacheConnected);
-	if (! mpiAddr.empty())
+	}
+
+	if( !mpiAddr.empty() ) {
 		srvconnect(mpiAddr, mpiSocket, mpiConnected);
+	}
 
 	timer.setInterval(1000);
 	timer.start();
@@ -96,11 +100,12 @@ CacheGraph::CacheGraph(QWidget* parent)
 	}
 	plot->canvas()->setFrameShape(QFrame::NoFrame);
 
-    QwtLegend* legend = new QwtLegend;
-    legend->setItemMode(QwtLegend::CheckableItem);
-    plot->insertLegend(legend, QwtPlot::BottomLegend);
+	QwtLegend* legend = new QwtLegend;
+	legend->setItemMode(QwtLegend::CheckableItem);
+	plot->insertLegend(legend, QwtPlot::BottomLegend);
 	plot->setAxisScale(QwtPlot::yLeft, 0, 100);
 	plot->setAxisScale(QwtPlot::xBottom, 0, 100);
+
 	QwtPlotGrid* grid = new QwtPlotGrid;
 	grid->enableX(false);
 	grid->attach(plot);
@@ -147,25 +152,25 @@ void CacheGraph::showCurve(QwtPlotItem* item, bool on) {
 
 	QwtPlotCurve* curve = (QwtPlotCurve*)item;
 
-    item->setVisible(on);
-    QWidget* w = plot->legend()->find(item);
+	item->setVisible(on);
+	QWidget* w = plot->legend()->find(item);
 
 	if ( w && w->inherits("QwtLegendItem") ) {
         ((QwtLegendItem *)w)->setChecked(on);
 	}
+	
 	QwtText title("Numachip Remote Cache HIT (%)");
-	plot->setTitle(title);
+        plot->setTitle(title);
+
 	plot->replot();
 }
 
 void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 
-	if (counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, 100);
-	else if (counter == 60) plot->setAxisScale(QwtPlot::xBottom, 50, 150); 
-	else if (counter==120) plot->setAxisScale(QwtPlot::xBottom, 100, 200);
-	else if (counter==180) plot->setAxisScale(QwtPlot::xBottom, 150, 250);
-
-	
+        if (counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, 100);
+        else if (counter == 60) plot->setAxisScale(QwtPlot::xBottom, 50, 150); 
+        else if (counter==120) plot->setAxisScale(QwtPlot::xBottom, 100, 200);
+        else if (counter==180) plot->setAxisScale(QwtPlot::xBottom, 150, 250);  
 	
 	{
 		
@@ -260,8 +265,12 @@ void HistGraph::showCurve(QwtPlotItem* item, bool on) {
 			Curve* c = curves[i];
 
 			if( (c == curve) || 
+
 				(c == curves[curve_rt] && curve == curves[curve_mpi]) ||
-				(c == curves[curve_mpi] && curve == curves[curve_rt]) ) {
+				(c == curves[curve_mpi] && curve == curves[curve_rt]) ||			
+				
+				(c == curves[curve_rt] && curve == curves[curve_blocking]) ||
+				(c == curves[curve_blocking] && curve == curves[curve_rt]) ) {
 				c = 0;
 			}
 
@@ -443,18 +452,28 @@ void mpistat::srvconnect(const string& addr, SOCKET& toServer, bool& connected) 
 void mpistat::showConnectionStatus() {
 	QString title;
 
-	if( cacheConnected ) {
-		title = QString("connected to ") + QString(cacheAddr.c_str());
-	}
-	else {
-		title = QString("not connected to ") + QString(cacheAddr.c_str());
+
+
+	if( !cacheAddr.empty() ) {
+		if( cacheConnected ) {
+			title = QString("connected to ") + QString(cacheAddr.c_str());
+		}
+		else {
+			title = QString("not connected to ") + QString(cacheAddr.c_str());
+		}
 	}
 
-	if( mpiConnected ) {
-		title += QString(",  connected to ") + QString(mpiAddr.c_str());
-	}
-	else {
-		title += QString(",  not connected to ") + QString(mpiAddr.c_str());
+	if( !mpiAddr.empty() ) {
+		if( !cacheAddr.empty() ) {
+			title += QString(",  ");
+		}
+
+		if( mpiConnected ) {
+			title += QString("connected to ") + QString(mpiAddr.c_str());
+		}
+		else {
+			title += QString("not connected to ") + QString(mpiAddr.c_str());
+		}
 	}
 
 	setWindowTitle(title);
@@ -750,6 +769,12 @@ BandwidthGraph::BandwidthGraph(QWidget* parent)
 	curve->attach(plot);
 	curves.push_back(curve);
 	showCurve(curve, false);		
+
+	curve = new Curve(0, QString("Send blocking"));
+	curve->setColor(Qt::red);
+	curve->attach(plot);
+	curves.push_back(curve);
+	showCurve(curve, false);		
 }
 
 
@@ -765,7 +790,7 @@ void BandwidthGraph::setmaxrank(int maxrank) {
 		}
 	    plot->setAxisScale(QwtPlot::xBottom, 0, maxrank + 0.5);
 	    plot->setAxisMaxMajor(QwtPlot::xBottom, maxrank);
-		plot->plotLayout()->setCanvasMargin(60, QwtPlot::yLeft);
+		plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
 	}
 	else 
 	if( maxrank + 1 < oldsize ) {
@@ -775,14 +800,13 @@ void BandwidthGraph::setmaxrank(int maxrank) {
 
 	    plot->setAxisScale(QwtPlot::xBottom, 0, maxrank + 0.5);
 	    plot->setAxisMaxMajor(QwtPlot::xBottom, maxrank);
-		plot->plotLayout()->setCanvasMargin(60, QwtPlot::yLeft);
+		plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
 	}
 	this->maxrank = maxrank;
 }
 
 
 double sticks(const struct msgstats_t& stat) {
-
 	double ticks = 0;
 	for( int j = 0; j < 16; j++ ) {
 		ticks += stat.sticks[j];
@@ -792,7 +816,6 @@ double sticks(const struct msgstats_t& stat) {
 
 
 double rticks(const struct msgstats_t& stat) {
-
 	double ticks = 0;
 	for( int j = 0; j < 16; j++ ) {
 		ticks += stat.rticks[j];
@@ -826,7 +849,7 @@ void BandwidthGraph::showstat(const struct msgstats_t& statmsg) {
 		curves[curve_mbsend]->setSamples(samples);                 
 	}
 	else 
-	if( curves[curve_rt]->showing || curves[curve_mpi]->showing ) {
+	if( curves[curve_rt]->showing || curves[curve_mpi]->showing || curves[curve_blocking]->showing ) {
 
 		QString ytitle;
 
@@ -839,6 +862,13 @@ void BandwidthGraph::showstat(const struct msgstats_t& statmsg) {
 			}
 			ytitle += QString("MPI-time");
 		}
+		if( curves[curve_blocking]->showing ) {
+			if( curves[curve_blocking]->showing ) {
+				ytitle += QString(" / ");
+			}
+			ytitle += QString("Send blocking-time");
+		}
+
 		ytitle += QString(" [sec]");
 		plot->setAxisTitle(QwtPlot::yLeft, ytitle);
 
@@ -865,6 +895,16 @@ void BandwidthGraph::showstat(const struct msgstats_t& statmsg) {
 				samples[i] = QwtIntervalSample(ticks, interval);                 
 			}
 			curves[curve_mpi]->setSamples(samples);                 
+		}
+
+		if( curves[curve_blocking]->showing ) {
+			for( int i = 0; i < n; i++ ) {
+				struct msgstats_t& stat = data[i];
+				double y = ((double)stat.icnt + (double)stat.scnt) / (double)stat.cpufreq;
+				QwtInterval interval(i - 0.2, i + 0.2);                     
+				samples[i] = QwtIntervalSample(y, interval);                 
+			}
+			curves[curve_blocking]->setSamples(samples);                 
 		}
 	}
 	else
@@ -912,7 +952,6 @@ void BandwidthGraph::showstat(const struct msgstats_t& statmsg) {
 		}
 		curves[curve_cpy]->setSamples(samples);                 
 	}
-
 
     plot->replot();
 }
