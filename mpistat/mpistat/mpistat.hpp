@@ -29,9 +29,9 @@ typedef int int32_t;
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
 
-
 struct cachestats_t {
 	double hitrate [4];
+	uint64_t transactions[4];
 };
 struct msgstats_t {
 	int32_t  maxrank;
@@ -133,6 +133,7 @@ public slots:
 
 private:
 	double sample_x[240], sample_y1[240], sample_y2[240],sample_y3[240], sample_y0[240];
+	uint64_t t_x[240], t_y1[240], t_y2[240],t_y3[240], t_y0[240];
 	unsigned int counter;
 
 };
