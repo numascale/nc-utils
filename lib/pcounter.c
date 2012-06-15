@@ -448,20 +448,21 @@ void count_api_read4(struct numachip_context **cntxt, unsigned int num_nodes) {
     printf("************************************************\n");
 	
 }
-void count_api_read_rate(struct numachip_context *cntxt, double long *missrate, double long *hitrate, nc_error_t *error) {
-    unsigned long long hit, miss, total;
+void count_api_read_rate(struct numachip_context *cntxt, double *missrate, double *hitrate, unsigned long long *total, nc_error_t *error) {
+    unsigned long long hit, miss;
     *missrate=0;
     *hitrate=0;
+    *total=0;
     hit=numachip_get_pcounter(cntxt,1,error);
     if (*error != NUMACHIP_ERR_OK) return;
     miss=numachip_get_pcounter(cntxt,0,error);
     if (*error != NUMACHIP_ERR_OK) return;
-    total=numachip_get_pcounter(cntxt,0,error) + numachip_get_pcounter(cntxt,1,error);
-     if (*error != NUMACHIP_ERR_OK) return;
+    *total=numachip_get_pcounter(cntxt,0,error) + numachip_get_pcounter(cntxt,1,error);
+    if (*error != NUMACHIP_ERR_OK) return;
 
-    if (total==0) {
+    if (*total==0) {
 	*missrate=0;
-	*hitrate=0;
+	*hitrate=100;
     } else if (miss==0) {
 	*missrate=0;
 	*hitrate=100;
@@ -469,8 +470,8 @@ void count_api_read_rate(struct numachip_context *cntxt, double long *missrate, 
 	*missrate=100;
 	*hitrate=0;
     } else {
-	*missrate = (double long) 100*miss/total;
-	*hitrate=(double long)100*hit/total;
+	*missrate=(double)100*miss/(*total);
+	*hitrate=(double)100*hit/(*total);
     }
 }
 void count_api_compare_test(struct numachip_context *cntxt) {
