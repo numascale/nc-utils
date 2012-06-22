@@ -140,11 +140,16 @@ int udp_read_state(int sock, void *buf, int len) {
 static char * _concat_argv(int argc, char **argv)
 {
     int i, n;
-    char *cmdline = NULL;
+    char *res, *cmdline = NULL;
 
     for (i=1, n=argc-1; n > 0; n--, i++) {
-        cmdline = realloc(cmdline, (cmdline ? strlen(cmdline) : 0) + strlen(argv[i]) + 2);
-        if (!cmdline) return NULL;
+        res = realloc(cmdline, (cmdline ? strlen(cmdline) : 0) + strlen(argv[i]) + 2);
+        if (!res) {
+            free(cmdline);
+            return NULL;
+        }
+
+        cmdline = res;
         if (i>1) strcat(cmdline, " ");
         else cmdline[0] = '\0';
         strcat(cmdline, argv[i]);
