@@ -11,7 +11,7 @@
 // Any unauthorized use, reproduction or transfer of the information
 // provided herein is strictly prohibited.
 // 
-// Copyright © 2008-2011
+// Copyright © 2008-2012
 // Numascale AS Oslo, Norway. 
 // All Rights Reserved.
 //
@@ -22,10 +22,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "dnc-types.h"
-//#include "numachip_user.h"
 #include "numachip_config.h"
-//#include "dnc-config.h"
-//#include "dnc-commonlib.h"
 #include "../bootloader/json-1.4/src/json.h"
 struct fabric_info cfg_fabric;
 struct node_info *cfg_nodelist;
@@ -207,7 +204,6 @@ static int parse_json(json_t *root)
         cfg_partitions++;
 
     cfg_partlist = malloc(cfg_partitions * sizeof(*cfg_partlist));
-    //assert(cfg_partlist);
 
     for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
 	if (!parse_json_num(obj, "master", &cfg_partlist[i].master, 0)) {

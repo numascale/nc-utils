@@ -60,7 +60,6 @@ int main(int argc, char* argv[]) {
     struct numachip_context **cntxt;
     int i=0, node=0, num_nodes=4;
     int num_devices;
-    int counter=0;
     const char *filename = "fabric-loop-05.json";
 
     for(node=0; node<num_nodes; node++) {
