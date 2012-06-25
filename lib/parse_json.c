@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "dnc-types.h"
 #include "numachip_config.h"
 #include "../bootloader/json-1.4/src/json.h"
 struct fabric_info cfg_fabric;
@@ -38,10 +37,11 @@ static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
     *val = -1;
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
-	if (!opt)
+	if (!opt) {
 	    //DO NOT CARE...
-	    //printf("** parse error: (PJB) 1 label <%s> not found!\n", label);
-        return 0;
+	    //fprintf(stderr,"** parse error: (PJB) 1 label <%s> not found!\n", label);
+	    return 0;
+	}
     }
     if (item->child->type == JSON_TRUE) {
         *val = 1;
@@ -50,7 +50,7 @@ static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
         *val = 0;
     }
     else {
-        printf("** parse error: (PJB) label 2 <%s> has bad type (%d)!\n",
+        fprintf(stderr,"** parse error: (PJB) label 2 <%s> has bad type (%d)!\n",
                label, item->child->type);
         return 0;
     }
@@ -66,7 +66,7 @@ static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: (PJN) label <%s> not found!\n", label);
+	    fprintf(stderr,"** parse error: (PJN) label <%s> not found!\n", label);
         return 0;
     }
     if (item->child->type == JSON_NUMBER) {
@@ -76,13 +76,13 @@ static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
         *val = strtol(item->child->text, &end, 0);
     }
     else {
-        printf("** parse error: (PJN) label <%s> has bad type (%d)!\n",
+        fprintf(stderr,"** parse error: (PJN) label <%s> has bad type (%d)!\n",
                label, item->child->type);
         return 0;
     }
 
     if (end[0] != '\0') {
-        printf("** parse error: (PJN) label <%s> value bad format!\n", label);
+        fprintf(stderr,"** parse error: (PJN) label <%s> value bad format!\n", label);
         *val = -1;
         return 0;
     }
@@ -96,7 +96,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: (PJS) label <%s> not found!\n", label);
+	    fprintf(stderr,"** parse error: (PJS) label <%s> not found!\n", label);
         return 0;
     }
     if (item->child->type == JSON_STRING) {
@@ -104,7 +104,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
         val[len-1] = '\0';
     }
     else {
-        printf("** parse error: (PJS) label <%s> has bad type (%d)!\n",
+        fprintf(stderr,"** parse error: (PJS) label <%s> has bad type (%d)!\n",
                label, item->child->type);
         return 0;
     }
@@ -121,21 +121,21 @@ static int parse_json(json_t *root)
 
     fab = json_find_first_label(root, "fabric");
     if (!fab) {
-        printf("Error: Tag <fabric> not found in fabric configuration\n");
+        fprintf(stderr,"Error: Tag <fabric> not found in fabric configuration\n");
         goto out1;
     }
     if (!parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0)) {
-	printf("Error: Tag <x-size> not found in fabric configuration\n");
+	fprintf(stderr,"Error: Tag <x-size> not found in fabric configuration\n");
 	goto out1;
     }
 
     if (!parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0)) {
-	printf("Error: Tag <y-size> not found in fabric configuration\n");
+	fprintf(stderr,"Error: Tag <y-size> not found in fabric configuration\n");
 	goto out1;
     }
 
     if (!parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)) {
-	printf("Error: Tag <z-size> not found in fabric configuration\n");
+	fprintf(stderr,"Error: Tag <z-size> not found in fabric configuration\n");
         goto out1;
     }
 
@@ -144,7 +144,7 @@ static int parse_json(json_t *root)
 
     list = json_find_first_label(fab->child, "nodes");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("Error: Tag <nodes> not found in fabric configuration\n");
+        fprintf(stderr,"Error: Tag <nodes> not found in fabric configuration\n");
         goto out1;
     }
 
@@ -154,7 +154,7 @@ static int parse_json(json_t *root)
     cfg_nodelist = malloc(cfg_nodes * sizeof(*cfg_nodelist));
     //assert(cfg_nodelist);
     if (!cfg_nodelist) {
-	printf("ERROR: malloc failed\n");
+	fprintf(stderr,"ERROR: malloc failed\n");
 	return 0;
     }
 
@@ -166,12 +166,12 @@ static int parse_json(json_t *root)
 	}
 
 	if (!parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0)) {
-	    printf("Error: Tag <sciid> not found in fabric configuration\n");
+	    fprintf(stderr,"Error: Tag <sciid> not found in fabric configuration\n");
 	    goto out2;
 	}
 
         if (!parse_json_num(obj, "partition", &cfg_nodelist[i].partition, 0)) {
-	    printf("Error: Tag <partition> not found in fabric configuration\n");
+	    fprintf(stderr,"Error: Tag <partition> not found in fabric configuration\n");
 	    goto out2;
 	}
 
@@ -180,7 +180,7 @@ static int parse_json(json_t *root)
 	    cfg_nodelist[i].osc = 0;
 
 	if (!parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)) {
-	    printf("Error: Tag <desc> not found in fabric configuration\n");
+	    fprintf(stderr,"Error: Tag <desc> not found in fabric configuration\n");
 	    goto out2;
         }
 
@@ -191,11 +191,11 @@ static int parse_json(json_t *root)
     }
 
     if (name_matching)
-	printf("UUIDs omitted - matching hostname to desc tag\n");
+	fprintf(stderr,"UUIDs omitted - matching hostname to desc tag\n");
 
     list = json_find_first_label(fab->child, "partitions");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("Error: Tag <partitions> not found in fabric configuration\n");
+        fprintf(stderr,"Error: Tag <partitions> not found in fabric configuration\n");
         free(cfg_nodelist);
         return 0;
     }
@@ -207,12 +207,12 @@ static int parse_json(json_t *root)
 
     for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
 	if (!parse_json_num(obj, "master", &cfg_partlist[i].master, 0)) {
-	    printf("Error: Tag <master> not found in fabric configuration\n");
+	    fprintf(stderr,"Error: Tag <master> not found in fabric configuration\n");
 	    goto out3;
 	}
 
 	if (!parse_json_num(obj, "builder", &cfg_partlist[i].builder, 0)) {
-	    printf("Error: Tag <builder> not found in fabric configuration\n");
+	    fprintf(stderr,"Error: Tag <builder> not found in fabric configuration\n");
 	    goto out3;
 	}
     }
@@ -240,37 +240,37 @@ int parse_config_file(const char *filename,
     
     fh = fopen(filename, "r"); 
     if ( fh == NULL ) {
-	printf("Cannot open %s\n", filename);       
+	fprintf(stderr,"Cannot open %s\n", filename);       
 	return 0;;
     }   
     
-    //printf("Fabric configuration file:\n%s", filename);
+    //fprintf(stderr,"Fabric configuration file:\n%s", filename);
 
     err = json_stream_parse(fh, &root);
     if (err != JSON_OK) {
-	printf("Error: Failed to parse fabric configuration (reason %d)\n", err);
+	fprintf(stderr,"Error: Failed to parse fabric configuration (reason %d)\n", err);
 	return 0;
     }
 
     if (!parse_json(root)) {
-	printf("Error: Parsing fabric configuration root failed\n");
+	fprintf(stderr,"Error: Parsing fabric configuration root failed\n");
 	json_free_value(&root);
 	return 0;
     }
 
-    //DISABLE PRINTS FROM LIBRARY
+    
     /*
-    printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
+    fprintf(stderr,"Fabric dimensions: x: %d, y: %x, z: %d\n",
 	cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
 
     for (i = 0; i < cfg_nodes; i++)
-	printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
+	fprintf(stderr,"Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
 	    i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
 	    cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
 	    cfg_nodelist[i].osc, cfg_nodelist[i].sync_only);
 
     for (i = 0; i < cfg_partitions; i++)
-	printf("Partition %d: master: 0x%03x, builder: 0x%03x\n",
+	fprintf(stderr,"Partition %d: master: 0x%03x, builder: 0x%03x\n",
 	    i, cfg_partlist[i].master, cfg_partlist[i].builder);
     */
     

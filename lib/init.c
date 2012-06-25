@@ -11,7 +11,7 @@
 // Any unauthorized use, reproduction or transfer of the information
 // provided herein is strictly prohibited.
 //
-// Copyright © 2008-2011
+// Copyright © 2008-2012
 // Numascale AS Oslo, Norway.
 // All Rights Reserved.
 //
@@ -68,8 +68,6 @@ HIDDEN int numachip_init(struct numachip_device ***list, const char *filename)
     int i = 0;
 
     //parse_json_file
-    
-
     parse_config_file(filename,&cfg_nodelist,&cfg_nodes);
     for (i = 0; i < cfg_nodes; i++) {
 	DEBUG_STATEMENT(printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",

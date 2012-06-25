@@ -110,8 +110,8 @@ int main(int argc, char* argv[]) {
 		exit(-1);
     }
 
-    count_api_stop_silent(cntxt, num_devices);
-    count_api_start_silent(cntxt, num_devices);
+    count_api_stop(cntxt, num_devices);
+    count_api_start(cntxt, num_devices);
     count_rate(cntxt, num_devices,&countstat);
     
     socklisten(sockfd, &cli_addr, &newsockfd);
@@ -137,8 +137,8 @@ int main(int argc, char* argv[]) {
 	/*Do our stuff*/
 	    /*Do our stuff*/
 	//if (counter==11) {
-	    count_api_stop_silent(cntxt, num_devices);
-	    count_api_start_silent(cntxt, num_devices);
+	    count_api_stop(cntxt, num_devices);
+	    count_api_start(cntxt, num_devices);
 	    //    counter=0;
 	    //}
 	//counter++;

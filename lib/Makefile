@@ -1,8 +1,8 @@
-	TARGETS   = libnumachip_user.so test cache_stat_d
+TARGETS   = libnumachip_user.so test cache_stat_d
 
 CFLAGS    = -O2 -D_GNU_SOURCE -Wall -g
 
-LIBSRC    = init.c device.c pcounter.c sysfs.c memops.c parse_json.c ../bootloader/json-1.4/src/json.c 
+LIBSRC    = init.c device.c pcounter.c sysfs.c memops.c parse_json.c ../bootloader/json-1.4/src/json.c
 
 .PHONY: all
 all: $(TARGETS)

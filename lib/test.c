@@ -499,31 +499,19 @@ int main(int argc, char **argv)
 	
 
 	if (!strcmp("-count-start",argv[counter])) {	    
-	    count_api_start4(cntxt, num_devices);
+	    count_api_start(cntxt, num_devices);
 	    continue;
 	}
 
 	if (!strcmp("-count-stop",argv[counter])) {	    
-	    count_api_stop4(cntxt, num_devices);
+	    count_api_stop(cntxt, num_devices);
 	    continue;
 	}
 	
-	if (!strcmp("-count-read",argv[counter])) {	    
-	    count_api_read4(cntxt, num_devices);
-	    count_api_stop_silent(cntxt, num_devices);
-	    count_api_start_silent(cntxt, num_devices);
-	    
-	    continue;
-	}
-
-	if (!strcmp("-count-full",argv[counter])) {	    
-	    count_api_test4(cntxt, num_devices);
-	    continue;
-	}
 
 	if (!strcmp("-count-rate",argv[counter])) {
-	    count_api_stop_silent(cntxt, num_devices);
-	    count_api_start_silent(cntxt, num_devices);
+	    count_api_stop(cntxt, num_devices);
+	    count_api_start(cntxt, num_devices);
 	    count_rate(cntxt, num_devices);
 
 	    continue;
