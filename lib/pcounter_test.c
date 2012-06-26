@@ -30,13 +30,14 @@
 #include "numachip_lib.h"
 #include "numachip_user.h"
 #include "pcounter_test.h"
-#define DEBUG_STATEMENT(x) x
+#define DEBUG_STATEMENT(x) 
 
 
 void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes) {
 
     nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0, counter=0;
+    unsigned int node=0;
+    DEBUG_STATEMENT(unsigned int counter=0);
   
     for(node=0; node<num_nodes; node++) {
 	numachip_fullstart_pcounter(cntxt[node],0,0x1,6, &retval);
