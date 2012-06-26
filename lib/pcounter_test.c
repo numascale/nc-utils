@@ -146,16 +146,22 @@ void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes) {
 }
 
 #endif
-void count_api_read_rate(struct numachip_context *cntxt, double *missrate, double *hitrate, unsigned long long *total, nc_error_t *error) {
+void count_api_read_rcache(struct numachip_context *cntxt,
+			   unsigned int misscounter,
+			   unsigned int hitcounter, 
+			   double *missrate,
+			   double *hitrate,
+			   unsigned long long *total,
+			   nc_error_t *error) {
     unsigned long long hit, miss;
     *missrate=0;
     *hitrate=0;
     *total=0;
-    hit=numachip_get_pcounter(cntxt,1,error);
+    hit=numachip_get_pcounter(cntxt,hitcounter,error);
     if (*error != NUMACHIP_ERR_OK) return;
-    miss=numachip_get_pcounter(cntxt,0,error);
+    miss=numachip_get_pcounter(cntxt,misscounter,error);
     if (*error != NUMACHIP_ERR_OK) return;
-    *total=numachip_get_pcounter(cntxt,0,error) + numachip_get_pcounter(cntxt,1,error);
+    *total=numachip_get_pcounter(cntxt,hitcounter,error) + numachip_get_pcounter(cntxt,misscounter,error);
     if (*error != NUMACHIP_ERR_OK) return;
 
     if (*total==0) {
