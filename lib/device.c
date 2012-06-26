@@ -55,6 +55,7 @@ const char *numachip_device_str(numachip_device_type_t str) {
 	default: return "UNKNOWN_ENUM_VALUE";	    
     }
 }
+
 /**
  * numachip_get_device_list - Get list of NumaChip devices currently available
  * @num_devices: optional. If non-NULL, set to the number of devices
@@ -132,21 +133,9 @@ struct numachip_context *numachip_open_device(struct numachip_device *device)
      * on all nodes from any CPU in the system at (nodeid is 0x0,0x1, 0x10 etc)
      * global_csr_offset + nodeid <<16
      *
-     * Currently we are only mapping local accesses.
-     * We do this by knowing that each CPU can reach its local Numachip by accessing: 
-     * nodeId = 0xfff0
-     * 
-     * We are reading the highest 16-bits from a config space location and shift them up 
-     * to create csr_base [47:32], then or´ing with 0x0000fff00000ULL 
-     * filling 0xffff00 in csr_base[31:16], wich is the nodeid spot.
-     * bit [15] determines geo accesses if not set.
-     * 
      * The ideal situation would be if struct numachip device ** numachip_get_device_list(int *num)
      * returned a list with all the numachips in the coherent system.
      * 
-     * It would be nice if the bootloader could create a list of all the numachips in the coherent system 
-     * and make it available throug an array untill we get the PCI tables sorted out. 
-     *
      * When the PCI tables gets sorted out we will have a list of PCI devices like this: 
      * 00:1a.0 Host bridge: Device 1b47:0601 (rev 01)
      * 00:1a.1 Host bridge: Device 1b47:0602 (rev 01)
@@ -163,35 +152,12 @@ struct numachip_context *numachip_open_device(struct numachip_device *device)
      * 0010:00:1a.0 Host bridge: Device 1b47:0601 (rev 01)
      * 0010:00:1a.1 Host bridge: Device 1b47:0602 (rev 01)
      * refer to SCI nodeid = 0x010
-     */
-
-    /*
-     * Serial Presence Detect (SPD) [14:12] = 1h [11:0] = 000h-FFCh
-     * F_Tag [14:12] 2h [11:0] 800h-83Ch
-     * Configuration and status register H2S [14:12] 3h [11:0] 000h-3FCh
-     * Configuration and status register H2S [11:0] 400h-7FCh
-     * Address mapping [11:0] 800h-BFCh
-     * Statistic and Diagnostic [11:0] C00h-FFCh 
-     * MC_Tag [14:12] 4 h 000h-7FCh
-     * C_Data [11:0] 800h-FFCh
-     * Tracer 5h 000h-FFCh
+     *
+     * Until this functionality is available we are reading the nodids from the json file (val)
+     *
      */
     
-    /*
-     * Mapped CSR base:
-     * - csr_base [18:16] indicates SCC (0) and lc (1-7)
-     */
-    
-    //csr_base = (((off_t)val & 0xffff0000ULL) << 16) | 0x0000fff00000ULL | (1ULL<<15);
     csr_base = (((uint64_t) val)  | (1ULL<<15) | (device->nodeid<<16));
-
-
-    /*
-     * Global CSR is designed in a way that allows access to CSR 
-     * on all nodes from any CPU in the system at (nodeid is 0x0,0x1, 0x10 etc)
-     * global_csr_offset + nodeid <<16
-     */
-
 
     memfd = open("/dev/mem", O_RDWR);
     if (memfd < 0) {
@@ -237,6 +203,7 @@ int numachip_close_device(struct numachip_context *context)
 
     return 0;
 }
+
 /**
  * numachip_read_csr - Read CSR
  */

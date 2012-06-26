@@ -68,15 +68,15 @@ HIDDEN int numachip_init(struct numachip_device ***list, const char *filename)
     int i = 0;
 
     //parse_json_file
-    parse_config_file(filename,&cfg_nodelist,&cfg_nodes);
-    for (i = 0; i < cfg_nodes; i++) {
-	DEBUG_STATEMENT(printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
-			       i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
-			       cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
-			       cfg_nodelist[i].osc, cfg_nodelist[i].sync_only));
-	
-	add_device(cfg_nodelist[i].sciid, list, &ndevices, &list_size);
+    if (parse_config_file(filename,&cfg_nodelist,&cfg_nodes)) {
+	for (i = 0; i < cfg_nodes; i++) {
+	    DEBUG_STATEMENT(printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
+				   i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
+				   cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
+				   cfg_nodelist[i].osc, cfg_nodelist[i].sync_only));
+	    
+	    add_device(cfg_nodelist[i].sciid, list, &ndevices, &list_size);
+	}
     }
-  
     return ndevices;
 }

@@ -29,84 +29,61 @@
 
 #include "numachip_lib.h"
 
-#define DEBUG_STATEMENT(x) 
+#define DEBUG_STATEMENT(x) x
 
-void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes) {
+
+void numachip_fullstart_pcounter(struct numachip_context *cntxt,
+			    unsigned int counterno,
+			    unsigned int event,
+			    unsigned int mask,
+			    nc_error_t *error) {
+
+    /** CLEAR CNT **/
+    numachip_clear_pcounter(cntxt,counterno,error);
+    if ((*error) != NUMACHIP_ERR_OK)
+	fprintf(stderr,"Numachip user API failed for counterno %d retval = 0x%x", counterno, *error);
+
+    /** SELECT COUNTER **/
+    numachip_select_pcounter(cntxt,counterno,event, error);
+    if ((*error) != NUMACHIP_ERR_OK)
+	fprintf(stderr,"Numachip user API failed for counterno %d event %d retval = 0x%x", counterno,event,*error);
+
+    /** Apply Mask **/
+    numachip_mask_pcounter(cntxt,counterno, mask, error);
+    if ((*error) != NUMACHIP_ERR_OK)
+	fprintf(stderr,"Numachip user API failed for counterno %d mask %d retval = 0x%x", counterno, mask,*error);
+       
+}
+
+void numachip_all_start_pcounter(struct numachip_context **cntxt,
+				 unsigned int num_nodes,
+				 unsigned int counterno,
+				 unsigned int event,
+				 unsigned int mask,
+				 nc_error_t *error) {
 
     nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0, counter=0;
-    /** CLEAR CNT **/
+    unsigned int node=0;
+  
     for(node=0; node<num_nodes; node++) {
-	for (counter=0; counter<8; counter++) {
-	    numachip_clear_pcounter(cntxt[node],counter,&retval);
-	    if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed for node %d retval = 0x%x", node, retval);
-	}
-    }
-    
-    /** SELECT COUNTER **/
-    for(node=0; node<num_nodes; node++) {
-	numachip_select_pcounter(cntxt[node],0,0x1, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	numachip_select_pcounter(cntxt[node],1,0x1, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);    
-	numachip_select_pcounter(cntxt[node],2,0x6, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	numachip_select_pcounter(cntxt[node],3,0x6, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-    }
-    
-    
-    /** Apply Mask **/
-    for(node=0; node<num_nodes; node++) {
-	numachip_mask_pcounter(cntxt[node],0,6, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	numachip_mask_pcounter(cntxt[node],1,5, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	numachip_mask_pcounter(cntxt[node],2,3, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	numachip_mask_pcounter(cntxt[node],3,2, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);    
+	numachip_fullstart_pcounter(cntxt[node],counterno,event,mask, error);
+	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", *error);
 
 	DEBUG_STATEMENT(
-	for (counter=0; counter<4; counter++) {
-	    
-	    printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
-		   counter,
-		   numachip_get_pcounter_select(cntxt[node],counter,&retval),
-		   numachip_get_pcounter_mask(cntxt[node],counter,&retval),
-		   numachip_get_pcounter(cntxt[node],counter,&retval),
-		   numachip_get_pcounter(cntxt[node],counter,&retval));
-	    if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	}
+		printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
+		       counterno,
+		       numachip_get_pcounter_select(cntxt[node],counterno,*error);
+		       numachip_get_pcounter_mask(cntxt[node],counterno,*error);
+		       numachip_get_pcounter(cntxt[node],counterno,*error);
+		       numachip_get_pcounter(cntxt[node],counterno,*error));
+		if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x"*error);
+	    }
 	)
     }
     
 	
 }
-void count_api_stop(struct numachip_context **cntxt, unsigned int num_nodes) {
-
-    nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0, counter=0;
-
-    /*STOP COUNTER*/
-    for(node=0; node<num_nodes; node++) {
-	for (counter=0; counter<4; counter++) {
-	    numachip_stop_pcounter(cntxt[node],counter, &retval);
-	    if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	}
-
-	
-	
-	DEBUG_STATEMENT(
-	for (counter=0; counter<4; counter++) {
-	    printf("node %d counter %d: 0x%llx (%lld) \n",node, counter,numachip_get_pcounter(cntxt[node],counter,&retval), numachip_get_pcounter(cntxt[node],counter,&retval));
-	    if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
-	})
-	
-    }
-    
-}
-
+#if 0
 void count_api_read_rate(struct numachip_context *cntxt, double *missrate, double *hitrate, unsigned long long *total, nc_error_t *error) {
     unsigned long long hit, miss;
     *missrate=0;
@@ -122,22 +99,22 @@ void count_api_read_rate(struct numachip_context *cntxt, double *missrate, doubl
     if (*total==0) {
 	*missrate=0;
 	*hitrate=100;	
-	DEBUG_STATEMENT(printf(stderr,"Node %d: NO hits or miss in remote cache\n", node));
+	DEBUG_STATEMENT(printf("NO hits or miss in remote cache\n"));
     } else if (miss==0) {
 	*missrate=0;
 	*hitrate=100;
-	DEBUG_STATEMENT(printf(stderr,"Node %d: Hit rate 100 percent \n", node));
+	DEBUG_STATEMENT(printf("Hit rate 100 percent \n"));
     } else if (hit==0) {
 	*missrate=100;
 	*hitrate=0;
-	DEBUG_STATEMENT(printf("Node %d: Miss rate 100 percent \n", node));
+	DEBUG_STATEMENT(printf("Miss rate 100 percent \n"));
     } else {
 	*missrate=(double)100*miss/(*total);
 	*hitrate=(double)100*hit/(*total);
-	DEBUG_STATEMENT(printf("Node %d: Miss rate %0.2Lf  Hit rate %0.2Lf \n",  node,missrate,hitrate));
+	DEBUG_STATEMENT(printf("Miss rate %0.2f  Hit rate %0.2f \n", *missrate,*hitrate));
     }
 }
-
+#endif
 //------------------------------------------------------------------------- //
 // Select Counter: 
 //------------------------------------------------------------------------- //
@@ -451,11 +428,11 @@ unsigned long long numachip_get_pcounter(struct numachip_context *cntxt,
     
     perfreg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS + (0x8*counterno);
     counterval= (unsigned long long) numachip_read_csr(cntxt,perfreg) << 32;
-    DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%x \n",perfreg, counterval));
+    DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%Lx \n",perfreg, counterval));
     
     perfreg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + (0x8*counterno);
     counterval= (unsigned long long) counterval | numachip_read_csr(cntxt,perfreg);
-    DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%x \n", perfreg, counterval));
+    DEBUG_STATEMENT(printf("PERF_REF=0x%x value=0x%Lx \n", perfreg, counterval));
     
     return counterval;
     
