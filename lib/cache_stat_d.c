@@ -15,6 +15,7 @@
 #include <netinet/in.h>
 
 #include "numachip_user.h"
+#include "pcounter_test.h"
 
 #define DEBUG_STATEMENT(x)
 

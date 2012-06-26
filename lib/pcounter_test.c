@@ -28,7 +28,8 @@
 #include <sys/mman.h>
 
 #include "numachip_lib.h"
-
+#include "numachip_user.h"
+#include "pcounter_test.h"
 #define DEBUG_STATEMENT(x) x
 
 

@@ -29,7 +29,7 @@
 
 #include "numachip_lib.h"
 
-#define DEBUG_STATEMENT(x) x
+#define DEBUG_STATEMENT(x)
 
 
 void numachip_fullstart_pcounter(struct numachip_context *cntxt,
@@ -72,49 +72,16 @@ void numachip_all_start_pcounter(struct numachip_context **cntxt,
 	DEBUG_STATEMENT(
 		printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
 		       counterno,
-		       numachip_get_pcounter_select(cntxt[node],counterno,*error);
-		       numachip_get_pcounter_mask(cntxt[node],counterno,*error);
-		       numachip_get_pcounter(cntxt[node],counterno,*error);
-		       numachip_get_pcounter(cntxt[node],counterno,*error));
-		if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x"*error);
+		       numachip_get_pcounter_select(cntxt[node],counterno,error),
+		       numachip_get_pcounter_mask(cntxt[node],counterno,error),
+		       numachip_get_pcounter(cntxt[node],counterno,error),
+		       numachip_get_pcounter(cntxt[node],counterno,error));
+		if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x",*error);
+		)
 	    }
-	)
-    }
-    
+}
 	
-}
-#if 0
-void count_api_read_rate(struct numachip_context *cntxt, double *missrate, double *hitrate, unsigned long long *total, nc_error_t *error) {
-    unsigned long long hit, miss;
-    *missrate=0;
-    *hitrate=0;
-    *total=0;
-    hit=numachip_get_pcounter(cntxt,1,error);
-    if (*error != NUMACHIP_ERR_OK) return;
-    miss=numachip_get_pcounter(cntxt,0,error);
-    if (*error != NUMACHIP_ERR_OK) return;
-    *total=numachip_get_pcounter(cntxt,0,error) + numachip_get_pcounter(cntxt,1,error);
-    if (*error != NUMACHIP_ERR_OK) return;
 
-    if (*total==0) {
-	*missrate=0;
-	*hitrate=100;	
-	DEBUG_STATEMENT(printf("NO hits or miss in remote cache\n"));
-    } else if (miss==0) {
-	*missrate=0;
-	*hitrate=100;
-	DEBUG_STATEMENT(printf("Hit rate 100 percent \n"));
-    } else if (hit==0) {
-	*missrate=100;
-	*hitrate=0;
-	DEBUG_STATEMENT(printf("Miss rate 100 percent \n"));
-    } else {
-	*missrate=(double)100*miss/(*total);
-	*hitrate=(double)100*hit/(*total);
-	DEBUG_STATEMENT(printf("Miss rate %0.2f  Hit rate %0.2f \n", *missrate,*hitrate));
-    }
-}
-#endif
 //------------------------------------------------------------------------- //
 // Select Counter: 
 //------------------------------------------------------------------------- //

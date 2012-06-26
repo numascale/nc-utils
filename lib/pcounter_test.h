@@ -16,12 +16,10 @@
 // All Rights Reserved.
 //
 
-#ifndef __NUMACHIP_USER_H
-#define __NUMACHIP_USER_H
+#ifndef __NUMACHIP_PCOUNTER_TEST_H
+#define __NUMACHIP_PCOUNTER_TEST_H
 
 #include <stdint.h>
-#include "../interface/numachip-defines.h"
-#include "numachip_error.h"
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {

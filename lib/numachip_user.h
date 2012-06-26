@@ -140,9 +140,11 @@ unsigned int numachip_get_pcounter_select(struct numachip_context *cntxt,
 					  unsigned int counterno,
 					  nc_error_t *error);
 
-void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes);
-void count_api_stop(struct numachip_context **cntxt, unsigned int num_nodes);
-void count_api_read_rate(struct numachip_context *cntxt, double *missrate, double *hitrate, unsigned long long *total,nc_error_t *error);
+void numachip_fullstart_pcounter(struct numachip_context *cntxt,
+			    unsigned int counterno,
+			    unsigned int event,
+			    unsigned int mask,
+				 nc_error_t *error);
     
 /**
  * numachip_sge_copy - Optimized SG Copy

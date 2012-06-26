@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "numachip_user.h"
+#include "pcounter_test.h"
 
 #define DEBUG_STATEMENT(x)
 
