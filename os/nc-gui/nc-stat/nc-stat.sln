@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mpistat", "mpistat.vcxproj", "{29A8FE47-6724-4F50-BA87-47FDD0B3573F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nc-stat", "nc-stat.vcxproj", "{29A8FE47-6724-4F50-BA87-47FDD0B3573F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
