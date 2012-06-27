@@ -2042,7 +2042,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 static void update_mtrr(void)
 {
-    /* Ensure Tom2ForceMemTypeWB (bit 22) is set, so mem above TOM2 is writeback */
+    /* Ensure Tom2ForceMemTypeWB (bit 22) is set, so memory between 4G and TOM2 is writeback */
     uint64_t *syscfg_msr = (void *)REL(new_syscfg_msr);
     *syscfg_msr = dnc_rdmsr(MSR_SYSCFG) | (1 << 22);
     dnc_wrmsr(MSR_SYSCFG, *syscfg_msr);
@@ -2063,9 +2063,14 @@ static void update_mtrr(void)
     uint64_t *mtrr_var_base = (void *)REL(new_mtrr_var_base);
     uint64_t *mtrr_var_mask = (void *)REL(new_mtrr_var_mask);
 
+    printf("Variable MTRRs :\n");
     for (int i = 0; i < 8; i++) {
 	mtrr_var_base[i] = dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
 	mtrr_var_mask[i] = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
+	if (mtrr_var_mask[i] & 0x800ULL) {
+	    printf("  [%d] base=0x%012llx, mask=0x%012llx : %s\n", i, mtrr_var_base[i] & ~0xfffULL,
+		   mtrr_var_mask[i] & ~0xfffULL, MTRR_TYPE(mtrr_var_base[i] & 0xffULL));
+	}
     }
 }
 

@@ -1767,11 +1767,11 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
     }
 
     /* Set LockControl=0 to enable HT Lock functionality and avoid data corruption on split transactions.
-     * Also set LockDelay to 7.
+     * Set LockDelay=0 to minimize penalty with HT Locking.
      * We can do this now since we've disabled HT Locking on non-split transactions, even for high contention
      * cases (ref Errata #N28) */
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3<<24) | (7<<13))) | (3<<24) | (7<<13));
+    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3<<24) | (7<<13))) | (3<<24) | (0<<13));
 
     /* Since our microcode now supports remote owner state, we disable the
      * error responses on shared probes to GONE cache lines. */
