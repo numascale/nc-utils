@@ -31,13 +31,12 @@
 
 BEGIN_C_DECLS
 
-void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes);
-void count_api_stop(struct numachip_context **cntxt, unsigned int num_nodes);
-//void count_api_read_rate(struct numachip_context *cntxt, double *missrate, double *hitrate, unsigned long long *total,nc_error_t *error);
+void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes);
+void count_api_stop(struct numachip_context **cntxt, uint32_t num_nodes);
 void count_api_read_rcache(struct numachip_context *cntxt,
-			   unsigned int misscounter, unsigned int hitcounter, 
+			   uint32_t misscounter, uint32_t hitcounter, 
 			   double *missrate,
 			   double *hitrate,
-			   unsigned long long *total,
+			   uint64_t *total,
 			   nc_error_t *error);
 #endif

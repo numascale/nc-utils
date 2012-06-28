@@ -43,7 +43,7 @@ const char *numachip_get_sysfs_path(void)
 	env = getenv("SYSFS_PATH");
 
     if (env) {
-	int len;
+	int32_t len;
 
 	sysfs_path = strndup(env, NUMACHIP_SYSFS_PATH_MAX);
 	len = strlen(sysfs_path);
@@ -57,12 +57,12 @@ const char *numachip_get_sysfs_path(void)
     return sysfs_path;
 }
 
-int numachip_read_sysfs_file(const char *dir, const char *file,
+int32_t numachip_read_sysfs_file(const char *dir, const char *file,
 			     char *buf, size_t size)
 {
     char *path;
-    int fd;
-    int len;
+    int32_t fd;
+    int32_t len;
 
     if (asprintf(&path, "%s/%s", dir, file) < 0)
 	return -1;

@@ -20,7 +20,6 @@
 #define __NUMACHIP_USER_H
 
 #include <stdint.h>
-#include "../../interface/numachip-defines.h"
 #include "numachip_error.h"
 
 #ifdef __cplusplus
@@ -66,7 +65,7 @@ struct numachip_sge {
  * Return a NULL-terminated array of NumaChip devices.  The array can be
  * released with numachip_free_device_list().
  */
-struct numachip_device **numachip_get_device_list(int *num_devices, const char *filename);
+struct numachip_device **numachip_get_device_list(int32_t *num_devices, const char *filename);
 
 /**
  * numachip_free_device_list - Free list from numachip_get_device_list()
@@ -86,7 +85,7 @@ struct numachip_context *numachip_open_device(struct numachip_device *device);
 /**
  * numachip_close_device - Release device
  */
-int numachip_close_device(struct numachip_context *context);
+int32_t numachip_close_device(struct numachip_context *context);
 
 /**
  * numachip_read_csr - Read CSR
@@ -117,39 +116,39 @@ void numachip_write_config(struct numachip_context *context,
  * numachip_select_counter - Select Performance Counter
  */
 void numachip_select_pcounter(struct numachip_context *cntxt,
-			      unsigned int counterno,
-			      unsigned int eventreg,
+			      uint32_t counterno,
+			      uint32_t eventreg,
 			      nc_error_t *error);
 void numachip_clear_pcounter(struct numachip_context *cntxt,
-			     unsigned int counterno,
+			     uint32_t counterno,
 			     nc_error_t *error);
 void numachip_mask_pcounter(struct numachip_context *cntxt,
-			    unsigned int counterno,
-			    unsigned int mask,
+			    uint32_t counterno,
+			    uint32_t mask,
 			    nc_error_t *error);
 void numachip_stop_pcounter(struct numachip_context *cntxt,
-			    unsigned int counterno,
+			    uint32_t counterno,
 			    nc_error_t *error);
-unsigned int numachip_get_pcounter_mask(struct numachip_context *cntxt,
-					unsigned int counterno,
+uint32_t numachip_get_pcounter_mask(struct numachip_context *cntxt,
+					uint32_t counterno,
 					nc_error_t *error) ;
-unsigned long long numachip_get_pcounter(struct numachip_context *cntxt,
-					 unsigned int counterno,
+uint64_t numachip_get_pcounter(struct numachip_context *cntxt,
+					 uint32_t counterno,
 					 nc_error_t *error);
-unsigned int numachip_get_pcounter_select(struct numachip_context *cntxt,
-					  unsigned int counterno,
+uint32_t numachip_get_pcounter_select(struct numachip_context *cntxt,
+					  uint32_t counterno,
 					  nc_error_t *error);
 
 void numachip_fullstart_pcounter(struct numachip_context *cntxt,
-			    unsigned int counterno,
-			    unsigned int event,
-			    unsigned int mask,
+				 uint32_t counterno,
+				 uint32_t event,
+				 uint32_t mask,
 				 nc_error_t *error);
     
 /**
  * numachip_sge_copy - Optimized SG Copy
  */
-void numachip_sge_copy(struct numachip_sge *sg_list, int num_sge);
+void numachip_sge_copy(struct numachip_sge *sg_list, int32_t num_sge);
 
 END_C_DECLS
 
