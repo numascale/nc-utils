@@ -7,9 +7,9 @@ all: subdirs $(SUBDIRS)
 
 .PHONY: clean
 clean:
-#	(cd examples && make clean)
-	(cd test && make clean)
-	(cd lib && make clean)
+	for i in $(SUBDIRS); do \
+		(cd $$i && make clean) \
+        done
 
 subdirs: $(SUBDIRS)
 
