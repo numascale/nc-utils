@@ -27,6 +27,7 @@
 
 #include "numachip_user.h"
 #include "pcounter_test.h"
+#include "../../../interface/numachip-defines.h"
 
 #define DEBUG_STATEMENT(x)
 
@@ -428,7 +429,7 @@ void count_rate(struct numachip_context **cntxt, unsigned int num_nodes) {
     printf("************************************************\n");
     
     for(node=0; node<num_nodes; node++) {
-	unsigned long long total=0;
+	uint64_t total=0;
 	double missrate = 0;
 	double hitrate=0;
 	count_api_read_rcache( cntxt[node], 1, 0, &missrate, &hitrate, &total, &retval);
