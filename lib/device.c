@@ -30,7 +30,7 @@
 #include "numachip_lib.h"
 
 static pthread_mutex_t device_list_lock = PTHREAD_MUTEX_INITIALIZER;
-static int num_devices;
+static int32_t num_devices;
 static struct numachip_device **device_list;
 #define CSR_SPACE_SIZE 32*1024
 //#define DEBUG(...) printf(__VA_ARGS__)
@@ -64,10 +64,10 @@ const char *numachip_device_str(numachip_device_type_t str) {
  * Return a NULL-terminated array of NumaChip devices.  The array can be
  * released with numachip_free_device_list().
  */
-struct numachip_device **numachip_get_device_list(int *num, const char *filename)
+struct numachip_device **numachip_get_device_list(int32_t *num, const char *filename)
 {
     struct numachip_device **l = NULL;
-    int i;
+    int32_t i;
 
     if (num)
 	*num = 0;
@@ -118,9 +118,9 @@ struct numachip_context *numachip_open_device(struct numachip_device *device)
 {
     struct numachip_context *context;
     off_t csr_base;
-    int memfd = -1;
+    int32_t memfd = -1;
     uint64_t val=NUMACHIP_CSR_BASE;
-    int i=0;
+    int32_t i=0;
 
     context = malloc(sizeof(struct numachip_context));
     if (!context) {
@@ -133,7 +133,7 @@ struct numachip_context *numachip_open_device(struct numachip_device *device)
      * on all nodes from any CPU in the system at (nodeid is 0x0,0x1, 0x10 etc)
      * global_csr_offset + nodeid <<16
      *
-     * The ideal situation would be if struct numachip device ** numachip_get_device_list(int *num)
+     * The ideal situation would be if struct numachip device ** numachip_get_device_list(int32_t*num)
      * returned a list with all the numachips in the coherent system.
      * 
      * When the PCI tables gets sorted out we will have a list of PCI devices like this: 
@@ -188,10 +188,10 @@ err:
 /**
  * numachip_close_device - Release device
  */
-int numachip_close_device(struct numachip_context *context)
+int32_t numachip_close_device(struct numachip_context *context)
 {
  
-    int memfd = context->memfd;
+    int32_t memfd = context->memfd;
     if (memfd >= 0) close(memfd);
     
     if (context->csr_space.csr != MAP_FAILED) {

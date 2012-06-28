@@ -31,10 +31,10 @@
 #define NUMASCALE_VENDOR_ID   0x1B47
 #define NUMACHIP_DEVICE_ID    0x0601
 #define DEBUG_STATEMENT(x)
-static void add_device(int nodeid,
+static void add_device(int32_t nodeid,
 		       struct numachip_device ***dev_list,
-		       int *ndevices,
-		       int *list_size)
+		       int32_t *ndevices,
+		       int32_t *list_size)
 {
     struct numachip_device **new_list;
     struct numachip_device *dev;
@@ -59,13 +59,13 @@ static void add_device(int nodeid,
 }
 
 
-HIDDEN int numachip_init(struct numachip_device ***list, const char *filename)
+HIDDEN int32_t numachip_init(struct numachip_device ***list, const char *filename)
 {
-    int ndevices = 0;
-    int list_size = 0;
-    int cfg_nodes;
+    int32_t ndevices = 0;
+    int32_t list_size = 0;
+    int32_t cfg_nodes;
     struct node_info *cfg_nodelist;
-    int i = 0;
+    int32_t i = 0;
 
     //parse_json_file
     if (parse_config_file(filename,&cfg_nodelist,&cfg_nodes)) {

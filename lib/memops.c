@@ -32,7 +32,7 @@
 
 static void _block_xmm_copy(void *to, const void *from, size_t n)
 {
-    int i;
+    int32_t i;
     
     /* Align to 16 bytes with movnti*/
     i = ((unsigned long)to & 0xf) >> 2;
@@ -101,10 +101,10 @@ static void _block_xmm_copy(void *to, const void *from, size_t n)
 
 typedef struct { unsigned long a,b; } __attribute__((aligned(16))) xmm_store_t;
 
-void numachip_sge_copy(struct numachip_sge *sg_list, int num_sge)
+void numachip_sge_copy(struct numachip_sge *sg_list, int32_t num_sge)
 {
     xmm_store_t xmm_save[2];
-    int i;
+    int32_t i;
 
     /* Save XMM registers */
     __asm__ __volatile__ (

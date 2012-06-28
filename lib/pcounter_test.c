@@ -33,11 +33,11 @@
 #define DEBUG_STATEMENT(x) 
 
 
-void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes) {
+void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) {
 
     nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0;
-    DEBUG_STATEMENT(unsigned int counter=0);
+    uint32_t node=0;
+    DEBUG_STATEMENT(uint32_t counter=0);
   
     for(node=0; node<num_nodes; node++) {
 	numachip_fullstart_pcounter(cntxt[node],0,0x1,6, &retval);
@@ -67,10 +67,10 @@ void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes) {
 }
 
 
-void count_api_stop(struct numachip_context **cntxt, unsigned int num_nodes) {
+void count_api_stop(struct numachip_context **cntxt, uint32_t num_nodes) {
 
     nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0, counter=0;
+    uint32_t node=0, counter=0;
 
     /*STOP COUNTER*/
     for(node=0; node<num_nodes; node++) {
@@ -92,10 +92,10 @@ void count_api_stop(struct numachip_context **cntxt, unsigned int num_nodes) {
 }
 
 #if 0
-void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes) {
+void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) {
 
     nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0, counter=0;
+    uint32_t node=0, counter=0;
     /** CLEAR CNT **/
     for(node=0; node<num_nodes; node++) {
 	for (counter=0; counter<4; counter++) {
@@ -147,13 +147,13 @@ void count_api_start(struct numachip_context **cntxt, unsigned int num_nodes) {
 
 #endif
 void count_api_read_rcache(struct numachip_context *cntxt,
-			   unsigned int misscounter,
-			   unsigned int hitcounter, 
+			   uint32_t misscounter,
+			   uint32_t hitcounter, 
 			   double *missrate,
 			   double *hitrate,
-			   unsigned long long *total,
+			   uint64_t *total,
 			   nc_error_t *error) {
-    unsigned long long hit, miss;
+    uint64_t hit, miss;
     *missrate=0;
     *hitrate=0;
     *total=0;

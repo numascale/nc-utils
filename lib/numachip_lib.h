@@ -20,6 +20,7 @@
 #define __NUMACHIP_LIB_H
 
 #include "numachip_user.h"
+#include "../../interface/numachip-defines.h"
 
 #define HIDDEN		__attribute__((visibility ("hidden")))
 
@@ -30,7 +31,7 @@ enum {
 
 struct numachip_device {
     //char dev_path[NUMACHIP_SYSFS_PATH_MAX];
-    int nodeid;
+    uint32_t nodeid;
 };
 
 struct numachip_csr_space {
@@ -39,20 +40,20 @@ struct numachip_csr_space {
 
 struct numachip_context {
     struct numachip_device      *device;
-    int                         memfd;
+    int32_t                       memfd;
     struct numachip_csr_space   csr_space;
     
 };
 
 
-HIDDEN int numachip_init(struct numachip_device ***list, const char *filename);
+HIDDEN int32_t numachip_init(struct numachip_device ***list, const char *filename);
 
 /*
  * sysfs helper functions
  */
 const char *numachip_get_sysfs_path(void);
 
-int numachip_read_sysfs_file(const char *dir, const char *file,
+int32_t numachip_read_sysfs_file(const char *dir, const char *file,
 			     char *buf, size_t size);
 
 #endif
