@@ -4,7 +4,7 @@
 
 LD_LIBRARY_PATH=~/openmpi-1.5.4/MYMPIR/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH 
-export LD_LIBRARY_PATH=/net/numastore/storage/home/av/github/nc-utils/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/net/numastore/storage/home/av/github/nc-utils/os/lib:$LD_LIBRARY_PATH
 
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
