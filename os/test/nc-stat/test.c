@@ -414,7 +414,7 @@ unsigned int tracer_result(struct numachip_context *cntxt) {
     return 0;
 }
 void usage () {
-    printf("./test <json_file> [-dump-scc-csr] [-dump-phy-regs] [-dump-lc-csr] [-setup-tracer] [-tracer-result] [-lc3-perftest] [-count-api] [-count-api2] [-count-api-compare] [-parse-json]\n");
+    printf("./test <json_file> [-dump-scc-csr] [-dump-phy-regs] [-setup-tracer] [-tracer-result] [-count-start] [-count-stop] [-count-rate]\n");
 }
 
 
@@ -527,5 +527,6 @@ int main(int argc, char **argv)
     }
     free(cntxt);
     
-    return 0;
+    return  0;
 }
+
