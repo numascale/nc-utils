@@ -35,11 +35,11 @@ void count_rate(struct numachip_context **cntxt, unsigned int num_nodes, struct 
     for(node=0; node<num_nodes; node++) {
 	double missrate = 0;
 	double hitrate=0;
-	unsigned long long total;
+	uint64_t total;
 	count_api_read_rcache( cntxt[node], 0, 1, &missrate, &hitrate, &total, &retval);
 	countstat->hitrate[node]=hitrate;
 	countstat->total[node]=total;
-	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %lld\n",  node,missrate,hitrate, total);
+	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,missrate,hitrate, (unsigned long long) total);
     }
     printf("************************************************\n");
 	
