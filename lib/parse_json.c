@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "numachip_config.h"
-#include "../bootloader/json-1.4/src/json.h"
+#include "../../bootloader/json-1.4/src/json.h"
 struct fabric_info cfg_fabric;
 struct node_info *cfg_nodelist;
 struct part_info *cfg_partlist;

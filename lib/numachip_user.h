@@ -20,7 +20,7 @@
 #define __NUMACHIP_USER_H
 
 #include <stdint.h>
-#include "../interface/numachip-defines.h"
+#include "../../interface/numachip-defines.h"
 #include "numachip_error.h"
 
 #ifdef __cplusplus
