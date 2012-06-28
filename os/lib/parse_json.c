@@ -31,7 +31,7 @@ int cfg_nodes, cfg_partitions;
 static int name_matching = 0;
 char *hostname;
 
-static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
+static int parse_json_bool(json_t *obj, const char *label, uint32_t *val, int opt)
 {
     json_t *item;
     *val = -1;
@@ -58,7 +58,7 @@ static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
     return 1;
 }
 
-static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
+static int parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt)
 {
     json_t *item;
     char *end;
@@ -117,7 +117,7 @@ static int parse_json(json_t *root)
 {
     json_t *fab, *list, *obj;
     int i;
-    u32 val;
+    uint32_t val;
 
     fab = json_find_first_label(root, "fabric");
     if (!fab) {
