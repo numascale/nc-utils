@@ -31,7 +31,7 @@
 
 #define DEBUG_STATEMENT(x)
 
-unsigned int dump_scc_csr(struct numachip_context *cntxt) {
+uint32_t dump_scc_csr(struct numachip_context *cntxt) {
     
     
     /*H2S Configuration and Status Registers - Group 2:*/
@@ -62,7 +62,7 @@ unsigned int dump_scc_csr(struct numachip_context *cntxt) {
 }
 
 
-unsigned int phy_regs(struct numachip_context *cntxt) {
+uint32_t phy_regs(struct numachip_context *cntxt) {
     
     /*PHY*/
     printf("H2S_CSR_G0_PHYXA_LINK_STAT =%03x\n", numachip_read_csr(cntxt, H2S_CSR_G0_PHYXA_LINK_STAT ));
@@ -83,11 +83,11 @@ unsigned int phy_regs(struct numachip_context *cntxt) {
     return 0;
 }
 
-unsigned int tracer_setup(struct numachip_context *cntxt) {
+uint32_t tracer_setup(struct numachip_context *cntxt) {
     
 
     // TRACER SETUP
-    unsigned int value=0x3;
+    uint32_t value=0x3;
     
     
     // Stop Tracer - so that the CSR accesses don' show up when ALL is selected    
@@ -144,7 +144,7 @@ unsigned int tracer_setup(struct numachip_context *cntxt) {
     numachip_write_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT,0x20);
     printf("READBACK(at 0x%x):=%x\n", H2S_CSR_G3_WATCH_BUS_SELECT,numachip_read_csr(cntxt,H2S_CSR_G3_WATCH_BUS_SELECT));
     {
-	//unsigned int mpu1_addr_plus200[63:0] = 64'h1001_0000_0000 + 64'h0200;     
+	//uint32_t mpu1_addr_plus200[63:0] = 64'h1001_0000_0000 + 64'h0200;     
 	// G3xC0C Tracer Event Address (Upper Bits)
 	// Atle:mpu1_addr_plus200[63:0] = 64'h1001_0000_0000 + 64'h0200;     
 	//`Node0.local_write_csr(CSR_H2S_TRACER_ADDR0, mpu1_addr_plus200[47:38]);
@@ -305,7 +305,7 @@ unsigned int tracer_setup(struct numachip_context *cntxt) {
 	// Check if tracer stopped
 	//`Node0.local_read_csr(CSR_H2S_TRACER_STATUS, data[31:0]);
 	{
-	    unsigned int stopped=numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT);
+	    uint32_t stopped=numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT);
 	    /*printf("INFO: H2S_CSR_G3_TRACERSTAT=%x\n", stopped);*/
 	    
 	    if (!(stopped & 0x1)) {
@@ -319,18 +319,18 @@ unsigned int tracer_setup(struct numachip_context *cntxt) {
     return 0;
 }
 
-unsigned int tracer_runtest(struct numachip_context *cntxt) {
+uint32_t tracer_runtest(struct numachip_context *cntxt) {
     // Start coherent test
     sleep(60);
     return 0;
 }
     
-unsigned int tracer_result(struct numachip_context *cntxt) {
+uint32_t tracer_result(struct numachip_context *cntxt) {
     
     
 
     // TRACER SETUP
-    unsigned int  data=0x0, result=1, value=0x3;    
+    uint32_t  data=0x0, result=1, value=0x3;    
     
     result = 0x1; // Anticipate success, it will be set to 0 if tests fail.
     
@@ -377,8 +377,8 @@ unsigned int tracer_result(struct numachip_context *cntxt) {
     // Find the last valid tracer address (obtained from CSR_H2S_TRACER_STATUS bit 10:1)
     // `Node0.local_read_csr(CSR_H2S_TRACER_STATUS, data[31:0]); // G3xC08 TracerStat
     {
-	unsigned int zeroCnt = 0;
-	unsigned int tracerEndAddr=0, tracerLoop=0; 
+	uint32_t zeroCnt = 0;
+	uint32_t tracerEndAddr=0, tracerLoop=0; 
 	data=numachip_read_csr(cntxt,H2S_CSR_G3_TRACERSTAT);
 	
 	printf("INFO: H2S_CSR_G3_TRACERSTAT(at 0x%x) =0x%x\n", H2S_CSR_G3_TRACERSTAT, data);
@@ -423,9 +423,9 @@ void close_device(struct numachip_context *cntxt) {
     (void)numachip_close_device(cntxt);
 }
 
-void count_rate(struct numachip_context **cntxt, unsigned int num_nodes) {
+void count_rate(struct numachip_context **cntxt, uint32_t num_nodes) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0;
+    uint32_t node=0;
     printf("************************************************\n");
     
     for(node=0; node<num_nodes; node++) {

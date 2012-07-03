@@ -115,10 +115,7 @@ void numachip_write_config(struct numachip_context *context,
 /**
  * numachip_select_counter - Select Performance Counter
  */
-void numachip_select_pcounter(struct numachip_context *cntxt,
-			      uint32_t counterno,
-			      uint32_t eventreg,
-			      nc_error_t *error);
+
 void numachip_clear_pcounter(struct numachip_context *cntxt,
 			     uint32_t counterno,
 			     nc_error_t *error);
@@ -138,13 +135,23 @@ uint64_t numachip_get_pcounter(struct numachip_context *cntxt,
 uint32_t numachip_get_pcounter_select(struct numachip_context *cntxt,
 					  uint32_t counterno,
 					  nc_error_t *error);
+void numachip_select_pcounter(struct numachip_context *cntxt,
+			      uint32_t counterno,
+			      uint32_t eventreg,
+			      nc_error_t *error);
 
 void numachip_fullstart_pcounter(struct numachip_context *cntxt,
 				 uint32_t counterno,
 				 uint32_t event,
 				 uint32_t mask,
 				 nc_error_t *error);
-    
+
+void numachip_all_start_pcounter(struct numachip_context **cntxt,
+				 uint32_t num_nodes,
+				 uint32_t counterno,
+				 uint32_t event,
+				 uint32_t mask,
+				 nc_error_t *error);
 /**
  * numachip_sge_copy - Optimized SG Copy
  */
