@@ -28,8 +28,8 @@
 #include <sys/mman.h>
 
 #include "numachip_lib.h"
-
-#define DEBUG_STATEMENT(x)
+#include "numachip_user.h"
+#define DEBUG_STATEMENT(x) 
 
 
 void numachip_fullstart_pcounter(struct numachip_context *cntxt,
@@ -40,18 +40,23 @@ void numachip_fullstart_pcounter(struct numachip_context *cntxt,
 
     /** CLEAR CNT **/
     numachip_clear_pcounter(cntxt,counterno,error);
-    if ((*error) != NUMACHIP_ERR_OK)
+    if ((*error) != NUMACHIP_ERR_OK) {
 	fprintf(stderr,"Numachip user API failed for counterno %d retval = 0x%x", counterno, *error);
+	return;
+    }
 
     /** SELECT COUNTER **/
     numachip_select_pcounter(cntxt,counterno,event, error);
-    if ((*error) != NUMACHIP_ERR_OK)
+    if ((*error) != NUMACHIP_ERR_OK) {
 	fprintf(stderr,"Numachip user API failed for counterno %d event %d retval = 0x%x", counterno,event,*error);
-
+	return;
+    }
     /** Apply Mask **/
     numachip_mask_pcounter(cntxt,counterno, mask, error);
-    if ((*error) != NUMACHIP_ERR_OK)
+    if ((*error) != NUMACHIP_ERR_OK) {
 	fprintf(stderr,"Numachip user API failed for counterno %d mask %d retval = 0x%x", counterno, mask,*error);
+	return;
+    }
        
 }
 
@@ -64,11 +69,15 @@ void numachip_all_start_pcounter(struct numachip_context **cntxt,
 
     nc_error_t retval = NUMACHIP_ERR_OK;
     uint32_t node=0;
-  
+    
     for(node=0; node<num_nodes; node++) {
 	numachip_fullstart_pcounter(cntxt[node],counterno,event,mask, error);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", *error);
-
+	if (retval != NUMACHIP_ERR_OK) {
+	    fprintf(stderr,"Numachip user API failed retval = 0x%x", *error);
+	    return;
+	}
+    }
+    
 	DEBUG_STATEMENT(
 		printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
 		       counterno,
@@ -76,24 +85,14 @@ void numachip_all_start_pcounter(struct numachip_context **cntxt,
 		       numachip_get_pcounter_mask(cntxt[node],counterno,error),
 		       numachip_get_pcounter(cntxt[node],counterno,error),
 		       numachip_get_pcounter(cntxt[node],counterno,error));
-		if (retval != NUMACHIP_ERR_OK) fprint32_tf(stderr,"Numachip user API failed retval = 0x%x",*error);
-		)
-	    }
+		if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x",*error);)
+		
+	    
+
 }
 	
 
-//------------------------------------------------------------------------- //
-// Select Counter: 
-//------------------------------------------------------------------------- //
-//       7 - cHT Cave [7:0]
-//       6 - MCTag [7:0]
-//       5 - FLAG [7:0]
-//       4 - CDATA [7:0]
-//       3 - LOC (HPrb)
-//       2 - LOC (SPrb) [7:0] - 
-//       1 - REM (Hreq) [7:0] - 
-//       0 - REM (SPrb) [7:0] - Probes from SCC
-//
+
 
 /**
  * numachip_select_counter - Select Performance Counter
@@ -119,6 +118,13 @@ void numachip_select_pcounter(struct numachip_context *cntxt,
     
     current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
     DEBUG_STATEMENT(printf("Current counterval read 0x%x eventreg 0x%x\n", current_counter_val, eventreg));
+    DEBUG_STATEMENT(printf("Current (eventreg << (counterno*4))  0x%x\n", (eventreg << (counterno*4))));
+    if (current_counter_val & ((eventreg << (counterno*4)))) {
+	DEBUG_STATEMENT(printf("Current (eventreg << (counterno*4))  0x%x equals current_counterval 0x%x\n", (eventreg << (counterno*4)), current_counter_val));
+	*error=NUMACHIP_ERR_BUSY;
+	return;
+    }
+    
     current_counter_val=current_counter_val | ((eventreg << (counterno*4)));
     numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,current_counter_val);
     DEBUG_STATEMENT(printf("Current counterval written 0x%x readback 0x%x\n",current_counter_val,numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER)));
@@ -126,8 +132,8 @@ void numachip_select_pcounter(struct numachip_context *cntxt,
 }
 
 uint32_t numachip_get_pcounter_select(struct numachip_context *cntxt,
-			      uint32_t counterno,
-			      nc_error_t *error) { 
+				      uint32_t counterno,
+				      nc_error_t *error) { 
 
     *error = NUMACHIP_ERR_OK;
     
@@ -138,7 +144,7 @@ uint32_t numachip_get_pcounter_select(struct numachip_context *cntxt,
     
     
     return numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
-
+    
 }
 
 
@@ -260,15 +266,15 @@ void numachip_mask_pcounter(struct numachip_context *cntxt,
 			    uint32_t counterno,
 			    uint32_t mask,
 			    nc_error_t *error) { 
-
+    
     uint32_t mask_register, mask_value;
-
+    
     *error = NUMACHIP_ERR_OK;
     if (counterno > 7) {
 	*error=NUMACHIP_ERR_INVALID_PARAMETER;
 	return;
     }
-
+    
     /*
      * We will accept values from 0-7. And translate them in here
      */
@@ -279,42 +285,49 @@ void numachip_mask_pcounter(struct numachip_context *cntxt,
     }
     //6,5,3,2
     
-
+    
     
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
-  
+    
     //TBD: Check that the counter has been cleared?
+    
     mask_value = 1 << mask ;
-    DEBUG_STATEMENT(printf("1.We program the mask_register to count 6 - HT-Request with ctag miss  (and the counting starts) mask value 0x%x\n", mask_value));
+    DEBUG_STATEMENT(printf("1.We program the mask_register to mask value 0x%x\n", mask_value));
     //2.We program the mask_register to count 6 - HT-Request with ctag miss  (and the counting starts).
     //We use the same value for compare and mask to only count this event.
     mask_value= (mask_value << 8) | mask_value;
-    DEBUG_STATEMENT(printf("2.We program the mask_register to count 6 - HT-Request with ctag miss  (and the counting starts) mask value 0x%x\n", mask_value));
+    DEBUG_STATEMENT(printf("2.We program the mask_register to count mask value 0x%x was 0x%x\n", mask_value,numachip_get_pcounter_mask(cntxt,counterno,error)));
+    
+    if (numachip_get_pcounter_mask(cntxt,counterno,error) & mask_value) {
+	*error=NUMACHIP_ERR_BUSY;
+	return;
+    }
+    
     numachip_write_csr(cntxt,mask_register,mask_value);
     DEBUG_STATEMENT(printf("Mask register at 0x%x is set to 0x%x READBACK: 0x%x\n",mask_register, mask_value,numachip_read_csr(cntxt,mask_register)));
-
+    
 }
 
 uint32_t numachip_get_pcounter_mask(struct numachip_context *cntxt,
-			    uint32_t counterno,
-			    nc_error_t *error) { 
-
+				    uint32_t counterno,
+				    nc_error_t *error) { 
+    
     uint32_t mask_register;
-
+    
     *error = NUMACHIP_ERR_OK;
     if (counterno > 7) {
 	*error=NUMACHIP_ERR_INVALID_PARAMETER;
 	return 0;
     }
-
+    
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
     return numachip_read_csr(cntxt,mask_register);
-
+    
 }
 
 /*Stop also clears the mask. Not obvius*/
 void numachip_stop_pcounter(struct numachip_context *cntxt, uint32_t counterno, nc_error_t *error) {
-
+    
     uint32_t current_counter_val, mask_register;
 
     *error = NUMACHIP_ERR_OK;
@@ -322,7 +335,7 @@ void numachip_stop_pcounter(struct numachip_context *cntxt, uint32_t counterno, 
 	*error=NUMACHIP_ERR_INVALID_PARAMETER;
 	return;
     }
-	
+    
     current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
     current_counter_val=0x77777777 & (~(0x7 << (counterno*4)));
     DEBUG_STATEMENT(printf("Current counterval to be stopped 0x%x\n",current_counter_val));

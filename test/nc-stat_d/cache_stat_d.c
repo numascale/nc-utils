@@ -21,15 +21,15 @@
 
 struct msgstats_t {
    double hitrate[4];
-    unsigned long long total[4];
+    uint64_t total[4];
 };
 
 
 static void socklisten();
 
-void count_rate(struct numachip_context **cntxt, unsigned int num_nodes, struct msgstats_t* countstat) {
+void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgstats_t* countstat) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    unsigned int node=0;
+    uint32_t node=0;
     printf("************************************************\n");
     
     for(node=0; node<num_nodes; node++) {

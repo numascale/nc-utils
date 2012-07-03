@@ -29,7 +29,7 @@
 #include "pcounter_test.h"
 #include "../../../interface/numachip-defines.h"
 
-#define DEBUG_STATEMENT(x)
+#define DEBUG_STATEMENT(x) 
 void print_involved() {
     printf("------------------------------------------\n");
     printf("INVOLVED REGISTRIES:----------------------\n");
@@ -46,7 +46,35 @@ void print_example() {
     printf("------------------------------------------\n");
     printf("EXAMPLE:----------------------------------\n");
 }
-void get_counter_select_help() {
+void print_comp_n_mask() {
+    printf("G3xFA0 Compare and Mask of counter 0\n");
+    printf("G3xFA4 Compare and Mask of counter 1\n");
+    printf("G3xFA8 Compare and Mask of counter 2\n");
+    printf("G3xFAC Compare and Mask of counter 3\n");
+    printf("G3xFB0 Compare and Mask of counter 4\n");
+    printf("G3xFB4 Compare and Mask of counter 5\n");
+    printf("G3xFB8 Compare and Mask of counter 6\n");
+    printf("G3xFBC Compare and Mask of counter 7\n");
+}
+void print_perf_cnt() {
+    printf("G3xFC0 Performance counter 0 40-Bit (Upper Bits) \n");
+    printf("G3xFC4 Performance counter 0 40-Bit (Lower Bits)\n");
+    printf("G3xFC8 Performance counter 1 40-Bit (Upper Bits) \n");
+    printf("G3xFCC Performance counter 1 40-Bit (Lower Bits)\n");
+    printf("G3xFD0 Performance counter 2 40-Bit (Upper Bits) \n");
+    printf("G3xFD4 Performance counter 2 40-Bit (Lower Bits)\n");
+    printf("G3xFD8 Performance counter 3 40-Bit (Upper Bits) \n");
+    printf("G3xFDC Performance counter 3 40-Bit (Lower Bits)\n");
+    printf("G3xFE0 Performance counter 4 40-Bit (Upper Bits) \n");
+    printf("G3xFE4 Performance counter 4 40-Bit (Lower Bits)\n");
+    printf("G3xFE8 Performance counter 5 40-Bit (Upper Bits) \n");
+    printf("G3xFEC Performance counter 5 40-Bit (Lower Bits)\n");
+    printf("G3xFF0 Performance counter 6 40-Bit (Upper Bits) \n");
+    printf("G3xFF4 Performance counter 6 40-Bit (Lower Bits)\n");
+    printf("G3xFF8 Performance counter 7 40-Bit (Upper Bits) \n");
+    printf("G3xFFC Performance counter 7 40-Bit (Lower Bits)\n");
+}
+void counter_select_help() {
 
     print_involved();
     printf("G3xF78 Select Counter\n");
@@ -99,18 +127,11 @@ void get_counter_select_help() {
     printf("------------------------------------------\n");
 }
 
-void get_counter_mask_help() {
+void counter_mask_help() {
     
-
     print_involved();
-    printf("G3xFA0 Compare and Mask of counter 0\n");
-    printf("G3xFA4 Compare and Mask of counter 1\n");
-    printf("G3xFA8 Compare and Mask of counter 2\n");
-    printf("G3xFAC Compare and Mask of counter 3\n");
-    printf("G3xFB0 Compare and Mask of counter 4\n");
-    printf("G3xFB4 Compare and Mask of counter 5\n");
-    printf("G3xFB8 Compare and Mask of counter 6\n");
-    printf("G3xFBC Compare and Mask of counter 7\n");
+    printf("G3xF9C Timer for ECC / Counter 7 (if you select \ncounter 7, then we will set this register for you.) \n");
+    print_comp_n_mask();
     printf("------------------------------------------\n");
     printf("Reset: 0000 0000h\n");
     printf("------------------------------------------\n");
@@ -240,33 +261,24 @@ void get_counter_mask_help() {
     printf("------------------------------------------\n");
 }
 
-void get_counter_clear_help() {
+void counter_read_help() {
+    print_involved();
+    print_perf_cnt();
+    print_involved_api();
+    printf("uint64_t numachip_get_pcounter(struct numachip_context *cntxt,\n");
+    printf("					 uint32_t counterno,\n");
+    printf("					 nc_error_t *error);\n");
+    print_example();
+    printf("Read the counters Performance counter registry values,e.g of counter 0:\n");
+    print_operation();
+    printf("uint64_t val=numachip_read_pcounter(cntxt[node],0 &retval);\n");
+    printf("------------------------------------------\n");
+}
+void counter_clear_help() {
     print_involved();
     printf("G3xF78 Select Counter\n");
-    printf("G3xFA0 Compare and Mask of counter 0\n");
-    printf("G3xFA4 Compare and Mask of counter 1\n");
-    printf("G3xFA8 Compare and Mask of counter 2\n");
-    printf("G3xFAC Compare and Mask of counter 3\n");
-    printf("G3xFB0 Compare and Mask of counter 4\n");
-    printf("G3xFB4 Compare and Mask of counter 5\n");
-    printf("G3xFB8 Compare and Mask of counter 6\n");
-    printf("G3xFBC Compare and Mask of counter 7\n");
-    printf("G3xFC0 Performance counter 0 40-Bit (Upper Bits) \n");
-    printf("G3xFC4 Performance counter 0 40-Bit (Lower Bits)\n");
-    printf("G3xFC8 Performance counter 1 40-Bit (Upper Bits) \n");
-    printf("G3xFCC Performance counter 1 40-Bit (Lower Bits)\n");
-    printf("G3xFD0 Performance counter 2 40-Bit (Upper Bits) \n");
-    printf("G3xFD4 Performance counter 2 40-Bit (Lower Bits)\n");
-    printf("G3xFD8 Performance counter 3 40-Bit (Upper Bits) \n");
-    printf("G3xFDC Performance counter 3 40-Bit (Lower Bits)\n");
-    printf("G3xFE0 Performance counter 4 40-Bit (Upper Bits) \n");
-    printf("G3xFE4 Performance counter 4 40-Bit (Lower Bits)\n");
-    printf("G3xFE8 Performance counter 5 40-Bit (Upper Bits) \n");
-    printf("G3xFEC Performance counter 5 40-Bit (Lower Bits)\n");
-    printf("G3xFF0 Performance counter 6 40-Bit (Upper Bits) \n");
-    printf("G3xFF4 Performance counter 6 40-Bit (Lower Bits)\n");
-    printf("G3xFF8 Performance counter 7 40-Bit (Upper Bits) \n");
-    printf("G3xFFC Performance counter 7 40-Bit (Lower Bits)\n");
+    print_comp_n_mask();
+    print_perf_cnt();
     print_involved_api();
     printf("void numachip_clear_pcounter(struct numachip_context *cntxt,\n");
     printf("			      uint32_t counterno,\n");
@@ -280,18 +292,13 @@ void get_counter_clear_help() {
     printf("------------------------------------------\n");
 }
 
-void get_counter_stop_help() {
+void counter_stop_help() {
 
     print_involved();
     printf("G3xF78 Select Counter\n");
-    printf("G3xFA0 Compare and Mask of counter 0\n");
-    printf("G3xFA4 Compare and Mask of counter 1\n");
-    printf("G3xFA8 Compare and Mask of counter 2\n");
-    printf("G3xFAC Compare and Mask of counter 3\n");
-    printf("G3xFB0 Compare and Mask of counter 4\n");
-    printf("G3xFB4 Compare and Mask of counter 5\n");
-    printf("G3xFB8 Compare and Mask of counter 6\n");
-    printf("G3xFBC Compare and Mask of counter 7\n");
+    print_comp_n_mask();
+    printf("G3xF9C Timer for ECC / Counter 7 (if you select \ncounter 7, then we will set this register for you.) \n");
+    
 
     print_involved_api();
     printf("Stop counter by deselecting counter\n");
@@ -301,16 +308,19 @@ void get_counter_stop_help() {
     printf(" 		              nc_error_t *error);\n");
     print_example();
     printf("Stop counter 0 by clearing the select and mask register\n");
-    printf("and corresponding counter register:\n");
+    printf("and corresponding counter register without clearing the number of counts:\n");
     print_operation();
     printf("numachip_stop_pcounter(cntxt[node],0, &retval);\n");
     printf("------------------------------------------\n");
 
-
-
 }
 void usage () {
-    printf("./nc_perf <help>/<json_file> [-counter-select] [-counter-mask] [-counter-stop] [-counter-read] [-counter-clear] \n");
+    printf("./nc_perf <help>/<json_file>\n");
+    printf("[-counter-select <node_index>|<'all'> <counterno> <mux value>]\n");
+    printf("[-counter-mask <node_index>|<'all'> <counterno> <mask value> ]\n");
+    printf("[-counter-stop <node_index>|<'all'> <counterno>]\n");
+    printf("[-counter-read <node_index>|<'all'> <counterno> ]\n");
+    printf("[-counter-clear <node_index>|<'all'> <counterno> ] \n");
 }
 
 
@@ -345,45 +355,50 @@ int main(int argc, char **argv)
     int num_devices; 
     const char *filename = "fabric-loop-05.json";
     
-    if (argc<2) {
+    if (argc<3) {
         usage();
         return(-1);
     }
 
     if (!strcmp(argv[1], "help")){
 
-	if (argc<3) {
-	    usage();
-	    return(-1);
-	}
-
 	/* Get the parameters */
 	for (counter=2; (int)counter<argc; counter++) {
 	    printf("Argument %d: %s\n", counter, argv[counter]);
 	    
 	    if (!strcmp("-counter-select",argv[counter])) {	    
-		get_counter_select_help();
+		counter_select_help();
 		continue;
 	    }
 	    if (!strcmp("-counter-mask",argv[counter])) {	    
-		get_counter_mask_help();
+		counter_mask_help();
 		continue;
 	    }
 	    if (!strcmp("-counter-clear",argv[counter])) {	    
-		get_counter_clear_help();
+		counter_clear_help();
 		continue;
 	    }
 	    if (!strcmp("-counter-stop",argv[counter])) {	    
-		get_counter_stop_help();
+		counter_stop_help();
+		continue;
+	    }
+
+           if (!strcmp("-counter-read",argv[counter])) {	    
+		counter_read_help();
 		continue;
 	    }
 	    
 
 	}
 	counter=0;
-	exit(1);
+	return(0);
 	
     }
+
+    if (argc<3) {
+	usage();
+    }
+
 
     devices = numachip_get_device_list(&num_devices, filename);
     DEBUG_STATEMENT(printf("Found %d NumaChip devices\n", num_devices));
@@ -404,29 +419,121 @@ int main(int argc, char **argv)
     if (!cntxt[0])
 	return -1;
 
-    
-    
+
      /* Get the parameters */
-    for (counter=1; (int)counter<argc; counter++) {
+    for (counter=2; (int)counter<argc; counter++) {
+	uint32_t nodeix = 0,counterno = 0, val= 0, val2 = 0; 
+	DEBUG_STATEMENT(printf("Get the parameters counter %d argc %d argv[counter] %s\n",counter, argc, argv[counter]));
 
-	if (!strcmp("-count-start",argv[counter])) {	    
-	    count_api_start(cntxt, num_devices);
-	    continue;
+	if (argc>counter+2) {	    
+	    counterno = strtol(argv[counter+2],(char **) NULL,10);
+	    DEBUG_STATEMENT(printf ("Counterno %d\n", counterno));
+	} else {
+	    break;
 	}
+	DEBUG_STATEMENT(printf ("Counter print argv[counter+1]  %s\n", argv[counter+1]));    
+	if (argc>counter+3) {
+	    val = strtol(argv[counter+3],(char **) NULL,10);
+	}
+	DEBUG_STATEMENT(printf ("Counter print argv[counter+1]  %s\n", argv[counter+1]));
+	if (argc>counter+4) {
+	    val2 = strtol(argv[counter+4],(char **) NULL,10);
+	}
+	if (!strcmp("all",argv[counter+1])) {
+	    
+	    DEBUG_STATEMENT(printf ("Counter print all1 %d\n", num_devices));
+	    if (!strcmp("-counter-select",argv[counter])) {
+		counter_select_all(cntxt,num_devices,counterno,val);
+		continue;
+	    }
+	    if (!strcmp("-counter-mask",argv[counter])) {	    
+		counter_mask_all(cntxt,num_devices,counterno,val);
+		continue;
+	    }
 
+	    if (!strcmp("-counter-clear",argv[counter])) {
+		counter_clear_all(cntxt,num_devices,counterno);
+		continue;
+	    }
+	
+	    if (!strcmp("-counter-read",argv[counter])) {
+		DEBUG_STATEMENT(printf ("Counter print all %d\n", num_devices));
+		counter_print_all(cntxt,num_devices,counterno);
+		continue;
+	    }
+	    if (!strcmp("-counter-stop",argv[counter])) {	    
+		counter_stop_all(cntxt,num_devices,counterno);
+		continue;
+	    }
+
+	    if (!strcmp("-counter-start",argv[counter])) {
+		printf("Calling counter_start_all(cntxt,%d,%d,%d,%d);\n",num_devices, counterno, val, val2);
+		counter_start_all(cntxt,num_devices,counterno,val,val2);
+	    	continue;
+	    }
+	    
+	} else {
+
+	    if (argc>counter+1) {	    
+		nodeix = strtol(argv[counter+1],(char **) NULL,10);
+		DEBUG_STATEMENT(printf ("node %d\n", nodeix));
+	    } else {
+		break;
+	    }
+	    
+
+	    if (!strcmp("-counter-select",argv[counter])) {
+		DEBUG_STATEMENT(printf("Node %d counterno %d value %d\n",nodeix,counterno,val));
+		counter_select(cntxt[nodeix],counterno,val);
+		continue;
+	    }
+	    
+	    if (!strcmp("-counter-mask",argv[counter])) {
+		DEBUG_STATEMENT(printf("Masking counter node %d counterno %d mask 0x%x\n",
+				       nodeix, counterno, val));
+		counter_mask(cntxt[nodeix], counterno,val);
+		continue;
+	    }
+	    
+	    if (!strcmp("-counter-clear",argv[counter])) {
+		counter_clear(cntxt[nodeix],counterno);
+		continue;
+	    }
+	
+	    if (!strcmp("-counter-read",argv[counter])) {	    
+		printf("Reading counter node %d counterno %d = %lld \n",
+		       nodeix, counterno, (unsigned long long)
+		       counter_read(cntxt[nodeix],counterno));
+		continue;
+	    }
+	    if (!strcmp("-counter-stop",argv[counter])) {	    
+		counter_stop(cntxt[nodeix],counterno);
+		continue;
+	    }
+
+	    if (!strcmp("-counter-start",argv[counter])) {	    
+		counter_start(cntxt[nodeix],counterno,val,val2);
+	    	continue;
+	    }
+		
+
+	}
+		    
+		
+        /*
 	if (!strcmp("-count-stop",argv[counter])) {	    
 	    count_api_stop(cntxt, num_devices);
 	    continue;
 	}
 	
-
 	if (!strcmp("-count-rate",argv[counter])) {
 	    count_api_stop(cntxt, num_devices);
 	    count_api_start(cntxt, num_devices);
 	    count_rate(cntxt, num_devices);
-
+	    
 	    continue;
 	}
+	*/
 
     }
 

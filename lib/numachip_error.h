@@ -21,7 +21,8 @@
 /* Error codes */
 typedef enum {
     NUMACHIP_ERR_OK                         = 0x000,
-    NUMACHIP_ERR_INVALID_PARAMETER          = 0x001
+    NUMACHIP_ERR_INVALID_PARAMETER          = 0x001,
+    NUMACHIP_ERR_BUSY                       = 0x002
 } nc_error_t;
 
 #endif /* __NUMACHIP_ERROR_H */
