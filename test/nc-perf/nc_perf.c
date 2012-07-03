@@ -326,8 +326,7 @@ void counter_stop_help() {
     printf("G3xF78 Select Counter\n");
     print_comp_n_mask();
     printf("G3xF9C Timer for ECC / Counter 7 (if you select \ncounter 7, then we will set this register for you.) \n");
-    
-
+  
     print_involved_api();
     printf("Stop counter by deselecting counter\n");
     printf("and clearing mask by writing api: \n");
@@ -397,31 +396,36 @@ int main(int argc, char **argv)
 	    
 	    if (!strcmp("-counter-select",argv[counter])) {	    
 		counter_select_help();
-		continue;
+		break;
 	    }
-	    if (!strcmp("-counter-mask",argv[counter])) {	    
+	    else if (!strcmp("-counter-mask",argv[counter])) {	    
 		counter_mask_help();
-		continue;
+		break;
 	    }
-	    if (!strcmp("-counter-clear",argv[counter])) {	    
+	    else if (!strcmp("-counter-clear",argv[counter])) {	    
 		counter_clear_help();
-		continue;
+		break;
 	    }
-	    if (!strcmp("-counter-stop",argv[counter])) {	    
+	    else if (!strcmp("-counter-stop",argv[counter])) {	    
 		counter_stop_help();
-		continue;
+		break;
 	    }
-
-           if (!strcmp("-counter-read",argv[counter])) {	    
+	    
+	    else if (!strcmp("-counter-read",argv[counter])) {	    
 		counter_read_help();
-		continue;
-	   }
-	   
-	   if (!strcmp("-counter-start",argv[counter])) {	    
-		counter_start_help();
-		continue;
+		break;
 	    }
-
+	    
+	    else if (!strcmp("-counter-start",argv[counter])) {	    
+		counter_start_help();
+		break;
+	
+	    } else {
+		printf("Wrong parameters\n");
+		usage();
+		break;
+	    }
+	    
 	}
 	counter=0;
 	return(0);
@@ -456,12 +460,15 @@ int main(int argc, char **argv)
      /* Get the parameters */
     for (counter=2; (int)counter<argc; counter++) {
 	uint32_t nodeix = 0,counterno = 0, val= 0, val2 = 0; 
-	DEBUG_STATEMENT(printf("Get the parameters counter %d argc %d argv[counter] %s\n",counter, argc, argv[counter]));
+//	printf("Get the parameters counter %d argc %d argv[counter] %s\n",counter, argc, argv[counter]);
 
 	if (argc>counter+2) {	    
 	    counterno = strtol(argv[counter+2],(char **) NULL,10);
 	    DEBUG_STATEMENT(printf ("Counterno %d\n", counterno));
+	    
 	} else {
+	    printf("Wrong parameters\n");
+	    usage();
 	    break;
 	}
 	DEBUG_STATEMENT(printf ("Counter print argv[counter+1]  %s\n", argv[counter+1]));    
@@ -476,33 +483,48 @@ int main(int argc, char **argv)
 	    
 	    DEBUG_STATEMENT(printf ("Counter print all1 %d\n", num_devices));
 	    if (!strcmp("-counter-select",argv[counter])) {
+		if (!(argc>=counter+3)) {
+		   printf("Wrong parameters\n");
+		   usage();
+		   break; 
+		}
 		counter_select_all(cntxt,num_devices,counterno,val);
-		continue;
+		break;
 	    }
-	    if (!strcmp("-counter-mask",argv[counter])) {	    
+	    else if (!strcmp("-counter-mask",argv[counter])) {
+		if (!(argc>=counter+3)) {
+		   printf("Wrong parameters\n");
+		   usage();
+		   break; 
+		}
 		counter_mask_all(cntxt,num_devices,counterno,val);
-		continue;
+		break;
 	    }
 
-	    if (!strcmp("-counter-clear",argv[counter])) {
+	    else if (!strcmp("-counter-clear",argv[counter])) {
 		counter_clear_all(cntxt,num_devices,counterno);
-		continue;
+		break;
 	    }
 	
-	    if (!strcmp("-counter-read",argv[counter])) {
+	    else if (!strcmp("-counter-read",argv[counter])) {
 		DEBUG_STATEMENT(printf ("Counter print all %d\n", num_devices));
 		counter_print_all(cntxt,num_devices,counterno);
-		continue;
+		break;
 	    }
-	    if (!strcmp("-counter-stop",argv[counter])) {	    
+	    else if (!strcmp("-counter-stop",argv[counter])) {	    
 		counter_stop_all(cntxt,num_devices,counterno);
-		continue;
+		break;
 	    }
 
-	    if (!strcmp("-counter-start",argv[counter])) {
+	    else if (!strcmp("-counter-start",argv[counter])) {
+		if (!(argc>counter+4)) {
+		   printf("Wrong parameters\n");
+		   usage();
+		   break; 
+		}
 		printf("Calling counter_start_all(cntxt,%d,%d,%d,%d);\n",num_devices, counterno, val, val2);
 		counter_start_all(cntxt,num_devices,counterno,val,val2);
-	    	continue;
+	    	break;
 	    }
 	    
 	} else {
@@ -510,43 +532,63 @@ int main(int argc, char **argv)
 	    if (argc>counter+1) {	    
 		nodeix = strtol(argv[counter+1],(char **) NULL,10);
 		DEBUG_STATEMENT(printf ("node %d\n", nodeix));
+		if (nodeix >= num_devices) {
+		    printf("Cannot access nodeix %d. Number of nodes are %d\n", nodeix,num_devices);
+		    usage();
+		    break;
+		}
 	    } else {
+		printf("Wrong parameters\n");
+		usage();
 		break;
 	    }
 	    
 
 	    if (!strcmp("-counter-select",argv[counter])) {
+		if (!(argc>counter+3)) {
+		    printf("Wrong parameters\n");
+		    usage();
+		    break; 
+		}
 		DEBUG_STATEMENT(printf("Node %d counterno %d value %d\n",nodeix,counterno,val));
 		counter_select(cntxt[nodeix],counterno,val);
-		continue;
+		break;
 	    }
 	    
-	    if (!strcmp("-counter-mask",argv[counter])) {
+	    else if (!strcmp("-counter-mask",argv[counter])) {
+		if (!(argc>counter+3)) {
+		    printf("Wrong parameters\n");
+		    usage();
+		    break; 
+		}
 		DEBUG_STATEMENT(printf("Masking counter node %d counterno %d mask 0x%x\n",
 				       nodeix, counterno, val));
 		counter_mask(cntxt[nodeix], counterno,val);
-		continue;
+		break;
 	    }
 	    
-	    if (!strcmp("-counter-clear",argv[counter])) {
+	    else if (!strcmp("-counter-clear",argv[counter])) {
 		counter_clear(cntxt[nodeix],counterno);
-		continue;
+		break;
 	    }
 	
-	    if (!strcmp("-counter-read",argv[counter])) {	    
+	    else if (!strcmp("-counter-read",argv[counter])) {	    
 		printf("Reading counter node %d counterno %d = %lld \n",
 		       nodeix, counterno, (unsigned long long)
 		       counter_read(cntxt[nodeix],counterno));
-		continue;
+		break;
 	    }
-	    if (!strcmp("-counter-stop",argv[counter])) {	    
+	    else if (!strcmp("-counter-stop",argv[counter])) {	    
 		counter_stop(cntxt[nodeix],counterno);
-		continue;
+		break;
 	    }
 
-	    if (!strcmp("-counter-start",argv[counter])) {	    
+	    else if (!strcmp("-counter-start",argv[counter])) {	    
 		counter_start(cntxt[nodeix],counterno,val,val2);
-	    	continue;
+	    	break;
+	    } else {
+		printf("Wrong parameters\n");
+		usage();
 	    }
 		
 
