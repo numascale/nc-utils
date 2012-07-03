@@ -1091,12 +1091,15 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
     if (ht_suppress) {
 	for (i = 0; i <= nodes; i++) {
 	    val = cht_read_config(i, NB_FUNC_MISC, 0x44);
-	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
-	    if (ht_suppress & 0x1) val &= ~(1 << 2);
+	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error disable */
+	    if (!(ht_suppress & 0x1)) val &= ~(1 << 2);
+	    else                      val |=  (1 << 2);
 	    /* SyncPktGenDis: sync packet generation disable */
-	    if (ht_suppress & 0x2) val &= ~(1 << 3);
+	    if (!(ht_suppress & 0x2)) val &= ~(1 << 3);
+	    else                      val |=  (1 << 3);
 	    /* SyncPktPropDis: sync packet propagation disable */
-	    if (ht_suppress & 0x4) val &= ~(1 << 4);
+	    if (!(ht_suppress & 0x4)) val &= ~(1 << 4);
+	    else                      val |=  (1 << 4);
 	    /* SyncOnWDTEn: sync flood on watchdog timer error enable */
 	    if (ht_suppress & 0x8) val &= ~(1 << 20);
 	    /* SyncOnAnyErrEn: sync flood on any error enable */
