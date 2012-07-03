@@ -254,8 +254,8 @@ void counter_mask_help() {
     printf("			      uint32_t mask,\n");
     printf(" 		              nc_error_t *error);\n");
     print_example();
-    printf("Select counter 0 for mux: 1 - REM (Hreq):\n");
-    printf("       6 - HT-Request with ctag miss\n");
+    printf("For selected counter 0 mux: 1 - REM (Hreq).\n");
+    printf("Mask       6 - HT-Request with ctag miss:\n");
     print_operation();
     printf("numachip_mask_pcounter(cntxt[node],0,6, &retval);\n");
     printf("------------------------------------------\n");
@@ -285,10 +285,38 @@ void counter_clear_help() {
     printf(" 		              nc_error_t *error);\n");
     print_example();
     printf("Clear counter by deleting Performance counter registry values,\n");
-    printf("deselecting counter and clearing mask by writing api: \n");
+    printf("deselecting counter and clearing mask by writing api.\n");
     printf("Clear counter 0:\n");
     print_operation();
     printf("numachip_clear_pcounter(cntxt[node],0, &retval);\n");
+    printf("------------------------------------------\n");
+}
+
+void counter_start_help() {
+    
+    print_involved();
+    printf("G3xF78 Select Counter\n");
+    printf("G3xF9C Timer for ECC / Counter 7 (if you select \ncounter 7, then we will set this register for you.) \n");
+    print_comp_n_mask();
+    print_perf_cnt();
+    print_involved_api();
+    printf("------------------------------------------\n");
+    printf("numachip_start_pcounter is just doing clear,select and mask in one step.\n");
+    printf("Checkout ./nc_perf help -counter-clear, -counter-select and -counter-mask for \nmore details for eventreg and mask.\n");
+    printf("------------------------------------------\n");
+    printf("void numachip_start_pcounter(struct numachip_context *cntxt,\n");
+    printf("			      uint32_t counterno,\n");
+    printf("			      uint32_t eventreg,\n");
+    printf("			      uint32_t mask,\n");
+    printf(" 		              nc_error_t *error);\n");
+    print_example();
+    printf("Clear counter by deleting Performance counter registry values,\n");
+    printf("deselecting counter and clearing mask by writing api: \n");
+    printf("Clear counter 0:\n");
+    printf("Select counter 0 for mux: 1 - REM (Hreq):\n");
+    printf("Select mask 6 - HT-Request with ctag miss:\n");
+    print_operation();
+    printf("numachip_start_pcounter(cntxt[node],0,1,6 &retval);\n");
     printf("------------------------------------------\n");
 }
 
@@ -321,6 +349,7 @@ void usage () {
     printf("[-counter-stop <node_index>|<'all'> <counterno>]\n");
     printf("[-counter-read <node_index>|<'all'> <counterno> ]\n");
     printf("[-counter-clear <node_index>|<'all'> <counterno> ] \n");
+    printf("[-counter-start <node_index>|<'all'> <counterno> <mux value> <mask value>] \n");
 }
 
 
@@ -386,8 +415,12 @@ int main(int argc, char **argv)
            if (!strcmp("-counter-read",argv[counter])) {	    
 		counter_read_help();
 		continue;
+	   }
+	   
+	   if (!strcmp("-counter-start",argv[counter])) {	    
+		counter_start_help();
+		continue;
 	    }
-	    
 
 	}
 	counter=0;
