@@ -29,7 +29,7 @@
 
 #include "numachip_lib.h"
 #include "numachip_user.h"
-#define DEBUG_STATEMENT(x) 
+#define DEBUG_STATEMENT(x) x
 
 
 void numachip_fullstart_pcounter(struct numachip_context *cntxt,
@@ -285,7 +285,10 @@ void numachip_mask_pcounter(struct numachip_context *cntxt,
     }
     //6,5,3,2
     
-    
+    if (counterno==7) {
+	DEBUG_STATEMENT(printf("Need to consider H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7: 0x%x\n",numachip_read_csr(cntxt,H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7)));
+	numachip_write_csr(cntxt,H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7,0x0);
+    }
     
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
     
@@ -367,11 +370,12 @@ void numachip_clear_pcounter(struct numachip_context *cntxt,
      * since we are going to pollute these anyway (in the first version).
      */
     
-    DEBUG_STATEMENT(printf("1. Clear: First we clear the counter selection %d .\n", counterno));
+    DEBUG_STATEMENT(printf("1. Clear: First we clear the counter select register for counter %d .\n", counterno));
     current_counter_val=numachip_read_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER);
-    DEBUG_STATEMENT(printf("Current counterval before to be cleared 0x%x\n",current_counter_val));
+    DEBUG_STATEMENT(printf("Current counter value before to be cleared 0x%x\n",current_counter_val));
+    DEBUG_STATEMENT(printf("Mask to be used for calculating value 0x%x\n",0x7 << (counterno*4)));
     current_counter_val=current_counter_val & (~(0x7 << (counterno*4)));
-    DEBUG_STATEMENT(printf("Current counterval to be cleared 0x%x\n",current_counter_val));
+    DEBUG_STATEMENT(printf("New Current counter value to be cleared 0x%x\n",current_counter_val));
     numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,current_counter_val);
     /* We need to clear the corresponing comare and mask register we are planning to use:
      * H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 (0xFA0 + 0x4*counterno)
