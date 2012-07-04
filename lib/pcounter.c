@@ -29,7 +29,7 @@
 
 #include "numachip_lib.h"
 #include "numachip_user.h"
-#define DEBUG_STATEMENT(x) x
+#define DEBUG_STATEMENT(x) 
 
 
 void numachip_fullstart_pcounter(struct numachip_context *cntxt,
