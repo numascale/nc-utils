@@ -177,7 +177,7 @@ void counter_print_all(struct numachip_context **cntxt, uint32_t num_nodes,uint3
     uint32_t node=0;
     for(node=0; node<num_nodes; node++) {
 	printf("Reading counter node %d counterno %d = %lld \n",
-		       counterno,node, (unsigned long long)
+		       node,counterno, (unsigned long long)
 		       counter_read(cntxt[node],counterno));
     }
 }
