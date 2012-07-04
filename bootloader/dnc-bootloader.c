@@ -1988,8 +1988,9 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	}
 	ready_pending = 0;
         for (i = 0; i < cfg_nodes; i++) {
-            if (cfg_nodelist[i].uuid == info->uuid) /* Self */
+	    if (config_local(&cfg_nodelist[i], info->uuid)) /* Self */
                 continue;
+
 	    if (!(nodedata[cfg_nodelist[i].sciid] & 0x80)) {
 		ready_pending = 1;
 		break;
