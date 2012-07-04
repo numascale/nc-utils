@@ -2081,6 +2081,10 @@ static void local_chipset_fixup(void)
     u32 sreq_ctrl, val;
     int i;
 
+    /* Only needed to workaround rev A/B issue */
+    if (!dnc_asic_mode || dnc_chip_rev > 2)
+	return;
+
     printf("Scanning for known chipsets, local pass...\n");
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
     if (val == 0x43851002) {
