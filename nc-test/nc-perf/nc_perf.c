@@ -488,7 +488,10 @@ int main(int argc, char **argv)
 		   usage();
 		   break; 
 		}
-		counter_select_all(cntxt,num_devices,counterno,val);
+		if (counter_select_all(cntxt,num_devices,counterno,val) == NUMACHIP_ERR_BUSY)
+		{
+		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+		}
 		break;
 	    }
 	    else if (!strcmp("-counter-mask",argv[counter])) {
@@ -497,7 +500,10 @@ int main(int argc, char **argv)
 		   usage();
 		   break; 
 		}
-		counter_mask_all(cntxt,num_devices,counterno,val);
+		if (counter_mask_all(cntxt,num_devices,counterno,val) == NUMACHIP_ERR_BUSY)
+		{
+		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+		} 
 		break;
 	    }
 
@@ -551,7 +557,10 @@ int main(int argc, char **argv)
 		    break; 
 		}
 		DEBUG_STATEMENT(printf("Node %d counterno %d value %d\n",nodeix,counterno,val));
-		counter_select(cntxt[nodeix],counterno,val);
+		if (counter_select(cntxt[nodeix],counterno,val) == NUMACHIP_ERR_BUSY)
+		{
+		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+		}
 		break;
 	    }
 	    
@@ -563,7 +572,10 @@ int main(int argc, char **argv)
 		}
 		DEBUG_STATEMENT(printf("Masking counter node %d counterno %d mask 0x%x\n",
 				       nodeix, counterno, val));
-		counter_mask(cntxt[nodeix], counterno,val);
+		if (counter_mask(cntxt[nodeix], counterno,val) == NUMACHIP_ERR_BUSY)
+		{
+		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+		}
 		break;
 	    }
 	    
