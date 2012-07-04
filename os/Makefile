@@ -1,4 +1,4 @@
-SUBDIRS = lib test #examples
+SUBDIRS = lib nc-test #examples
 
 .PHONY: subdirs $(SUBDIRS)
 
