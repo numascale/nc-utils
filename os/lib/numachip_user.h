@@ -20,7 +20,6 @@
 #define __NUMACHIP_USER_H
 
 #include <stdint.h>
-#include "numachip_error.h"
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -33,6 +32,12 @@
 BEGIN_C_DECLS
 
 #define NUMACHIP_CSR_BASE 0x3fff00000000ULL;
+
+typedef enum {
+    NUMACHIP_ERR_OK                         = 0x000,
+    NUMACHIP_ERR_INVALID_PARAMETER          = 0x001,
+    NUMACHIP_ERR_BUSY                       = 0x002
+} nc_error_t;
 
 
 typedef enum {
@@ -152,6 +157,9 @@ void numachip_all_start_pcounter(struct numachip_context **cntxt,
 				 uint32_t event,
 				 uint32_t mask,
 				 nc_error_t *error);
+
+char *numachip_error_str(nc_error_t errorcode);
+    
 /**
  * numachip_sge_copy - Optimized SG Copy
  */
