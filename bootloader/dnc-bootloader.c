@@ -392,7 +392,7 @@ static void load_existing_apic_map(void)
 	}
     }
 
-    /* Use APIC ATT map as scracth area to communicate APIC maps to master */
+    /* Use APIC ATT map as scratch area to communicate APIC maps to master */
     dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
     for (i = 0; i < 16; i++)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, apic_used[i]);
