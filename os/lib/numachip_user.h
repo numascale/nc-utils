@@ -158,7 +158,7 @@ void numachip_all_start_pcounter(struct numachip_context **cntxt,
 				 uint32_t mask,
 				 nc_error_t *error);
 
-char *numachip_error_str(nc_error_t errorcode);
+char *numachip_strerror(nc_error_t errorcode);
     
 /**
  * numachip_sge_copy - Optimized SG Copy

@@ -231,7 +231,7 @@ void numachip_write_csr(struct numachip_context *context,
  * numachip_error_str 
  */
 
-char *numachip_error_str(nc_error_t errorcode) {
+char *numachip_strerror(nc_error_t errorcode) {
 
     if (errorcode == NUMACHIP_ERR_OK) return "NUMACHIP_ERR_OK";
     if (errorcode == NUMACHIP_ERR_INVALID_PARAMETER) return "NUMACHIP_ERR_INVALID_PARAMETER";
