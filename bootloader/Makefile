@@ -20,7 +20,7 @@ all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-masternode test-slavenode
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o *.c32 *.elf .*.o.d test-masternode test-slavenode test-routing
+	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig test-masternode test-slavenode test-routing
 
 .PHONY: realclean
 realclean: clean
