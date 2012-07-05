@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-// 
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-// 
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-// 
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef __DNC_CONFIG_H
 #define __DNC_CONFIG_H 1
