@@ -1,4 +1,4 @@
-SUBDIRS = nc-stat  nc-stat_d
+SUBDIRS = nc-stat  nc-stat_d nc-perf
 
 .PHONY: subdirs $(SUBDIRS)
 

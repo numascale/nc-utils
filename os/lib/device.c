@@ -227,3 +227,17 @@ void numachip_write_csr(struct numachip_context *context,
     context->csr_space.csr[offset/4] = u32bswap(value);
 }
 
+/**
+ * numachip_error_str 
+ */
+
+char *numachip_strerror(nc_error_t errorcode) {
+
+    if (errorcode == NUMACHIP_ERR_OK) return "NUMACHIP_ERR_OK";
+    if (errorcode == NUMACHIP_ERR_INVALID_PARAMETER) return "NUMACHIP_ERR_INVALID_PARAMETER";
+    if (errorcode == NUMACHIP_ERR_BUSY) return "NUMACHIP_ERR_BUSY";
+
+    return "NUMACHIP_UNKNOWN_ERROR";
+
+
+};

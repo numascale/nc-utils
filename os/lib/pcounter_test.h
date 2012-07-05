@@ -20,6 +20,7 @@
 #define __NUMACHIP_PCOUNTER_TEST_H
 
 #include <stdint.h>
+#include "numachip_user.h"
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -29,10 +30,23 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
-BEGIN_C_DECLS
 
-void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes);
-void count_api_stop(struct numachip_context **cntxt, uint32_t num_nodes);
+//Single node, or all?
+nc_error_t counter_select(struct numachip_context *cntxt, uint32_t counterno,uint32_t val);
+nc_error_t counter_mask(struct numachip_context *cntxt, uint32_t counterno, uint32_t val);
+nc_error_t counter_clear(struct numachip_context *cntxt, uint32_t counterno);
+nc_error_t counter_stop(struct numachip_context *cntxt, uint32_t counterno);
+uint64_t counter_read(struct numachip_context *cntxt,uint32_t counterno);
+nc_error_t counter_start(struct numachip_context *cntxt, uint32_t counterno, uint32_t event, uint32_t mask);
+nc_error_t counter_select_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno,uint32_t val);
+nc_error_t counter_mask_all(struct numachip_context **cntxt, uint32_t num_nodes, uint32_t counterno,uint32_t val);
+nc_error_t counter_clear_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno);
+nc_error_t counter_stop_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno);
+void counter_print_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno);
+nc_error_t counter_start_all(struct numachip_context **cntxt, uint32_t num_nodes, uint32_t counterno, uint32_t event, uint32_t mask);
+
+nc_error_t count_api_start(struct numachip_context **cntxt, uint32_t num_nodes);
+nc_error_t count_api_stop(struct numachip_context **cntxt, uint32_t num_nodes);
 void count_api_read_rcache(struct numachip_context *cntxt,
 			   uint32_t misscounter, uint32_t hitcounter, 
 			   double *missrate,
