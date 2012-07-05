@@ -114,6 +114,7 @@ void tsc_wait(u32 mticks) {
     count = rdtscll() >> 1;
     stop = count + ((u64)mticks << (20 - 1));
     while(stop > count) {
+        asm volatile("pause" ::: "memory");
         count = rdtscll() >> 1;
     }
 }
