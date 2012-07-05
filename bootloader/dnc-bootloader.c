@@ -107,7 +107,8 @@ extern u8 smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
-void tsc_wait(u32 mticks) {
+void tsc_wait(u32 mticks)
+{
     u64 count;
     u64 stop;
 
@@ -119,7 +120,8 @@ void tsc_wait(u32 mticks) {
     }
 }
 
-static void disable_xtpic(void) {
+static void disable_xtpic(void)
+{
     inb(PIC_MASTER_IMR);
     outb(0xff, PIC_MASTER_IMR);
     inb(PIC_SLAVE_IMR);
@@ -143,7 +145,7 @@ static void load_orig_e820_map(void)
     __intcall(0x15, &rm, &rm);
 
     if (rm.eax.l == STR_DW_N("SMAP")) {
-        /* Function supported. */
+        /* Function supported */
         printf("--- E820 memory map\n");
         e820_len = e820_len + rm.ecx.l;
         while (rm.ebx.l > 0) {
@@ -305,14 +307,14 @@ static void update_e820_map(void)
 	}
     }
 
-    /* Truncate to SCI 000/HT 0 end. Rest added below. */
+    /* Truncate to SCI 000/HT 0 end; rest added below */
     e820[max].length = ((u64)nc_node[0].ht[0].size << DRAM_MAP_SHIFT)
 	- e820[max].base;
 
     prev_end = e820[max].base + e820[max].length;
     if (nc_node[0].nc_ht_id == 1) {
 	/* Truncate SCI 000/HT 0 to SCC ATT granularity if only HT
-	 * node on SCI 000.  Existing adjustment of ht_node_size
+	 * node on SCI 000; existing adjustment of ht_node_size
 	 * handles rest */
 	rest = prev_end & ((SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1);
 	if (rest) {
@@ -463,7 +465,8 @@ static void enable_fixed_mtrrs(void)
     enable_cache();
 }
 
-static void update_acpi_tables(void) {
+static void update_acpi_tables(void)
+{
     acpi_sdt_p oroot;
     acpi_sdt_p osrat = find_sdt("SRAT");
     acpi_sdt_p oapic = find_sdt("APIC");
@@ -571,7 +574,7 @@ static void update_acpi_tables(void) {
     if (rsdt) replace_child("APIC", apic, rsdt, 4);
     if (xsdt) replace_child("APIC", apic, xsdt, 8);
 
-    /* Make SLIT info from scratch (i.e replace existing table if any) */
+    /* Make SLIT info from scratch (ie replace existing table if any) */
     memcpy(slit->sig.s, "SLIT", 4);
     slit->len = 0;
     slit->revision = 1;
@@ -2501,7 +2504,7 @@ static int nc_start(void)
 
     get_hostname();
 
-    /* Only in effect on core0, but only required for 32-bit code. */
+    /* Only in effect on core 0, but only required for 32-bit code */
     set_wrap32_disable();
  
     dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
