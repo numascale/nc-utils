@@ -1979,8 +1979,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			 (rsp.state == RSP_FABRIC_NOT_OK))
 		{
 		    if (nodedata[rsp.sciid] != 0x80) {
-			printf("Node 0x%03x (%s) aborted! Restarting process...\n",
-			       rsp.sciid, cfg_nodelist[i].desc);
+			printf("Node 0x%03x (%s) aborted with state %d! Restarting process...\n",
+			       rsp.sciid, cfg_nodelist[i].desc, rsp.state);
 			do_restart = 1;
 			nodedata[rsp.sciid] = 0x80;
 		    }
