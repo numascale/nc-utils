@@ -38,7 +38,7 @@
      PCI_EXT_CONF(255, ((((node))<<3)|(func)), (reg)) :	\
      PCI_EXT_CONF(0, (((24+(node))<<3)|(func)), (reg)))
 
-int lirq_nest = 0, lirq_print = 0;
+int lirq_nest = 0;
 
 //#define DEBUG(...) printf(__VA_ARGS__)
 #define DEBUG(...) do { } while (0)
