@@ -54,8 +54,13 @@ or:
 
 8. Use 4-space indents and tabs for 8 spaces
 
-9. Use the assert() macro to code defensibly, catching conditions which are expected to never fail
+9. Use the assert() macro to code defensibly, catching conditions which are
+   expected to never fail
 
-10. Use captilised error messages starting "Error: " to describe configuration or otherwise issues which may fail, eg:
+10. Use captilised error messages starting "Error: " to describe configuration
+or otherwise issues which may fail, eg:
 Error: Tag 'UUID' not found in fabric.json configuration file
 
+11. Perform a full rebuild and address all compiler warnings before committing
+code; the only exception is for work-in-progress which may leave unused
+parameter/function warnings
