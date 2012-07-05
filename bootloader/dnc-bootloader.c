@@ -2552,8 +2552,9 @@ static int nc_start(void)
         int i;
         /* Master */
         for (i = 0; i < cfg_nodes; i++) {
-            if (cfg_nodelist[i].uuid == uuid)
+	    if (config_local(&cfg_nodelist[i], uuid))
                 continue;
+
 	    if (cfg_nodelist[i].partition != info->partition)
 		continue;
             nodedata[cfg_nodelist[i].sciid] = 0x80;

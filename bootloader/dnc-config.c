@@ -28,7 +28,7 @@ struct fabric_info cfg_fabric;
 struct node_info *cfg_nodelist;
 struct part_info *cfg_partlist;
 int cfg_nodes, cfg_partitions;
-static int name_matching = 0;
+int name_matching = 0;
 char *hostname;
 
 static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
@@ -281,19 +281,16 @@ void make_singleton_config(u32 uuid)
     cfg_partlist[0].master = 0;
     cfg_partlist[0].builder = 0;
 }
-	
+
+/* Must only be used to get local config */
 struct node_info* get_node_config(u32 uuid)
 {
     int i;
-    for (i = 0; i < cfg_nodes; i++) {
-	if (name_matching && hostname) {
-	    if (strcmp(cfg_nodelist[i].desc, hostname) == 0)
+
+    for (i = 0; i < cfg_nodes; i++)
+	if (config_local(&cfg_nodelist[i], uuid))
 		return &cfg_nodelist[i];
-	} else {
-	    if (cfg_nodelist[i].uuid == uuid)
-		return &cfg_nodelist[i];
-	}
-    }
+
     printf("Error: Failed to find node config (hostname %s)\n", hostname ? hostname : "<none>");
     return NULL;
 }

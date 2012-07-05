@@ -1902,8 +1902,9 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
            cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
 
     for (i = 0; i < cfg_nodes; i++) {
-        if (cfg_nodelist[i].uuid == uuid)
-            continue;
+	if (config_local(&cfg_nodelist[i], uuid))
+	    continue;
+
         printf("Remote node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
                cfg_nodelist[i].desc,
                cfg_nodelist[i].uuid,
