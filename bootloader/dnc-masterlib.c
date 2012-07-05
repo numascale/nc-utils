@@ -48,7 +48,8 @@ int mseq_table_length = (sizeof(numachip_mseq_table)/sizeof(numachip_mseq_table[
 #define NUMACHIP_MSEQ_UCODE_LEN (mseq_ucode_length)
 #define NUMACHIP_MSEQ_TABLE_LEN (mseq_table_length)
 
-void load_scc_microcode(u16 node) {
+void load_scc_microcode(u16 node)
+{
     u32 val;
     u16 i;
 
@@ -82,7 +83,7 @@ void tally_local_node(int enforce_alignment)
     max_ht_node = (val >> 4) & 7;
 
 #ifdef __i386
-    /* save and restore EBX for the position-independent syslinux com32 binary */
+    /* Save and restore EBX for the position-independent syslinux com32 binary */
     asm volatile("mov $0x80000008, %%eax; pushl %%ebx; cpuid; popl %%ebx" : "=c"(val) :: "eax", "edx");
 #else
     asm volatile("mov $0x80000008, %%eax; cpuid" : "=c"(val) :: "eax", "ebx", "edx");
@@ -247,21 +248,21 @@ static int tally_remote_node(u16 node)
     tot_cores = 0;
     cur_node->sci_id = node;
     cur_node->nc_ht_id = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
-    cur_node->nc_neigh = nc_neigh; // FIXME: read from remote somehow, instead of assuming the same as ours
+    cur_node->nc_neigh = nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
 
-    /* Ensure that all nodes start out on 1G boundaries.
+    /* Ensure that all nodes start out on 1G boundaries
        FIXME: Add IO holes to cover address space discontinuity? */ 
     dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
     cur_node->addr_base = dnc_top_of_mem;
 
     val = dnc_read_conf(node, 0, 24, NB_FUNC_HT, 0x60);
     if (val == 0xffffffff) {
-        printf("Can't access config space on SCI node %03x!\n", node);
-        return 1; // ignore node
+        printf("Error: Can't access config space on SCI node %03x\n", node);
+        return 1; /* Ignore node */
     }
     max_ht_node = (val >> 4) & 7;
     
-    dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); // Select APIC ATT
+    dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
     for (i = 0; i < 16; i++) {
 	apic_used[i] = dnc_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4);
 	if (apic_used[i] != 0) /* May be sparse */
@@ -289,7 +290,7 @@ static int tally_remote_node(u16 node)
 	    (cur_node->ht[i].cpuid == 0xffffffff) ||
 	    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid))
 	{
-	    printf("** Node has unknown/incompatible CPUID: %08x, skipping...\n", cur_node->ht[i].cpuid);
+	    printf("Error: Node has unknown/incompatible CPUID: %08x; skipping...\n", cur_node->ht[i].cpuid);
 	    cur_node->ht[i].pdom = 0;
 	    cur_node->ht[i].cpuid = 0;
 	    continue;
@@ -311,7 +312,7 @@ static int tally_remote_node(u16 node)
 	    cur_node->ht[i].size = limit - base + 1;
             cur_node->node_mem += cur_node->ht[i].size;
 	    if (cur_node->node_mem > max_mem_per_node) {
-		printf("** Node exceeds cachable memory range, clamping...\n");
+		printf("Error: Node exceeds cachable memory range; clamping...\n");
 		cur_node->ht[i].size -= cur_node->node_mem - max_mem_per_node;
 		cur_node->node_mem = max_mem_per_node;
 	    }
@@ -353,7 +354,7 @@ static int tally_remote_node(u16 node)
     }
 
     /* If rebased apicid[7:0] of last core is above a given threshold,
-       bump base for entire SCI node to next 8-bit interval. */
+       bump base for entire SCI node to next 8-bit interval */
     if ((ht_next_apic & 0xff) + cur_node->ht[last].apic_base + cur_node->ht[last].cores > 0xf0)
 	ht_next_apic = (ht_next_apic & ~0xff) + 0x100 + cur_node->ht[0].apic_base;
 

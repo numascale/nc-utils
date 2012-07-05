@@ -136,14 +136,14 @@ void watchdog_setup(void)
 {
     /* FIXME: These register offsets are correct for SP5100, but not for (eg) SB810 */
 
-    /* enable watchdog timer */
+    /* Enable watchdog timer */
     pmio_clearb(0x69, 1);
 
-    /* enable watchdog decode */
+    /* Enable watchdog decode */
     u32 val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
     dnc_write_conf(0xfff0, 0, 20, 0, 0x41, val2 | (1 << 3));
 
-    /* write watchdog base address */
+    /* Write watchdog base address */
     pmio_writel(0x6c, (unsigned int)watchdog_ctl);
 
     printf("watchdog enabled\n");
@@ -153,7 +153,7 @@ void reset_cf9(int mode, int last)
 {
     int i;
 
-    /* ensure last lines were sent from management controller */
+    /* Ensure last lines were sent from management controller */
     msleep(1000);
 
     for (i = 0; i <= last; i++) {
@@ -212,7 +212,7 @@ void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
     DEBUG("\n");
 }
 
-/* check for link instability */
+/* Check for link instability */
 static int cht_error(int node, int link)
 {
     u32 status = cht_read_config(node, NB_FUNC_HT, 0x84 + link * 0x20);
@@ -227,7 +227,7 @@ void cht_test(u8 node, int neigh, int neigh_link)
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG) {
 	printf("Testing HT link (5s timeout)...");
-	watchdog_run(500); /* reset if read hangs due to unstable link */
+	watchdog_run(500); /* Reset if read hangs due to unstable link */
     } else
 	printf("Testing HT link...");
 
@@ -258,7 +258,7 @@ void cht_test(u8 node, int neigh, int neigh_link)
 
     if (!(ht_testmode & HT_TESTMODE_LOOP) && (errors || cht_error(neigh, neigh_link))) {
 	printf("%d link errors while reading; resetting system...\n", errors);
-	/* cold reset, since warm doesn't always reset the link enough */
+	/* Cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
     }
 
@@ -278,7 +278,7 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
 
-    /* only check for Target Abort if unable to check link */
+    /* Only check for Target Abort if unable to check link */
     if (neigh == -1 || neigh_link == -1)
 	reboot = ret == 0xffffffff;
     else {
@@ -292,7 +292,7 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
 
     if (reboot) {
 	printf("Link error while reading; resetting system...\n");
-	/* cold reset, since warm doesn't always reset the link enough */
+	/* Cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
     }
 
@@ -309,21 +309,21 @@ void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
 
-    /* only check for Target Abort if unable to check link */
+    /* Only check for Target Abort if unable to check link */
     if (neigh != -1 && neigh_link != -1 && cht_error(neigh, neigh_link)) {
 	printf("Link error while writing; resetting system...\n");
-	/* cold reset, since warm doesn't always reset the link enough */
+	/* Cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
     }
 }
 
-// Since we use FS to access these areas, the address needs to be in canonical form (sign extended from bit47).
+/* Since we use FS to access these areas, the address needs to be in canonical form (sign extended from bit47) */
 #define canonicalize(a) (((a) & (1ULL<<47)) ? ((a) | (0xffffULL<<48)) : (a))
 
 #define setup_fs(addr) do {                                             \
         asm volatile("mov %%ds, %%ax\n\tmov %%ax, %%fs" ::: "eax");     \
         asm volatile("wrmsr"                                            \
-                     : /* no output */                                  \
+                     : /* No output */                                  \
                      : "A"(canonicalize(addr)), "c"(MSR_FS_BASE));      \
     } while(0)
 
@@ -401,7 +401,7 @@ void dnc_write_csr(u32 node, u16 csr, u32 val)
 u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
 {
     if (csr >= 0x800) {
-	printf("*** dnc_write_csr_geo: read from unsupported range: "
+	printf("Error: dnc_write_csr_geo read from unsupported range: "
 	       "%04x#%d @%x\n",
 	       node, bid, csr);
 	return 0xffffffff;
@@ -413,7 +413,7 @@ u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
 void dnc_write_csr_geo(u32 node, u8 bid, u16 csr, u32 val)
 {
     if (csr >= 0x800) {
-	printf("*** dnc_write_csr_geo: write to unsupported range: "
+	printf("Error: dnc_write_csr_geo write to unsupported range: "
 	       "%04x#%d @%x, %08x\n",
 	       node, bid, csr, val);
 	return;
