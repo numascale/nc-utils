@@ -32,8 +32,22 @@ typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
 
 struct cachestats_t {
-	double hitrate [4];
-	uint64_t transactions[4];
+  uint64_t hit[4]; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
+  uint64_t miss[4]; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
+  uint64_t totmiss[4]; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
+  uint64_t tothit[4]; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
+  
+  /*
+   * Soon ;-)
+  uint64_t cave_in[4]; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
+  uint64_t cave_out[4]; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
+  */
+/*
+  uint64_t counter_4[4];
+  uint64_t counter_5[4];
+  uint64_t counter_6[4];
+  uint64_t counter_7[4];  
+  */
 };
 
 struct msgstats_t {
@@ -138,6 +152,7 @@ public:
 	QwtPlot* plot;
 	vector<QwtPlotCurve*> curves;
 	void showstat(const struct cachestats_t& statmsg);
+  double hitrate (unsigned long long hit, unsigned long long miss);
 
 public slots:
 	void showCurve(QwtPlotItem*, bool on);
@@ -155,6 +170,7 @@ public:
   CacheHistGraph(QWidget* parent = 0);
 
 	void showstat(const struct cachestats_t& statmsg);
+  double hitrate (unsigned long long hit, unsigned long long miss);
 
 	QwtPlot* plot;
 	vector<QwtPlotHistogram*> curves;

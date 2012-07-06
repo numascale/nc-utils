@@ -165,6 +165,18 @@ void CacheGraph::showCurve(QwtPlotItem* item, bool on) {
 	plot->replot();
 }
 
+double CacheGraph::hitrate (unsigned long long hit, unsigned long long miss) {
+
+  if (hit + miss==0) {
+	  return 100;
+  } else if (miss==0) {
+	  return 100;
+  } else if (hit==0) {
+	  return 0;
+  } else {
+	  return ((double)100*hit/(hit + miss));
+  }
+}
 void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 
         if (counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, 100);
@@ -177,30 +189,30 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 		char s[80];
 		QString title;
 
-		sample_y0[counter]= statmsg.hitrate[0];
-		sample_y1[counter]= statmsg.hitrate[1];
-		sample_y2[counter]= statmsg.hitrate[2];
-		sample_y3[counter]= statmsg.hitrate[3];
+    sample_y0[counter]= hitrate(statmsg.hit[0],statmsg.miss[0]);
+		sample_y1[counter]= hitrate(statmsg.hit[1],statmsg.miss[1]);
+		sample_y2[counter]= hitrate(statmsg.hit[2],statmsg.miss[2]);
+		sample_y3[counter]= hitrate(statmsg.hit[3],statmsg.miss[3]);
 		
-		t_y0[counter]= statmsg.transactions[0];
+		t_y0[counter]= statmsg.hit[0] + statmsg.miss[0];
 		
 		sprintf(s, "Remote Cache #0 transactions %lld", t_y0[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[0]->setTitle(title);
 		title.clear();
-		t_y1[counter]= statmsg.transactions[1];
+		t_y1[counter]= statmsg.hit[1] + statmsg.miss[1];
 		sprintf(s, "Remote Cache #1 transactions %lld", t_y1[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[1]->setTitle(title);
 		title.clear();
 		
-		t_y2[counter]= statmsg.transactions[2];
+		t_y2[counter]= statmsg.hit[2] + statmsg.miss[2];
 		
 		sprintf(s, "Remote Cache #2 transactions %lld", t_y2[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[2]->setTitle(title);
 		title.clear();
-		t_y3[counter]= statmsg.transactions[3];
+		t_y3[counter]= statmsg.hit[3] + statmsg.miss[3];
 		sprintf(s, "Remote Cache #3 transactions %lld", t_y3[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[3]->setTitle(title);
@@ -300,6 +312,19 @@ void CacheHistGraph::showCurve(QwtPlotItem* item, bool on) {
 
 }
 
+double CacheHistGraph::hitrate (unsigned long long hit, unsigned long long miss) {
+
+  if (hit + miss==0) {
+	  return 100;
+  } else if (miss==0) {
+	  return 100;
+  } else if (hit==0) {
+	  return 0;
+  } else {
+	  return ((double)100*hit/(hit + miss));
+  }
+}
+
 void CacheHistGraph::showstat(const struct cachestats_t& statmsg) {
     int maxrank=4;
     plot->setAxisScale(QwtPlot::xBottom,-1, maxrank + 0.5);
@@ -310,30 +335,30 @@ void CacheHistGraph::showstat(const struct cachestats_t& statmsg) {
 		char s[80];
 		QString title;
 
-		sample_y0[counter]= statmsg.hitrate[0];
-		sample_y1[counter]= statmsg.hitrate[1];
-		sample_y2[counter]= statmsg.hitrate[2];
-		sample_y3[counter]= statmsg.hitrate[3];
+	  sample_y0[counter]= hitrate(statmsg.hit[0],statmsg.miss[0]);
+		sample_y1[counter]= hitrate(statmsg.hit[1],statmsg.miss[1]);
+		sample_y2[counter]= hitrate(statmsg.hit[2],statmsg.miss[2]);
+		sample_y3[counter]= hitrate(statmsg.hit[3],statmsg.miss[3]);
 		
-		t_y0[counter]= statmsg.transactions[0];
-		
+		t_y0[counter]= statmsg.hit[0] + statmsg.miss[0];
+
 		sprintf(s, "Remote Cache #0 transactions %lld", t_y0[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[1]->setTitle(title);
 		title.clear();
-		t_y1[counter]= statmsg.transactions[1];
+		t_y1[counter]= statmsg.hit[1] + statmsg.miss[1];
 		sprintf(s, "Remote Cache #1 transactions %lld", t_y1[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[2]->setTitle(title);
 		title.clear();
 		
-		t_y2[counter]= statmsg.transactions[2];
+		t_y2[counter]= statmsg.hit[2] + statmsg.miss[2];
 		
 		sprintf(s, "Remote Cache #2 transactions %lld", t_y2[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[3]->setTitle(title);
 		title.clear();
-		t_y3[counter]= statmsg.transactions[3];
+		t_y3[counter]= statmsg.hit[3] + statmsg.miss[3];
 		sprintf(s, "Remote Cache #3 transactions %lld", t_y3[counter]); // s now contains the value 52300
 		title.append(QString(s));		
 		curves[4]->setTitle(title);
