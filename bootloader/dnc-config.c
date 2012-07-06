@@ -37,7 +37,7 @@ static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: (PJB) label <%s> not found!\n", label);
+	    printf("Warning: Label <%s> not found in fabric configuration file\n", label);
         return 0;
     }
     if (item->child->type == JSON_TRUE) {
@@ -47,7 +47,7 @@ static int parse_json_bool(json_t *obj, const char *label, u32 *val, int opt)
         *val = 0;
     }
     else {
-        printf("** parse error: (PJB) label <%s> has bad type (%d)!\n",
+        printf("Warning: Label <%s> has bad type %d in fabric configuration file\n",
                label, item->child->type);
         return 0;
     }
@@ -63,7 +63,7 @@ static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: (PJN) label <%s> not found!\n", label);
+	    printf("Warning: Label <%s> not found in fabric configuration file\n", label);
         return 0;
     }
     if (item->child->type == JSON_NUMBER) {
@@ -73,13 +73,13 @@ static int parse_json_num(json_t *obj, const char *label, u32 *val, int opt)
         *val = strtol(item->child->text, &end, 0);
     }
     else {
-        printf("** parse error: (PJN) label <%s> has bad type (%d)!\n",
+        printf("Warning: Label <%s> has bad type %d in fabric configuration file\n",
                label, item->child->type);
         return 0;
     }
 
     if (end[0] != '\0') {
-        printf("** parse error: (PJN) label <%s> value bad format!\n", label);
+        printf("Warning: Label <%s> value bad format in fabric configuration file\n", label);
         *val = -1;
         return 0;
     }
@@ -93,7 +93,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
     item = json_find_first_label(obj, label);
     if (!(item && item->child)) {
 	if (!opt)
-	    printf("** parse error: (PJS) label <%s> not found!\n", label);
+	    printf("Warning: Label <%s> not found in fabric configuration file\n", label);
         return 0;
     }
     if (item->child->type == JSON_STRING) {
@@ -101,7 +101,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
         val[len-1] = '\0';
     }
     else {
-        printf("** parse error: (PJS) label <%s> has bad type (%d)!\n",
+        printf("Warning: Label <%s> has bad type %d in fabric configuration file\n",
                label, item->child->type);
         return 0;
     }
@@ -116,21 +116,21 @@ static int parse_json(json_t *root)
 
     fab = json_find_first_label(root, "fabric");
     if (!fab) {
-        printf("Error: Tag <fabric> not found in fabric configuration\n");
+        printf("Error: Label <fabric> not found in fabric configuration file\n");
         goto out1;
     }
     if (!parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0)) {
-	printf("Error: Tag <x-size> not found in fabric configuration\n");
+	printf("Error: Label <x-size> not found in fabric configuration file\n");
 	goto out1;
     }
 
     if (!parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0)) {
-	printf("Error: Tag <y-size> not found in fabric configuration\n");
+	printf("Error: Label <y-size> not found in fabric configuration file\n");
 	goto out1;
     }
 
     if (!parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)) {
-	printf("Error: Tag <z-size> not found in fabric configuration\n");
+	printf("Error: Label <z-size> not found in fabric configuration file\n");
         goto out1;
     }
 
@@ -139,7 +139,7 @@ static int parse_json(json_t *root)
 
     list = json_find_first_label(fab->child, "nodes");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("Error: Tag <nodes> not found in fabric configuration\n");
+        printf("Error: Label <nodes> not found in fabric configuration file\n");
         goto out1;
     }
 
@@ -157,12 +157,12 @@ static int parse_json(json_t *root)
 	}
 
 	if (!parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0)) {
-	    printf("Error: Tag <sciid> not found in fabric configuration\n");
+	    printf("Error: Label <sciid> not found in fabric configuration file\n");
 	    goto out2;
 	}
 
         if (!parse_json_num(obj, "partition", &cfg_nodelist[i].partition, 0)) {
-	    printf("Error: Tag <partition> not found in fabric configuration\n");
+	    printf("Error: Label <partition> not found in fabric configuration file\n");
 	    goto out2;
 	}
 
@@ -171,7 +171,7 @@ static int parse_json(json_t *root)
 	    cfg_nodelist[i].osc = 0;
 
 	if (!parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)) {
-	    printf("Error: Tag <desc> not found in fabric configuration\n");
+	    printf("Error: Label <desc> not found in fabric configuration file\n");
 	    goto out2;
         }
 
@@ -182,11 +182,11 @@ static int parse_json(json_t *root)
     }
 
     if (name_matching)
-	printf("UUIDs omitted - matching hostname to desc tag\n");
+	printf("UUIDs omitted - matching hostname to <desc> label\n");
 
     list = json_find_first_label(fab->child, "partitions");
     if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-        printf("Error: Tag <partitions> not found in fabric configuration\n");
+        printf("Error: Label <partitions> not found in fabric configuration file\n");
         free(cfg_nodelist);
         return 0;
     }
@@ -199,12 +199,12 @@ static int parse_json(json_t *root)
 
     for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
 	if (!parse_json_num(obj, "master", &cfg_partlist[i].master, 0)) {
-	    printf("Error: Tag <master> not found in fabric configuration\n");
+	    printf("Error: Label <master> not found in fabric configuration file\n");
 	    goto out3;
 	}
 
 	if (!parse_json_num(obj, "builder", &cfg_partlist[i].builder, 0)) {
-	    printf("Error: Tag <builder> not found in fabric configuration\n");
+	    printf("Error: Label <builder> not found in fabric configuration file\n");
 	    goto out3;
 	}
     }
