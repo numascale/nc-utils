@@ -140,7 +140,7 @@ void watchdog_setup(void)
 
     /* Enable watchdog decode */
     u32 val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
-    dnc_write_conf(0xfff0, 0, 20, 0, 0x41, val2 | (1 << 3));
+    dnc_write_conf(0xfff0, 0, 20, NB_FUNC_HT, 0x41, val2 | (1 << 3));
 
     /* Write watchdog base address */
     pmio_writel(0x6c, (unsigned int)watchdog_ctl);

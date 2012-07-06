@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "dnc-defs.h"
 #include "dnc-regs.h"
 #include "dnc-types.h"
 #include "dnc-access.h"
@@ -123,16 +124,16 @@ sci_fabric_setup(void)
         node = nc_node[i].sci_id;
     
         // Set DRAM Limit on HT#1 to 0x2ffffffff
-        dnc_write_conf(node, 0, 24+1, 1, 0x124, 0x5f);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x124, 0x5f);
         // Adjust Limit on HT#1 window to 0x2ffffffff
-        dnc_write_conf(node, 0, 24+0, 1, 0x4c, 0x02ff0001);
-        dnc_write_conf(node, 0, 24+1, 1, 0x4c, 0x02ff0001);
+        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x4c, 0x02ff0001);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x4c, 0x02ff0001);
 
         // Insert new window for 0x300000000 - 0x3ffffffff to point to NC
-        dnc_write_conf(node, 0, 24+0, 1, 0x54, 0x03ff0000 | ht_id);
-        dnc_write_conf(node, 0, 24+0, 1, 0x50, 0x03000000 | 3);
-        dnc_write_conf(node, 0, 24+1, 1, 0x54, 0x03ff0000 | ht_id);
-        dnc_write_conf(node, 0, 24+1, 1, 0x50, 0x03000000 | 3);
+        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x54, 0x03ff0000 | ht_id);
+        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x50, 0x03000000 | 3);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x54, 0x03ff0000 | ht_id);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x50, 0x03000000 | 3);
     }
 
     for (i = 0; i < dnc_node_count; i++) {

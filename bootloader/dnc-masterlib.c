@@ -336,9 +336,9 @@ static int tally_remote_node(u16 node)
 	    if (val & 0x08) cur_node->ht[i].cores++; /* Cpu5En */
 	}
 	else {
-	    val = dnc_read_conf(node, 0, 24+i, 5, 0x84);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_EXTD, 0x84);
 	    cur_node->ht[i].cores += val & 0xff;
-	    val = dnc_read_conf(node, 0, 24+i, 3, 0x190);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MISC, 0x190);
 	    while (val > 0) {
 		if (val & 1)
 		    cur_node->ht[i].cores--;

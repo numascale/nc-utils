@@ -23,6 +23,7 @@
 #define NB_FUNC_DRAM  2
 #define NB_FUNC_MISC  3
 #define NB_FUNC_LINK  4
+#define NB_FUNC_EXTD  5
 
 #define MSR_APIC_BAR    0x0000001b
 #define MSR_FS_BASE     0xc0000100

@@ -1079,7 +1079,7 @@ static void renumber_remote_bsp(u16 num)
     printf("Renumbering BSP to HT#%d on SCI%03x#0...\n", node, maxnode);
 
     for (i = 0; i < maxnode; i++) {
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x00);
 	if ((val != 0x12001022) && (val != 0x16001022)) {
 	    printf("Error: F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x\n",
 		val, node, i);
@@ -1087,11 +1087,11 @@ static void renumber_remote_bsp(u16 num)
 	}
 
         /* Disable traffic distribution for now.. */
-	dnc_write_conf(node, 0, 24+i, 0, 0x164, 0);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x164, 0);
 	
 	/* Route maxnode + 1 as maxnode */
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode);
-	dnc_write_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode, val);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x40 + 4 * maxnode);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x44 + 4 * maxnode, val);
     }
 
     /* Bump NC to maxnode + 1 */
@@ -1101,62 +1101,62 @@ static void renumber_remote_bsp(u16 num)
     printf("[%04x] Moving NC to HT#%d...\n", node, val);
 
     for (i = 0; i < maxnode; i++) {
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
-	dnc_write_conf(node, 0, 24+i, 0, 0x68, (val & ~(1<<15)) | 0x40f);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x68, (val & ~(1<<15)) | 0x40f);
 
 	/* Increase NodeCnt */
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	dnc_write_conf(node, 0, 24+i, 0, 0x60, val + 0x10);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x60);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x60, val + 0x10);
 
 	/* Route maxnode as 0 */
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x40);
-	dnc_write_conf(node, 0, 24+i, 0, 0x40 + 4 * maxnode, val);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x40);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x40 + 4 * maxnode, val);
     }
 	
     /* Renumber HT#0 */
-    val = dnc_read_conf(node, 0, 24+0, 0, 0x60);
-    dnc_write_conf(node, 0, 24+0, 0, 0x60,
+    val = dnc_read_conf(node, 0, 24+0, NB_FUNC_HT, 0x60);
+    dnc_write_conf(node, 0, 24+0, NB_FUNC_HT, 0x60,
 		   (val & ~0xff0f) | (maxnode << 12) | (maxnode << 8) | maxnode);
-    val = dnc_read_conf(node, 0, 24+maxnode, 0, 0x60);
+    val = dnc_read_conf(node, 0, 24+maxnode, NB_FUNC_HT, 0x60);
     printf("F0x60 value 0x%08x (BSP) on SCI%03x#%x...\n", maxnode, val, node);
 
     for (i = 1; i <= maxnode; i++) {
 	/* Update LkNode, SbNode */
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	dnc_write_conf(node, 0, 24+i, 0, 0x60,
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x60);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x60,
 		       (val & ~0xff00) | (maxnode << 12) | (maxnode << 8));
 
 	/* Update DRAM maps */
 	for (j = 0; j < 8; j++) {
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0x44 + 8 * j);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + 8 * j);
 	    if ((val & 7) == 0)
-		dnc_write_conf(node, 0, 24+i, 1, 0x44 + 8 * j, val | maxnode);
+		dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + 8 * j, val | maxnode);
 	}
 
 	/* Update MMIO maps */
 	for (j = 0; j < 8; j++) {
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0x84 + 8 * j);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84 + 8 * j);
 	    if ((val & 7) == 0)
-		dnc_write_conf(node, 0, 24+i, 1, 0x84 + 8 * j, val | maxnode);
+		dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84 + 8 * j, val | maxnode);
 	}
 
 	/* Update IO maps */
 	for (j = 0; j < 4; j++) {
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0xc4 + 8 * j);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xc4 + 8 * j);
 	    if ((val & 7) == 0)
-		dnc_write_conf(node, 0, 24+i, 1, 0xc4 + 8 * j, val | maxnode);
+		dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xc4 + 8 * j, val | maxnode);
 	}
 
 	/* Update CFG maps */
 	for (j = 0; j < 4; j++) {
-	    val = dnc_read_conf(node, 0, 24+i, 1, 0xe0 + 4 * j);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xe0 + 4 * j);
 	    if (((val >> 4) & 7) == 0)
-		dnc_write_conf(node, 0, 24+i, 1, 0xe0 + 4 * j, val | (maxnode << 4));
+		dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xe0 + 4 * j, val | (maxnode << 4));
 	}
     }
     
     for (i = 1; i <= maxnode; i++) {
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x00);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x00);
 	if ((val != 0x12001022) && (val != 0x16001022)) {
 	    printf("Error: F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x\n",
 		    i, val, node);
@@ -1164,8 +1164,8 @@ static void renumber_remote_bsp(u16 num)
 	}
 
 	/* Route 0 as maxnode + 1 */
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode);
-	dnc_write_conf(node, 0, 24+i, 0, 0x40, val);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x44 + 4 * maxnode);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x40, val);
     }
 
     /* Move NC to HT#0, update SbNode, LkNode */
@@ -1176,19 +1176,19 @@ static void renumber_remote_bsp(u16 num)
 
     for (i = 1; i <= maxnode; i++) {
 	/* Decrease NodeCnt */
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x60);
-	dnc_write_conf(node, 0, 24+i, 0, 0x60, val - 0x10);
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x60);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x60, val - 0x10);
     }
 
     for (i = 1; i <= maxnode; i++) {
 	/* Remote maxnode + 1 routing entry */
-	dnc_write_conf(node, 0, 24+i, 0, 0x44 + 4 * maxnode, 0x40201);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x44 + 4 * maxnode, 0x40201);
     }
 
     for (i = 1; i <= maxnode; i++) {
 	/* Reenable probes */
-	val = dnc_read_conf(node, 0, 24+i, 0, 0x68);
-	dnc_write_conf(node, 0, 24+i, 0, 0x68, (val & ~0x40f) | (1 << 15));
+	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
+	dnc_write_conf(node, 0, 24+i, NB_FUNC_HT, 0x68, (val & ~0x40f) | (1 << 15));
     }
 
     val = dnc_read_conf(node, 0, 24+0, 0, H2S_CSR_F0_CHTX_NODE_ID);
