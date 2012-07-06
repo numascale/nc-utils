@@ -1300,15 +1300,10 @@ static void setup_remote_cores(u16 num)
     for (i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
-	printf("DRAM base 0x%08x->0x%08x lim 0x%08x->0x%08x\n",
-		dnc_read_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x120),
-		cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT),
-		dnc_read_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x124),
-		(cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT));
-/*        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x120,
+        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x120,
                        cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x124,
-                       (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT)); */
+                       (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT));
 	val = dnc_read_conf(node, 0, 24+i, NB_FUNC_DRAM, 0x110);
 	if (val & 1) {
 	    /* Reprogram DCT base/offset values */
