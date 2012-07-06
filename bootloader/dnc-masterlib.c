@@ -200,7 +200,7 @@ void tally_local_node(int enforce_alignment)
 	asm volatile("wbinvd" ::: "memory");
     }
     
-    printf("Initializing sci node %03x PCI I/O and IntRecCtrl tables...\n", nc_node[0].sci_id);
+    printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", nc_node[0].sci_id);
     /* Set PCI I/O map */
     dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
     for (i = 0; i < 256; i++)
@@ -367,7 +367,7 @@ static int tally_remote_node(u16 node)
     printf("%2d CPU cores and %2d GBytes of memory found in SCI%03x\n",
            tot_cores, cur_node->node_mem >> 6, node);
 
-    printf("Initializing sci node %03x PCI I/O and IntRecCtrl tables...\n", node);
+    printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", node);
     /* Set PCI I/O map */
     dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
     for (i = 0; i < 256; i++)

@@ -87,9 +87,9 @@ sci_fabric_setup(void)
     
     for (i = 0; i < dnc_node_count; i++) {
         node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-        printf("Loading SCC microcode on node %03x.\n", nc_node[i].sci_id);
+        printf("Loading SCC microcode on SCI%03x\n", nc_node[i].sci_id);
         load_scc_microcode(node);
-        printf("Disabling SCC MIB timeout on node %03x.\n", nc_node[i].sci_id);
+        printf("Disabling SCC MIB timeout on SCI%03x\n", nc_node[i].sci_id);
         val = dnc_read_csr(node, H2S_CSR_G0_MIB_IBC);
         dnc_write_csr(node, H2S_CSR_G0_MIB_IBC, val | 0x40);
     }
@@ -137,7 +137,7 @@ sci_fabric_setup(void)
 
     for (i = 0; i < dnc_node_count; i++) {
         node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-        printf("Setting HReq_Ctrl on node %03x.\n", nc_node[i].sci_id);
+        printf("Setting HReq_Ctrl on SCI%03x\n", nc_node[i].sci_id);
 //        dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17) | (1<<12)); // CacheSize=0 (2GB), Error, H2S_Init
         dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17)); // CacheSize=0 (2GB), Error
 

@@ -383,7 +383,7 @@ void mem64_write8(u64 addr, u8 val)
 u32 dnc_read_csr(u32 node, u16 csr)
 {
     u32 val;
-    DEBUG("sci%04x:csr%04x :  ", node, csr);
+    DEBUG("SCI%03x:csr%04x :  ", node, csr);
     val = u32bswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));
     DEBUG("%08x\n", val);
     return val;
@@ -391,7 +391,7 @@ u32 dnc_read_csr(u32 node, u16 csr)
 
 void dnc_write_csr(u32 node, u16 csr, u32 val)
 {
-    DEBUG("sci%04x:csr%04x <- %08x", node, csr, val);
+    DEBUG("SCI%03x:csr%04x <- %08x", node, csr, val);
     mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, u32bswap(val));
     DEBUG("\n");
 }
@@ -428,7 +428,7 @@ u32 dnc_read_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg)
     if (node == 0xfff0) {
         val = _read_config(bus, device, func, reg);
     } else {
-        DEBUG("sci%04x:dev%02x:%02x F%xx%03x:  ",
+        DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ",
               node, bus, device, func, reg);
         val = mem64_read32(DNC_MCFG_BASE | ((u64)node << 28) | 
                            PCI_MMIO_CONF(bus, device, func, reg));
@@ -442,7 +442,7 @@ void dnc_write_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg, u32 val)
     if (node == 0xfff0) {
         _write_config(bus, device, func, reg, val);
     } else {
-        DEBUG("sci%04x:dev%02x:%02x F%xx%03x <- %08x",
+        DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x",
               node, bus, device, func, reg, val);
         mem64_write32(DNC_MCFG_BASE | ((u64)node << 28) | 
                       PCI_MMIO_CONF(bus, device, func, reg), val);

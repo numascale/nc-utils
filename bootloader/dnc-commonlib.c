@@ -2448,7 +2448,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
     backoff = 1;
     while (!go_ahead) {
 	if (++count >= backoff) {
-	    printf("Broadcasting state: %s (sciid: 0x%03x, uuid = %d, tid = %d)\n",
+	    printf("Broadcasting state: %s (sciid 0x%03x, uuid %d, tid %d)\n",
                    node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
 	    udp_broadcast_state(handle, &rsp, sizeof(rsp));
 	    tsc_wait(100 * backoff);
@@ -2467,7 +2467,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	    if (len != sizeof(cmd))
 		continue;
 
-            /* printf("Got cmd packet. state = %d, sciid = %03x, uuid = %d, tid = %d\n",
+            /* printf("Got cmd packet (state %d, sciid %03x, uuid %d, tid %d)\n",
              *       cmd.state, cmd.sciid, cmd.uuid, cmd.tid); */
 	    if (cmd.uuid == builduuid) {
 		if (cmd.tid == last_cmd) {

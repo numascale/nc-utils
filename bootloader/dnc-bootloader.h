@@ -77,7 +77,7 @@ typedef struct nc_node_info {
     u32 mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
     u32 mmio_end;
     ht_node_info_t ht[8];
-    u16 sci_id;		/* Maps logical dnc node ids to physical (sci) ids */
+    u16 sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
     u16 nc_ht_id;	/* HT id of dnc node dnc controller on local system */
     u16 apic_offset;	/* Offset to shift APIC ids by when unifying */
     u8 nc_neigh;	/* Our nearest neighbour HT node on local system */
