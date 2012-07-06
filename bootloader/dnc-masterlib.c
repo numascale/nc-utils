@@ -95,7 +95,7 @@ void tally_local_node(int enforce_alignment)
         if (i == dnc_master_ht_id)
             continue;
 
-        printf("Examining SCI node %03x HT node %d...\n", nc_node[0].sci_id, i);
+        printf("Examining SCI%03x HT node %d...\n", nc_node[0].sci_id, i);
         
 	nc_node[0].ht[i].cores = 0;
 	nc_node[0].ht[i].base  = 0;
@@ -174,7 +174,7 @@ void tally_local_node(int enforce_alignment)
 
     printf("ht_next_apic: %d\n", ht_next_apic);
 
-    printf("%2d CPU cores and %2d GBytes of memory and I/O maps found in SCI node %03x\n",
+    printf("%2d CPU cores and %2d GBytes of memory and I/O maps found in SCI%03x\n",
            tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 
     dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
@@ -238,7 +238,7 @@ static int tally_remote_node(u16 node)
     /* Set MMCFG base register so remote NC will accept our forwarded requests */
     val = dnc_read_csr(node, H2S_CSR_G3_MMCFG_BASE);
     if (val != (DNC_MCFG_BASE >> 24)) {
-        printf("Setting SCI node %03x MCFG_BASE to %08llx\n", node, DNC_MCFG_BASE >> 24);
+        printf("Setting SCI%03x MCFG_BASE to %08llx\n", node, DNC_MCFG_BASE >> 24);
         dnc_write_csr(node, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
     }
     
@@ -256,7 +256,7 @@ static int tally_remote_node(u16 node)
 
     val = dnc_read_conf(node, 0, 24, NB_FUNC_HT, 0x60);
     if (val == 0xffffffff) {
-        printf("Error: Can't access config space on SCI node %03x\n", node);
+        printf("Error: Can't access config space on SCI%03x\n", node);
         return 1; /* Ignore node */
     }
     max_ht_node = (val >> 4) & 7;
@@ -278,7 +278,7 @@ static int tally_remote_node(u16 node)
             continue;
 	}
 
-        printf("Examining SCI node %03x HT node %d...\n", node, i);
+        printf("Examining SCI%03x HT node %d...\n", node, i);
        
 	cur_node->ht[i].cores = 0;
 	cur_node->ht[i].base  = 0;
@@ -364,7 +364,7 @@ static int tally_remote_node(u16 node)
 
     cur_node->addr_end = dnc_top_of_mem;
 
-    printf("%2d CPU cores and %2d GBytes of memory found in SCI node %03x\n",
+    printf("%2d CPU cores and %2d GBytes of memory found in SCI%03x\n",
            tot_cores, cur_node->node_mem >> 6, node);
 
     printf("Initializing sci node %03x PCI I/O and IntRecCtrl tables...\n", node);

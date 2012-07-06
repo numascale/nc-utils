@@ -306,14 +306,14 @@ static void update_e820_map(void)
 	}
     }
 
-    /* Truncate to SCI 000/HT 0 end; rest added below */
+    /* Truncate to SCI000/HT 0 end; rest added below */
     e820[max].length = ((u64)nc_node[0].ht[0].size << DRAM_MAP_SHIFT)
 	- e820[max].base;
 
     prev_end = e820[max].base + e820[max].length;
     if (nc_node[0].nc_ht_id == 1) {
-	/* Truncate SCI 000/HT 0 to SCC ATT granularity if only HT
-	 * node on SCI 000; existing adjustment of ht_node_size
+	/* Truncate SCI000/HT 0 to SCC ATT granularity if only HT
+	 * node on SCI000; existing adjustment of ht_node_size
 	 * handles rest */
 	rest = prev_end & ((SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1);
 	if (rest) {
@@ -1217,7 +1217,7 @@ static void setup_remote_cores(u16 num)
            num, node, ht_id);
     
     /* Toggle go-ahead flag to remote node */
-    printf("Checking if SCI node %03x is ready\n", node);
+    printf("Checking if SCI%03x is ready\n", node);
     do {
         val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
         tsc_wait(200);
@@ -1225,7 +1225,7 @@ static void setup_remote_cores(u16 num)
 
     val |= 0x80000000UL;
     dnc_write_csr(node, H2S_CSR_G3_FAB_CONTROL, val);
-    printf("Waiting for SCI node %03x to acknowledge\n", node);
+    printf("Waiting for SCI%03x to acknowledge\n", node);
     while (val & 0x80000000UL) {
         val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
         tsc_wait(200);
@@ -1249,7 +1249,7 @@ static void setup_remote_cores(u16 num)
     printf("Remote MMIO32 maps set...\n");
 
     /* Set H2S_Init */
-    printf("Setting SCI node %03x H2S_Init...\n", node);
+    printf("Setting SCI%03x H2S_Init...\n", node);
     val = dnc_read_csr(node, H2S_CSR_G3_HREQ_CTRL);
     dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, val | (1<<12));
 
@@ -2325,7 +2325,7 @@ static int unify_all_nodes(void)
 			  0x80000000 | /* AutoInc */
 			  (0x08000000 << SCC_ATT_INDEX_RANGE) | /* Index Range */
 			  (addr/SCC_ATT_GRAN)); /* Start index for current node */
-	    printf("Node %03x ATT_INDEX: %x (%x, %x) SCI %03x\n", nc_node[i].sci_id,
+	    printf("Node %03x ATT_INDEX: %x (%x, %x) SCI%03x\n", nc_node[i].sci_id,
 		   dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end, nc_node[dnode].sci_id);
 	    while (addr < end) {
 		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[dnode].sci_id);
