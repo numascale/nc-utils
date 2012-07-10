@@ -325,7 +325,7 @@ static int dnc_initialize_sram(void) {
 	printf("Enabling FTag SRAM\n");
 	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
     } else {
-	    printf("ASIC revision %d detected, no FTag SRAM\n", dnc_chip_rev);
+	printf("ASIC revision %d detected, no FTag SRAM\n", dnc_chip_rev);
     }
 
     return 0;
@@ -385,40 +385,38 @@ int dnc_init_caches(void) {
         }
 
 	if ((dnc_asic_mode && dnc_chip_rev >= 2) ||
-	    (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6251))) {
+	    (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6254))) {
 	    int tmp = mem_size;
 
 	    /* New Rev2 MCTag setting for supporting larger local memory */
 	    if (!cdata) {
-		if (dnc_asic_mode || (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6254))) {
-		    if        (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) { /* 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory */
-			tmp = 0;
-		    } else if (dimms[0].mem_size == 0 && dimms[1].mem_size == 2) { /* 1GB MCTag_Size  4GB Remote Cache   16GB Coherent Local Memory */
-			tmp = 1;
-		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { /* 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory */
-			tmp = 2;
-		    } else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { /* 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory */
-			tmp = 3;
-		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { /* 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory */
-			tmp = 4;
-		    } else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { /* 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory */
-			tmp = 5;
-		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { /* 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory */
-			tmp = 6;
-		    } else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
-			tmp = 7;
-		    } else {
-			printf("Error: Unsupported MCTag/CData combination (%d/%dGB)\n",
-			       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
-			return -1;
-		    }
+		if        (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) { /* 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory */
+		    tmp = 0;
+		} else if (dimms[0].mem_size == 0 && dimms[1].mem_size == 2) { /* 1GB MCTag_Size  4GB Remote Cache   16GB Coherent Local Memory */
+		    tmp = 1;
+		} else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { /* 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory */
+		    tmp = 2;
+		} else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { /* 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory */
+		    tmp = 3;
+		} else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { /* 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory */
+		    tmp = 4;
+		} else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { /* 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory */
+		    tmp = 5;
+		} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { /* 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory */
+		    tmp = 6;
+		} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
+		    tmp = 7;
+		} else {
+		    printf("Error: Unsupported MCTag/CData combination (%d/%dGB)\n",
+			   (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
+		    return -1;
 		}
-
-		max_mem_per_node = (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size));
-		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
-		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
-		max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
 	    }
+
+	    max_mem_per_node = (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size));
+	    printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
+		   (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
+	    max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
 
 	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 	    dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
@@ -466,24 +464,24 @@ int dnc_init_caches(void) {
 
     /* Initialize SRAM */
     if (!dnc_asic_mode) { /* Special FPGA considerations for Ftag SRAM */
-	    if ((dnc_chip_rev>>16) < 6233) {
-		printf("Disabling FTag SRAM\n");
-		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
-	    } else {
-		printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
-	    }
+	if ((dnc_chip_rev>>16) < 6233) {
+	    printf("Disabling FTag SRAM\n");
+	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
 	} else {
-	    /* ASIC; initialize SRAM if disable_sram is unset */
-	    if(!disable_sram) {
-		if((ret=dnc_initialize_sram())<0)
-		    return ret;
-	    } else {
-		printf("No SRAM will be initialized\n");
-		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
-	    }
+	    printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
 	}
+    } else {
+	/* ASIC; initialize SRAM if disable_sram is unset */
+	if(!disable_sram) {
+	    if((ret=dnc_initialize_sram())<0)
+		return ret;
+	} else {
+	    printf("No SRAM will be initialized\n");
+	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
+	}
+    }
 
-	return 0;
+    return 0;
 }
 
 int cpu_family(u16 scinode, u8 node)
@@ -711,22 +709,22 @@ static void cht_mirror(int neigh, int link)
     for (offset = 0; lane_regs[offset]; offset++)
 	for (lane = 0; lane < 8; lane++)
 	    set_phy_register(neigh, link, lane_regs[offset] + (lane + 8) * 0x80, 1,
-		get_phy_register(neigh, link, lane_regs[offset] + lane * 0x80, 1));
+			     get_phy_register(neigh, link, lane_regs[offset] + lane * 0x80, 1));
 
     for (offset = 0; gang_regs[offset]; offset++)
 	set_phy_register(neigh, link, gang_regs[offset] + 0x10, 0,
-	    get_phy_register(neigh, link, gang_regs[offset], 0));
+			 get_phy_register(neigh, link, gang_regs[offset], 0));
 }
 
 static void cht_print(int neigh, int link)
 {
     u32 val;
     printf("HT#%d L%d Link Control       : 0x%08x\n", neigh, link,
-	cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20));
+	   cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20));
     printf("HT#%d L%d Link Freq/Revision : 0x%08x\n", neigh, link,
-	cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20));
+	   cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20));
     printf("HT#%d L%d Link Ext. Control  : 0x%08x\n", neigh, link,
-	cht_read_config(neigh, 0, 0x170 + link * 4));
+	   cht_read_config(neigh, 0, 0x170 + link * 4));
     val = get_phy_register(neigh, link, 0xe0, 0); /* Link phy compensation and calibration control 1 */
     printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
 
@@ -741,23 +739,23 @@ static void cht_print(int neigh, int link)
     print_phy_gangs(neigh, link, "link FIFO read pointer optimisation", 0xcf);
 
     printf("link phy compensation and calibration control 1: 0x%08x\n",
-	get_phy_register(neigh, link, 0xe0, 0));
+	   get_phy_register(neigh, link, 0xe0, 0));
     printf("link phy PLL control: 0x%08x\n",
-	get_phy_register(neigh, link, 0xe3, 0));
+	   get_phy_register(neigh, link, 0xe3, 0));
     printf("link BIST control: 0x%08x\n",
-	get_phy_register(neigh, link, 0x100, 0));
+	   get_phy_register(neigh, link, 0x100, 0));
 
     print_phy_lanes(neigh, link, "link phy DFE and DFR control", 0x4006, 0);
     print_phy_lanes(neigh, link, "link phy DLL control", 0x400a, 0);
     print_phy_lanes(neigh, link, "link phy transmit control", 0x6000, 1);
     printf("link phy transmit clock phase control:\n- CLKOUT[ 0]=0x%08x\n- CLKOUT[ 1]=0x%08x\n",
-	get_phy_register(neigh, link, 0x6884, 1),
-	get_phy_register(neigh, link, 0x6984, 1));
+	   get_phy_register(neigh, link, 0x6884, 1),
+	   get_phy_register(neigh, link, 0x6984, 1));
 
 /* These cause hangs on fam10h:
-    print_phy_lanes("link phy receiver DLL control and test 5", 0x400f, 0);
-    print_phy_lanes("link phy receiver process control", 0x4011, 0);
-    print_phy_lanes("link phy tx deemphasis and margin test control", 0x600c, 1); */
+   print_phy_lanes("link phy receiver DLL control and test 5", 0x400f, 0);
+   print_phy_lanes("link phy receiver process control", 0x4011, 0);
+   print_phy_lanes("link phy tx deemphasis and margin test control", 0x600c, 1); */
 }
 #endif /* __i386 */
 
@@ -821,7 +819,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     printf(".");
     val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
     if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11) &&
-	((asic_mode && rev >= 2) || (!asic_mode && (rev >> 16) >= 6453)))))
+        ((asic_mode && rev >= 2) || (!asic_mode && (rev >> 16) >= 6453)))))
     {
 	printf("*");
 	tsc_wait(50);
@@ -1148,7 +1146,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
         /* Disable probes while adjusting */
         ltcr = cht_read_config(i, NB_FUNC_HT, 0x68);
         cht_write_config(i, NB_FUNC_HT, 0x68,
-	    ltcr | (1 << 10) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
+			 ltcr | (1 << 10) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
 
         /* Update "neigh" bcast values for node about to increment fabric size */
         val = cht_read_config(neigh, NB_FUNC_HT, 0x40 + i * 4);
@@ -1158,7 +1156,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, u32 *p_chip_rev)
 	/* FIXME: Race condition observered to cause lockups at this point */
 
         /* Increase fabric size */
-        cht_write_config(i, NB_FUNC_HT, 0x60, val2 + (1 << 4));
+	cht_write_config(i, NB_FUNC_HT, 0x60, val2 + (1 << 4));
 
         /* Reassert LimitCldtCfg */
         cht_write_config(i, NB_FUNC_HT, 0x68, ltcr | (1 << 15));
@@ -2412,27 +2410,27 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 		   struct part_info *part __attribute__((unused)))
 {
     switch (cstate) {
-    case CMD_ENTER_RESET:
-	*rstate = enter_reset(info);
-	return 1;
-    case CMD_RELEASE_RESET:
-	tsc_wait(2000);
-	*rstate = release_reset(info);
-	return 1;
-    case CMD_VALIDATE_RINGS:
-	*rstate = validate_rings(info);
-	return 1;
-    case CMD_SETUP_FABRIC:
-	*rstate = (dnc_setup_fabric(info) == 0) ?
-	    RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
-	tsc_wait(2000);
-	return 1;
-    case CMD_VALIDATE_FABRIC:
-	*rstate = dnc_check_fabric(info) ?
-	    RSP_FABRIC_OK : RSP_FABRIC_NOT_OK;
-	return 1;
-    default:
-	return 0;
+	case CMD_ENTER_RESET:
+	    *rstate = enter_reset(info);
+	    return 1;
+	case CMD_RELEASE_RESET:
+	    tsc_wait(2000);
+	    *rstate = release_reset(info);
+	    return 1;
+	case CMD_VALIDATE_RINGS:
+	    *rstate = validate_rings(info);
+	    return 1;
+	case CMD_SETUP_FABRIC:
+	    *rstate = (dnc_setup_fabric(info) == 0) ?
+		      RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
+	    tsc_wait(2000);
+	    return 1;
+	case CMD_VALIDATE_FABRIC:
+	    *rstate = dnc_check_fabric(info) ?
+		      RSP_FABRIC_OK : RSP_FABRIC_NOT_OK;
+	    return 1;
+	default:
+	    return 0;
     }
 }
 
