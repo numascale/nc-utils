@@ -2090,14 +2090,7 @@ static void update_mtrr(void)
 
 static void local_chipset_fixup(void)
 {
-    u16 node;
-    u64 addr;
-    u32 sreq_ctrl, val;
-    int i;
-
-    /* Only needed to workaround rev A/B issue */
-    if (!dnc_asic_mode || dnc_chip_rev > 2)
-	return;
+    u32 val;
 
     printf("Scanning for known chipsets, local pass...\n");
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
@@ -2111,38 +2104,46 @@ static void local_chipset_fixup(void)
 	    outb(val, 0xcd7);
 	}
 
-	addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
-	addr += 0x200000000000ULL;
+	/* Only needed to workaround rev A/B issue */
+	if (dnc_asic_mode && dnc_chip_rev < 2) {
+	    u64 addr;
+	    u32 sreq_ctrl;
+	    u16 node;
+	    int i;
 
-	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
-	node = (val >> 16) & 0xfff;
+	    addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
+	    addr += 0x200000000000ULL;
 
-	for (i = 0; i < dnc_master_ht_id; i++) {
-	    add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
-			       dnc_master_ht_id);
-	}
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+	    node = (val >> 16) & 0xfff;
 
-	add_scc_hotpatch_att(addr, node);
+	    for (i = 0; i < dnc_master_ht_id; i++) {
+		add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
+				   dnc_master_ht_id);
+	    }
 
-	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
-	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
-		      (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
+	    add_scc_hotpatch_att(addr, node);
 
-	val = mem64_read32(addr + 4);
-	printf("SMM fingerprint: %08x\n", val);
+	    sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
+	    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
+			  (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
+
+	    val = mem64_read32(addr + 4);
+	    printf("SMM fingerprint: %08x\n", val);
     
-	if (val == 0x3160bf66) {
-	    printf("SMM coh config space trigger fingerprint found, patching...\n");
+	    if (val == 0x3160bf66) {
+		printf("SMM coh config space trigger fingerprint found, patching...\n");
+		val = mem64_read32(addr);
+		mem64_write32(addr, (val & 0xff) | 0x9040eb00);
+	    }
+    
 	    val = mem64_read32(addr);
-	    mem64_write32(addr, (val & 0xff) | 0x9040eb00);
-	}
-    
-	val = mem64_read32(addr);
-	printf("MEM %llx: %08x\n", addr, val);
+	    printf("MEM %llx: %08x\n", addr, val);
 	
-	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
-	for (i = 0; i < dnc_master_ht_id; i++)
-	    del_extd_mmio_maps(0xfff0, i, 3);
+	    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
+	    for (i = 0; i < dnc_master_ht_id; i++)
+		del_extd_mmio_maps(0xfff0, i, 3);
+	}
     }
     printf("Chipset-specific setup done\n");
 }
@@ -2516,7 +2517,7 @@ static int nc_start(void)
 
     /* Only in effect on core 0, but only required for 32-bit code */
     set_wrap32_disable();
- 
+
     dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
 					   __com32.cs_cmdline);
     if (dnc_master_ht_id == -2)
