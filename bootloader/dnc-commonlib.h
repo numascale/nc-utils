@@ -129,6 +129,7 @@ extern int verbose;
 extern int nc_neigh, nc_neigh_link;
 extern int forwarding_mode;
 extern int remote_io;
+extern int family;
 
 extern const char* node_state_name[];
 

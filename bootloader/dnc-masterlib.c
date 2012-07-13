@@ -145,7 +145,7 @@ void tally_local_node(int enforce_alignment)
 	/* Assume at least one core */
 	nc_node[0].ht[i].cores = 1;
 
-	if ((cpu_family(0xfff0, i) >> 16) < 0x15) {
+	if (family < 0x15) {
 	    val = cht_read_config(i, NB_FUNC_HT, 0x68);
 	    if (val & 0x20) nc_node[0].ht[i].cores++; /* Cpu1En */
 
@@ -325,7 +325,7 @@ static int tally_remote_node(u16 node)
 	/* Assume at least one core */
 	cur_node->ht[i].cores = 1;
 
-	if ((cpu_family(node, i) >> 16) < 0x15) {
+	if (family < 0x15) {
 	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
 	    if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
 

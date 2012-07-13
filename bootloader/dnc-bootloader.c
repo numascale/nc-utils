@@ -1258,14 +1258,22 @@ static void setup_remote_cores(u16 num)
 	if (!cur_node->ht[i].cpuid)
 	    continue;
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84, 0x00000f00 | ht_id);
+        if (family >= 0x15)
+	    dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x180, 0);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x80, 0x00000a03);
+
         for (j = 1; j < 8; j++) {
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x80 + j*8, 0x0);
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84 + j*8, 0x0);
+	    if (family >= 0x15)
+		dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x180 + j*8, 0);
         }
+
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x8c, 0x00ffff00 | ht_id);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x88, tom | 3);
-    
+	if (family >= 0x15)
+	    dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x184, 0);
+
 	/* Enable redirect of VGA to master, default disable where local cores will access local VGA on each node */
         if (enable_vga_redir) {
             /* Apparently the HP DL165 modes can't handle non-posted writes to the VGA ports...
@@ -2503,6 +2511,7 @@ static int nc_start(void)
     if (check_api_version() < 0)
         return ERR_API_VERSION;
 
+    family = cpu_family(0xfff0, 0) >> 16;
     get_hostname();
 
     /* Only in effect on core 0, but only required for 32-bit code */

@@ -56,6 +56,7 @@ int mem_offline = 0;
 u64 trace_buf = 0;
 u32 trace_buf_size = 0;
 int verbose = 0;
+int family = 0;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 
@@ -503,7 +504,11 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
 {
     u32 val;
 
-    if ((cpu_family(scinode, node) >> 16) < 0x15) {
+    if (verbose)
+	printf("SCI%03x#%d: Adding MMIO map #%d %016llx-%016llx to HT#%d\n", scinode, node, idx, start, end, dest);
+
+    if (family < 0x15) {
+	assert(idx < 12);
 	u64 mask;
 
 	mask = 0;
@@ -527,19 +532,12 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (start << 8) | dest);
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (mask << 8) | 1);
-    }
-    else {
+    } else {
+	assert(idx < 4);
 	/* From family 15h, the Extd MMIO maps are deprecated in favor
 	 * of extending the legacy MMIO maps with a "base/limit high"
 	 * register set.  To avoid trampling over existing mappings,
 	 * use the (also new) 9-12 mapping entries when invoked here. */
-	if (idx > 4) {
-	    printf("add_extd_mmio_maps: index (%d) out of range for family 15h\n", idx);
-	    return;
-	}
-	if (verbose > 0)
-	    printf("[%03x#%d] Adding MMIO map #%d %016llx-%016llx to HT#%d\n",
-		   scinode, node, idx+8, start, end, dest);
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1a0 + idx * 8, 0);
 
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1c0 + idx * 4,
@@ -555,16 +553,27 @@ void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx)
 {
     u32 val;
 
-    /* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
-    val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68,
-                   val | (1<<25) | (1<<18) | (1<<17));
+    if (verbose)
+	printf("SCI%03x#%d: Removing Extd MMIO map #%d\n", scinode, node, idx);
 
-    /* printf("[%03x#%d] Removing Extd MMIO map #%d\n", scinode, node, idx); */
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
-    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
+    if (family < 0x15) {
+	assert(idx < 12);
+
+	/* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
+	val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68,
+		   val | (1<<25) | (1<<18) | (1<<17));
+
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, 0);
+    } else {
+	assert(idx < 4);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1a0 + idx * 8, 0);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1a4 + idx * 8, 0);
+	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x1c0 + idx * 4, 0);
+    }
 }
 
 #ifdef __i386
@@ -1272,7 +1281,7 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
         printf("Setting CSR and MCFG maps for node %d\n", node);
         add_extd_mmio_maps(0xfff0, node, 0, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
         add_extd_mmio_maps(0xfff0, node, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
-	if ((cpu_family(0xfff0, node) >> 16) == 0x15) {
+	if (family >= 0x15) {
 	    val = cht_read_config(node, NB_FUNC_HT, 0x68);
 	    if (val & (1<<12)) {
 		if (verbose > 0)
