@@ -1287,11 +1287,15 @@ static void setup_remote_cores(u16 num)
                        ((cur_node->ht[0].base - 1) << 16) | ht_id);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40,
                        (nc_node[0].ht[0].base << 16) | 3);
+        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x140, 0);
+        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x144, 0);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf0,  0);
         /* Clear all other entries for now; we'll get to them later */
         for (j = 1; j < 8; j++) {
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8, 0);
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8, 0);
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x140 + j*8, 0);
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x144 + j*8, 0);
         }
     }
 
