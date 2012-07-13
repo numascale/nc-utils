@@ -1687,7 +1687,7 @@ static void dump_northbridge_regs(int ht_id)
 
     printf("Dumping AMD Northbridge registers...\n");
     for (ht = 0; ht < ht_id; ht++)
-	for (func = 0; func < 5; func++) {
+	for (func = 0; func < 6; func++) {
 	    printf("HT%d F%d:\n", ht, func);
 	    for (offset = 0; offset < 512; offset += 4) {
 		if ((offset % 32) == 0)
