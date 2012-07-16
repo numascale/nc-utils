@@ -1229,6 +1229,8 @@ static void setup_remote_cores(u16 num)
         tsc_wait(200);
     }
 
+    wait_key();
+
     /* Map MMIO 0x00000000 - 0xffffffff to master node */
     for (j = 0; j < 0x1000; j++) {
         if ((j & 0xff) == 0) {
@@ -2096,54 +2098,50 @@ static void local_chipset_fixup(void)
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
     if (val == 0x43851002) {
 	printf("Adjusting local configuration of AMD SP5100...\n");
-	if (!disable_smm) {
-	    /* Disable config-space triggered SMI */
-	    outb(0xa8, 0xcd6);
-	    val = inb(0xcd7);
-	    val = val & ~0x10;
-	    outb(val, 0xcd7);
+	/* Disable config-space triggered SMI */
+	val = pmio_readb(0xa8);
+	pmio_writeb(0xa8, val & ~(3 << 4)); // Clear bit4 and bit5
+    }
+
+    /* Only needed to workaround rev A/B issue */
+    if (dnc_asic_mode && dnc_chip_rev < 2) {
+	u16 node;
+	u64 addr;
+	int i;
+	u32 sreq_ctrl;
+
+	addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
+	addr += 0x200000000000ULL;
+
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+	node = (val >> 16) & 0xfff;
+
+	for (i = 0; i < dnc_master_ht_id; i++) {
+	    add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
+			       dnc_master_ht_id);
 	}
 
-	/* Only needed to workaround rev A/B issue */
-	if (dnc_asic_mode && dnc_chip_rev < 2) {
-	    u64 addr;
-	    u32 sreq_ctrl;
-	    u16 node;
-	    int i;
+	add_scc_hotpatch_att(addr, node);
 
-	    addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
-	    addr += 0x200000000000ULL;
+	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
+		      (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
 
-	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
-	    node = (val >> 16) & 0xfff;
-
-	    for (i = 0; i < dnc_master_ht_id; i++) {
-		add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
-				   dnc_master_ht_id);
-	    }
-
-	    add_scc_hotpatch_att(addr, node);
-
-	    sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
-	    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
-			  (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
-
-	    val = mem64_read32(addr + 4);
-	    printf("SMM fingerprint: %08x\n", val);
+	val = mem64_read32(addr + 4);
+	printf("SMM fingerprint: %08x\n", val);
     
-	    if (val == 0x3160bf66) {
-		printf("SMM coh config space trigger fingerprint found, patching...\n");
-		val = mem64_read32(addr);
-		mem64_write32(addr, (val & 0xff) | 0x9040eb00);
-	    }
-    
+	if (val == 0x3160bf66) {
+	    printf("SMM coh config space trigger fingerprint found, patching...\n");
 	    val = mem64_read32(addr);
-	    printf("MEM %llx: %08x\n", addr, val);
-	
-	    dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
-	    for (i = 0; i < dnc_master_ht_id; i++)
-		del_extd_mmio_maps(0xfff0, i, 3);
+	    mem64_write32(addr, (val & 0xff) | 0x9040eb00);
 	}
+    
+	val = mem64_read32(addr);
+	printf("MEM %llx: %08x\n", addr, val);
+	
+	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
+	for (i = 0; i < dnc_master_ht_id; i++)
+	    del_extd_mmio_maps(0xfff0, i, 3);
     }
     printf("Chipset-specific setup done\n");
 }
@@ -2561,25 +2559,25 @@ static int nc_start(void)
     }
 
     if (dnc_init_caches() < 0)
-        return ERR_INIT_CACHES;
+	return ERR_INIT_CACHES;
 
     if (part->master == info->sciid) {
-        int i;
-        /* Master */
-        for (i = 0; i < cfg_nodes; i++) {
+	int i;
+	/* Master */
+	for (i = 0; i < cfg_nodes; i++) {
 	    if (config_local(&cfg_nodelist[i], uuid))
-                continue;
+		continue;
 
 	    if (cfg_nodelist[i].partition != info->partition)
 		continue;
-            nodedata[cfg_nodelist[i].sciid] = 0x80;
-        }
+	    nodedata[cfg_nodelist[i].sciid] = 0x80;
+	}
 
-        read_microcode_update();
+	read_microcode_update();
 
 	load_orig_e820_map();
-        if (!install_e820_handler())
-            return ERR_INSTALL_E820_HANDLER;
+	if (!install_e820_handler())
+	    return ERR_INSTALL_E820_HANDLER;
 
 	wait = 100;
 	while ((i = unify_all_nodes()) == 0) {
@@ -2593,51 +2591,54 @@ static int nc_start(void)
 	if (i < 0)
 	    return ERR_UNIFY_ALL_NODES;
 
-        (void)dnc_check_mctr_status(0);
-        (void)dnc_check_mctr_status(1);
+	(void)dnc_check_mctr_status(0);
+	(void)dnc_check_mctr_status(1);
         
-        update_e820_map();
-        start_user_os();
+	update_e820_map();
+	start_user_os();
     } else {
-        /* Slave */
+	/* Slave */
 	u32 val;
+
+	// Get the original e820 map for reference..
+	load_orig_e820_map();
+	
+	/* Set G3x02c FAB_CONTROL bit 30 */
+	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);
+ 
+	printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
+	/* print_status(); */
+	while (1) {
+	    val = dnc_check_mctr_status(0);
+	    val = dnc_check_mctr_status(1);
+            
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
+	    if ((val & (1<<31))) {
+		printf("*** Go-ahead seen, joining system to master node ***\n");
+		break;
+	    }
+
+	    dnc_check_fabric(info);
+	    tsc_wait(1000);
+	}
 
 	/* On non-root servers, prevent writing to unexpected locations */
 	handover_legacy();
+	clear_bsp_flag();
+	cleanup_stack();
 	disable_smi();
 
-        clear_bsp_flag();
-
-        cleanup_stack();
-
-        /* Set G3x02c FAB_CONTROL bit 30 */
-        dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);
- 
-        printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
-	/* print_status(); */
-        while (1) {
-            val = dnc_check_mctr_status(0);
-            val = dnc_check_mctr_status(1);
-            
-            val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
-            if ((val & (1<<31))) {
-                printf("*** Go-ahead seen, joining system to master node ***\n");
-                break;
-            }
-
-	    dnc_check_fabric(info);
-            tsc_wait(1000);
-        }
-
         /* Disable legacy PIC interrupts and cache */
-        disable_xtpic();
+	disable_xtpic();
 	disable_cache();
 
+	cli();
+	
 	/* Let master know we're ready for remapping/integration */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1<<31));
-        while (1) {
-            asm volatile("hlt" ::: "memory");
-        }
+	while (1) {
+	    asm volatile("hlt" ::: "memory");
+	}
     }
 
     return ERR_GENERAL_NC_START_ERROR;
@@ -2652,10 +2653,9 @@ int main(void)
 	   (strlen(gitlog_dnc_bootloader_diff) > 0) ? " (modified)" : "");
 
     ret = nc_start();
-    if (ret < 0)
-      {
+    if (ret < 0) {
 	printf("Error: nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
 	wait_key();
-      }
+    }
     return ret;
 }
