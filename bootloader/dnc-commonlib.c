@@ -907,6 +907,11 @@ static void disable_probefilter(int nodes)
        - F3x58[DramScrub]=00h
        - F3x5C[ScrubRedirEn]=0 */
     for (i = 0; i <= nodes; i++) {
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_config(i, NB_FUNC_MAPS, 0x10C, 0);
 	scrub[i] = cht_read_config(i, NB_FUNC_MISC, 0x58);
 	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i] & ~0x1f00001f);
 	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
@@ -1829,6 +1834,11 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
         cht_write_config(i, NB_FUNC_MISC, 0x44, val);
 
 	/* XXX: Disable DRAM sequential scrubbing. Optimally we should se the DramScrubAddrLo/Hi register correctly */
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_config(i, NB_FUNC_MAPS, 0x10C, 0);
 	val = cht_read_config(i, NB_FUNC_MISC, 0x58);
 	if (val & 0x1f) {
 	    printf("Disabling DRAM sequential scrubbing on HT#%d\n", i);
