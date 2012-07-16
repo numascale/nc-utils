@@ -325,7 +325,7 @@ static int tally_remote_node(u16 node)
 	/* Assume at least one core */
 	cur_node->ht[i].cores = 1;
 
-	if (family < 0x15) {
+	if (cpu_family(node, i) < 0x15) {
 	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
 	    if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
 

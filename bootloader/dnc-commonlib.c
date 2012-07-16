@@ -487,27 +487,27 @@ int dnc_init_caches(void) {
 int cpu_family(u16 scinode, u8 node)
 {
     u32 val;
-    int family, model, stepping;
+    int fam, model, stepping;
 
     val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_MISC, 0xfc);
 
-    family = ((val >> 20) & 0xf) + ((val >> 8) & 0xf);
+    fam = ((val >> 20) & 0xf) + ((val >> 8) & 0xf);
     model = ((val >> 12) & 0xf0) | ((val >> 4) & 0xf);
     stepping = val & 0xf;
 
-    return (family << 16) | (model << 8) | stepping;
+    return (fam << 16) | (model << 8) | stepping;
 }
 
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest)
 {
-    u32 val;
-
     if (verbose)
 	printf("SCI%03x#%d: Adding MMIO map #%d %016llx-%016llx to HT#%d\n", scinode, node, idx, start, end, dest);
 
     if (family < 0x15) {
-	assert(idx < 12);
 	u64 mask;
+	u32 val;
+
+	assert(idx < 12);
 
 	mask = 0;
 	start = start >> 27;
@@ -515,17 +515,13 @@ void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 des
 	while ((start | mask) != (end | mask))
 	    mask = (mask << 1) | 1;
 
-	/* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
-	val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68);
-	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x68,
-		       val | (1<<25) | (1<<18) | (1<<17));
+	val = dnc_read_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x168);
+	if ((val & 0x300) != 0x200) {
+	    if (verbose > 0)
+		printf("Setting extended MMIO map address select to 128M granularity on node %d\n", node);
+	    dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x168, (val & ~0x300) | 0x200);
+	}
 
-	/* Set ExtMmioMapAddSel granularity to 128M */
-	val = dnc_read_conf(scinode, 0, 24+node,  NB_FUNC_HT, 0x168);
-	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_HT, 0x168, (val & ~0x300) | 0x200);
-
-	/* printf("[%03x#%d] Adding Extd MMIO map #%d %016llx-%016llx (%08llx/%08llx) to HT#%d\n",
-	   scinode, node, idx, start, end, start, mask, dest); */
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x114, (start << 8) | dest);
 	dnc_write_conf(scinode, 0, 24+node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
@@ -1234,6 +1230,18 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
     DNC_CSR_BASE = 0x3fff00000000ULL;
     DNC_CSR_LIM = 0x3fffffffffffULL;
 
+    /* Since we use high addresses for our CSR and MCFG space, make sure the necessary
+       features in the CPU is enabled before we start using them */
+    for (node = 0; node < dnc_ht_id; node++) {
+	val = cht_read_config(node, NB_FUNC_HT, 0x68);
+	if ((val & ((1<<25) | (1<<18) | (1<<17))) != ((1<<25) | (1<<18) | (1<<17))) {
+	    if (verbose > 0)
+		printf("Enabling cHtExtAddrEn, ApicExtId and ApicExtBrdCst on node %d\n", node);
+	    cht_write_config(node, NB_FUNC_HT, 0x68,
+			     val | (1<<25) | (1<<18) | (1<<17));
+	}
+    }
+
     /* Check if BIOS has assigned a BAR0, if so clear it */
     val = cht_read_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
                              H2S_CSR_F0_STATUS_COMMAND_REGISTER);
@@ -1282,22 +1290,6 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
         printf("Setting CSR and MCFG maps for node %d\n", node);
         add_extd_mmio_maps(0xfff0, node, 0, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
         add_extd_mmio_maps(0xfff0, node, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
-	if (family >= 0x15) {
-	    val = cht_read_config(node, NB_FUNC_HT, 0x68);
-	    if (val & (1<<12)) {
-		if (verbose > 0)
-		    printf("Clearing ATMModeEn for node %d\n", node);
-		cht_write_config(node, NB_FUNC_HT, 0x68, val & ~(1<<12));
-		val = cht_read_config(node, NB_FUNC_MISC, 0x1b8);
-		cht_write_config(node, NB_FUNC_MISC, 0x1b8, val & ~(1<<27));
-	    }
-	    val = cht_read_config(node, 5, 0x88);
-	    if (!(val & (1<<9))) {
-		if (verbose > 0)
-		    printf("Setting DisHintInHtMskCnt\n");
-		cht_write_config(node, 5, 0x88, val | (1<<9));
-	    }
-	}
     }
 
     cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
@@ -1870,6 +1862,25 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	if ((val & (1<<8)) && ((val & 0xf) == 0)) {
 	    printf("Enable IBS LVT offset workaround on HT#%d\n", i);
 	    cht_write_config(i, NB_FUNC_MISC, 0x1cc, (1<<8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
+	}
+
+	/* On Fam15h disable the Accelerated Transiton to Modified protocol
+	   and the core prefetch hits as NumaChip doesn't support these states */
+	if (family >= 0x15) {
+	    val = cht_read_config(i, NB_FUNC_HT, 0x68);
+	    if (val & (1<<12)) {
+		if (verbose > 0)
+		    printf("Clearing ATMModeEn for node %d\n", i);
+		cht_write_config(i, NB_FUNC_HT, 0x68, val & ~(1<<12));
+		val = cht_read_config(i, NB_FUNC_MISC, 0x1b8);
+		cht_write_config(i, NB_FUNC_MISC, 0x1b8, val & ~(1<<27));
+	    }
+	    val = cht_read_config(i, 5, 0x88);
+	    if (!(val & (1<<9))) {
+		if (verbose > 0)
+		    printf("Setting DisHintInHtMskCnt for node %d\n", i);
+		cht_write_config(i, 5, 0x88, val | (1<<9));
+	    }
 	}
     }
     
