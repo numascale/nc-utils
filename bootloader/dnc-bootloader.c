@@ -1233,7 +1233,7 @@ static void setup_remote_cores(u16 num)
     for (j = 0; j < 0x1000; j++) {
         if ((j & 0xff) == 0) {
 	    if (verbose > 0)
-		printf("Setting remote MMIO32 maps page %d...\n", j >> 8);
+		printf("Setting remote H2S MMIO32 ATT page %d...\n", j >> 8);
             dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
         }
         dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4,
@@ -1244,7 +1244,7 @@ static void setup_remote_cores(u16 num)
 	renumber_remote_bsp(num);
     ht_id = nc_node[num].nc_ht_id;
 
-    printf("Remote MMIO32 maps set...\n");
+    printf("Remote H2S MMIO32 ATT set...\n");
 
     /* Set H2S_Init */
     printf("Setting SCI%03x H2S_Init...\n", node);
@@ -1257,22 +1257,23 @@ static void setup_remote_cores(u16 num)
     for (i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
-        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84, 0x00000f00 | ht_id);
-        if (family >= 0x15)
-	    dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x180, 0);
-        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x80, 0x00000a03);
 
-        for (j = 1; j < 8; j++) {
+	/* Clear all MMIO maps */
+        for (j = 0; j < 8; j++) {
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x80 + j*8, 0x0);
             dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84 + j*8, 0x0);
+	    /* Fam15h high register bits[47:40] */
 	    if (family >= 0x15)
 		dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x180 + j*8, 0);
         }
 
+	/* 1st MMIO map pair is set to point to the VGA segment a0000-e0000 */
+        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x84, 0x00000f00 | ht_id);
+        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x80, 0x00000a03);
+
+	/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x8c, 0x00ffff00 | ht_id);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x88, tom | 3);
-	if (family >= 0x15)
-	    dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x184, 0);
 
 	/* Enable redirect of VGA to master, default disable where local cores will access local VGA on each node */
         if (enable_vga_redir) {
@@ -1283,13 +1284,21 @@ static void setup_remote_cores(u16 num)
         }
     }
 
-    critical_enter();
-
     /* Now, reset all DRAM maps */
     printf("Resetting DRAM maps on SCI%03x\n", node);
     for (i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
+        /* Clear all entries */
+        for (j = 0; j < 8; j++) {
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8, 0);
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8, 0);
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x140 + j*8, 0);
+            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x144 + j*8, 0);
+        }
+	/* Clear DRAM Hole */
+        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf0,  0);
+	
         /* Re-direct everything below our first local address to NumaChip */
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44,
                        ((cur_node->ht[0].base - 1) << 16) | ht_id);
@@ -1297,14 +1306,6 @@ static void setup_remote_cores(u16 num)
                        (nc_node[0].ht[0].base << 16) | 3);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x140, 0);
         dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x144, 0);
-        dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf0,  0);
-        /* Clear all other entries for now; we'll get to them later */
-        for (j = 1; j < 8; j++) {
-            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x40 + j*8, 0);
-            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x44 + j*8, 0);
-            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x140 + j*8, 0);
-            dnc_write_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x144 + j*8, 0);
-        }
     }
 
     /* Reprogram HT node "self" ranges */
@@ -1366,8 +1367,6 @@ static void setup_remote_cores(u16 num)
         }
     }
 
-    critical_leave();
-
     if (verbose > 0) {
 	for (i = 0; i < 8; i++) {
 	    if (!cur_node->ht[i].cpuid)
@@ -1426,8 +1425,6 @@ static void setup_remote_cores(u16 num)
     
     *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
 
-    critical_enter();
-
     /* Start all remote cores and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
 	for (i = 0; i < cur_node->ht[ht].cores; i++) {
@@ -1465,8 +1462,6 @@ static void setup_remote_cores(u16 num)
 	    }
 	}
     }
-
-    critical_leave();
 }
 
 static void setup_local_mmio_maps(void)
@@ -2433,8 +2428,9 @@ static void cleanup_stack(void)
     static com32sys_t rm;
     rm.eax.w[0] = 0x000C;
     rm.edx.w[0] = 0x0000;
-    printf("Unloading bootloader stack...\n");
+    printf("Unloading bootloader stack...");
     __intcall(0x22, &rm, NULL);
+    printf("done\n");
 }
 
 static void set_wrap32_disable(void)
