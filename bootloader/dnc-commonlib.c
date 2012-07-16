@@ -1292,6 +1292,13 @@ static int ht_fabric_fixup(int *p_asic_mode, u32 *p_chip_rev)
         add_extd_mmio_maps(0xfff0, node, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
     }
 
+    /* Set MMCFG base register so local NC will forward correctly */
+    val = dnc_read_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE);
+    if (val != (DNC_MCFG_BASE >> 24)) {
+        printf("Setting local MCFG_BASE to %08llx\n", DNC_MCFG_BASE >> 24);
+        dnc_write_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
+    }
+    
     cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
                         H2S_CSR_F0_CHTX_LINK_INITIALIZATION_CONTROL, 0);
     cht_write_config_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,

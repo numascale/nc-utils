@@ -211,13 +211,6 @@ void tally_local_node(int enforce_alignment)
     for (i = 0; i < 256; i++)
         dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, 0);
 
-    /* Set MMCFG base register so local NC will forward correctly */
-    val = dnc_read_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE);
-    if (val != (DNC_MCFG_BASE >> 24)) {
-        printf("Setting local MCFG_BASE to %08llx\n", DNC_MCFG_BASE >> 24);
-        dnc_write_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
-    }
-    
     dnc_node_count++;
 }
 
