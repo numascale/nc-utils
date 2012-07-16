@@ -1229,8 +1229,6 @@ static void setup_remote_cores(u16 num)
         tsc_wait(200);
     }
 
-    wait_key();
-
     /* Map MMIO 0x00000000 - 0xffffffff to master node */
     for (j = 0; j < 0x1000; j++) {
         if ((j & 0xff) == 0) {
