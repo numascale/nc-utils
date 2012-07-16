@@ -37,7 +37,7 @@ extern u64 dnc_csr_lim;
 #define DEF_DNC_CSR_BASE 0xffff00000000ULL
 #define DEF_DNC_CSR_LIM  0xffffffffffffULL
 
-#define IO_PORT 0xcd6
+#define PMIO_PORT 0xcd6
 
 extern int lirq_nest;
 #define cli() if (lirq_nest++ == 0) { asm volatile("cli"); }

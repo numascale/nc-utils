@@ -56,7 +56,7 @@ u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
 void pmio_writeb(u16 offset, u8 val)
 {
     /* Write offset and value in single 16-bit write */
-    outw(offset | val << 8, IO_PORT);
+    outw(offset | val << 8, PMIO_PORT);
 }
 
 void pmio_writel(u16 offset, u32 val)
@@ -69,8 +69,8 @@ void pmio_writel(u16 offset, u32 val)
 
 u8 pmio_readb(u16 offset)
 {
-    outb(offset, IO_PORT /* PMIO index */);
-    return inb(IO_PORT + 1 /* PMIO data */);
+    outb(offset, PMIO_PORT /* PMIO index */);
+    return inb(PMIO_PORT + 1 /* PMIO data */);
 }
 
 u16 pmio_reads(u16 offset)
