@@ -2242,27 +2242,22 @@ static int unify_all_nodes(void)
 	    if (!model_first)
 		model_first = model;
 	    else if (model != model_first) {
-		printf("SCI%03x#%d has processor model 0x%08x, different than first processor model 0x%08x\n", nc_node[node].sci_id, i, model, model_first);
+		printf("Error: Processor model 0x%08x at SCI%03x#%d is different than SCI%03x#0 processor model 0x%08x; please install matching processors\n", model, nc_node[node].sci_id, i, nc_node[0].sci_id, model_first);
 		abort = 1;
 	    }
 
 	    if ((model >> 16) >= 0x15) {
 		val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, NB_FUNC_DRAM, 0x118);
 		if (val & (1<<19)) {
-		    printf("SCI%03x#%d has LockDramCfg set (F2x118 = 0x%08x); cannot continue\n",
-			   nc_node[node].sci_id, i, (u32)val);
-		    abort = 2;
+		    printf("Error: DRAM configuration is locked on SCI%03x#%d; please disable CState C6 in BIOS\n",
+			   nc_node[node].sci_id, i);
+		    abort = 1;
 		}
 	    }
 	}
 
-    if (abort == 1) {
-	printf("Error: Please install processors with consistent model and stepping\n");
+    if (abort)
 	return -1;
-    } else if (abort == 2) {
-	printf("Error: Please ensure that CState C6 isn't enabled in the BIOS\n");
-	return -1;
-    }
 
     if (verbose > 0) {
 	printf("Global memory map:\n");
