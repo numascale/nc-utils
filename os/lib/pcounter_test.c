@@ -265,7 +265,7 @@ void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) {
 #endif
 void count_api_read_rcache(struct numachip_context *cntxt,
 			   uint32_t misscounter,
-			   uint32_t hitcounter, 
+			   uint32_t hitcounter, 			   
 			   double *missrate,
 			   double *hitrate,
 			   uint64_t *total,
@@ -296,6 +296,44 @@ void count_api_read_rcache(struct numachip_context *cntxt,
     } else {
 	*missrate=(double)100*miss/(*total);
 	*hitrate=(double)100*hit/(*total);
+	DEBUG_STATEMENT(printf("Miss rate %0.2f  Hit rate %0.2f \n", *missrate,*hitrate));
+    }
+}
+void count_api_read_rcache2(struct numachip_context *cntxt,
+			   uint32_t misscounter,
+			   uint32_t hitcounter, 
+			   double *missrate,
+			   double *hitrate,
+			   uint64_t *total,
+			   uint64_t *miss,
+			   uint64_t *hit,
+			   nc_error_t *error) {
+
+    *missrate=0;
+    *hitrate=0;
+    *total=0;
+    *hit=numachip_get_pcounter(cntxt,hitcounter,error);
+    if (*error != NUMACHIP_ERR_OK) return;
+    *miss=numachip_get_pcounter(cntxt,misscounter,error);
+    if (*error != NUMACHIP_ERR_OK) return;
+    *total=numachip_get_pcounter(cntxt,hitcounter,error) + numachip_get_pcounter(cntxt,misscounter,error);
+    if (*error != NUMACHIP_ERR_OK) return;
+
+    if (*total==0) {
+	*missrate=0;
+	*hitrate=100;	
+	DEBUG_STATEMENT(printf("NO hits or miss in remote cache\n"));
+    } else if (*miss==0) {
+	*missrate=0;
+	*hitrate=100;
+	DEBUG_STATEMENT(printf("Hit rate 100 percent \n"));
+    } else if (*hit==0) {
+	*missrate=100;
+	*hitrate=0;
+	DEBUG_STATEMENT(printf("Miss rate 100 percent \n"));
+    } else {
+	*missrate=(double)100*(*miss)/(*total);
+	*hitrate=(double)100*(*hit)/(*total);
 	DEBUG_STATEMENT(printf("Miss rate %0.2f  Hit rate %0.2f \n", *missrate,*hitrate));
     }
 }

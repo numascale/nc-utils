@@ -20,15 +20,30 @@
 #define DEBUG_STATEMENT(x)
 
 struct msgstats_t {
-   double hitrate[4];
-    uint64_t total[4];
+    int64_t hit[4];
+    int64_t miss[4];
+    int64_t totalhit[4];
+    int64_t totalmiss[4];
+//    int64_t total[4];
 };
-
+uint64_t *totalhit, *totalmiss;
 
 static void socklisten();
 
+double avghitrate (uint32_t node) {
+    if ((totalhit[node] + totalmiss[node])==0) {
+	return 100;
+    } else if (totalmiss[node]==0) {
+	return 100;
+    } else if (totalhit[node]==0) {
+	return 0;
+    } else {
+	return (double)100*totalhit[node]/(totalhit[node] + totalmiss[node]);
+    }
+}
 void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgstats_t* countstat) {
     nc_error_t retval = NUMACHIP_ERR_OK;
+    uint64_t hit_cnt=0, miss_cnt=0;
     uint32_t node=0;
     printf("************************************************\n");
     
@@ -36,10 +51,15 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
 	double missrate = 0;
 	double hitrate=0;
 	uint64_t total;
-	count_api_read_rcache( cntxt[node], 0, 1, &missrate, &hitrate, &total, &retval);
-	countstat->hitrate[node]=hitrate;
-	countstat->total[node]=total;
+	count_api_read_rcache2( cntxt[node], 0, 1, &missrate, &hitrate, &total, &miss_cnt, &hit_cnt, &retval);
+	countstat->hit[node]=hit_cnt;
+	countstat->miss[node]=miss_cnt;
+	totalhit[node]=hit_cnt + totalhit[node];
+	totalmiss[node]=miss_cnt + totalmiss[node];
+	countstat->totalhit[node]=totalhit[node];
+	countstat->totalmiss[node]=totalmiss[node];
 	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,missrate,hitrate, (unsigned long long) total);
+	printf("Node %d: Avrage Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]);
     }
     printf("************************************************\n");
 	
@@ -63,21 +83,29 @@ int main(int argc, char* argv[]) {
     int num_devices;
     const char *filename = "fabric-loop-05.json";
 
-    for(node=0; node<num_nodes; node++) {
-	countstat.hitrate[node]=0;
-    }
-
-    
     if( argc < 2 ) {
         fprintf(stderr,"error, no port provided\n");
         exit(1);
     }
-
-
         
     devices = numachip_get_device_list(&num_devices, filename);
     DEBUG_STATEMENT(printf("Found %d NumaChip devices\n", num_devices));
+
+    totalhit = malloc (num_devices * sizeof(uint64_t));
+    totalmiss = malloc (num_devices * sizeof(uint64_t));
+
+    for(node=0; node<num_nodes; node++) {
+	countstat.hit[node]=0;	
+	countstat.miss[node]=0;
+	countstat.totalhit[node]=0;	
+	countstat.totalmiss[node]=0;
+	totalhit[node]=0;
+	totalmiss[node]=0;
+    }
+
     
+
+		       
     if (!devices)
 	return -1;
 
@@ -107,8 +135,8 @@ int main(int argc, char* argv[]) {
     serv_addr.sin_port = htons(portno);
 
     if( bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0 ) {
-        fprintf(stderr, "error on binding\n");
-		exit(-1);
+        fprintf(stderr, "error on binding %s\n", strerror(errno));
+	exit(-1);
     }
 
     count_api_stop(cntxt, num_devices);
@@ -146,6 +174,7 @@ int main(int argc, char* argv[]) {
 	
 	count_rate(cntxt, num_devices,&countstat);
 	memcpy(buf, &countstat, sizeof(struct msgstats_t));
+	//printf("Size of %d \n", sizeof(struct msgstats_t));
 	
 	n = write(newsockfd, buf, msgsize);
 	if( n < msgsize ) {
