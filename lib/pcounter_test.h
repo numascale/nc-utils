@@ -53,4 +53,13 @@ void count_api_read_rcache(struct numachip_context *cntxt,
 			   double *hitrate,
 			   uint64_t *total,
 			   nc_error_t *error);
+void count_api_read_rcache2(struct numachip_context *cntxt,
+			   uint32_t misscounter,
+			   uint32_t hitcounter, 
+			   double *missrate,
+			   double *hitrate,
+			   uint64_t *total,
+			   uint64_t *miss,
+			   uint64_t *hit,
+			    nc_error_t *error);
 #endif
