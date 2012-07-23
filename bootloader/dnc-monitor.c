@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-//
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-//
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-//
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -81,9 +80,9 @@ void system_activity(void)
 	{0x02b, 0x00, "SMI received"},
 	{0x0cf, 0x00, "Interrupt received"},
 	{0x0e0, 0x3f, "DRAM access"},
-	{0x065, 0x01, "Request to UC memory"},
-	{0x065, 0x02, "Request to WC or WC buffer flush to WB memory"},
-	{0x065, 0x80, "Streaming store request"},
+	{0x065, 0x01, "Memory request to UC memory"},
+	{0x065, 0x02, "Memory request to WC or WC buffer flush to WB memory"},
+	{0x065, 0x80, "Memory streaming store request"},
 	{0x06d, 0x01, "Octwords written to system"},
 	{0x1f0, 0x03, "Memory controller reads and write"},
 	{0x0e9, 0xa8, "Xbar CPU to memory: Local to Local"},

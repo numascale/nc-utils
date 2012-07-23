@@ -1,22 +1,22 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-//
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-//
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-//
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdio.h>
+
 #include "dnc-devices.h"
 #include "dnc-access.h"
 #include "dnc-acpi.h"
@@ -117,40 +117,40 @@ static void stop_ohci(int bus, int dev, int fn)
     val = mem64_read32(bar0 + HcControl);
     if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
 	u32 temp;
-            /* This timeout is arbitrary.  we make it long, so systems
-             * depending on usb keyboards may be usable even if the
-             * BIOS/SMM code seems pretty broken
-             */
-            temp = 500;	/* Arbitrary: five seconds */
+	/* This timeout is arbitrary.  we make it long, so systems
+	 * depending on usb keyboards may be usable even if the
+	 * BIOS/SMM code seems pretty broken
+	 */
+	temp = 500;	/* Arbitrary: five seconds */
             
-            mem64_write32(bar0 + HcInterruptEnable, OHCI_INTR_OC); /* Enable OwnershipChange interrupt */
-            mem64_write32(bar0 + HcCommandStatus, OHCI_OCR); /* Request OwnershipChange */
-            while (mem64_read32(bar0 + HcControl) & OHCI_CTRL_IR) {
-                tsc_wait(1000);
-                if (--temp == 0) {
-                    printf("legacy handoff timed out\n");
-                    return;
-                }
-            }
+	mem64_write32(bar0 + HcInterruptEnable, OHCI_INTR_OC); /* Enable OwnershipChange interrupt */
+	mem64_write32(bar0 + HcCommandStatus, OHCI_OCR); /* Request OwnershipChange */
+	while (mem64_read32(bar0 + HcControl) & OHCI_CTRL_IR) {
+	    tsc_wait(1000);
+	    if (--temp == 0) {
+		printf("legacy handoff timed out\n");
+		return;
+	    }
+	}
 
-            /* Shutdown */
-            mem64_write32(bar0 + HcInterruptDisable, OHCI_INTR_MIE);
-            val = mem64_read32(bar0 + HcControl);
-            val &= OHCI_CTRL_RWC;
-            mem64_write32(bar0 + HcControl, val);
-            /* Flush the writes */
-            val = mem64_read32(bar0 + HcControl);
-	    printf("legacy handoff succeeded\n");
-        } else {
-            printf("legacy support not enabled\n");
-        }
-        val = mem64_read32(bar0 + HcRevision);
-        if (val & (1 << 8)) { /* Legacy emulation is supported */
-            val = mem64_read32(bar0 + HceControl);
-            if (val & (1 << 0)) {
-                printf("legacy support enabled\n");
-            }
-        }
+	/* Shutdown */
+	mem64_write32(bar0 + HcInterruptDisable, OHCI_INTR_MIE);
+	val = mem64_read32(bar0 + HcControl);
+	val &= OHCI_CTRL_RWC;
+	mem64_write32(bar0 + HcControl, val);
+	/* Flush the writes */
+	val = mem64_read32(bar0 + HcControl);
+	printf("legacy handoff succeeded\n");
+    } else {
+	printf("legacy support not enabled\n");
+    }
+    val = mem64_read32(bar0 + HcRevision);
+    if (val & (1 << 8)) { /* Legacy emulation is supported */
+	val = mem64_read32(bar0 + HceControl);
+	if (val & (1 << 0)) {
+	    printf("legacy support enabled\n");
+	}
+    }
 }
 
 static void stop_ehci(int bus, int dev, int fn)

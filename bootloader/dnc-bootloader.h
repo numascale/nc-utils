@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-// 
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-// 
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-// 
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef __DNC_BOOTLOADER_H
 #define __DNC_BOOTLOADER_H 1
@@ -78,7 +77,7 @@ typedef struct nc_node_info {
     u32 mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
     u32 mmio_end;
     ht_node_info_t ht[8];
-    u16 sci_id;		/* Maps logical dnc node ids to physical (sci) ids */
+    u16 sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
     u16 nc_ht_id;	/* HT id of dnc node dnc controller on local system */
     u16 apic_offset;	/* Offset to shift APIC ids by when unifying */
     u8 nc_neigh;	/* Our nearest neighbour HT node on local system */

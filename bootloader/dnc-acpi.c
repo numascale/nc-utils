@@ -1,25 +1,19 @@
-// $Id:$
-//
-// dnc-acpi.c -- Support functions for ACPI
-//
-// Author: Arne Georg Gleditsch <arne.gleditsch@numascale.com>
-//
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-// 
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-// 
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-// 
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -37,12 +31,10 @@ uint8_t checksum(void *addr, int len)
     return sum;
 }
 
-
 static int checksum_ok(void *addr, int len)
 {
     return checksum(addr, len) == 0;
 }
-
 
 static void *find_rsdp(void *start, int len)
 {
@@ -60,7 +52,6 @@ static void *find_rsdp(void *start, int len)
     return ret;
 }
 
-
 static int rdsp_exists(void)
 {
     void *ebda = (void *)(*((unsigned short *)0x40e)*16);
@@ -71,7 +62,6 @@ static int rdsp_exists(void)
 	return 0;
     return 1;
 }
-
 
 static acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
 			    int ptrsize)
@@ -84,13 +74,13 @@ static acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
 	childp = 0;
 	memcpy(&childp, &parent->data[i], ptrsize);
 	if (childp > 0xffffffffULL) {
-	    printf("*** Child ptr at %d (%p) outside 32-bit range (%llx).",
+	    printf("Error: Child pointer at %d (%p) outside 32-bit range (0x%llx)",
 		   i, &parent->data[i], childp);
 	    continue;
 	}
 	memcpy(&table, &childp, sizeof(table));
 	if (!checksum_ok(table, table->len)) {
-	    printf("*** Bad table %p checksum %.4s!\n", table, table->sig.s);
+	    printf("Error: Bad table %p checksum %.4s\n", table, table->sig.s);
 	    continue;
 	}
 
@@ -100,7 +90,7 @@ static acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
     return NULL;
 }
 
-/* return the number of bytes after an ACPI table before the next */
+/* Return the number of bytes after an ACPI table before the next */
 static int slack(acpi_sdt_p parent)
 {
     acpi_sdt_p next_table = (void *)0xffffffff;
@@ -118,11 +108,11 @@ static int slack(acpi_sdt_p parent)
 	    continue;
 	}
 
-	/* find the nearest table after parent */
+	/* Find the nearest table after parent */
 	if (table > parent && table < next_table)
 	    next_table = table;
 
-	/* Check the FACP table for the DSDT table entry aswell */
+	/* Check the FACP table for the DSDT table entry as well */
 	if (table->sig.l == STR_DW_H("FACP")) { 
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
@@ -136,7 +126,7 @@ static int slack(acpi_sdt_p parent)
         }
     }
 
-    /* check location of RSDT table also */
+    /* Check location of RSDT table also */
     if (rsdt > parent && rsdt < next_table)
 	next_table = rsdt;
 
@@ -144,7 +134,7 @@ static int slack(acpi_sdt_p parent)
     if ((xsdtp == 0) || (xsdtp == ~0ULL))
 	goto out;
     if (xsdtp > 0xffffffffULL) {
-	printf("*** XSDT ptr at (%p) outside 32-bit range (%llx).",
+	printf("Error: XSDT ptr at (%p) outside 32-bit range (0x%llx)",
 	       &rptr->xsdt_addr, xsdtp);
 	goto out;
     }
@@ -155,26 +145,26 @@ static int slack(acpi_sdt_p parent)
 	uint64_t childp = xsdt_entries[i];
 	acpi_sdt_p table;
 	if (childp > 0xffffffffULL) {
-	    printf("*** XSDT child ptr at %d (%p) outside 32-bit range (%llx).",
+	    printf("Error: XSDT child pointer at %d (%p) outside 32-bit range (0x%llx)",
 		   i, &xsdt_entries[i], childp);
 	    continue;
 	}
 	memcpy(&table, &childp, sizeof(table));
 	if (!checksum_ok(table, table->len)) {
-	    printf(" Bad table checksum %.4s!\n", table->sig.s);
+	    printf("Error: Bad table checksum %.4s\n", table->sig.s);
 	    continue;
 	}
 
-	/* find the nearest table after parent */
+	/* Find the nearest table after parent */
 	if (table > parent && table < next_table)
 	    next_table = table;
 
-	/* Check the FACP table for the DSDT table entry aswell */
+	/* Check the FACP table for the DSDT table entry as well */
 	if (table->sig.l == STR_DW_H("FACP")) { 
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
+		printf("Error: Bad table checksum %.4s\n", dsdt->sig.s);
 		continue;
 	    }
 
@@ -183,12 +173,12 @@ static int slack(acpi_sdt_p parent)
         }
     }
 
-    /* check location of XSDT table also */
+    /* Check location of XSDT table also */
     if (xsdt > parent && xsdt < next_table)
 	next_table = xsdt;
 
 out:
-    /* calculate gap between end of parent and next table */
+    /* Calculate gap between end of parent and next table */
     return (uint32_t)next_table - (uint32_t)parent - parent->len;
 }
 
@@ -200,7 +190,7 @@ int replace_child(const char *sig, acpi_sdt_p new,
     acpi_sdt_p table;
 
     if (!checksum_ok(new, new->len)) {
-	printf("*** Bad new %.4s table checksum!\n", sig);
+	printf("Error: Bad new %.4s table checksum\n", sig);
 	return 0;
     }
 
@@ -212,13 +202,13 @@ int replace_child(const char *sig, acpi_sdt_p new,
 	childp = 0;
 	memcpy(&childp, &parent->data[i], ptrsize);
 	if (childp > 0xffffffffULL) {
-	    printf("*** Child ptr at %d (%p) outside 32-bit range (%llx).",
+	    printf("Error: Child pointer at %d (%p) outside 32-bit range (0x%llx)",
 		   i, &parent->data[i], childp);
 	    continue;
 	}
 	memcpy(&table, &childp, sizeof(table));
 	if (!checksum_ok(table, table->len)) {
-	    printf("*** Bad table %p checksum %.4s!\n", table, table->sig.s);
+	    printf("Error: Bad table %p checksum %.4s\n", table, table->sig.s);
 	    continue;
 	}
 	if (table->sig.l == STR_DW_H(sig)) {
@@ -229,24 +219,24 @@ int replace_child(const char *sig, acpi_sdt_p new,
     }
 
     if (slack(parent) < ptrsize) {
-	printf("Not enough space to add %.4s table to %.4s\n", sig, parent->sig.s);
+	printf("Error: Not enough space to add %.4s table to %.4s\n", sig, parent->sig.s);
 	return 0;
     }
 
-    /* append entry to end of table */
+    /* Append entry to end of table */
     memcpy(&parent->data[i], &newp, ptrsize);
     parent->len += ptrsize;
     parent->checksum -= checksum(parent, parent->len);
     return 1;
 }
 
-
-acpi_sdt_p find_root(const char *sig) {
+acpi_sdt_p find_root(const char *sig)
+{
     if (!rdsp_exists())
 	return NULL;
 
     if (!checksum_ok(rptr, 20)) {
-	printf(" Bad RSDP checksum!\n");
+	printf("Error: Bad RSDP checksum\n");
 	return NULL;
     }
 
@@ -261,7 +251,7 @@ acpi_sdt_p find_root(const char *sig) {
 	    if ((xsdtp == 0) || (xsdtp == ~0ULL))
 		return NULL;
 	    if (xsdtp > 0xffffffffULL) {
-		printf("*** XSDT ptr at (%p) outside 32-bit range (%llx).",
+		printf("Error: XSDT pointer at (%p) outside 32-bit range (0x%llx)",
 		       &rptr->xsdt_addr, xsdtp);
 		return NULL;
 	    }
@@ -273,13 +263,13 @@ acpi_sdt_p find_root(const char *sig) {
     return NULL;
 }
 
-
-int replace_root(const char *sig, acpi_sdt_p new) {
+int replace_root(const char *sig, acpi_sdt_p new)
+{
     if (!rdsp_exists())
 	return 0;
 
     if (!checksum_ok(rptr, 20)) {
-	printf(" Bad RSDP checksum!\n");
+	printf("Error: Bad RSDP checksum\n");
 	return 0;
     }
 
@@ -301,7 +291,6 @@ int replace_root(const char *sig, acpi_sdt_p new) {
 
     return 0;
 }
-
 
 acpi_sdt_p find_sdt(char *sig)
 {
@@ -356,13 +345,12 @@ void debug_acpi_srat(acpi_sdt_p srat)
     }
 }
 
-
 static void debug_acpi_apic(acpi_sdt_p apic)
 {
     unsigned int i;
     for (i = 44; i < apic->len; ) {
 	struct acpi_local_apic *lapic = (void *)&apic->data[i - sizeof(*apic)];
-	printf(" APIC object: type:%d, len:%d", lapic->type, lapic->len);
+	printf("APIC object: type:%d, len:%d", lapic->type, lapic->len);
 	if (lapic->type == 0)
 	    printf(", proc_id:%d, apicid:0x%x, flags:0x%x\n",
 		   lapic->proc_id, lapic->apic_id, lapic->flags);
@@ -370,7 +358,7 @@ static void debug_acpi_apic(acpi_sdt_p apic)
 	    printf("\n");
 
 	if (lapic->len == 0) {
-	    printf("APIC entry at %p (offset %d) reports len 0, aborting!\n",
+	    printf("Error: APIC entry at %p (offset %d) reports len 0\n",
 		   lapic, i);
 	    break;
 	}
@@ -384,9 +372,9 @@ void debug_acpi(void)
     if (!rdsp_exists())
 	return;
 
-    printf("+++ ACPI settings:\n");
+    printf("ACPI settings:\n");
     if (!checksum_ok(rptr, 20)) {
-	printf(" Bad RSDP checksum!\n");
+	printf("Error: Bad RSDP checksum\n");
 	return;
     }
     printf(" ptr:   %p, RSDP, %.6s, %d, %08x, %d\n",
@@ -399,7 +387,7 @@ void debug_acpi(void)
     acpi_sdt_p rsdt = (acpi_sdt_p)rptr->rsdt_addr;
 
     if (!checksum_ok(rsdt, rsdt->len)) {
-	printf(" Bad RSDT checksum!\n");
+	printf("Error: Bad RSDT checksum\n");
 	return;
     }
     printf(" table: %p, %08x, %.4s, %.6s, %.8s, %d, %d, %d, %d\n",
@@ -418,7 +406,7 @@ void debug_acpi(void)
     for (i = 0; i*4 + sizeof(*rsdt) < rsdt->len; i++) {
 	acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
 	if (!checksum_ok(table, table->len)) {
-	    printf(" Bad table checksum %.4s!\n", table->sig.s);
+	    printf("Error: Bad table checksum %.4s\n", table->sig.s);
 	    continue;
 	}
 
@@ -437,7 +425,7 @@ void debug_acpi(void)
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
+		printf("Error: Bad table checksum %.4s\n", dsdt->sig.s);
 		continue;
 	    }
 	    
@@ -466,7 +454,7 @@ void debug_acpi(void)
 	    acpi_sdt_p xsdt;
 	    memcpy(&xsdt, &rptr->xsdt_addr, sizeof(xsdt));
 	    if (!checksum_ok(xsdt, xsdt->len)) {
-		printf(" Bad XSDT checksum!\n");
+		printf("Error: Bad XSDT checksum\n");
 		return;
 	    }
 
@@ -487,7 +475,7 @@ void debug_acpi(void)
 		acpi_sdt_p table;
 		memcpy(&table, &xsdt_entries[i], sizeof(table));
 		if (!checksum_ok(table, table->len)) {
-		    printf(" Bad table checksum %.4s!\n", table->sig.s);
+		    printf("Error: Bad table checksum %.4s\n", table->sig.s);
 		    continue;
 		}
 	
@@ -521,15 +509,16 @@ void debug_acpi(void)
 			   dsdt->len);
 		}
                 
-//		if (table->sig.l == STR_DW_H("SRAT")) {
-//		    debug_acpi_srat(table);
-//		}
-//		else if (table->sig.l == STR_DW_H("APIC")) {
-//			debug_acpi_apic(table);
-//		}
+#ifdef UNUSED
+		if (table->sig.l == STR_DW_H("SRAT")) {
+		    debug_acpi_srat(table);
+		}
+		else if (table->sig.l == STR_DW_H("APIC")) {
+			debug_acpi_apic(table);
+		}
+#endif
 	    }
 	}
     }
-
 }
 
