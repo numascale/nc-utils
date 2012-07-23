@@ -1,0 +1,66 @@
+The Numascale NumaConnect bootloader coding style requirements are:
+
+1. Each source file needs a header:
+
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+2. Insert one blank line between system includes and local includes, eg:
+#include <stdio.h>
+
+#include "dnc-devices.h"
+#include "dnc-access.h"
+#include "dnc-acpi.h"
+
+3. header files are protected via:
+#ifndef __DNC_<filename>_H
+#define __DNC_<filename>_H 1
+...
+#endif
+
+4. Where comments are not complete sentences, omit punctuation, using capitalised
+C-style annotation, eg:
+/*  */
+
+5. Comments should add something implicit, unobvious or side-effect and not
+include what is printed or clear, eg:
+/* Disable cacheability to avoid race in HT fabric resizing */
+dnc_write_conf(...)
+
+and not:
+/* Clear bit 1 in CacheDis */
+dnc_write_conf(...)
+
+or:
+// Clear bit 1 in CacheDis
+
+6. Use exactly one space between functions
+
+7. Use strict Linux kernel coding style
+
+8. Use 4-space indents and tabs for 8 spaces
+
+9. Use the assert() macro to code defensibly, catching conditions which are
+   expected to never fail
+
+10. Use captilised error messages starting "Error: " to describe configuration
+or otherwise issues which may fail, eg:
+Error: Tag 'UUID' not found in fabric.json configuration file
+
+11. Perform a full rebuild and address all compiler warnings before committing
+code; the only exception is for work-in-progress which may leave unused
+parameter/function warnings

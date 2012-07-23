@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-// 
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-// 
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-// 
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #define _GNU_SOURCE 1
 
@@ -29,6 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "dnc-defs.h"
 #include "dnc-regs.h"
 #include "dnc-types.h"
 #include "dnc-access.h"
@@ -88,9 +88,9 @@ sci_fabric_setup(void)
     
     for (i = 0; i < dnc_node_count; i++) {
         node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-        printf("Loading SCC microcode on node %03x.\n", nc_node[i].sci_id);
+        printf("Loading SCC microcode on SCI%03x\n", nc_node[i].sci_id);
         load_scc_microcode(node);
-        printf("Disabling SCC MIB timeout on node %03x.\n", nc_node[i].sci_id);
+        printf("Disabling SCC MIB timeout on SCI%03x\n", nc_node[i].sci_id);
         val = dnc_read_csr(node, H2S_CSR_G0_MIB_IBC);
         dnc_write_csr(node, H2S_CSR_G0_MIB_IBC, val | 0x40);
     }
@@ -124,21 +124,21 @@ sci_fabric_setup(void)
         node = nc_node[i].sci_id;
     
         // Set DRAM Limit on HT#1 to 0x2ffffffff
-        dnc_write_conf(node, 0, 24+1, 1, 0x124, 0x5f);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x124, 0x5f);
         // Adjust Limit on HT#1 window to 0x2ffffffff
-        dnc_write_conf(node, 0, 24+0, 1, 0x4c, 0x02ff0001);
-        dnc_write_conf(node, 0, 24+1, 1, 0x4c, 0x02ff0001);
+        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x4c, 0x02ff0001);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x4c, 0x02ff0001);
 
         // Insert new window for 0x300000000 - 0x3ffffffff to point to NC
-        dnc_write_conf(node, 0, 24+0, 1, 0x54, 0x03ff0000 | ht_id);
-        dnc_write_conf(node, 0, 24+0, 1, 0x50, 0x03000000 | 3);
-        dnc_write_conf(node, 0, 24+1, 1, 0x54, 0x03ff0000 | ht_id);
-        dnc_write_conf(node, 0, 24+1, 1, 0x50, 0x03000000 | 3);
+        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x54, 0x03ff0000 | ht_id);
+        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x50, 0x03000000 | 3);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x54, 0x03ff0000 | ht_id);
+        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x50, 0x03000000 | 3);
     }
 
     for (i = 0; i < dnc_node_count; i++) {
         node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-        printf("Setting HReq_Ctrl on node %03x.\n", nc_node[i].sci_id);
+        printf("Setting HReq_Ctrl on SCI%03x\n", nc_node[i].sci_id);
 //        dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17) | (1<<12)); // CacheSize=0 (2GB), Error, H2S_Init
         dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17)); // CacheSize=0 (2GB), Error
 
@@ -229,8 +229,9 @@ int main(int argc, char **argv)
     }
 
     for (i = 0; i < cfg_nodes; i++) {
-	if (cfg_nodelist[i].uuid == uuid)
+	if (config_local(&cfg_nodelist[i], uuid))
 	    continue;
+
         if (cfg_nodelist[i].partition != info->partition)
             continue;
         nodedata[cfg_nodelist[i].sciid] = 0x80;

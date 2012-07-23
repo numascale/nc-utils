@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-// 
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-// 
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-// 
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -38,7 +37,7 @@
      PCI_EXT_CONF(255, ((((node))<<3)|(func)), (reg)) :	\
      PCI_EXT_CONF(0, (((24+(node))<<3)|(func)), (reg)))
 
-int lirq_nest = 0, lirq_print = 0;
+int lirq_nest = 0;
 
 //#define DEBUG(...) printf(__VA_ARGS__)
 #define DEBUG(...) do { } while (0)
@@ -57,7 +56,7 @@ u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
 void pmio_writeb(u16 offset, u8 val)
 {
     /* Write offset and value in single 16-bit write */
-    outw(offset | val << 8, IO_PORT);
+    outw(offset | val << 8, PMIO_PORT);
 }
 
 void pmio_writel(u16 offset, u32 val)
@@ -70,8 +69,8 @@ void pmio_writel(u16 offset, u32 val)
 
 u8 pmio_readb(u16 offset)
 {
-    outb(offset, IO_PORT /* PMIO index */);
-    return inb(IO_PORT + 1 /* PMIO data */);
+    outb(offset, PMIO_PORT /* PMIO index */);
+    return inb(PMIO_PORT + 1 /* PMIO data */);
 }
 
 u16 pmio_reads(u16 offset)
@@ -136,14 +135,14 @@ void watchdog_setup(void)
 {
     /* FIXME: These register offsets are correct for SP5100, but not for (eg) SB810 */
 
-    /* enable watchdog timer */
+    /* Enable watchdog timer */
     pmio_clearb(0x69, 1);
 
-    /* enable watchdog decode */
+    /* Enable watchdog decode */
     u32 val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
-    dnc_write_conf(0xfff0, 0, 20, 0, 0x41, val2 | (1 << 3));
+    dnc_write_conf(0xfff0, 0, 20, NB_FUNC_HT, 0x41, val2 | (1 << 3));
 
-    /* write watchdog base address */
+    /* Write watchdog base address */
     pmio_writel(0x6c, (unsigned int)watchdog_ctl);
 
     printf("watchdog enabled\n");
@@ -153,7 +152,7 @@ void reset_cf9(int mode, int last)
 {
     int i;
 
-    /* ensure last lines were sent from management controller */
+    /* Ensure last lines were sent from management controller */
     msleep(1000);
 
     for (i = 0; i <= last; i++) {
@@ -212,7 +211,7 @@ void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
     DEBUG("\n");
 }
 
-/* check for link instability */
+/* Check for link instability */
 static int cht_error(int node, int link)
 {
     u32 status = cht_read_config(node, NB_FUNC_HT, 0x84 + link * 0x20);
@@ -227,7 +226,7 @@ void cht_test(u8 node, int neigh, int neigh_link)
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG) {
 	printf("Testing HT link (5s timeout)...");
-	watchdog_run(500); /* reset if read hangs due to unstable link */
+	watchdog_run(500); /* Reset if read hangs due to unstable link */
     } else
 	printf("Testing HT link...");
 
@@ -258,7 +257,7 @@ void cht_test(u8 node, int neigh, int neigh_link)
 
     if (!(ht_testmode & HT_TESTMODE_LOOP) && (errors || cht_error(neigh, neigh_link))) {
 	printf("%d link errors while reading; resetting system...\n", errors);
-	/* cold reset, since warm doesn't always reset the link enough */
+	/* Cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
     }
 
@@ -278,7 +277,7 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
 
-    /* only check for Target Abort if unable to check link */
+    /* Only check for Target Abort if unable to check link */
     if (neigh == -1 || neigh_link == -1)
 	reboot = ret == 0xffffffff;
     else {
@@ -292,7 +291,7 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
 
     if (reboot) {
 	printf("Link error while reading; resetting system...\n");
-	/* cold reset, since warm doesn't always reset the link enough */
+	/* Cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
     }
 
@@ -309,21 +308,21 @@ void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
 
-    /* only check for Target Abort if unable to check link */
+    /* Only check for Target Abort if unable to check link */
     if (neigh != -1 && neigh_link != -1 && cht_error(neigh, neigh_link)) {
 	printf("Link error while writing; resetting system...\n");
-	/* cold reset, since warm doesn't always reset the link enough */
+	/* Cold reset, since warm doesn't always reset the link enough */
 	reset_cf9(0xa, neigh);
     }
 }
 
-// Since we use FS to access these areas, the address needs to be in canonical form (sign extended from bit47).
+/* Since we use FS to access these areas, the address needs to be in canonical form (sign extended from bit47) */
 #define canonicalize(a) (((a) & (1ULL<<47)) ? ((a) | (0xffffULL<<48)) : (a))
 
 #define setup_fs(addr) do {                                             \
         asm volatile("mov %%ds, %%ax\n\tmov %%ax, %%fs" ::: "eax");     \
         asm volatile("wrmsr"                                            \
-                     : /* no output */                                  \
+                     : /* No output */                                  \
                      : "A"(canonicalize(addr)), "c"(MSR_FS_BASE));      \
     } while(0)
 
@@ -384,7 +383,7 @@ void mem64_write8(u64 addr, u8 val)
 u32 dnc_read_csr(u32 node, u16 csr)
 {
     u32 val;
-    DEBUG("sci%04x:csr%04x :  ", node, csr);
+    DEBUG("SCI%03x:csr%04x :  ", node, csr);
     val = u32bswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));
     DEBUG("%08x\n", val);
     return val;
@@ -392,7 +391,7 @@ u32 dnc_read_csr(u32 node, u16 csr)
 
 void dnc_write_csr(u32 node, u16 csr, u32 val)
 {
-    DEBUG("sci%04x:csr%04x <- %08x", node, csr, val);
+    DEBUG("SCI%03x:csr%04x <- %08x", node, csr, val);
     mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, u32bswap(val));
     DEBUG("\n");
 }
@@ -401,7 +400,7 @@ void dnc_write_csr(u32 node, u16 csr, u32 val)
 u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
 {
     if (csr >= 0x800) {
-	printf("*** dnc_write_csr_geo: read from unsupported range: "
+	printf("Error: dnc_write_csr_geo read from unsupported range: "
 	       "%04x#%d @%x\n",
 	       node, bid, csr);
 	return 0xffffffff;
@@ -413,7 +412,7 @@ u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
 void dnc_write_csr_geo(u32 node, u8 bid, u16 csr, u32 val)
 {
     if (csr >= 0x800) {
-	printf("*** dnc_write_csr_geo: write to unsupported range: "
+	printf("Error: dnc_write_csr_geo write to unsupported range: "
 	       "%04x#%d @%x, %08x\n",
 	       node, bid, csr, val);
 	return;
@@ -429,7 +428,7 @@ u32 dnc_read_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg)
     if (node == 0xfff0) {
         val = _read_config(bus, device, func, reg);
     } else {
-        DEBUG("sci%04x:dev%02x:%02x F%xx%03x:  ",
+        DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ",
               node, bus, device, func, reg);
         val = mem64_read32(DNC_MCFG_BASE | ((u64)node << 28) | 
                            PCI_MMIO_CONF(bus, device, func, reg));
@@ -443,7 +442,7 @@ void dnc_write_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg, u32 val)
     if (node == 0xfff0) {
         _write_config(bus, device, func, reg, val);
     } else {
-        DEBUG("sci%04x:dev%02x:%02x F%xx%03x <- %08x",
+        DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x",
               node, bus, device, func, reg, val);
         mem64_write32(DNC_MCFG_BASE | ((u64)node << 28) | 
                       PCI_MMIO_CONF(bus, device, func, reg), val);

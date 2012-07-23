@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-// 
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-// 
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-// 
-// Copyright © 2008-2011
-// Numascale AS Oslo, Norway. 
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2012 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <string.h>
 #include <stdio.h>
@@ -48,7 +47,8 @@ int mseq_table_length = (sizeof(numachip_mseq_table)/sizeof(numachip_mseq_table[
 #define NUMACHIP_MSEQ_UCODE_LEN (mseq_ucode_length)
 #define NUMACHIP_MSEQ_TABLE_LEN (mseq_table_length)
 
-void load_scc_microcode(u16 node) {
+void load_scc_microcode(u16 node)
+{
     u32 val;
     u16 i;
 
@@ -82,7 +82,7 @@ void tally_local_node(int enforce_alignment)
     max_ht_node = (val >> 4) & 7;
 
 #ifdef __i386
-    /* save and restore EBX for the position-independent syslinux com32 binary */
+    /* Save and restore EBX for the position-independent syslinux com32 binary */
     asm volatile("mov $0x80000008, %%eax; pushl %%ebx; cpuid; popl %%ebx" : "=c"(val) :: "eax", "edx");
 #else
     asm volatile("mov $0x80000008, %%eax; cpuid" : "=c"(val) :: "eax", "ebx", "edx");
@@ -95,7 +95,7 @@ void tally_local_node(int enforce_alignment)
         if (i == dnc_master_ht_id)
             continue;
 
-        printf("Examining SCI node %03x HT node %d...\n", nc_node[0].sci_id, i);
+        printf("Examining SCI%03x HT node %d...\n", nc_node[0].sci_id, i);
         
 	nc_node[0].ht[i].cores = 0;
 	nc_node[0].ht[i].base  = 0;
@@ -145,7 +145,7 @@ void tally_local_node(int enforce_alignment)
 	/* Assume at least one core */
 	nc_node[0].ht[i].cores = 1;
 
-	if ((cpu_family(0xfff0, i) >> 16) < 0x15) {
+	if (family < 0x15) {
 	    val = cht_read_config(i, NB_FUNC_HT, 0x68);
 	    if (val & 0x20) nc_node[0].ht[i].cores++; /* Cpu1En */
 
@@ -174,7 +174,7 @@ void tally_local_node(int enforce_alignment)
 
     printf("ht_next_apic: %d\n", ht_next_apic);
 
-    printf("%2d CPU cores and %2d GBytes of memory and I/O maps found in SCI node %03x\n",
+    printf("%2d CPU cores and %2d GBytes of memory and I/O maps found in SCI%03x\n",
            tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 
     dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
@@ -200,7 +200,7 @@ void tally_local_node(int enforce_alignment)
 	asm volatile("wbinvd" ::: "memory");
     }
     
-    printf("Initializing sci node %03x PCI I/O and IntRecCtrl tables...\n", nc_node[0].sci_id);
+    printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", nc_node[0].sci_id);
     /* Set PCI I/O map */
     dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
     for (i = 0; i < 256; i++)
@@ -211,13 +211,6 @@ void tally_local_node(int enforce_alignment)
     for (i = 0; i < 256; i++)
         dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, 0);
 
-    /* Set MMCFG base register so local NC will forward correctly */
-    val = dnc_read_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE);
-    if (val != (DNC_MCFG_BASE >> 24)) {
-        printf("Setting local MCFG_BASE to %08llx\n", DNC_MCFG_BASE >> 24);
-        dnc_write_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
-    }
-    
     dnc_node_count++;
 }
 
@@ -238,7 +231,7 @@ static int tally_remote_node(u16 node)
     /* Set MMCFG base register so remote NC will accept our forwarded requests */
     val = dnc_read_csr(node, H2S_CSR_G3_MMCFG_BASE);
     if (val != (DNC_MCFG_BASE >> 24)) {
-        printf("Setting SCI node %03x MCFG_BASE to %08llx\n", node, DNC_MCFG_BASE >> 24);
+        printf("Setting SCI%03x MCFG_BASE to %08llx\n", node, DNC_MCFG_BASE >> 24);
         dnc_write_csr(node, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
     }
     
@@ -247,21 +240,21 @@ static int tally_remote_node(u16 node)
     tot_cores = 0;
     cur_node->sci_id = node;
     cur_node->nc_ht_id = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
-    cur_node->nc_neigh = nc_neigh; // FIXME: read from remote somehow, instead of assuming the same as ours
+    cur_node->nc_neigh = nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
 
-    /* Ensure that all nodes start out on 1G boundaries.
+    /* Ensure that all nodes start out on 1G boundaries
        FIXME: Add IO holes to cover address space discontinuity? */ 
     dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
     cur_node->addr_base = dnc_top_of_mem;
 
     val = dnc_read_conf(node, 0, 24, NB_FUNC_HT, 0x60);
     if (val == 0xffffffff) {
-        printf("Can't access config space on SCI node %03x!\n", node);
-        return 1; // ignore node
+        printf("Error: Can't access config space on SCI%03x\n", node);
+        return 1; /* Ignore node */
     }
     max_ht_node = (val >> 4) & 7;
     
-    dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); // Select APIC ATT
+    dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
     for (i = 0; i < 16; i++) {
 	apic_used[i] = dnc_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4);
 	if (apic_used[i] != 0) /* May be sparse */
@@ -278,7 +271,7 @@ static int tally_remote_node(u16 node)
             continue;
 	}
 
-        printf("Examining SCI node %03x HT node %d...\n", node, i);
+        printf("Examining SCI%03x HT node %d...\n", node, i);
        
 	cur_node->ht[i].cores = 0;
 	cur_node->ht[i].base  = 0;
@@ -289,7 +282,7 @@ static int tally_remote_node(u16 node)
 	    (cur_node->ht[i].cpuid == 0xffffffff) ||
 	    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid))
 	{
-	    printf("** Node has unknown/incompatible CPUID: %08x, skipping...\n", cur_node->ht[i].cpuid);
+	    printf("Error: Node has unknown/incompatible CPUID: %08x; skipping...\n", cur_node->ht[i].cpuid);
 	    cur_node->ht[i].pdom = 0;
 	    cur_node->ht[i].cpuid = 0;
 	    continue;
@@ -311,7 +304,7 @@ static int tally_remote_node(u16 node)
 	    cur_node->ht[i].size = limit - base + 1;
             cur_node->node_mem += cur_node->ht[i].size;
 	    if (cur_node->node_mem > max_mem_per_node) {
-		printf("** Node exceeds cachable memory range, clamping...\n");
+		printf("Error: Node exceeds cachable memory range; clamping...\n");
 		cur_node->ht[i].size -= cur_node->node_mem - max_mem_per_node;
 		cur_node->node_mem = max_mem_per_node;
 	    }
@@ -325,7 +318,7 @@ static int tally_remote_node(u16 node)
 	/* Assume at least one core */
 	cur_node->ht[i].cores = 1;
 
-	if ((cpu_family(node, i) >> 16) < 0x15) {
+	if (family < 0x15) {
 	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
 	    if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
 
@@ -336,9 +329,9 @@ static int tally_remote_node(u16 node)
 	    if (val & 0x08) cur_node->ht[i].cores++; /* Cpu5En */
 	}
 	else {
-	    val = dnc_read_conf(node, 0, 24+i, 5, 0x84);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_EXTD, 0x84);
 	    cur_node->ht[i].cores += val & 0xff;
-	    val = dnc_read_conf(node, 0, 24+i, 3, 0x190);
+	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MISC, 0x190);
 	    while (val > 0) {
 		if (val & 1)
 		    cur_node->ht[i].cores--;
@@ -353,7 +346,7 @@ static int tally_remote_node(u16 node)
     }
 
     /* If rebased apicid[7:0] of last core is above a given threshold,
-       bump base for entire SCI node to next 8-bit interval. */
+       bump base for entire SCI node to next 8-bit interval */
     if ((ht_next_apic & 0xff) + cur_node->ht[last].apic_base + cur_node->ht[last].cores > 0xf0)
 	ht_next_apic = (ht_next_apic & ~0xff) + 0x100 + cur_node->ht[0].apic_base;
 
@@ -364,10 +357,10 @@ static int tally_remote_node(u16 node)
 
     cur_node->addr_end = dnc_top_of_mem;
 
-    printf("%2d CPU cores and %2d GBytes of memory found in SCI node %03x\n",
+    printf("%2d CPU cores and %2d GBytes of memory found in SCI%03x\n",
            tot_cores, cur_node->node_mem >> 6, node);
 
-    printf("Initializing sci node %03x PCI I/O and IntRecCtrl tables...\n", node);
+    printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", node);
     /* Set PCI I/O map */
     dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
     for (i = 0; i < 256; i++)
