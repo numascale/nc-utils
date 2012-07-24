@@ -182,8 +182,8 @@ public slots:
 	void showCurve(QwtPlotItem*, bool on);
 
 private:
-	double sample_y1, sample_y2,sample_y3, sample_y0, sample_y4, sample_y5,sample_y6, sample_y7;
-	uint64_t t_y1, t_y2, t_y3, t_y0, t_y4, t_y5, t_y6, t_y7;
+	vector <double> sample_y;
+	vector <uint64_t> t_y;
 
 };
 

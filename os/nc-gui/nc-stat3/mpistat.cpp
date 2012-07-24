@@ -233,15 +233,16 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 
 CacheHistGraph::CacheHistGraph(QWidget* parent)
   : plot(new QwtPlot(parent)) {
-
+  
+  maxrank=8;
   plot->canvas()->setFrameShape(QFrame::NoFrame);
 	
 
 	QwtLegend* legend = new QwtLegend;
 	legend->setItemMode(QwtLegend::CheckableItem);
 	plot->insertLegend(legend, QwtPlot::BottomLegend);
-	plot->setAxisScale(QwtPlot::xBottom, 0, 4);
-  plot->setAxisMaxMajor(QwtPlot::xBottom, 5);
+	plot->setAxisScale(QwtPlot::xBottom, 0, maxrank/2);
+  plot->setAxisMaxMajor(QwtPlot::xBottom, (maxrank/2) + 1);
   plot->setAxisMaxMinor(QwtPlot::xBottom, 0);
   plot->setAxisScale(QwtPlot::yLeft, 0, 100);
 	
@@ -250,73 +251,39 @@ CacheHistGraph::CacheHistGraph(QWidget* parent)
 	grid->enableX(false);
 	grid->attach(plot);
 
-	QwtText xtitle("Remote Cache instance number");	
+  QwtText xtitle("Remote Cache #n");	
 	plot->setAxisTitle(QwtPlot::xBottom, xtitle);
 	QwtText ytitle("Cache hitrate [%]");
 	plot->setAxisTitle(QwtPlot::yLeft, ytitle);
-  QColor blue = Qt::blue;
-  blue.setAlpha(75);
-
-  QColor red = Qt::red;
-  red.setAlpha(75);
-
-	QwtPlotHistogram* curve = new QwtPlotHistogram(QString("Remote Cache #0"));
-	curve->setBrush(blue);
-  curve->setPen(blue);
-  curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);		
-	curves.push_back(curve);	
-	
-  curve = new QwtPlotHistogram( QString("Remote Cache #1"));
-  curve->setBrush(blue);
-	curve->setPen(blue);
-	curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);	
-
-	curve = new QwtPlotHistogram( QString("Remote Cache #2"));
-  curve->setBrush(blue);
-	curve->setPen(blue);
-	curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);	
-
-	curve = new QwtPlotHistogram(QString("Remote Cache #3"));
-  curve->setBrush(blue);
-	curve->setPen(blue);
-	curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);		
+ 
+  QwtPlotHistogram* curve;
+  char str[80];
   
-  curve = new QwtPlotHistogram(QString("Average Remote Cache #0"));
-	curve->setBrush(red);
-  curve->setPen(red);
-  curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);		
-		
-  curve = new QwtPlotHistogram( QString("Average Remote Cache #1"));
-  curve->setBrush(red);
-	curve->setPen(red);
-	curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);	
-
-	curve = new QwtPlotHistogram( QString("Average Remote Cache #2"));
-  curve->setBrush(red);
-	curve->setPen(red);
-	curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);	
-
-	curve = new QwtPlotHistogram(QString("Average Remote Cache #3"));
-  curve->setBrush(red);
-	curve->setPen(red);
-	curve->attach(plot);
-	curves.push_back(curve);
-	showCurve(curve, true);		
-
+  for (int i=0; i<maxrank; i++) {
+      QColor blue = Qt::blue, red = Qt::red;
+      
+      red.setAlpha(75);
+      blue.setAlpha(75);
+      if (i<(maxrank/2)) {
+        sprintf(str, "Remote Cache #%d", i); // s now contains the value 52300         
+	      curve = new QwtPlotHistogram(str);
+	      curve->setBrush(blue);
+        curve->setPen(blue);
+        curve->attach(plot);
+	      curves.push_back(curve);
+	      showCurve(curve, true);			      
+      } else {
+        sprintf(str, "Average Remote Cache #%d", i-maxrank/2); // s now contains the value 52300         
+        curve = new QwtPlotHistogram(str);
+	      curve->setBrush(red);
+        curve->setPen(red);
+        curve->attach(plot);
+	      curves.push_back(curve);
+	      showCurve(curve, true);		
+      }
+            
+  }
+  
 	connect(plot, SIGNAL(legendChecked(QwtPlotItem*, bool)),
         SLOT(showCurve(QwtPlotItem*, bool)));
 
@@ -324,9 +291,7 @@ CacheHistGraph::CacheHistGraph(QWidget* parent)
 
 void CacheHistGraph::showCurve(QwtPlotItem* item, bool on) {
 
-    //Curve* curve = (Curve*)item;
-
-	  item->setVisible(on);
+    item->setVisible(on);
 	  QWidget* w = plot->legend()->find(item);
 
 	  if ( w && w->inherits("QwtLegendItem") ) {
@@ -353,98 +318,39 @@ double CacheHistGraph::hitrate (unsigned long long hit, unsigned long long miss)
 }
 
 void CacheHistGraph::showstat(const struct cachestats_t& statmsg) {
-    int maxrank=4;
-    plot->setAxisScale(QwtPlot::xBottom,-1, maxrank + 0.5);
-	  plot->setAxisMaxMajor(QwtPlot::xBottom, maxrank);
+    
+    plot->setAxisScale(QwtPlot::xBottom,-1, (maxrank/2) + 0.5);
+	  plot->setAxisMaxMajor(QwtPlot::xBottom, maxrank/2);
 	  plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
 			
 		char s[80];
 		QString title;
-
-	  sample_y0= hitrate(statmsg.hit[0],statmsg.miss[0]);
-		sample_y1= hitrate(statmsg.hit[1],statmsg.miss[1]);
-		sample_y2= hitrate(statmsg.hit[2],statmsg.miss[2]);
-		sample_y3= hitrate(statmsg.hit[3],statmsg.miss[3]);
-		
-    sample_y4= hitrate(statmsg.tothit[0],statmsg.totmiss[0]);
-		sample_y5= hitrate(statmsg.tothit[1],statmsg.totmiss[1]);
-		sample_y6= hitrate(statmsg.tothit[2],statmsg.totmiss[2]);
-		sample_y7= hitrate(statmsg.tothit[3],statmsg.totmiss[3]);
-		
-		t_y0= statmsg.hit[0] + statmsg.miss[0];
-		sprintf(s, "Remote Cache #0 transactions %lld", t_y0); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[1]->setTitle(title);
-		title.clear();
-
-		t_y1= statmsg.hit[1] + statmsg.miss[1];
-		sprintf(s, "Remote Cache #1 transactions %lld", t_y1); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[2]->setTitle(title);
-		title.clear();
-		
-    t_y2= statmsg.hit[2] + statmsg.miss[2];
-		sprintf(s, "Remote Cache #2 transactions %lld", t_y2); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[3]->setTitle(title);
-		title.clear();
-
-		t_y3= statmsg.hit[3] + statmsg.miss[3];
-		sprintf(s, "Remote Cache #3 transactions %lld", t_y3); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[4]->setTitle(title);
-		title.clear();
-			
-    t_y4= statmsg.tothit[0] + statmsg.totmiss[0];
-    sprintf(s, "Average Remote Cache #0 transactions %lld", t_y4); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[5]->setTitle(title);
-		title.clear();
-
-  	t_y5= statmsg.tothit[1] + statmsg.totmiss[1];    
-		sprintf(s, "Average Remote Cache #1 transactions %lld", t_y5); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[6]->setTitle(title);
-		title.clear();
-		    
-    t_y6= statmsg.tothit[2] + statmsg.totmiss[2];
-		sprintf(s, "Average Remote Cache #2 transactions %lld", t_y6); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[7]->setTitle(title);
-		title.clear();
-
-		t_y7= statmsg.tothit[3] + statmsg.totmiss[3];
-		sprintf(s, "Average Remote Cache #3 transactions %lld", t_y7); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[8]->setTitle(title);
-		title.clear();
-
     QVector<QwtIntervalSample> samples(1);  
-    samples[0]=QwtIntervalSample(sample_y0, -0.2,0.2);
-    curves[1]->setSamples(samples);
-    samples[0]=QwtIntervalSample(sample_y4, -0.2,0.2);
-    curves[5]->setSamples(samples);
+    for (int i=0; i<maxrank; i++) {
 
-    //curves[0]->setRawSamples(sample_x, sample_y0, counter);
-    samples[0]=QwtIntervalSample(sample_y1, 0.8,1.2);
-    curves[2]->setSamples(samples);
-    samples[0]=QwtIntervalSample(sample_y5, 0.8,1.2);
-    curves[6]->setSamples(samples);
-    
-    //	curves[1]->setRawSamples(sample_x, sample_y1, counter);
-    samples[0]=QwtIntervalSample(sample_y2, 1.8,2.2);
-    curves[3]->setSamples(samples);
-    samples[0]=QwtIntervalSample(sample_y6, 1.8,2.2);
-    curves[7]->setSamples(samples);
-	  
-	  //curves[2]->setRawSamples(sample_x, sample_y2, counter);
-    samples[0]=QwtIntervalSample(sample_y3, 2.8,3.2);
-	  curves[4]->setSamples(samples);
-    samples[0]=QwtIntervalSample(sample_y7, 2.8,3.2);
-	  curves[8]->setSamples(samples);
-    //curves[3]->setRawSamples(sample_x, sample_y3, counter);
-    
-	  plot->replot();
+        if (i<maxrank/2) {
+            sample_y.push_back(hitrate(statmsg.hit[i],statmsg.miss[i]));
+            t_y.push_back(statmsg.hit[i] + statmsg.miss[i]);
+		        sprintf(s, "Remote Cache #%d transactions %lld", i,t_y[i]); 
+            samples[0]=QwtIntervalSample(sample_y[i], i-0.2,i+0.2);
+            curves[i]->setSamples(samples);
+        } else {
+            sample_y.push_back(hitrate(statmsg.tothit[i-maxrank/2],statmsg.totmiss[i-maxrank/2]));		    
+            t_y.push_back(statmsg.tothit[i-maxrank/2] + statmsg.totmiss[i-maxrank/2]);
+            sprintf(s, "Average Remote Cache #%d transactions %lld",i-maxrank/2, t_y[i]); 
+            samples[0]=QwtIntervalSample(sample_y[i], (i-maxrank/2)-0.2,(i-maxrank/2)+0.2);
+            curves[i]->setSamples(samples);
+        }
+      
+        title.append(QString(s));		
+		    curves[i]->setTitle(title);
+		    title.clear();
+        
+    }
+
+    plot->replot();    
+    sample_y.clear();
+    t_y.clear();
 } 
 
 HistGraph::HistGraph(QWidget* parent, const int idx)

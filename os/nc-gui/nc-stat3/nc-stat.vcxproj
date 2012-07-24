@@ -98,11 +98,11 @@
     </ClCompile>
     <ClCompile Include="log2scale.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="mpistat.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_mpistat.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Template|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="mpistat.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="log2scale.hpp" />
