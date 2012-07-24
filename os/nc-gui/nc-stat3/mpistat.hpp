@@ -102,7 +102,8 @@ private:
 	void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
 	void showConnectionStatus();
 	bool getstat(int rank);
-
+    int  get_num_chips();
+   
 	void getstat();
 	void getcache();
 
@@ -167,24 +168,26 @@ private:
 };
 
 class CacheHistGraph : public QWidget {
-	Q_OBJECT   
+    Q_OBJECT   
 public:
-  CacheHistGraph(QWidget* parent = 0);
+    CacheHistGraph(QWidget* parent = 0);
 
-	void showstat(const struct cachestats_t& statmsg);
-  double hitrate (unsigned long long hit, unsigned long long miss);
+    void showstat(const struct cachestats_t& statmsg);
+    double hitrate (unsigned long long hit, unsigned long long miss);
 
-	QwtPlot* plot;
-	vector<QwtPlotHistogram*> curves;
-	int maxrank;
-
-public slots:
-	void showCurve(QwtPlotItem*, bool on);
+    QwtPlot* plot;
+    vector<QwtPlotHistogram*> curves;
+    int get_num_chips();
+    void set_num_chips(int num);
+    bool initialized();
+    void addCurves();
+    public slots:
+        void showCurve(QwtPlotItem*, bool on);
 
 private:
-	vector <double> sample_y;
-	vector <uint64_t> t_y;
-
+    vector <double> sample_y;
+    vector <uint64_t> t_y;
+    int m_num_chips;
 };
 
 
