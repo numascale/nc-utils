@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mpistat.ui'
 **
-** Created: Tue 24. Jul 13:02:26 2012
+** Created: Tue 24. Jul 13:35:14 2012
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
