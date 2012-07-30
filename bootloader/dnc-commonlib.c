@@ -1045,26 +1045,6 @@ void wake_local_cores(const int vector)
     }
 }
 
-static void disable_l3cache(int nodes)
-{
-    int i;
-    u32 val;
-
-    /* Enable sublink core pair ordering */
-    for (i = 0; i < nodes; i++) {
-	val = cht_read_config(i, NB_FUNC_EXTD, 0x88);
-	cht_write_config(i, NB_FUNC_EXTD, 0x88, val | 1);
-    }
-
-    /* Disable Accel Transition to Modified Mode */
-    for (i = 0; i < nodes; i++) {
-	val = cht_read_config(i, NB_FUNC_HT, 0x68);
-	cht_write_config(i, NB_FUNC_EXTD, 0x68, val & ~(1 << 12));
-	val = cht_read_config(i, NB_FUNC_HT, 0x1b8);
-	cht_write_config(i, NB_FUNC_EXTD, 0x1b8, val & ~(1 << 27));
-    }
-}
-
 void enable_probefilter(void)
 {
     u32 val, pfctrl, scrub[8];
@@ -1117,9 +1097,6 @@ void enable_probefilter(void)
 	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f15);
     else
 	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f10);
-
-    /* 4. Disable L3 cache */
-    disable_l3cache(nodes);
 
     /* 4. Disable coherent prefetch probes */
     for (i = 0; i < nodes; i++) {
