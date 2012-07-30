@@ -2043,7 +2043,7 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 	    cht_write_config(i, NB_FUNC_DRAM, 0x11c, val | (0x1f<<2));
 
 	}
-	/* ERRATA #N27: Disable Coherent Prefetch Probes (Query probes) as NumaChip don't handle them correctly */
+	/* ERRATA #N27: Disable Coherent Prefetch Probes (Query probes), as NumaChip don't handle them correctly and they are required to be disabled for Probe Filter */
 	val = cht_read_config(i, NB_FUNC_DRAM, 0x1b0);
 	cht_write_config(i, NB_FUNC_DRAM, 0x1b0, val & ~(7<<8)); /* CohPrefPrbLimit=000b */
 
