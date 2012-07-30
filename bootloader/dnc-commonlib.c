@@ -1028,17 +1028,17 @@ void wake_local_cores(const int vector)
 		while (*icr & (1 << 12))
 		    cpu_relax();
 
-		*REL(cpu_status) = vector;
+		*REL32(cpu_status) = vector;
 
 		/* Deliver startup IPI */
 		apic[0x310/4] = apicid << 24;
-		assert(((u32)REL(init_dispatch) & ~0xff000) == 0);
-		*icr = 0x00004600 | (((u32)REL(init_dispatch) >> 12) & 0xff);
+		assert(((u32)REL32(init_dispatch) & ~0xff000) == 0);
+		*icr = 0x00004600 | (((u32)REL32(init_dispatch) >> 12) & 0xff);
 		while (*icr & 0x1000)
 		    cpu_relax();
 
 		/* Wait until execution completed */
-		while (*REL(cpu_status))
+		while (*REL32(cpu_status))
 		    cpu_relax();
 	    }
 	}

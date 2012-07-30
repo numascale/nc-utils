@@ -22,8 +22,10 @@
 #include "dnc-types.h"
 
 #define IMPORT_RELOCATED(sym) extern volatile u8 sym ## _relocate
-#define REL(sym) ((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start))
+#define REL8(sym) ((u8 *)((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start)))
+#define REL16(sym) ((u16 *)((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start)))
 #define REL32(sym) ((u32 *)((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start)))
+#define REL64(sym) ((u64 *)((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start)))
 #define BOOTSTRAP_DELAY 1000
 
 struct mp_config_table {

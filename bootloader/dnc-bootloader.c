@@ -196,7 +196,7 @@ static int install_e820_handler(void)
 
     memcpy(asm_relocated, &asm_relocate_start, relocate_size);
 
-    e820 = (void *)REL(new_e820_map);
+    e820 = (void *)REL32(new_e820_map);
 
     unsigned int i, j = 0;
     for (i = 0; i < orig_e820_len / sizeof(struct e820entry); i++) {
@@ -264,8 +264,8 @@ static int install_e820_handler(void)
 
     free(orig_e820_map);
 
-    *((u16 *)REL(new_e820_len))  = j;
-    *((u32 *)REL(old_int15_vec)) = int_vecs[0x15];
+    *REL16(new_e820_len)  = j;
+    *REL32(old_int15_vec) = int_vecs[0x15];
 
     if (last_32b < 0) {
 	printf("*** Unable to allocate room for ACPI tables\n");
@@ -290,8 +290,8 @@ static void update_e820_map(void)
     struct e820entry *e820;
     u16 *len;
 
-    e820 = (void *)REL(new_e820_map);
-    len  = (u16 *)REL(new_e820_len);
+    e820 = (void *)REL32(new_e820_map);
+    len  = REL16(new_e820_len);
 
     prev_end = 0;
     max = 0;
@@ -777,16 +777,16 @@ static void update_mptable(void)
            mpfp->feature[0], mpfp->feature[1], mpfp->feature[2],
            mpfp->feature[3], mpfp->feature[4]);
 
-    if ((u32)mpfp > (u32)REL(new_mpfp)) {
-        memcpy((void *)REL(new_mpfp), mpfp, sizeof(*mpfp));
-        mpfp = (void *)REL(new_mpfp);
+    if ((u32)mpfp > (u32)REL32(new_mpfp)) {
+        memcpy((void *)REL32(new_mpfp), mpfp, sizeof(*mpfp));
+        mpfp = (void *)REL32(new_mpfp);
     }
 
     mptable = mpfp->mptable;
     printf("mptable @%p\n", mptable);
 
-    memcpy((void *)REL(new_mptable), mptable, 512);
-    mptable = (void *)REL(new_mptable);
+    memcpy((void *)REL32(new_mptable), mptable, 512);
+    mptable = (void *)REL32(new_mptable);
     printf("mptable @%p\n", mptable);
 
     mpfp->mptable = mptable;
@@ -1014,11 +1014,11 @@ static void setup_other_cores(void)
 
 	    apicid = nc_node[0].apic_offset + oldid;
 	    
-	    *REL(cpu_apic_renumber) = apicid;
-	    *REL(cpu_apic_hi)       = 0;
+	    *REL8(cpu_apic_renumber) = apicid;
+	    *REL8(cpu_apic_hi)       = 0;
 	    *REL32(cpu_status) = VECTOR_TRAMPOLINE;
-	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
-	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
+	    *REL64(rem_topmem_msr) = ~0ULL;
+	    *REL64(rem_smm_base_msr) = ~0ULL;
 
 	    apic[0x310/4] = oldid << 24;
 
@@ -1034,8 +1034,8 @@ static void setup_other_cores(void)
 		printf("init IPI not delivered\n");
 
 	    apic[0x310/4] = apicid << 24;
-	    assert(((u32)REL(init_dispatch) & ~0xff000) == 0);
-	    *icr = 0x00004600 | (((u32)REL(init_dispatch) >> 12) & 0xff);
+	    assert(((u32)REL32(init_dispatch) & ~0xff000) == 0);
+	    *icr = 0x00004600 | (((u32)REL32(init_dispatch) >> 12) & 0xff);
 
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (!(*icr & 0x1000))
@@ -1046,16 +1046,16 @@ static void setup_other_cores(void)
 		printf("startup IPI not delivered\n");
 	    
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (*REL(cpu_status) == 0)
+		if (*REL32(cpu_status) == 0)
 		    break;
 		tsc_wait(10);
 	    }
 	    if (*REL32(cpu_status) == 0) {
 		printf("reported done\n");
-		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
+		if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
 		    printf("Adjusted topmem from 0x%llx to 0x%llx\n",
-			   *((u64 *)REL(rem_topmem_msr)), *((u64 *)REL(new_topmem_msr)));
-		val = *((u64 *)REL(rem_smm_base_msr));
+			   *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
+		val = *REL64(rem_smm_base_msr);
 		disable_smm_handler(val);
 	    }
 	    else {
@@ -1421,7 +1421,7 @@ static void setup_remote_cores(u16 num)
 
     tsc_wait(200);
     
-    *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
+    *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
 
     /* Start all remote cores and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
@@ -1431,33 +1431,33 @@ static void setup_remote_cores(u16 num)
 	    oldid = cur_node->ht[ht].apic_base + i;
 	    apicid = cur_node->apic_offset + oldid;
 	
-	    *REL(cpu_apic_renumber) = apicid & 0xff;
-	    *REL(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
-	    *REL(cpu_status) = VECTOR_TRAMPOLINE;
-	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
-	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
+	    *REL8(cpu_apic_renumber) = apicid & 0xff;
+	    *REL8(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
+	    *REL32(cpu_status) = VECTOR_TRAMPOLINE;
+	    *REL64(rem_topmem_msr) = ~0ULL;
+	    *REL64(rem_smm_base_msr) = ~0ULL;
 
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (oldid<<16));
 	    tsc_wait(50);
-	    assert(((u32)REL(init_dispatch) & ~0xff000) == 0);
+	    assert(((u32)REL32(init_dispatch) & ~0xff000) == 0);
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
-			  0xff002600 | (oldid << 16) | (((u32)REL(init_dispatch) >> 12) & 0xff));
+			  0xff002600 | (oldid << 16) | (((u32)REL32(init_dispatch) >> 12) & 0xff));
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (*REL(cpu_status) == 0)
+		if (*REL32(cpu_status) == 0)
 		    break;
 		tsc_wait(10);
 	    }
 
-	    if (*REL(cpu_status) == 0) {
+	    if (*REL32(cpu_status) == 0) {
 		printf("APIC %d (was %d) reported done\n", apicid, oldid);
-		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
+		if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
 		    printf("Adjusted topmem value from 0x016%llx to 0x016%llx\n",
-			   *((u64 *)REL(rem_topmem_msr)), *((u64 *)REL(new_topmem_msr)));
-		qval = *((u64 *)REL(rem_smm_base_msr));
+			   *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
+		qval = *REL64(rem_smm_base_msr);
 		disable_smm_handler(qval);
 	    }
 	    else {
-		printf("APIC %d did not toggle init flag (status %d)\n", apicid, *REL(cpu_status));
+		printf("APIC %d did not toggle init flag (status %d)\n", apicid, *REL32(cpu_status));
 	    }
 	}
     }
@@ -2051,25 +2051,25 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 static void update_mtrr(void)
 {
     /* Ensure Tom2ForceMemTypeWB (bit 22) is set, so memory between 4G and TOM2 is writeback */
-    uint64_t *syscfg_msr = (void *)REL(new_syscfg_msr);
+    uint64_t *syscfg_msr = (void *)REL64(new_syscfg_msr);
     *syscfg_msr = dnc_rdmsr(MSR_SYSCFG) | (1 << 22);
     dnc_wrmsr(MSR_SYSCFG, *syscfg_msr);
 
     /* Ensure default memory type is uncacheable */
-    uint64_t *mtrr_default = (void *)REL(new_mtrr_default);
+    uint64_t *mtrr_default = (void *)REL64(new_mtrr_default);
     *mtrr_default = 3 << 10;
     dnc_wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
 
     /* Store fixed MTRRs */
-    uint64_t *mtrr_fixed = (void *)REL(new_mtrr_fixed);
-    uint32_t *fixed_mtrr_regs = (void *)REL(fixed_mtrr_regs);
+    uint64_t *mtrr_fixed = (void *)REL64(new_mtrr_fixed);
+    uint32_t *fixed_mtrr_regs = (void *)REL64(fixed_mtrr_regs);
 
     for (int i = 0; i < 11; i++)
 	mtrr_fixed[i] = dnc_rdmsr(fixed_mtrr_regs[i]);
 
     /* Store variable MTRRs */
-    uint64_t *mtrr_var_base = (void *)REL(new_mtrr_var_base);
-    uint64_t *mtrr_var_mask = (void *)REL(new_mtrr_var_mask);
+    uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
+    uint64_t *mtrr_var_mask = (void *)REL64(new_mtrr_var_mask);
 
     printf("Variable MTRRs:\n");
     for (int i = 0; i < 8; i++) {
@@ -2178,24 +2178,24 @@ static void setup_c1e_osvw(void)
     /* Disable C1E in MSRs */
     msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
     dnc_wrmsr(MSR_HWCR, msr);
-    *((u64 *)REL(new_hwcr_msr)) = msr;
+    *REL64(new_hwcr_msr) = msr;
 
     msr = 0;
     dnc_wrmsr(MSR_INT_HALT, msr);
-    *((u64 *)REL(new_int_halt_msr)) = msr;
+    *REL64(new_int_halt_msr) = msr;
 
     /* Disable OS Vendor Workaround bit for errata #400, as C1E is disabled */
     msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
     if (msr < 2) {
 	/* Extend ID length to cover errata 400 status bit */
 	dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
-	*((u64 *)REL(new_osvw_id_len_msr)) = 2;
+	*REL64(new_osvw_id_len_msr) = 2;
 	msr = dnc_rdmsr(MSR_OSVW_STATUS) & ~2;
 	dnc_wrmsr(MSR_OSVW_STATUS, msr);
-	*((u64 *)REL(new_osvw_status_msr)) = msr;
+	*REL64(new_osvw_status_msr) = msr;
 	printf("Enabled OSVW errata #400 workaround status, as C1E disabled\n");
     } else {
-	*((u64 *)REL(new_osvw_id_len_msr)) = msr;
+	*REL64(new_osvw_id_len_msr) = msr;
 	msr = dnc_rdmsr(MSR_OSVW_STATUS);
 	if (msr & 2) {
 	    msr &= ~2;
@@ -2203,7 +2203,7 @@ static void setup_c1e_osvw(void)
 	    printf("Cleared OSVW errata #400 bit status, as C1E disabled\n");
 	}
 
-	*((u64 *)REL(new_osvw_status_msr)) = msr;
+	*REL64(new_osvw_status_msr) = msr;
     }
 }
 
@@ -2344,9 +2344,9 @@ static int unify_all_nodes(void)
 
     /* Set TOPMEM2 for ourselves and other cores */
     dnc_wrmsr(MSR_TOPMEM2, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
-    *((u64 *)REL(new_topmem2_msr)) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
+    *REL64(new_topmem2_msr) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
     /* Harmonize TOPMEM */
-    *((u64 *)REL(new_topmem_msr)) = dnc_rdmsr(MSR_TOPMEM);
+    *REL64(new_topmem_msr) = dnc_rdmsr(MSR_TOPMEM);
 
     /* Update OS visible workaround MSRs */
     if (disable_c1e)
@@ -2364,7 +2364,7 @@ static int unify_all_nodes(void)
     setup_apic_atts();
 
     dnc_wrmsr(MSR_MCFG_BASE, DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL);
-    *((u64 *)REL(new_mcfg_msr)) = DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL;
+    *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL;
 
     /* Make chipset-specific adjustments */
     global_chipset_fixup();
