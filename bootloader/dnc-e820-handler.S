@@ -20,6 +20,7 @@
 
 #define EXPORT(sym) .global sym ## _relocate; sym ## _relocate: sym:
 #define SYM_OFFSET(sym) ((sym) - asm_relocate_start)
+#define STATUS(val) movl $val, %cs:SYM_OFFSET(cpu_status)
 
 	.code16
 	.text
@@ -27,23 +28,41 @@
 
 	.global asm_relocate_start
 asm_relocate_start:
+EXPORT(init_dispatch)
+	cli
 
-EXPORT(init_trampoline)
-	invd
 	mov	%cs, %ax
 	add	$SYM_OFFSET(stack_start)/16, %ax
 	mov	%ax, %ss
 	mov	$(stack_end - stack_start), %sp
 
+	movl	%cs:SYM_OFFSET(cpu_status), %edx
+	cmpl	$VECTOR_TRAMPOLINE, %edx
+	je	init_trampoline
+	cmpl	$VECTOR_PROBEFILTER_EARLY_f10, %edx
+	je	init_probefilter_early_f10
+	cmpl	$VECTOR_PROBEFILTER_EARLY_f15, %edx
+	je	init_probefilter_early_f15
+	cmpl	$VECTOR_ENABLE_CACHE, %edx
+	je	init_enable_cache
+1:
+	cli
+	hlt
+	jmp	1b
+
+	.align 16
+init_trampoline:
+	STATUS(4)
+
 	/* Disable caching */
-	wbinvd
 	mov	%cr0, %eax
 	or	$0x40000000, %eax
 	mov	%eax, %cr0
+	wbinvd
 
 	/* Disable all MTRR entries */
 	mov	$MSR_MTRR_PHYS_MASK0, %ecx
-1:	
+1:
 	xor	%eax, %eax
 	xor	%edx, %edx
 	wrmsr
@@ -77,7 +96,7 @@ EXPORT(init_trampoline)
 	mov	$MSR_MTRR_PHYS_BASE0, %ecx
 	mov	$SYM_OFFSET(new_mtrr_var_base), %esi
 	mov	$SYM_OFFSET(new_mtrr_var_mask), %edi
-1:	
+1:
 	mov	%cs:(%esi), %eax
 	add	$4, %esi
 	mov	%cs:(%esi), %edx
@@ -96,7 +115,6 @@ EXPORT(init_trampoline)
 	jna	1b
 
 	/* Reenable caching */
-	wbinvd
 	mov	%cr0, %eax
 	and	$~0x40000000, %eax
 	mov	%eax, %cr0
@@ -238,23 +256,71 @@ EXPORT(init_trampoline)
 	mov	$SYM_OFFSET(cpu_done2), %si
 	call	print_strz
 
-	wbinvd
-	movb	$1, %cs:SYM_OFFSET(cpu_init_finished)
-1:	
+	STATUS(0)
+1:
+	cli
 	hlt
-	jmp	1b 
+	jmp	1b
 
-cpu_mtrr:
-	.asciz	"\r\nMTRR "
-cpu_cr:
-	.asciz	"\r\nCRx "
-cpu_done1:
-	.asciz	"\r\nCPU "
-cpu_done2:
-	.asciz  " done setting MTRRs.\r\n"
+init_probefilter_early_f10:
+	/* Disable cacheing */
+	mov	%cr0, %eax
+	or	$0x40000000, %eax
+	mov	%eax, %cr0
+	wbinvd
 
-EXPORT(cpu_init_finished)
-	.byte 0
+	/* Enable probe filter support */
+	mov $MSR_CU_CFG2, %ecx
+	rdmsr
+	or	$(1 << (42 - 32)), %edx
+	wrmsr
+
+	STATUS(0)
+1:
+	cli
+	hlt
+	jmp	1b
+
+init_probefilter_early_f15:
+	/* Ensure CD bit is shared amongst cores */
+	mov $MSR_CU_CFG3, %ecx
+	rdmsr
+	or	$(1 << (49 - 32)), %edx
+	wrmsr
+
+	/* Disable cacheing */
+	mov	%cr0, %eax
+	or	$0x40000000, %eax
+	mov	%eax, %cr0
+	wbinvd
+
+	/* Enable probe filter support */
+	mov $MSR_CU_CFG2, %ecx
+	rdmsr
+	or	$(1 << (42 - 32)), %edx
+	wrmsr
+
+	STATUS(0)
+1:
+	cli
+	hlt
+	jmp	1b
+
+init_enable_cache:
+	/* Reenable caching */
+	mov	%cr0, %eax
+	and	$~0x40000000, %eax
+	mov	%eax, %cr0
+
+	STATUS(0)
+1:
+	cli
+	hlt
+	jmp	1b
+
+	.align 16
+EXPORT(cpu_status)
+	.long 0
 EXPORT(cpu_apic_renumber)
 	.byte 0
 EXPORT(cpu_apic_hi)
@@ -301,6 +367,15 @@ EXPORT(new_hwcr_msr);
 EXPORT(new_int_halt_msr);
 	.long 0, 0
 
+cpu_mtrr:
+	.asciz	"\r\nMTRR "
+cpu_cr:
+	.asciz	"\r\nCRx "
+cpu_done1:
+	.asciz	"\r\nCPU "
+cpu_done2:
+	.asciz  " done setting MTRRs.\r\n"
+
 // Print asciiz string at by cs:si
 print_strz:
 #if DEBUG_TRAMP
@@ -319,7 +394,6 @@ print_strz:
 2:	
 #endif
 	ret
-
 
 hex32_buf:	
 	.asciz	"[--------] "

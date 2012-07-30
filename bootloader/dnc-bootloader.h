@@ -21,7 +21,10 @@
 #include <stdint.h>
 #include "dnc-types.h"
 
-#define BOOTSTRAP_DELAY 10000
+#define IMPORT_RELOCATED(sym) extern volatile u8 sym ## _relocate
+#define REL(sym) ((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start))
+#define REL32(sym) ((u32 *)((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start)))
+#define BOOTSTRAP_DELAY 1000
 
 struct mp_config_table {
     union {
@@ -94,6 +97,9 @@ extern u16 apic_per_node;
 extern u16 ht_next_apic;
 extern u32 dnc_top_of_dram;
 extern u32 dnc_top_of_mem;
+extern char *asm_relocated;
+extern unsigned char asm_relocate_start;
+extern unsigned char asm_relocate_end;
 
 void tsc_wait(u32 mticks);
 int read_config_file(char *file_name);

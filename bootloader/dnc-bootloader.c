@@ -46,8 +46,6 @@
 #define PIC_SLAVE_CMD           0xa0
 #define PIC_SLAVE_IMR           0xa1
 
-#define IMPORT_RELOCATED(sym) extern volatile u8 sym ## _relocate
-#define REL(sym) ((volatile u8 *)asm_relocated + ((volatile u8 *)&sym ## _relocate - (volatile u8 *)&asm_relocate_start))
 #define MTRR_TYPE(x) (x) == 0 ? "uncacheable" : (x) == 1 ? "write-combining" : (x) == 4 ? "write-through" : (x) == 5 ? "write-protect" : (x) == 6 ? "write-back" : "unknown"
 
 #define TABLE_AREA_SIZE		1024*1024
@@ -69,15 +67,13 @@ static int scc_started = 0;
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 u8 nodedata[4096];
 
-extern unsigned char asm_relocate_start;
-extern unsigned char asm_relocate_end;
-static char *asm_relocated;
+char *asm_relocated;
 static char *tables_relocated;
 
 IMPORT_RELOCATED(new_e820_handler);
 IMPORT_RELOCATED(old_int15_vec);
-IMPORT_RELOCATED(init_trampoline);
-IMPORT_RELOCATED(cpu_init_finished);
+IMPORT_RELOCATED(init_dispatch);
+IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(cpu_apic_renumber);
 IMPORT_RELOCATED(cpu_apic_hi);
 IMPORT_RELOCATED(new_mcfg_msr);
@@ -114,8 +110,8 @@ void tsc_wait(u32 mticks)
     count = rdtscll() >> 1;
     stop = count + ((u64)mticks << (20 - 1));
     while(stop > count) {
-        asm volatile("pause" ::: "memory");
-        count = rdtscll() >> 1;
+	cpu_relax();
+	count = rdtscll() >> 1;
     }
 }
 
@@ -1020,13 +1016,13 @@ static void setup_other_cores(void)
 	    
 	    *REL(cpu_apic_renumber) = apicid;
 	    *REL(cpu_apic_hi)       = 0;
-	    *REL(cpu_init_finished) = 0;
+	    *REL32(cpu_status) = VECTOR_TRAMPOLINE;
 	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
 	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
 
 	    apic[0x310/4] = oldid << 24;
 
-	    printf("APIC %d ", apicid);
+	    printf("APIC %d (was %d) ", apicid, oldid);
 
 	    *icr = 0x00004500;
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
@@ -1038,7 +1034,9 @@ static void setup_other_cores(void)
 		printf("init IPI not delivered\n");
 
 	    apic[0x310/4] = apicid << 24;
-	    *icr = 0x00004600 | (((u32)REL(init_trampoline) >> 12) & 0xff);
+	    assert(((u32)REL(init_dispatch) & ~0xff000) == 0);
+	    *icr = 0x00004600 | (((u32)REL(init_dispatch) >> 12) & 0xff);
+
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (!(*icr & 0x1000))
 		    break;
@@ -1048,11 +1046,11 @@ static void setup_other_cores(void)
 		printf("startup IPI not delivered\n");
 	    
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (*REL(cpu_init_finished))
+		if (*REL(cpu_status) == 0)
 		    break;
 		tsc_wait(10);
 	    }
-	    if (*REL(cpu_init_finished)) {
+	    if (*REL32(cpu_status) == 0) {
 		printf("reported done\n");
 		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
 		    printf("Adjusted topmem from 0x%llx to 0x%llx\n",
@@ -1061,7 +1059,7 @@ static void setup_other_cores(void)
 		disable_smm_handler(val);
 	    }
 	    else {
-		printf("did not toggle init flag\n");
+		printf("did not toggle init flag (status %08x)\n", *REL32(cpu_status));
 	    }
 	}
     }
@@ -1435,21 +1433,22 @@ static void setup_remote_cores(u16 num)
 	
 	    *REL(cpu_apic_renumber) = apicid & 0xff;
 	    *REL(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
-	    *REL(cpu_init_finished) = 0;
+	    *REL(cpu_status) = VECTOR_TRAMPOLINE;
 	    *((u64 *)REL(rem_topmem_msr)) = ~0ULL;
 	    *((u64 *)REL(rem_smm_base_msr)) = ~0ULL;
 
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (oldid<<16));
 	    tsc_wait(50);
+	    assert(((u32)REL(init_dispatch) & ~0xff000) == 0);
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
-			  0xff002600 | (oldid<<16) | (((u32)REL(init_trampoline) >> 12) & 0xff));
+			  0xff002600 | (oldid << 16) | (((u32)REL(init_dispatch) >> 12) & 0xff));
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (*REL(cpu_init_finished))
+		if (*REL(cpu_status) == 0)
 		    break;
 		tsc_wait(10);
 	    }
 
-	    if (*REL(cpu_init_finished)) {
+	    if (*REL(cpu_status) == 0) {
 		printf("APIC %d (was %d) reported done\n", apicid, oldid);
 		if (*((u64 *)REL(rem_topmem_msr)) != *((u64 *)REL(new_topmem_msr)))
 		    printf("Adjusted topmem value from 0x016%llx to 0x016%llx\n",
@@ -1458,7 +1457,7 @@ static void setup_remote_cores(u16 num)
 		disable_smm_handler(qval);
 	    }
 	    else {
-		printf("APIC %d (was %d) did not toggle init flag\n", apicid, oldid);
+		printf("APIC %d did not toggle init flag (status %d)\n", apicid, *REL(cpu_status));
 	    }
 	}
     }
@@ -2227,6 +2226,7 @@ static int unify_all_nodes(void)
 
     tally_local_node(1);
     nc_node[1].ht[0].base = dnc_top_of_mem;
+
     if (!tally_all_remote_nodes()) {
         printf("Unable to reach all nodes, retrying...\n");
 	return 0;
@@ -2507,6 +2507,7 @@ static int nc_start(void)
 
     dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
 					   __com32.cs_cmdline);
+
     if (dnc_master_ht_id == -2)
 	start_user_os();
 
@@ -2579,6 +2580,9 @@ static int nc_start(void)
 	}
 	if (i < 0)
 	    return ERR_UNIFY_ALL_NODES;
+
+	if (pf_probefilter)
+	    enable_probefilter();
 
 	(void)dnc_check_mctr_status(0);
 	(void)dnc_check_mctr_status(1);

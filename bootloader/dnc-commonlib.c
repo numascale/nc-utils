@@ -28,7 +28,11 @@
 #include "dnc-config.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
+#include "hw-config.h"
 #include "auto-dnc-gitlog.h"
+
+IMPORT_RELOCATED(cpu_status);
+IMPORT_RELOCATED(init_dispatch);
 
 static char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
@@ -52,6 +56,7 @@ static int singleton = 0;
 static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
 static int ht_suppress = 0;
+int pf_probefilter = 1;
 int mem_offline = 0;
 u64 trace_buf = 0;
 u32 trace_buf_size = 0;
@@ -748,10 +753,42 @@ static void cht_print(int neigh, int link)
 	   get_phy_register(neigh, link, 0x6884, 1),
 	   get_phy_register(neigh, link, 0x6984, 1));
 
-/* These cause hangs on fam10h:
-   print_phy_lanes("link phy receiver DLL control and test 5", 0x400f, 0);
-   print_phy_lanes("link phy receiver process control", 0x4011, 0);
-   print_phy_lanes("link phy tx deemphasis and margin test control", 0x600c, 1); */
+    if (family >= 0x15) {
+	print_phy_lanes(neigh, link, "link phy receiver DLL control and test 5", 0x400f, 0);
+	print_phy_lanes(neigh, link, "link phy receiver process control", 0x4011, 0);
+	print_phy_lanes(neigh, link, "link phy tx deemphasis and margin test control", 0x600c, 1);
+    }
+}
+
+static void probefilter_tokens(void)
+{
+    int i, j, nodes = 1;
+    u32 val;
+
+    if (!pf_probefilter)
+	return;
+
+    /* Reprogram HT link buffering */
+    for (i = 0; i < nodes; i++) {
+	for (j = 0; j < 4; j++) {
+	    val = cht_read_config(i, NB_FUNC_HT, 0x98 + j * 0x20);
+
+	    /* Probe Filter doesn't affect IO link buffering */
+	    if ((!(val & 1)) || (val & 4))
+		continue;
+
+	    val = cht_read_config(i, NB_FUNC_HT, 0x170 + i * 4);
+
+	    /* Link ganged? */
+	    if (val & 1)
+		val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
+	    else
+		val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
+
+	    cht_write_config(i, NB_FUNC_HT, 0x90 + j * 0x20, val | (1 << 31));
+	    cht_write_config(i, NB_FUNC_HT, 0x94 + j * 0x20, 1 << 16);
+	}
+    }
 }
 #endif /* __i386 */
 
@@ -878,7 +915,10 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     if (ht_force_ganged == 2)
 	cht_mirror(neigh, link);
 
-    printf(". done\n");
+    printf(".");
+    probefilter_tokens();
+    printf("done\n");
+
 
     if (reboot) {
 	printf("Rebooting to make new link settings effective...\n");
@@ -896,11 +936,12 @@ static void disable_probefilter(int nodes)
     
     val = cht_read_config(0, NB_FUNC_MISC, 0x1d4);
     /* Probe filter not active? */
-    if ((val & 3) == 0)
+    if ((val & 3) == 0) {
+	if (verbose) printf("Probe filter already disabled\n");
 	return;
+    }
 
-    printf("HT#0 F3x1d4: %08x\n", val);
-    printf("Probe filter active; disabling (%d)...\n", nodes);
+    printf("Disabling probe filter...");
 
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
        - F3x58[L3Scrub]=00h
@@ -911,7 +952,7 @@ static void disable_probefilter(int nodes)
 	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 	   See erratum 505 */
 	if (family >= 0x15)
-	    cht_write_config(i, NB_FUNC_MAPS, 0x10C, 0);
+	    cht_write_config(i, NB_FUNC_MAPS, 0x10c, 0);
 	scrub[i] = cht_read_config(i, NB_FUNC_MISC, 0x58);
 	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i] & ~0x1f00001f);
 	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
@@ -919,48 +960,37 @@ static void disable_probefilter(int nodes)
     }
 
     /* 2.  Wait 40us for outstanding scrub requests to complete */
-    printf(".");
-	
+    tsc_wait(40);
+
     /* 3.  Disable all cache activity in the system by setting
        CR0.CD for all active cores in the system */
-    disable_cache();
     /* 4.  Issue WBINVD on all active cores in the system */
-    asm volatile("wbinvd" ::: "memory");
-    printf(".");
+    disable_cache();
 
     /* 5.  Set F3x1C4[L3TagInit]=1 */
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
 	cht_write_config(i, NB_FUNC_MISC, 0x1c4, val | (1 << 31));
     }
-    printf(".");
 
     /* 6.  Wait for F3x1C4[L3TagInit]=0 */
-    for (i = 0; i <= nodes; i++) {
-	do {
-	    val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
-	    printf("<%d>", i);
-	} while (val & (1 << 31));
-    }
-    printf(".");
+    for (i = 0; i <= nodes; i++)
+	while (cht_read_config(i, NB_FUNC_MISC, 0x1c4) & (1 << 31))
+	    cpu_relax();
 
     /* 7.  Set F3x1D4[PFMode]=00b */
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1d4);
 	cht_write_config(i, NB_FUNC_MISC, 0x1d4, val & ~3);
     }
-    printf(".");
 
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_config(i, NB_FUNC_MISC, 0x1d4);
-	printf("<%d:%08x>", i, val);
     }
-    printf(".");
 
     /* 8.  Enable all cache activity in the system by clearing
        CR0.CD for all active cores in the system */
     enable_cache();
-    printf(".");
 
     /* 9. Restore L3 and DRAM scrubber register values */
     for (i = 0; i <= nodes; i++) {
@@ -968,7 +998,177 @@ static void disable_probefilter(int nodes)
 	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
 	cht_write_config(i, NB_FUNC_MISC, 0x5c, val | 1);
     }
-    printf("*\n");
+    printf("done\n");
+}
+
+void wake_local_cores(const int vector)
+{
+    u64 val = dnc_rdmsr(MSR_APIC_BAR);
+    volatile u32 *const apic = (void *const)((u32)val & ~0xfff);
+    volatile u32 *const icr = &apic[0x300/4];
+    u32 n, ht, i, oldid, apicid;
+
+    /* Ensure the table has been initialised */
+    assert(nc_node[0].ht[0].cores);
+
+    for (n = 0; n < dnc_node_count; n++) {
+	for (ht = 0; ht < 8; ht++) {
+	    for (i = 0; i < nc_node[n].ht[ht].cores; i++) {
+		if (!nc_node[n].ht[ht].cpuid)
+		    continue;
+		if ((ht == 0) && (i == 0))
+		    continue; /* Skip BSP */
+
+		oldid = nc_node[n].ht[ht].apic_base + i;
+		apicid = nc_node[n].apic_offset + oldid;
+
+		/* Deliver initialize IPI */
+		apic[0x310/4] = apicid << 24;
+		*icr = 0x00004500;
+		while (*icr & (1 << 12))
+		    cpu_relax();
+
+		*REL(cpu_status) = vector;
+
+		/* Deliver startup IPI */
+		apic[0x310/4] = apicid << 24;
+		assert(((u32)REL(init_dispatch) & ~0xff000) == 0);
+		*icr = 0x00004600 | (((u32)REL(init_dispatch) >> 12) & 0xff);
+		while (*icr & 0x1000)
+		    cpu_relax();
+
+		/* Wait until execution completed */
+		while (*REL(cpu_status))
+		    cpu_relax();
+	    }
+	}
+    }
+}
+
+static void disable_l3cache(int nodes)
+{
+    int i;
+    u32 val;
+
+    /* Enable sublink core pair ordering */
+    for (i = 0; i < nodes; i++) {
+	val = cht_read_config(i, NB_FUNC_EXTD, 0x88);
+	cht_write_config(i, NB_FUNC_EXTD, 0x88, val | 1);
+    }
+
+    /* Disable Accel Transition to Modified Mode */
+    for (i = 0; i < nodes; i++) {
+	val = cht_read_config(i, NB_FUNC_HT, 0x68);
+	cht_write_config(i, NB_FUNC_EXTD, 0x68, val & ~(1 << 12));
+	val = cht_read_config(i, NB_FUNC_HT, 0x1b8);
+	cht_write_config(i, NB_FUNC_EXTD, 0x1b8, val & ~(1 << 27));
+    }
+}
+
+void enable_probefilter(void)
+{
+    u32 val, pfctrl, scrub[8];
+    u64 val6;
+    int i;
+
+    int nodes = 1;
+
+    val = cht_read_config(0, NB_FUNC_MISC, 0x1d4);
+    /* Probe filter already active? */
+    if (val & 3) {
+	if (verbose) printf("Probe filter already enabled\n");
+	return;
+    }
+
+    printf("Enabling probe filter...");
+
+    /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
+       - F3x58[L3Scrub]=00h
+       - F3x58[DramScrub]=00h
+       - F3x5C[ScrubRedirEn]=0 */
+    for (i = 0; i < nodes; i++) {
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_config(i, NB_FUNC_MAPS, 0x10c, 0);
+	scrub[i] = cht_read_config(i, NB_FUNC_MISC, 0x58);
+	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i] & ~0x1f00001f);
+	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
+	cht_write_config(i, NB_FUNC_MISC, 0x5c, val & ~1);
+    }
+
+    /* 2. Wait 40us for outstanding scrub requests to complete */
+    tsc_wait(40);
+
+    /* 3. Ensure CD bit is shared amongst cores */
+    if (family >= 0x15) {
+	val6 = dnc_rdmsr(MSR_CU_CFG3);
+	dnc_wrmsr(MSR_CU_CFG3, val6 | (1ULL << 49));
+    }
+
+    disable_cache();
+
+    /* 3. Enable Probe Filter support */
+    val6 = dnc_rdmsr(MSR_CU_CFG2);
+    dnc_wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
+
+    if (family >= 0x15)
+	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f15);
+    else
+	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f10);
+
+    /* 4. Disable L3 cache */
+    disable_l3cache(nodes);
+
+    /* 4. Disable coherent prefetch probes */
+    for (i = 0; i < nodes; i++) {
+	val = cht_read_config(i, NB_FUNC_DRAM, 0x1b0);
+	cht_write_config(i, NB_FUNC_DRAM, 0x1b0, val &~ (7 << 8));
+    }
+
+    /* 4. Set F3x1C4[L3TagInit]=1 */
+    for (i = 0; i < nodes; i++) {
+	val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
+	cht_write_config(i, NB_FUNC_MISC, 0x1c4, val | (1 << 31));
+    }
+
+    /* 4. Wait for F3x1C4[L3TagInit]=0 */
+    for (i = 0; i < nodes; i++)
+	while (cht_read_config(i, NB_FUNC_MISC, 0x1c4) & (1 << 31))
+	    cpu_relax();
+
+    /* 4. Set PF flags depending on cache size */
+    if ((cht_read_config(i, NB_FUNC_MISC, 0x1c4) & 0xffff) == 0xcccc)
+	pfctrl = 3 | (1 << 4) | (1 << 6) | (1 << 8) | (1 << 10) | (2 << 20);
+    else
+	pfctrl = 2;
+
+    pfctrl |= (2 << 2) | (0xf << 12) | (1 << 17) | (1 << 29);
+
+    for (i = 0; i < nodes; i++)
+	cht_write_config(i, NB_FUNC_MISC, 0x1d4, pfctrl);
+
+    /* 6. Wait for F3x1D4[PFInitDone]=1 */
+    for (i = 0; i < nodes; i++)
+	while ((cht_read_config(i, NB_FUNC_MISC, 0x1d4) & (1 << 19)) == 0)
+	    cpu_relax();
+
+    /* 8.  Enable all cache activity in the system by clearing
+       CR0.CD for all active cores in the system */
+    enable_cache();
+    wake_local_cores(VECTOR_ENABLE_CACHE);
+
+    /* 9. Restore L3 and DRAM scrubber register values */
+    for (i = 0; i < nodes; i++) {
+	if (family >= 0x15)
+	    cht_write_config(i, NB_FUNC_MAPS, 0x10c, 0);
+	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i]);
+	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
+	cht_write_config(i, NB_FUNC_MISC, 0x5c, val | 1);
+    }
+
+    printf("done\n");
 }
 
 static void disable_link(int node, int link)
@@ -1500,6 +1700,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
         {"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
         {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
+        {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter is disabled */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
         {"renumber-bsp",    &parse_int,    &renumber_bsp},

@@ -40,6 +40,7 @@
 #define MSR_NODE_ID     0xc001100c
 #define MSR_LSCFG       0xc0011020
 #define MSR_CU_CFG2     0xc001102a
+#define MSR_CU_CFG3	0xc001102b
 
 #define MSR_MTRR_PHYS_BASE0 0x00000200
 #define MSR_MTRR_PHYS_BASE1 0x00000202

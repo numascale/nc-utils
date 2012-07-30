@@ -40,14 +40,15 @@
    } while (0)
 
 #define disable_cache() do { \
-    asm volatile("wbinvd\n" \
+    asm volatile( \
 	"mov %%cr0, %%eax\n" \
 	"or $0x40000000, %%eax\n" \
-	"mov %%eax, %%cr0\n" ::: "eax", "memory"); \
+	"mov %%eax, %%cr0\n" \
+	"wbinvd\n" ::: "eax", "memory"); \
 	} while (0)
 
 #define enable_cache() do { \
-    asm volatile("wbinvd\n" \
+    asm volatile( \
 	"mov %%cr0, %%eax\n" \
 	"and $~0x40000000, %%eax\n" \
 	"mov %%eax, %%cr0\n" ::: "eax", "memory"); \
@@ -110,6 +111,8 @@ int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
 		   struct node_info *info, struct part_info *part);
 void wait_for_master(struct node_info *info, struct part_info *part);
+void enable_probefilter(void);
+void wake_local_cores(const int vector);
 
 extern int dnc_asic_mode;
 extern int dnc_chip_rev;
@@ -127,6 +130,7 @@ extern u64 trace_buf;
 extern u32 trace_buf_size;
 extern int verbose;
 extern int nc_neigh, nc_neigh_link;
+extern int pf_probefilter;
 extern int forwarding_mode;
 extern int remote_io;
 extern int family;
