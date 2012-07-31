@@ -228,21 +228,21 @@ init_trampoline:
 	mov	%cs:SYM_OFFSET(new_mcfg_msr+4), %edx
 	wrmsr
 
-	// ERRATA #N28: Disable HT Lock mechanism. 
-	// AMD Email dated 31.05.2011 :
-	// There is a switch that can help with these high contention issues,
-	// but it isn't "productized" due to a very rare potential for live lock if turned on.
-	// Given that HUGE caveat, here is the information that I got from a good source:
-	// LSCFG[44] =1 will disable it. MSR number is C001_1020.
+	/* ERRATA #N28: Disable HT Lock mechanism. 
+	   AMD Email dated 31.05.2011 :
+	   There is a switch that can help with these high contention issues,
+	   but it isn't "productized" due to a very rare potential for live lock if turned on.
+	   Given that HUGE caveat, here is the information that I got from a good source:
+	   LSCFG[44] =1 will disable it. MSR number is C001_1020. */
 	mov	$MSR_LSCFG, %ecx
 	rdmsr
 	or	$0x1000, %edx
 	wrmsr
 
-	// AMD Fam 15h Errate #572: Access to PCI Extended Configuration Space in SMM is Blocked
-	// Suggested Workaround
-	// BIOS should set MSRC001_102A[27] = 1b.
-	// We do this unconditionally (ie on fam10h as well).
+	/* AMD Fam 15h Errate #572: Access to PCI Extended Configuration Space in SMM is Blocked
+	   Suggested Workaround
+	   BIOS should set MSRC001_102A[27] = 1b.
+	   We do this unconditionally (ie on fam10h as well). */
 	mov	$MSR_CU_CFG2, %ecx
 	rdmsr
 	or	$0x8000000, %eax
@@ -376,7 +376,7 @@ cpu_done1:
 cpu_done2:
 	.asciz  " done setting MTRRs.\r\n"
 
-// Print asciiz string at by cs:si
+/* Print asciiz string at by cs:si */
 print_strz:
 #if DEBUG_TRAMP
 	xor	%bx, %bx
@@ -450,7 +450,7 @@ EXPORT(new_e820_handler)
 	cmp	$0x534d4150, %edx
 	je	2f
 1:	ljmp	%cs:*SYM_OFFSET(old_int15_vec)
-//addr16	ljmp	%cs:*SYM_OFFSET(old_int15_vec)
+/* addr16	ljmp	%cs:*SYM_OFFSET(old_int15_vec) */
 
 2:	mov	$0x534d4150, %eax
 	cmp	$20, %ecx
@@ -495,7 +495,7 @@ EXPORT(new_mptable)
 asm_relocate_end:
 
 
-// Replacement code for brute-force SMM disable
+/* Replacement code for brute-force SMM disable */
 
 	.code16
 	.text

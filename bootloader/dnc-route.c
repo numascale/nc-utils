@@ -27,14 +27,14 @@
 #define OFFS_LTBL  0
 
 #define DEBUG_ROUTE(fmt, ...)
-//#define DEBUG_ROUTE(fmt, ...) printf(fmt, __VA_ARGS__)
+/* #define DEBUG_ROUTE(fmt, ...) printf(fmt, __VA_ARGS__) */
 
-#define SCI_ID_CHUNK(id) (((id) >> 8) & 0xf) // Note: Routing is deep enough to cover bit 12:8, but we use only 12bit NodeIDs
+#define SCI_ID_CHUNK(id) (((id) >> 8) & 0xf) /* Routing is deep enough to cover bit 12:8, but we use only 12bit NodeIDs */
 #define SCI_ID_REGNR(id) (((id) >> 4) & 0xf)
 #define SCI_ID_BITNR(id) (((id) >> 0) & 0xf)
 
 /* Route all 256 bxbar entries for chunk corresponding to "dest" over "link"
- * on "node". */
+ * on "node" */
 void add_chunk_route(u16 dest, u16 node, u8 link)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
@@ -61,7 +61,7 @@ void add_chunk_route(u16 dest, u16 node, u8 link)
 		node, dest, link);
 }
 
-/* Unroute all 256 entries for chunk corresponding to "dest" on "node". */
+/* Unroute all 256 entries for chunk corresponding to "dest" on "node" */
 void del_chunk_route(u16 dest, u16 node)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
@@ -78,8 +78,8 @@ void del_chunk_route(u16 dest, u16 node)
     }
 }
 
-/* Set route on "node" towards "dest" over "link".  Bitmask "width"
-   signifies width of route. */
+/* Set route on "node" towards "dest" over "link"; bitmask "width"
+   signifies width of route */
 void set_route(u16 dest, u16 node, u16 width, u8 link)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
@@ -102,8 +102,8 @@ void set_route(u16 dest, u16 node, u16 width, u8 link)
 		node, dest, width, link);
 }
 
-/* Add route on "node" towards "dest" over "link".  Bitmask "width"
-   signifies width of route. */
+/* Add route on "node" towards "dest" over "link"; bitmask "width"
+   signifies width of route */
 void add_route(u16 dest, u16 node, u16 width, u8 link)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
@@ -120,7 +120,7 @@ void add_route(u16 dest, u16 node, u16 width, u8 link)
 
     if (!scc) {
         csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
-        csr |= (1 << 6); // CONFIG4.tblrd is needed to read routing tables through CSR
+        csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
         dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
     }
         
@@ -142,7 +142,7 @@ void add_route(u16 dest, u16 node, u16 width, u8 link)
         dnc_write_csr(node, base + OFFS_LTBL + reg, csr);
 
         csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
-        csr &= ~(1 << 6); // Disbale CONFIG4.tblrd to enable normal routing operation
+        csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
         dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
     }
 
@@ -150,8 +150,8 @@ void add_route(u16 dest, u16 node, u16 width, u8 link)
 		node, dest, width, link);
 }
 
-/* Remove route on "node" towards "dest".  Bitmask "width" signifies
-   width of route. */
+/* Remove route on "node" towards "dest"; bitmask "width" signifies
+   width of route */
 void del_route(u16 dest, u16 node, u16 width)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
@@ -163,7 +163,7 @@ void del_route(u16 dest, u16 node, u16 width)
         dnc_write_csr(node, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
 
         csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
-        csr |= (1 << 6); // CONFIG4.tblrd is needed to read routing tables through CSR
+        csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
         dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
 
         csr = dnc_read_csr(node, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);
@@ -171,7 +171,7 @@ void del_route(u16 dest, u16 node, u16 width)
         dnc_write_csr(node, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg, csr);
 
         csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
-        csr &= ~(1 << 6); // Disbale CONFIG4.tblrd to enable normal routing operation
+        csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
         dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
         
         DEBUG_ROUTE("del_route: on %04x to %04x/%x\n",
@@ -179,8 +179,8 @@ void del_route(u16 dest, u16 node, u16 width)
     }
 }
 
-/* Set route towards "dest" over "link" on blink id "bid" via "node".
-   Bitmask "width" signifies width of route. */
+/* Set route towards "dest" over "link" on blink id "bid" via "node";
+   bitmask "width" signifies width of route */
 void set_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
 {
     int scc = (bid == 0);
@@ -203,8 +203,8 @@ void set_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
 		node, bid, dest, width, link);
 }
 
-/* Add route towards "dest" over "link" on blink id "bid" via "node".
-   Bitmask "width" signifies width of route. */
+/* Add route towards "dest" over "link" on blink id "bid" via "node";
+   bitmask "width" signifies width of route */
 void add_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
 {
     int scc = (bid == 0);
@@ -221,7 +221,7 @@ void add_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
 
     if (!scc) {
         csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
-        csr |= (1 << 6); // CONFIG4.tblrd is needed to read routing tables through CSR
+        csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
         dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
     }
     
@@ -243,7 +243,7 @@ void add_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
         dnc_write_csr_geo(node, bid, base + OFFS_LTBL + reg, csr);
 
         csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
-        csr &= ~(1 << 6); // Disbale CONFIG4.tblrd to enable normal routing operation
+        csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
         dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
     }
 
@@ -251,8 +251,8 @@ void add_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
 		node, bid, dest, width, link);
 }
 
-/* Remove route towards "dest" on blink id "bid" via "node".  Bitmask
-   "width" signifies width of route. */
+/* Remove route towards "dest" on blink id "bid" via "node"; bitmask
+   "width" signifies width of route */
 void del_route_geo(u16 dest, u16 node, u8 bid, u16 width)
 {
     int scc = (bid == 0);
@@ -264,7 +264,7 @@ void del_route_geo(u16 dest, u16 node, u8 bid, u16 width)
         dnc_write_csr_geo(node, bid, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
         
         csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
-        csr |= (1 << 6); // CONFIG4.tblrd is needed to read routing tables through CSR
+        csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
         dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
     
         csr = dnc_read_csr_geo(node, bid, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);
@@ -272,7 +272,7 @@ void del_route_geo(u16 dest, u16 node, u8 bid, u16 width)
         dnc_write_csr_geo(node, bid, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg, csr);
 
         csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
-        csr &= ~(1 << 6); // Disbale CONFIG4.tblrd to enable normal routing operation
+        csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
         dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
         
         DEBUG_ROUTE("del_route_geo: on %04x bid %d to %04x/%x\n",

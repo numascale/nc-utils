@@ -2092,7 +2092,7 @@ static void local_chipset_fixup(void)
 	printf("Adjusting local configuration of AMD SP5100...\n");
 	/* Disable config-space triggered SMI */
 	val = pmio_readb(0xa8);
-	pmio_writeb(0xa8, val & ~(3 << 4)); // Clear bit4 and bit5
+	pmio_writeb(0xa8, val & ~(3 << 4)); /* Clear bit4 and bit5 */
     }
 
     /* Only needed to workaround rev A/B issue */
@@ -2593,17 +2593,16 @@ static int nc_start(void)
 	/* Slave */
 	u32 val;
 
-	// Get the original e820 map for reference..
+	/* Get the original e820 map for reference */
 	load_orig_e820_map();
 	
 	/* Set G3x02c FAB_CONTROL bit 30 */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);
  
 	printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
-	/* print_status(); */
 	while (1) {
-	    val = dnc_check_mctr_status(0);
-	    val = dnc_check_mctr_status(1);
+	    (void)dnc_check_mctr_status(0);
+	    (void)dnc_check_mctr_status(1);
             
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 	    if ((val & (1<<31))) {

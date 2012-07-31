@@ -205,7 +205,7 @@ static void setup_device(int node, int bus, int dev, int fun)
 	/* Detect and disable any 32-bit I/O base */
 	val = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	if (val & 1) {
-//	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0);
+/*	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0); */
 	    printf("[%d device %d:%d.%d] skipping incompatible PIO region 0x%08x\n", node, bus, dev, fun, val);
 	    offset++;
 	    continue;
@@ -215,13 +215,13 @@ static void setup_device(int node, int bus, int dev, int fun)
 	dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0xffffffff);
 	val2 = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	if ((val2 & 6) != 4) {
-//	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0);
+/*	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0); */
 	    printf("[%d device %d:%d.%d] skipping incompatible MMIO region 0x%08x\n", node, bus, dev, fun, val);
 	    offset++;
 	    continue;
 	}
 
-	// current BAR is 64-bit capable
+	/* Current BAR is 64-bit capable */
 	addr = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	offset++;
 	dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, global);	
@@ -246,14 +246,14 @@ static void setup_bridge(int node, int bus, int dev, int fun)
     u32 val, val2;
     u64 addr;
 
-    printf("node-global MMIO space at 0x%016llx\n", global);
+    printf("Node-global MMIO space at 0x%016llx\n", global);
 
     while (offset < 2) {
 	/* Detect and disable any 32-bit I/O base */
 	val = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	if (val & 1) {
-//	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0);
-	    printf("[%d bridge %d:%d.%d] skipping incompatible PIO region 0x%08x\n", node, bus, dev, fun, val);
+/*	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0); */
+	    printf("[%d bridge %d:%d.%d] Skipping incompatible PIO region 0x%08x\n", node, bus, dev, fun, val);
 	    offset++;
 	    continue;
 	}
@@ -262,18 +262,18 @@ static void setup_bridge(int node, int bus, int dev, int fun)
 	dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0xffffffff);
 	val2 = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	if ((val2 & 6) != 4) {
-//	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0);
-	    printf("[%d bridge %d:%d.%d] skipping incompatible MMIO region 0x%08x\n", node, bus, dev, fun, val);
+/*	    dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, 0); */
+	    printf("[%d bridge %d:%d.%d] Skipping incompatible MMIO region 0x%08x\n", node, bus, dev, fun, val);
 	    offset++;
 	    continue;
 	}
 
-	// current BAR is 64-bit capable
+	/* Current BAR is 64-bit capable */
 	addr = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	offset++;
 	dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, global);	
 	addr |= (u64)dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4) << 32;
-	printf("[%03x bridge %d:%d.%d] setup BAR at offset %d to 0x%016llx\n", sci, bus, dev, fun, offset, addr);
+	printf("[%03x bridge %d:%d.%d] Setup BAR at offset %d to 0x%016llx\n", sci, bus, dev, fun, offset, addr);
 	offset++;
     }
 
@@ -295,21 +295,21 @@ static void mmio_setup_bridge(int node, int ht, int link, int sublink, u32 base,
 		type = (dnc_read_conf(sci, bus, dev, fun, 0xc) >> 16) & 0xff;
 		switch (type) {
 		case 0xff: /* Master Abort, skip */
-//		    printf("no device at node %d %02x:%02x.%x\n", node, bus, dev, fun);
+/*		    printf("No device at node %d %02x:%02x.%x\n", node, bus, dev, fun); */
 		    continue;
 		case 0:
-		    printf("device at node %d %02x:%02x.%x\n", node, bus, dev, fun);
+		    printf("Device at node %d %02x:%02x.%x\n", node, bus, dev, fun);
 		    setup_device(node, bus, dev, fun);
 		    break;
 		case 1:
-		    printf("bridge at node %d %02x:%02x.%x\n", node, bus, dev, fun);
+		    printf("Bridge at node %d %02x:%02x.%x\n", node, bus, dev, fun);
 		    setup_bridge(node, bus, dev, fun);
 		    break;
 		case 2:
-		    printf("cardbus bridge at node %d %02x:%02x.%x - skipping\n", node, bus, dev, fun);
+		    printf("Cardbus bridge at node %d %02x:%02x.%x - skipping\n", node, bus, dev, fun);
 		    break;
 		default:
-		    printf("unknown device type %d at node %d %02x:%02x.%x - skipping\n", type, node, bus, dev, fun);
+		    printf("Unknown device type %d at node %d %02x:%02x.%x - skipping\n", type, node, bus, dev, fun);
 		}
 	    }
 }
@@ -337,7 +337,7 @@ void tally_remote_node_mmio(u16 node)
 	    continue;
 
 	if (verbose)
-	    printf("node %d: existing MMIO range %d from 0x%016llx-0x%016llx %s %s %s %s HT=%d link=%d sublink=%d flags=0x%08x\n",
+	    printf("Node %d: existing MMIO range %d from 0x%016llx-0x%016llx %s %s %s %s HT=%d link=%d sublink=%d flags=0x%08x\n",
 	    node, i, base << DRAM_MAP_SHIFT, limit << DRAM_MAP_SHIFT,
 	    (flags & 1) ? "R" : "", (flags & 2) ? "W" : "", (flags & 8) ? "L" : "",
 	    (flags & 0x8000) ? "NP" : "P", (flags >> 8) & 7, (flags >> 12) & 3, (flags >> 14) & 1, flags);
@@ -365,7 +365,7 @@ void tally_remote_node_mmio(u16 node)
     }
 
     if (nc_node[node].mmio_end == nc_node[node].mmio_base) {
-	printf("no bridges detected on node %d\n", node);
+	printf("No bridges detected on node %d\n", node);
 	return;
     }
 
