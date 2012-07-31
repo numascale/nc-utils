@@ -327,10 +327,10 @@ static void update_e820_map(void)
     /* Add remote nodes */
     for (i = 0; i < dnc_node_count; i++) {
 	for (j = 0; j < 8; j++) {
-	    if ((i == 0) && (j == 0))
-		continue;
 	    if (!nc_node[i].ht[j].cpuid)
 		continue;
+	    if ((i == 0) && (j == 0))
+		continue; /* Skip BSP */
 
             e820[*len].base   = ((u64)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
             e820[*len].length = ((u64)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);

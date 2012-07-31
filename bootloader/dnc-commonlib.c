@@ -928,7 +928,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 }
 
 #ifdef __i386
-static void disable_probefilter(int nodes)
+static void disable_probefilter(const int nodes)
 {
     u32 val;
     u32 scrub[8];
@@ -994,6 +994,11 @@ static void disable_probefilter(int nodes)
 
     /* 9. Restore L3 and DRAM scrubber register values */
     for (i = 0; i <= nodes; i++) {
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_config(i, NB_FUNC_MAPS, 0x10c, 0);
 	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i]);
 	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
 	cht_write_config(i, NB_FUNC_MISC, 0x5c, val | 1);
@@ -1001,26 +1006,26 @@ static void disable_probefilter(int nodes)
     printf("done\n");
 }
 
-void wake_local_cores(const int vector)
+static void wake_local_cores(const int vector)
 {
     u64 val = dnc_rdmsr(MSR_APIC_BAR);
     volatile u32 *const apic = (void *const)((u32)val & ~0xfff);
     volatile u32 *const icr = &apic[0x300/4];
-    u32 n, ht, i, oldid, apicid;
 
     /* Ensure the table has been initialised */
     assert(nc_node[0].ht[0].cores);
 
-    for (n = 0; n < dnc_node_count; n++) {
-	for (ht = 0; ht < 8; ht++) {
-	    for (i = 0; i < nc_node[n].ht[ht].cores; i++) {
-		if (!nc_node[n].ht[ht].cpuid)
-		    continue;
-		if ((ht == 0) && (i == 0))
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+
+	    for (int c = 0; c < nc_node[n].ht[ht].cores; c++) {
+		if ((n == 0) && (ht == 0) && (c == 0))
 		    continue; /* Skip BSP */
 
-		oldid = nc_node[n].ht[ht].apic_base + i;
-		apicid = nc_node[n].apic_offset + oldid;
+		u32 oldid = nc_node[n].ht[ht].apic_base + c;
+		u32 apicid = nc_node[n].apic_offset + oldid;
 
 		/* Deliver initialize IPI */
 		apic[0x310/4] = apicid << 24;
@@ -1047,11 +1052,8 @@ void wake_local_cores(const int vector)
 
 void enable_probefilter(void)
 {
-    u32 val, pfctrl, scrub[8];
+    u32 val;
     u64 val6;
-    int i;
-
-    int nodes = 1;
 
     val = cht_read_config(0, NB_FUNC_MISC, 0x1d4);
     /* Probe filter already active? */
@@ -1062,20 +1064,29 @@ void enable_probefilter(void)
 
     printf("Enabling probe filter...");
 
+    u32 *scrub = malloc(dnc_node_count * 8 * sizeof(u32));
+    assert(scrub);
+
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
        - F3x58[L3Scrub]=00h
        - F3x58[DramScrub]=00h
        - F3x5C[ScrubRedirEn]=0 */
-    for (i = 0; i < nodes; i++) {
-	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-	   See erratum 505 */
-	if (family >= 0x15)
-	    cht_write_config(i, NB_FUNC_MAPS, 0x10c, 0);
-	scrub[i] = cht_read_config(i, NB_FUNC_MISC, 0x58);
-	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i] & ~0x1f00001f);
-	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
-	cht_write_config(i, NB_FUNC_MISC, 0x5c, val & ~1);
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+	    u16 sci = nc_node[n].sci_id;
+
+	    /* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+		Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+		See erratum 505 */
+	    if (family >= 0x15)
+		dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MAPS, 0x10c, 0);
+	    scrub[n * dnc_node_count + ht] = dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x58);
+	    dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x58, scrub[n * dnc_node_count + ht] & ~0x1f00001f);
+	    val = dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x5c);
+	    dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x5c, val & ~1);
+	}
     }
 
     /* 2. Wait 40us for outstanding scrub requests to complete */
@@ -1099,37 +1110,69 @@ void enable_probefilter(void)
 	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f10);
 
     /* 4. Disable coherent prefetch probes */
-    for (i = 0; i < nodes; i++) {
-	val = cht_read_config(i, NB_FUNC_DRAM, 0x1b0);
-	cht_write_config(i, NB_FUNC_DRAM, 0x1b0, val &~ (7 << 8));
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+	    u16 sci = nc_node[n].sci_id;
+
+	    val = dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_DRAM, 0x1b0);
+	    dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_DRAM, 0x1b0, val &~ (7 << 8));
+	}
     }
 
     /* 4. Set F3x1C4[L3TagInit]=1 */
-    for (i = 0; i < nodes; i++) {
-	val = cht_read_config(i, NB_FUNC_MISC, 0x1c4);
-	cht_write_config(i, NB_FUNC_MISC, 0x1c4, val | (1 << 31));
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+	    u16 sci = nc_node[n].sci_id;
+
+	    val = dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x1c4);
+	    dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x1c4, val | (1 << 31));
+	}
     }
 
     /* 4. Wait for F3x1C4[L3TagInit]=0 */
-    for (i = 0; i < nodes; i++)
-	while (cht_read_config(i, NB_FUNC_MISC, 0x1c4) & (1 << 31))
-	    cpu_relax();
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+	    u16 sci = nc_node[n].sci_id;
+
+	    while (dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x1c4) & (1 << 31))
+		cpu_relax();
+	}
+    }
 
     /* 4. Set PF flags depending on cache size */
-    if ((cht_read_config(i, NB_FUNC_MISC, 0x1c4) & 0xffff) == 0xcccc)
-	pfctrl = 3 | (1 << 4) | (1 << 6) | (1 << 8) | (1 << 10) | (2 << 20);
-    else
-	pfctrl = 2;
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+	    u16 sci = nc_node[n].sci_id;
+	    u32 pfctrl = (2 << 2) | (0xf << 12) | (1 << 17) | (1 << 29);
 
-    pfctrl |= (2 << 2) | (0xf << 12) | (1 << 17) | (1 << 29);
+	    if ((dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x1c4) & 0xffff) == 0xcccc)
+		pfctrl |= 3 | (1 << 4) | (1 << 6) | (1 << 8) | (1 << 10) | (2 << 20);
+	    else
+		pfctrl |= 2;
 
-    for (i = 0; i < nodes; i++)
-	cht_write_config(i, NB_FUNC_MISC, 0x1d4, pfctrl);
+	    dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x1d4, pfctrl);
+	}
+    }
 
     /* 6. Wait for F3x1D4[PFInitDone]=1 */
-    for (i = 0; i < nodes; i++)
-	while ((cht_read_config(i, NB_FUNC_MISC, 0x1d4) & (1 << 19)) == 0)
-	    cpu_relax();
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+	    u16 sci = nc_node[n].sci_id;
+
+	    while ((dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x1d4) & (1 << 19)) == 0)
+		cpu_relax();
+	}
+    }
 
     /* 8.  Enable all cache activity in the system by clearing
        CR0.CD for all active cores in the system */
@@ -1137,14 +1180,24 @@ void enable_probefilter(void)
     wake_local_cores(VECTOR_ENABLE_CACHE);
 
     /* 9. Restore L3 and DRAM scrubber register values */
-    for (i = 0; i < nodes; i++) {
-	if (family >= 0x15)
-	    cht_write_config(i, NB_FUNC_MAPS, 0x10c, 0);
-	cht_write_config(i, NB_FUNC_MISC, 0x58, scrub[i]);
-	val = cht_read_config(i, NB_FUNC_MISC, 0x5c);
-	cht_write_config(i, NB_FUNC_MISC, 0x5c, val | 1);
+    for (int n = 0; n < dnc_node_count; n++) {
+	for (int ht = 0; ht < 8; ht++) {
+	    if (!nc_node[n].ht[ht].cpuid)
+		continue;
+	    u16 sci = nc_node[n].sci_id;
+
+	    /* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+		Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+		See erratum 505 */
+	    if (family >= 0x15)
+		dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MAPS, 0x10c, 0);
+	    dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x58, scrub[n * dnc_node_count + ht]);
+	    val = dnc_read_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x5c);
+	    dnc_write_conf(sci, 0, 24 + ht, NB_FUNC_MISC, 0x5c, val | 1);
+	}
     }
 
+    free(scrub);
     printf("done\n");
 }
 
@@ -2132,7 +2185,6 @@ int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const ch
 
     if (adjust_oscillator(type, osc_setting) < 0)
         return -1;
-
 
     /* Read the SPD info from our DIMMs to see if they are supported */
     for (i = 0; i < 2; i++) {
