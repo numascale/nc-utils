@@ -94,6 +94,7 @@ struct state_bcast {
     u32 tid;
 };
 
+void udelay(u32 usecs);
 void wait_key(void);
 int cpu_family(u16 scinode, u8 node);
 void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest);
@@ -133,6 +134,7 @@ extern int pf_probefilter;
 extern int forwarding_mode;
 extern int remote_io;
 extern int family;
+extern u32 tsc_mhz;
 
 extern const char* node_state_name[];
 

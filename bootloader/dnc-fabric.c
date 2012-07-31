@@ -68,7 +68,7 @@ static int _raw_read(u32 dest, int geo, u32 addr, u32 *val)
 
     dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x2); /* Start RAW access */
 
-    tsc_wait(100);
+    udelay(100);
     
     ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
     if ((ctrl & 0xc00) != 0) {
@@ -125,7 +125,7 @@ void dnc_reset_phy(int phy)
     u32 val;
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy);
     dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, val | (1<<7) | (1<<13) | (1<<12));
-    tsc_wait(1000);
+    udelay(1000);
 }
 
 void dnc_reset_lc3(int lc)
@@ -133,7 +133,7 @@ void dnc_reset_lc3(int lc)
     u32 val;
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc);
     dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, val | (1<<6) | (1<<13) | (1<<12));
-    tsc_wait(1000);
+    udelay(1000);
 }
 
 int dnc_check_phy(int phy)
@@ -154,9 +154,9 @@ again:
         printf("HSSY%s STAT_1 is 0x%x; issuing HSS reset\n", phyname, stat);
         /* Trigger a HSS PLL reset */
         dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, 1);
-        tsc_wait(500);
+        udelay(500);
         (void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current I2C transaction, to avoid a bug in the uC */
-        tsc_wait(2000);
+        udelay(2000);
         goto again;
     }
     

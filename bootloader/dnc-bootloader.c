@@ -102,19 +102,6 @@ extern u8 smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
-void tsc_wait(u32 mticks)
-{
-    u64 count;
-    u64 stop;
-
-    count = rdtscll() >> 1;
-    stop = count + ((u64)mticks << (20 - 1));
-    while(stop > count) {
-	cpu_relax();
-	count = rdtscll() >> 1;
-    }
-}
-
 static void disable_xtpic(void)
 {
     inb(PIC_MASTER_IMR);
@@ -1028,7 +1015,7 @@ static void setup_other_cores(void)
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (!(*icr & 0x1000))
 		    break;
-		tsc_wait(10);
+		udelay(10);
 	    }
 	    if (*icr & 0x1000)
 		printf("init IPI not delivered\n");
@@ -1040,7 +1027,7 @@ static void setup_other_cores(void)
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (!(*icr & 0x1000))
 		    break;
-		tsc_wait(10);
+		udelay(10);
 	    }
 	    if (*icr & 0x1000)
 		printf("startup IPI not delivered\n");
@@ -1048,7 +1035,7 @@ static void setup_other_cores(void)
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (*REL32(cpu_status) == 0)
 		    break;
-		tsc_wait(10);
+		udelay(10);
 	    }
 	    if (*REL32(cpu_status) == 0) {
 		printf("reported done\n");
@@ -1216,7 +1203,7 @@ static void setup_remote_cores(u16 num)
     printf("Checking if SCI%03x is ready\n", node);
     do {
         val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
-        tsc_wait(200);
+        udelay(200);
     } while (!(val & 0x40000000UL));
 
     val |= 0x80000000UL;
@@ -1224,7 +1211,7 @@ static void setup_remote_cores(u16 num)
     printf("Waiting for SCI%03x to acknowledge\n", node);
     while (val & 0x80000000UL) {
         val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
-        tsc_wait(200);
+        udelay(200);
     }
 
     /* Map MMIO 0x00000000 - 0xffffffff to master node */
@@ -1419,7 +1406,7 @@ static void setup_remote_cores(u16 num)
     }
     printf("int_status: %x\n", dnc_read_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_STATUS));
 
-    tsc_wait(200);
+    udelay(200);
     
     *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
 
@@ -1438,14 +1425,14 @@ static void setup_remote_cores(u16 num)
 	    *REL64(rem_smm_base_msr) = ~0ULL;
 
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (oldid<<16));
-	    tsc_wait(50);
+	    udelay(50);
 	    assert(((u32)REL32(init_dispatch) & ~0xff000) == 0);
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
 			  0xff002600 | (oldid << 16) | (((u32)REL32(init_dispatch) >> 12) & 0xff));
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (*REL32(cpu_status) == 0)
 		    break;
-		tsc_wait(10);
+		udelay(10);
 	    }
 
 	    if (*REL32(cpu_status) == 0) {
@@ -1928,7 +1915,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	if (++count >= backoff) {
 	    if (cmd.state != CMD_STARTUP)
 		udp_broadcast_state(handle, &cmd, sizeof(cmd));
-	    tsc_wait(100 * backoff);
+	    udelay(100 * backoff);
 	    last_stat += backoff;
 	    if (backoff < 32)
 		backoff = backoff * 2;
@@ -2489,6 +2476,21 @@ static void get_hostname(void)
 #define ERR_UNIFY_ALL_NODES        -8 
 #define ERR_GENERAL_NC_START_ERROR -9
 
+static void constants(void)
+{
+    family = cpu_family(0xfff0, 0) >> 16;
+    if (family >= 0x15) {
+	u32 val = cht_read_config(0, NB_FUNC_EXTD, 0x160);
+	tsc_mhz = 200 * (((val >> 1) & 0x1f) + 4) / (1 + ((val >> 8) & 1));
+    } else {
+	u32 val = cht_read_config(0, NB_FUNC_MISC, 0xd4);
+	u64 val6 = dnc_rdmsr(0xc0010071);
+	tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
+    }
+
+    printf("NB/TSC freqency is %dMHz\n", tsc_mhz);
+}
+
 static int nc_start(void)
 {
     u32 uuid;
@@ -2499,7 +2501,7 @@ static int nc_start(void)
     if (check_api_version() < 0)
         return ERR_API_VERSION;
 
-    family = cpu_family(0xfff0, 0) >> 16;
+    constants();
     get_hostname();
 
     /* Only in effect on core 0, but only required for 32-bit code */
@@ -2544,7 +2546,7 @@ static int nc_start(void)
     local_chipset_fixup();
 
     if (info->sync_only) {
-	tsc_wait(5000);
+	udelay(5000);
 	start_user_os();
     }
 
@@ -2574,7 +2576,7 @@ static int nc_start(void)
 	    if (wait > 100000) {
 		wait = 100;
 	    }
-	    tsc_wait(wait);
+	    udelay(wait);
 	    wait <<= 2;
 	    dnc_check_fabric(info);
 	}
@@ -2611,7 +2613,7 @@ static int nc_start(void)
 	    }
 
 	    dnc_check_fabric(info);
-	    tsc_wait(1000);
+	    udelay(1000);
 	}
 
 	/* On non-root servers, prevent writing to unexpected locations */

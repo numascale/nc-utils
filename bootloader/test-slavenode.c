@@ -41,10 +41,6 @@
 
 int ht_testmode = 0;
 
-void tsc_wait(u32 mticks) {
-    usleep((useconds_t)mticks*1000);
-}
-
 static void sighandler(int sig)
 {
     printf("Received signal %d. aborting!\n", sig);
@@ -203,7 +199,7 @@ int main(int argc, char **argv)
 
     if (sync_mode >= 1) {
 	wait_for_master(info, part);
-	tsc_wait(5000);
+	udelay(5000);
     }
     else {
 	printf("Only doing out-of-band sync rev 01 hardware and later...\n"); 
@@ -230,7 +226,7 @@ int main(int argc, char **argv)
 	}
 
 	dnc_check_fabric(info);
-	tsc_wait(1000);
+	udelay(1000);
     }
     
     return 0;

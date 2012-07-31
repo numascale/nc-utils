@@ -126,7 +126,7 @@ static void stop_ohci(int bus, int dev, int fn)
 	mem64_write32(bar0 + HcInterruptEnable, OHCI_INTR_OC); /* Enable OwnershipChange interrupt */
 	mem64_write32(bar0 + HcCommandStatus, OHCI_OCR); /* Request OwnershipChange */
 	while (mem64_read32(bar0 + HcControl) & OHCI_CTRL_IR) {
-	    tsc_wait(100);
+	    udelay(100);
 	    if (--temp == 0) {
 		printf("legacy handoff timed out\n");
 		return;
@@ -184,7 +184,7 @@ static void stop_ehci(int bus, int dev, int fn)
     int limit = 100;
 
     do {
-	tsc_wait(100);
+	udelay(100);
 	legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
 	if ((legsup & (1 << 16)) == 0) {
 	    printf("legacy handoff succeeded\n");
@@ -226,7 +226,7 @@ static void stop_xhci(int bus, int dev, int fn)
     int limit = 100;
 
     do {
-	tsc_wait(100);
+	udelay(100);
 	legsup = mem64_read32(bar0 + ecp);
 	if ((legsup & (1 << 16)) == 0) {
 	    printf("legacy handoff succeeded\n");
@@ -268,7 +268,7 @@ static void stop_ahci(int bus, int dev, int fn)
     int limit = 100;
 
     do {
-	tsc_wait(100);
+	udelay(100);
 	legsup = mem64_read32(bar5 + 0x28);
 	if ((legsup & 1) == 0) {
 	    printf("legacy handoff succeeded\n");
@@ -306,7 +306,7 @@ static void stop_acpi(void)
     int limit = 100;
 
     do {
-	tsc_wait(100);
+	udelay(100);
 	sci_en = inb(acpipm1cntblk);
 	if ((sci_en & 1) == 1) {
 	    printf("legacy handoff succeeded\n");

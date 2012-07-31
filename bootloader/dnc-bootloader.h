@@ -103,7 +103,6 @@ extern char *asm_relocated;
 extern unsigned char asm_relocate_start;
 extern unsigned char asm_relocate_end;
 
-void tsc_wait(u32 mticks);
 int read_config_file(char *file_name);
 int udp_open(void);
 void udp_broadcast_state(int handle, void *buf, int len);

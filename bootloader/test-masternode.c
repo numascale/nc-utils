@@ -41,10 +41,6 @@
 
 int ht_testmode = 0;
 
-void tsc_wait(u32 mticks) {
-    usleep((useconds_t)mticks*1000);
-}
-
 static void sighandler(int sig)
 {
     printf("Received signal %d. aborting!\n", sig);

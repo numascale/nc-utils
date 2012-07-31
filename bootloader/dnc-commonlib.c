@@ -62,6 +62,7 @@ u64 trace_buf = 0;
 u32 trace_buf_size = 0;
 int verbose = 0;
 int family = 0;
+u32 tsc_mhz = 0;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 
@@ -79,6 +80,14 @@ u32 max_mem_per_node;
 
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
+
+void udelay(const u32 usecs)
+{
+    u64 limit = rdtscll() + (u64)usecs * tsc_mhz;
+
+    while (rdtscll() < limit)
+	cpu_relax();
+}
 
 void wait_key(void)
 {
@@ -310,7 +319,7 @@ static int dnc_initialize_sram(void) {
 	    printf("Waiting for SRAM clock calibration\n");
 	
 	while (((val >> 24) & 0xff) != 0x3f) {
-	    tsc_wait(100);
+	    udelay(100);
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
 	    if ((val & 0xc000000) != 0) {
 		printf("SRAM clock calibration overflow detected (%08x)\n", val);
@@ -322,7 +331,7 @@ static int dnc_initialize_sram(void) {
 	/* Zero out FTag SRAM */
 	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
 	while (1) { 
-	    tsc_wait(100);
+	    udelay(100);
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
 	    if ((val & 1) == 0)
 		break;
@@ -363,7 +372,7 @@ int dnc_init_caches(void) {
                 
                 printf("Polling the Denali Interrupt Status Register\n");
                 do {
-                    tsc_wait(100);
+                    udelay(100);
                     val = dnc_check_mctr_status(cdata);
                 } while (!(val & 0x40));
                 
@@ -451,7 +460,7 @@ int dnc_init_caches(void) {
         val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
         dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1<<4));
         do {
-            tsc_wait(100);
+            udelay(100);
             val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
         } while (!(val & 2));
         val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
@@ -855,24 +864,24 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         ((asic_mode && rev >= 2) || (!asic_mode && (rev >> 16) >= 6453)))))
     {
 	printf("*");
-	tsc_wait(50);
+	udelay(50);
 	val = cht_read_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20);
 	printf(".");
 	if ((val >> 24) != 0x11) {
 	    printf("<CPU width>");
-	    tsc_wait(50);
+	    udelay(50);
 	    cht_write_config(neigh, NB_FUNC_HT, 0x84 + link * 0x20,
 			     (val & 0x00ffffff) | 0x11000000);
 	    reboot = 1;
 	}
-	tsc_wait(50);
+	udelay(50);
 	printf(".");
 	val = cht_read_config_nc(nc, 0, neigh, link,
                                  H2S_CSR_F0_LINK_CONTROL_REGISTER);
 	printf(".");
 	if ((val >> 24) != 0x11) {
 	    printf("<NC width>");
-	    tsc_wait(50);
+	    udelay(50);
 	    cht_write_config_nc(nc, 0, neigh, link,
                                 H2S_CSR_F0_LINK_CONTROL_REGISTER,
                                 (val & 0x00ffffff) | 0x11000000);
@@ -884,24 +893,24 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     /* On ASIC optimize link frequency (800MHz), if option to disable this is not set */
     if (asic_mode && !ht_200mhz_only) {
         printf("+");
-        tsc_wait(50);
+        udelay(50);
         val = cht_read_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20);
         printf(".");
         if (((val >> 8) & 0xf) != 0x5) {
             printf("<CPU freq>");
-            tsc_wait(50);
+            udelay(50);
             cht_write_config(neigh, NB_FUNC_HT, 0x88 + link * 0x20,
                              (val & ~0xf00) | 0x500);
             reboot = 1;
         }
-        tsc_wait(50);
+        udelay(50);
         printf(".");
         val = cht_read_config_nc(nc, 0, neigh, link,
                                  H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER);
         printf(".");
         if (((val >> 8) & 0xf) != 0x5) {
             printf("<NC freq>");
-            tsc_wait(50);
+            udelay(50);
             cht_write_config_nc(nc, 0, neigh, link,
                                 H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER,
                                 (val & ~0xf00) | 0x500);
@@ -960,7 +969,7 @@ static void disable_probefilter(const int nodes)
     }
 
     /* 2.  Wait 40us for outstanding scrub requests to complete */
-    tsc_wait(40);
+    udelay(40);
 
     /* 3.  Disable all cache activity in the system by setting
        CR0.CD for all active cores in the system */
@@ -1090,7 +1099,7 @@ void enable_probefilter(void)
     }
 
     /* 2. Wait 40us for outstanding scrub requests to complete */
-    tsc_wait(40);
+    udelay(40);
 
     /* 3. Ensure CD bit is shared amongst cores */
     if (family >= 0x15) {
@@ -1557,13 +1566,13 @@ static void set_eeprom_instruction(u16 node, u32 instr)
     reg = 0x100;
     while (reg & 0x100) {
         reg = dnc_read_csr(node, H2S_CSR_G3_SPI_INSTRUCTION_AND_STATUS);
-        if (reg & 0x100) tsc_wait(100);
+        if (reg & 0x100) udelay(100);
     }
 }
 
 static u32 read_eeprom_dword(u16 node, u32 addr) {
     set_eeprom_instruction(node, SPI_INSTR_WRDI);
-    tsc_wait(100);
+    udelay(100);
     set_eeprom_instruction(node, (addr << 16) | SPI_INSTR_READ);
     return dnc_read_csr(node, H2S_CSR_G3_SPI_READ_WRITE_DATA);
 }
@@ -1588,7 +1597,7 @@ static u32 identify_eeprom(u16 node, char type[16], u8 *osc_setting)
 static void _pic_reset_ctrl(int val)
 {
     dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, val);
-    tsc_wait(500);
+    udelay(500);
     (void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC */
 }
 
@@ -1608,7 +1617,7 @@ static int adjust_oscillator(char *type, u8 osc_setting)
             return 0;
         }
         dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
-        tsc_wait(500);
+        udelay(500);
         val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 	
         /* On the RevC cards the micro controller isn't quite fast enough
@@ -1622,17 +1631,17 @@ static int adjust_oscillator(char *type, u8 osc_setting)
             dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
             
 	    /* Wait for the new frequency to settle */
-            tsc_wait(500);
+            udelay(500);
             
 	    /* Read back value, to verify */
 	    dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
-	    tsc_wait(500);
+	    udelay(500);
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 	    printf("New current set oscillator setting: %d (raw=%08x)\n", (val>>24) & 3, val);
 	    
 	    /* Trigger a HSS PLL reset */
             _pic_reset_ctrl(1);
-            tsc_wait(500);
+            udelay(500);
         }
     } else {
 	printf("Oscillator not set, card is of type %s and doesn't support this\n", type);
@@ -2304,7 +2313,7 @@ static int _check_dim(int dim)
                _get_linkname(linkida), _get_linkname(linkidb));
         /* Counter-rotating rings, reset both phys */
         dnc_reset_phy(linkida); dnc_reset_phy(linkidb);
-        tsc_wait(1000);
+        udelay(1000);
 
 	ok = (dnc_check_phy(linkida) == 0);
 	ok &= (dnc_check_phy(linkidb) == 0);
@@ -2323,7 +2332,7 @@ static int _check_dim(int dim)
                _get_linkname(linkida), _get_linkname(linkidb));
         /* Counter-rotating rings, reset both phys */
         dnc_reset_phy(linkida); dnc_reset_phy(linkidb);
-        tsc_wait(1000);
+        udelay(1000);
 
 	ok = (dnc_check_phy(linkida) == 0);
 	ok &= (dnc_check_phy(linkidb) == 0);
@@ -2512,24 +2521,24 @@ static enum node_state enter_reset(struct node_info *info)
 	    if (tries == 0) {
 		printf("HSSXA_STAT_1 is zero, toggling reset...\n");
 		_pic_reset_ctrl(2);
-		tsc_wait(1000);
+		udelay(1000);
 	    }
 	    /* printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries); */
-	    tsc_wait(200);
+	    udelay(200);
 	    if (tries++ > 16)
 		tries = 0;
 	}
 
-	tsc_wait(200);
+	udelay(200);
 
 	/* Hold reset */
 	_pic_reset_ctrl(2);
-	tsc_wait(200);
+	udelay(200);
 	tries = 0;
 	while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
 	    /* printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
 	       val, tries); */
-	    tsc_wait(200);
+	    udelay(200);
 	    if (tries++ > 16)
 		return enter_reset(info);
 	}
@@ -2547,9 +2556,9 @@ static enum node_state enter_reset(struct node_info *info)
 static int phy_check_status(int phy)
 {
     u32 val;
-    tsc_wait(200);
+    udelay(200);
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
-    tsc_wait(200);
+    udelay(200);
     if (val & 0xf0) {
 	/* Clock compensation error, try forced retraining */
 	dnc_reset_phy(phy);
@@ -2584,12 +2593,12 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
     if (dnc_asic_mode && dnc_chip_rev >= 1) {
 	/* Release reset */
 	_pic_reset_ctrl(2);
-	tsc_wait(200);
+	udelay(200);
 	i = 0;
 	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
 	    if (i++ > 20)
 		return RSP_PHY_NOT_TRAINED;
-	    tsc_wait(200);
+	    udelay(200);
 	}
     }
 
@@ -2617,7 +2626,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
 	    phy_print_error(pending);
 	    return RSP_PHY_NOT_TRAINED;
 	}
-	tsc_wait(200);
+	udelay(200);
     }
 }			
 
@@ -2626,7 +2635,7 @@ static int lc_check_status(int lc, int dimidx)
     if (dnc_check_lc3(lc) == 0)
 	return 0;
 
-    tsc_wait(200);
+    udelay(200);
     /* Only initiate resets from one of the ring nodes */
     if (dimidx == 0) {
 	printf("Initiating reset on LC%s\n", _get_linkname(lc));
@@ -2659,7 +2668,7 @@ static enum node_state validate_rings(struct node_info *info)
 	    return RSP_RINGS_OK;
 	if (i++ > 1000)
 	    return RSP_RINGS_NOT_OK;
-	tsc_wait(200);
+	udelay(200);
     }
 }
 
@@ -2672,7 +2681,7 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	    *rstate = enter_reset(info);
 	    return 1;
 	case CMD_RELEASE_RESET:
-	    tsc_wait(2000);
+	    udelay(2000);
 	    *rstate = release_reset(info);
 	    return 1;
 	case CMD_VALIDATE_RINGS:
@@ -2681,7 +2690,7 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	case CMD_SETUP_FABRIC:
 	    *rstate = (dnc_setup_fabric(info) == 0) ?
 		      RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
-	    tsc_wait(2000);
+	    udelay(2000);
 	    return 1;
 	case CMD_VALIDATE_FABRIC:
 	    *rstate = dnc_check_fabric(info) ?
@@ -2719,7 +2728,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	    printf("Broadcasting state: %s (sciid 0x%03x, uuid %d, tid %d)\n",
                    node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
 	    udp_broadcast_state(handle, &rsp, sizeof(rsp));
-	    tsc_wait(100 * backoff);
+	    udelay(100 * backoff);
 	    if (backoff < 32)
 		backoff = backoff * 2;
 	    count = 0;

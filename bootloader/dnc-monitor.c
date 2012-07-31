@@ -113,13 +113,13 @@ void system_activity(void)
 	dnc_wrmsr(MSR_PERF_CTL0, 0); /* Disable counter */
 	dnc_wrmsr(MSR_PERF_CTR0, 0); /* Reset count */
 
-	tsc_wait(10); /* Warmup */
+	udelay(10); /* Warmup */
 
 	dnc_wrmsr(MSR_PERF_CTL0,
 	    (ev->event & 0xff) | (ev->unitmask << 8) | (3 << 16) |
 	    (1 << 22) | ((ev->event & 0xf00ULL) << (32 - 8)));
 
-	tsc_wait(2000);
+	udelay(2000);
 
 	val = dnc_rdmsr(MSR_PERF_CTR0);
 
