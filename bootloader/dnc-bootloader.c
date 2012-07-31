@@ -2624,12 +2624,11 @@ static int nc_start(void)
         /* Disable legacy PIC interrupts and cache */
 	disable_xtpic();
 	disable_cache();
-
-	cli();
 	
 	/* Let master know we're ready for remapping/integration */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1<<31));
 	while (1) {
+	    cli();
 	    asm volatile("hlt" ::: "memory");
 	}
     }
