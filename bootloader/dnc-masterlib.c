@@ -78,7 +78,7 @@ void tally_local_node(int enforce_alignment)
     nc_node[0].nc_neigh = nc_neigh;
     nc_node[0].addr_base = 0;
 
-    val = cht_read_conf(0, NB_FUNC_HT, 0x60);
+    val = cht_read_conf(0, FUNC0_HT, 0x60);
     max_ht_node = (val >> 4) & 7;
 
 #ifdef __i386
@@ -101,7 +101,7 @@ void tally_local_node(int enforce_alignment)
 	nc_node[0].ht[i].base  = 0;
 	nc_node[0].ht[i].size  = 0;
 
-	nc_node[0].ht[i].cpuid = cht_read_conf(0, NB_FUNC_MISC, 0xfc);
+	nc_node[0].ht[i].cpuid = cht_read_conf(0, FUNC3_MISC, 0xfc);
 	if ((nc_node[0].ht[i].cpuid == 0) ||
 	    (nc_node[0].ht[i].cpuid == 0xffffffff) ||
 	    (nc_node[0].ht[i].cpuid != nc_node[0].ht[0].cpuid))
@@ -114,8 +114,8 @@ void tally_local_node(int enforce_alignment)
 	    
 	nc_node[0].ht[i].pdom = ht_pdom_count++;
 
-        base = cht_read_conf(i, NB_FUNC_MAPS, 0x120);
-        limit = cht_read_conf(i, NB_FUNC_MAPS, 0x124);
+        base = cht_read_conf(i, FUNC1_MAPS, 0x120);
+        limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
 
 	if (limit & 0x1fffff) {
 	    nc_node[0].ht[i].base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
@@ -134,10 +134,10 @@ void tally_local_node(int enforce_alignment)
 			continue;
 		    if (!nc_node[0].ht[j].cpuid)
 			continue;
-		    cht_write_conf(j, NB_FUNC_MAPS, 0x44 + i*8, (limit << 16) |
-				     (cht_read_conf(j, NB_FUNC_MAPS, 0x44 + i*8) & 0xffff));
+		    cht_write_conf(j, FUNC1_MAPS, 0x44 + i*8, (limit << 16) |
+				     (cht_read_conf(j, FUNC1_MAPS, 0x44 + i*8) & 0xffff));
 		}
-		cht_write_conf(i, NB_FUNC_MAPS, 0x124, limit >> (27 - DRAM_MAP_SHIFT));
+		cht_write_conf(i, FUNC1_MAPS, 0x124, limit >> (27 - DRAM_MAP_SHIFT));
 		asm volatile("wbinvd" ::: "memory");
 	    }
 	}
@@ -146,10 +146,10 @@ void tally_local_node(int enforce_alignment)
 	nc_node[0].ht[i].cores = 1;
 
 	if (family < 0x15) {
-	    val = cht_read_conf(i, NB_FUNC_HT, 0x68);
+	    val = cht_read_conf(i, FUNC0_HT, 0x68);
 	    if (val & 0x20) nc_node[0].ht[i].cores++; /* Cpu1En */
 
-	    val = cht_read_conf(i, NB_FUNC_HT, 0x168);
+	    val = cht_read_conf(i, FUNC0_HT, 0x168);
 	    if (val & 0x01) nc_node[0].ht[i].cores++; /* Cpu2En */
 	    if (val & 0x02) nc_node[0].ht[i].cores++; /* Cpu3En */
 	    if (val & 0x04) nc_node[0].ht[i].cores++; /* Cpu4En */
@@ -192,11 +192,11 @@ void tally_local_node(int enforce_alignment)
 		continue;
 	    if (!nc_node[0].ht[i].cpuid)
 		continue;
-	    limit = cht_read_conf(i, NB_FUNC_MAPS, 0x44 + last*8);
-	    cht_write_conf(i, NB_FUNC_MAPS, 0x44 + last*8, limit - (rest << 16));
+	    limit = cht_read_conf(i, FUNC1_MAPS, 0x44 + last*8);
+	    cht_write_conf(i, FUNC1_MAPS, 0x44 + last*8, limit - (rest << 16));
 	}
-        limit = cht_read_conf(last, NB_FUNC_MAPS, 0x124);
-        cht_write_conf(last, NB_FUNC_MAPS, 0x124, limit - (rest >> (27 - DRAM_MAP_SHIFT)));
+        limit = cht_read_conf(last, FUNC1_MAPS, 0x124);
+        cht_write_conf(last, FUNC1_MAPS, 0x124, limit - (rest >> (27 - DRAM_MAP_SHIFT)));
 	asm volatile("wbinvd" ::: "memory");
     }
     
@@ -247,7 +247,7 @@ static int tally_remote_node(u16 node)
     dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
     cur_node->addr_base = dnc_top_of_mem;
 
-    val = dnc_read_conf(node, 0, 24, NB_FUNC_HT, 0x60);
+    val = dnc_read_conf(node, 0, 24, FUNC0_HT, 0x60);
     if (val == 0xffffffff) {
         printf("Error: Can't access config space on SCI%03x\n", node);
         return 1; /* Ignore node */
@@ -277,7 +277,7 @@ static int tally_remote_node(u16 node)
 	cur_node->ht[i].base  = 0;
 	cur_node->ht[i].size  = 0;
 
-	cur_node->ht[i].cpuid = dnc_read_conf(node, 0, 24+i, NB_FUNC_MISC, 0xfc);
+	cur_node->ht[i].cpuid = dnc_read_conf(node, 0, 24+i, FUNC3_MISC, 0xfc);
 	if ((cur_node->ht[i].cpuid == 0) ||
 	    (cur_node->ht[i].cpuid == 0xffffffff) ||
 	    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid))
@@ -289,15 +289,15 @@ static int tally_remote_node(u16 node)
 	}
 	cur_node->ht[i].pdom = ht_pdom_count++;
 
-        base  = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x120);
-        limit = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0x124);
+        base  = dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x120);
+        limit = dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x124);
 
 	if (limit & 0x1fffff) {
 	    base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
 	    limit = (limit & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
 	    limit = limit | (0xffffffff >> (32 - 27 + DRAM_MAP_SHIFT));
 
-	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MAPS, 0xf0);
+	    val = dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0xf0);
 	    if ((val & 3) == 3)
 		limit -= ((val >> 8) & 0xff) - base;
 	    cur_node->ht[i].base = dnc_top_of_mem;
@@ -319,19 +319,19 @@ static int tally_remote_node(u16 node)
 	cur_node->ht[i].cores = 1;
 
 	if (family < 0x15) {
-	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x68);
+	    val = dnc_read_conf(node, 0, 24+i, FUNC0_HT, 0x68);
 	    if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
 
-	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_HT, 0x168);
+	    val = dnc_read_conf(node, 0, 24+i, FUNC0_HT, 0x168);
 	    if (val & 0x01) cur_node->ht[i].cores++; /* Cpu2En */
 	    if (val & 0x02) cur_node->ht[i].cores++; /* Cpu3En */
 	    if (val & 0x04) cur_node->ht[i].cores++; /* Cpu4En */
 	    if (val & 0x08) cur_node->ht[i].cores++; /* Cpu5En */
 	}
 	else {
-	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_EXTD, 0x84);
+	    val = dnc_read_conf(node, 0, 24+i, FUNC5_EXTD, 0x84);
 	    cur_node->ht[i].cores += val & 0xff;
-	    val = dnc_read_conf(node, 0, 24+i, NB_FUNC_MISC, 0x190);
+	    val = dnc_read_conf(node, 0, 24+i, FUNC3_MISC, 0x190);
 	    while (val > 0) {
 		if (val & 1)
 		    cur_node->ht[i].cores--;

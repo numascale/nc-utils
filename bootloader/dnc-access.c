@@ -140,7 +140,7 @@ void watchdog_setup(void)
 
     /* Enable watchdog decode */
     u32 val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
-    dnc_write_conf(0xfff0, 0, 20, NB_FUNC_HT, 0x41, val2 | (1 << 3));
+    dnc_write_conf(0xfff0, 0, 20, FUNC0_HT, 0x41, val2 | (1 << 3));
 
     /* Write watchdog base address */
     pmio_writel(0x6c, (unsigned int)watchdog_ctl);
@@ -156,8 +156,8 @@ void reset_cf9(int mode, int last)
     msleep(1000);
 
     for (i = 0; i <= last; i++) {
-	u32 val = cht_read_conf(i, NB_FUNC_HT, 0x6c);
-	cht_write_conf(i, NB_FUNC_HT, 0x6c, val | 0x20); /* BiosRstDet */
+	u32 val = cht_read_conf(i, FUNC0_HT, 0x6c);
+	cht_write_conf(i, FUNC0_HT, 0x6c, val | 0x20); /* BiosRstDet */
     }
     outb(mode, 0xcf9);
     outb(mode | 4, 0xcf9);
@@ -214,7 +214,7 @@ void cht_write_conf(u8 node, u8 func, u16 reg, u32 val)
 /* Check for link instability */
 static int cht_error(int node, int link)
 {
-    u32 status = cht_read_conf(node, NB_FUNC_HT, 0x84 + link * 0x20);
+    u32 status = cht_read_conf(node, FUNC0_HT, 0x84 + link * 0x20);
     return status & ((3 << 8) | (1 << 4)); /* CrcErr, LinkFail */
 }
 

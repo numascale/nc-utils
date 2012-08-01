@@ -29,11 +29,11 @@
 #include "dnc-route.h"
 #include "dnc-acpi.h"
 
-#define NB_FUNC_HT    0
-#define NB_FUNC_MAPS  1
-#define NB_FUNC_DRAM  2
-#define NB_FUNC_MISC  3
-#define NB_FUNC_LINK  4
+#define FUNC0_HT    0
+#define FUNC1_MAPS  1
+#define FUNC2_DRAM  2
+#define FUNC3_MISC  3
+#define FUNC4_LINK  4
 
 com32sys_t inreg, outreg;
 u32 dnc_ht_node = 2;
@@ -61,18 +61,18 @@ void add_extd_mmio_maps(int node, int idx, u64 start, u64 end, int dest)
         mask = (mask << 1) | 1;
 
     /* CHtExtAddrEn */
-    val	= cht_read_conf(node, NB_FUNC_HT, 0x68);
-    cht_write_conf(node, NB_FUNC_HT, 0x68, val | (1<<25));
+    val	= cht_read_conf(node, FUNC0_HT, 0x68);
+    cht_write_conf(node, FUNC0_HT, 0x68, val | (1<<25));
 
     /* Set ExtMmioMapAddSel granularity to 128M */
-    val	= cht_read_conf(node,  NB_FUNC_HT, 0x168);
-    cht_write_conf(node, NB_FUNC_HT, 0x168, (val & ~0x300) | 0x200);
+    val	= cht_read_conf(node,  FUNC0_HT, 0x168);
+    cht_write_conf(node, FUNC0_HT, 0x168, (val & ~0x300) | 0x200);
 
     /* Direct FF00_0000_0000 - FFFF_FFFF_FFFF towards DNC node */
-    cht_write_conf(node, NB_FUNC_MAPS, 0x110, (2 << 28) | idx);
-    cht_write_conf(node, NB_FUNC_MAPS, 0x114, (start << 8) | dest);
-    cht_write_conf(node, NB_FUNC_MAPS, 0x110, (3 << 28) | idx);
-    cht_write_conf(node, NB_FUNC_MAPS, 0x114, (mask << 8) | 1);
+    cht_write_conf(node, FUNC1_MAPS, 0x110, (2 << 28) | idx);
+    cht_write_conf(node, FUNC1_MAPS, 0x114, (start << 8) | dest);
+    cht_write_conf(node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
+    cht_write_conf(node, FUNC1_MAPS, 0x114, (mask << 8) | 1);
 }
 
 void reset_remote(u32 node)

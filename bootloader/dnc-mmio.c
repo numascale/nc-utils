@@ -30,14 +30,14 @@
 static void mmio_range_read_fam10(u16 sci, int range, u64 *base, u64 *limit, int *flags)
 {
     u32 mask;
-    u32 val = (dnc_read_conf(sci, 0, 24, NB_FUNC_HT, 0x168) >> 8) & 3;
+    u32 val = (dnc_read_conf(sci, 0, 24, FUNC0_HT, 0x168) >> 8) & 3;
     u32 shift = 19 + val * 4;
 
-    dnc_write_conf(sci, 0, 24, NB_FUNC_MAPS, 0x110, (3 << 28) | (range - 8));
-    mask = (dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0x114) >> 8) & 0x1fffff;
+    dnc_write_conf(sci, 0, 24, FUNC1_MAPS, 0x110, (3 << 28) | (range - 8));
+    mask = (dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x114) >> 8) & 0x1fffff;
     *limit = 0; /* FIXME */
-    dnc_write_conf(sci, 0, 24, NB_FUNC_MAPS, 0x110, (2 << 28) | (range - 8));
-    val = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0x114);
+    dnc_write_conf(sci, 0, 24, FUNC1_MAPS, 0x110, (2 << 28) | (range - 8));
+    val = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x114);
     *base = (u64)val << shift;
 
     if (verbose)
@@ -53,14 +53,14 @@ static void mmio_range_read(u16 sci, int range, u64 *base, u64 *limit, int *flag
 	return;
     }
 
-    u32 base_low = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, _base(range));
-    u32 limit_low = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, _limit(range));
+    u32 base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _base(range));
+    u32 limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _limit(range));
 
     *base = ((u64)base_low & (~0xff)) << (16 - 8);
     *limit = (((u64)limit_low & (~0xff)) << (16 - 8)) | 0xffff;
     *flags = (base_low & 0xff) | ((limit_low & 0xff) << 8); /* Lock, WE, RE etc flags */
     if (family >= 0x15) {
-	u32 high = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, _high(range));
+	u32 high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _high(range));
 	*base |= ((u64)high & 0xff0000) << (40 - 16);
 	*limit |= ((u64)high & 0xff) << 40;
     }
@@ -89,11 +89,11 @@ void mmio_range_write(u16 sci, int range, u64 base, u64 limit, int ht, int link,
     if (family >= 0x15) {
 	u32 high = (((base << DRAM_MAP_SHIFT) & 0xff0000000000ULL) >> 40) |
 	    ((((limit << DRAM_MAP_SHIFT) - 1) & 0xff0000000000ULL) >> (40 - 16));
-	dnc_write_conf(sci, 0, 24, NB_FUNC_MAPS, _high(range), high);
+	dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _high(range), high);
     }
 
-    dnc_write_conf(sci, 0, 24, NB_FUNC_MAPS, _limit(range), limit_low);
-    dnc_write_conf(sci, 0, 24, NB_FUNC_MAPS, _base(range), base_low);
+    dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _limit(range), limit_low);
+    dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _base(range), base_low);
 }
 
 void mmio_show(u16 sci)
@@ -113,18 +113,18 @@ void dram_show(u16 sci)
     int i;
 
     printf("SCI%03x: F1xF0=%08x F2x110=%08x F2x114=%08x F2x118=%08x F2x11C=%08x\n", sci,
-	dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0xf0),
-	dnc_read_conf(sci, 0, 24, NB_FUNC_DRAM, 0x110),
-	dnc_read_conf(sci, 0, 24, NB_FUNC_DRAM, 0x114),
-	dnc_read_conf(sci, 0, 24, NB_FUNC_DRAM, 0x118),
-	dnc_read_conf(sci, 0, 24, NB_FUNC_DRAM, 0x11c)
+	dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xf0),
+	dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x110),
+	dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x114),
+	dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x118),
+	dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x11c)
     );
 
     for (i = 0; i < 8; i++) {
-	u32 base_low = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0x40 + i * 8);
-	u32 limit_low = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0x44 + i * 8);
-	u32 base_high = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0x140 + i * 8);
-	u32 limit_high = dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0x144 + i * 8);
+	u32 base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x40 + i * 8);
+	u32 limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x44 + i * 8);
+	u32 base_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x140 + i * 8);
+	u32 limit_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x144 + i * 8);
 	u64 base = (((u64)base_low & 0xffff0000) << 8) | (((u64)base_high & 0xff) << 40);
 	u64 limit = (((u64)limit_low & 0xffff0000) << 8) | (((u64)limit_high & 0xff) << 40) | 0xffffff;
 	printf("SCI%03x: DRAM range=%d base=0x%016llx limit=0x%016llx r=%d w=%d node=%d intl=%d\n", sci, i, base, limit,
@@ -138,12 +138,12 @@ void io_show(u16 sci)
 
     for (i = 0; i < 4; i++)
 	printf("SCI%03x: I/O maps base=0x%08x limit=%08x\n", sci,
-	    dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0xc0 + i * 8),
-	    dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0xc4 + i * 8));
+	    dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xc0 + i * 8),
+	    dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xc4 + i * 8));
 
     for (i = 0; i < 4; i++)
 	printf("SCI%03x: config maps base=0x%08x\n", sci,
-	    dnc_read_conf(sci, 0, 24, NB_FUNC_MAPS, 0xe0 + i * 4));
+	    dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xe0 + i * 4));
 }
 
 static int mmio_range_add(u16 sci, u64 base_new, u64 limit_new, int ht, int link, int sublink)
