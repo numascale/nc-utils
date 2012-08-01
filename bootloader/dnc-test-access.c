@@ -107,24 +107,24 @@ static void _write_config(u8 bus, u8 dev, u8 func, u16 reg, u32 val)
     assert(pwrite64(cfg, &val, 4, reg) == 4);
 }
 
-u32 cht_read_config(u8 node, u8 func, u16 reg)
+u32 cht_read_conf(u8 node, u8 func, u16 reg)
 {
     return _read_config(0, node + 24, func, reg);
 }
 
-void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
+void cht_write_conf(u8 node, u8 func, u16 reg, u32 val)
 {
     _write_config(0, node + 24, func, reg, val);
 }
 
-u32 cht_read_config_nc(u8 node, u8 func, int neigh, int link, u16 reg)
+u32 cht_read_conf_nc(u8 node, u8 func, int neigh, int link, u16 reg)
 {
-    return cht_read_config(node, func, reg);
+    return cht_read_conf(node, func, reg);
 }
 
-void cht_write_config_nc(u8 node, u8 func, int neigh, int link, u16 reg, u32 val)
+void cht_write_conf_nc(u8 node, u8 func, int neigh, int link, u16 reg, u32 val)
 {
-    cht_write_config(node, func, reg, val);
+    cht_write_conf(node, func, reg, val);
 }
 
 #if !defined(PAGE_LEN)

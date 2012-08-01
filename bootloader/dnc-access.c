@@ -156,8 +156,8 @@ void reset_cf9(int mode, int last)
     msleep(1000);
 
     for (i = 0; i <= last; i++) {
-	u32 val = cht_read_config(i, NB_FUNC_HT, 0x6c);
-	cht_write_config(i, NB_FUNC_HT, 0x6c, val | 0x20); /* BiosRstDet */
+	u32 val = cht_read_conf(i, NB_FUNC_HT, 0x6c);
+	cht_write_conf(i, NB_FUNC_HT, 0x6c, val | 0x20); /* BiosRstDet */
     }
     outb(mode, 0xcf9);
     outb(mode | 4, 0xcf9);
@@ -187,7 +187,7 @@ static void _write_config(u8 bus, u8 dev, u8 func, u16 reg, u32 val)
     DEBUG("\n");
 }
 
-u32 cht_read_config(u8 node, u8 func, u16 reg)
+u32 cht_read_conf(u8 node, u8 func, u16 reg)
 {
     u32 ret;
     DEBUG("HT#%d F%xx%03x -> ",
@@ -200,7 +200,7 @@ u32 cht_read_config(u8 node, u8 func, u16 reg)
     return ret;
 }
 
-void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
+void cht_write_conf(u8 node, u8 func, u16 reg, u32 val)
 {
     DEBUG("HT#%d F%xx%03x <- %08x",
 	  node, func, reg, val);
@@ -214,7 +214,7 @@ void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
 /* Check for link instability */
 static int cht_error(int node, int link)
 {
-    u32 status = cht_read_config(node, NB_FUNC_HT, 0x84 + link * 0x20);
+    u32 status = cht_read_conf(node, NB_FUNC_HT, 0x84 + link * 0x20);
     return status & ((3 << 8) | (1 << 4)); /* CrcErr, LinkFail */
 }
 
@@ -233,7 +233,7 @@ void cht_test(u8 node, int neigh, int neigh_link)
     if (ht_testmode & HT_TESTMODE_LOOP)
 	printf("loop %d ", loop++);
 
-    base = cht_read_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
+    base = cht_read_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
 
     for (i = 0; i < 2000000; i++) {
 	u32 h = i;
@@ -244,13 +244,13 @@ void cht_test(u8 node, int neigh, int neigh_link)
 	h ^= h >> 16;
 	h &= ~0xfc; /* Clear read-only bits */
 
-	cht_write_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, h);
-	if (cht_read_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS) != h)
+	cht_write_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, h);
+	if (cht_read_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS) != h)
 	    errors++;
     }
 
     /* Restore previous value */
-    cht_write_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base);
+    cht_write_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base);
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
@@ -264,7 +264,7 @@ void cht_test(u8 node, int neigh, int neigh_link)
     printf("%d errors\n", errors);
 }
 
-u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
+u32 cht_read_conf_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
 {
     u32 ret;
     int reboot;
@@ -272,7 +272,7 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_run(100); /* 1s timeout if read hangs due to unstable link */
 
-    ret = cht_read_config(node, func, reg);
+    ret = cht_read_conf(node, func, reg);
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
@@ -298,12 +298,12 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     return ret;
 }
 
-void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 val)
+void cht_write_conf_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 val)
 {
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_run(100); /* 1s timeout if write hangs due to unstable link */
 
-    cht_write_config(node, func, reg, val);
+    cht_write_conf(node, func, reg, val);
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();

@@ -97,9 +97,9 @@ sci_fabric_setup(void)
     
     //[    0.000000] Bootmem setup node 1 0000000220000000-0000000420000000
     // Shared memory on node: 300000000-400000000 (4G window)
-    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 0);
-    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, 0x00030003);
-    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, 0x0003ff01);
+    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 0);
+    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, 0x00030003);
+    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, 0x0003ff01);
 
     // SCC NGC window overlaps a bit because of the boundaries
     dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, 12); // 200000000

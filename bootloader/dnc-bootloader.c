@@ -872,8 +872,8 @@ static void add_scc_hotpatch_att(u64 addr, u16 node)
 	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
 
 	for (i = 0; i < 8; i++) {
-	    base = cht_read_config(0, NB_FUNC_MAPS, 0x40 + (8 * i));
-	    lim = cht_read_config(0, NB_FUNC_MAPS, 0x44 + (8 * i));
+	    base = cht_read_conf(0, NB_FUNC_MAPS, 0x40 + (8 * i));
+	    lim = cht_read_conf(0, NB_FUNC_MAPS, 0x44 + (8 * i));
 	    if (base & 3) {
 		base = (base >> 8) | (base & 3);
 		lim = (lim >> 8) | (lim & 7);
@@ -883,9 +883,9 @@ static void add_scc_hotpatch_att(u64 addr, u16 node)
 		lim = 0;
 	    }
 
-	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
-	    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+	    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
+	    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
 	}
     }
 }
@@ -1474,7 +1474,7 @@ static void setup_local_mmio_maps(void)
 	return;
     }
 
-    sbnode = (cht_read_config(0, NB_FUNC_HT, 0x60) >> 8) & 7;
+    sbnode = (cht_read_conf(0, NB_FUNC_HT, 0x60) >> 8) & 7;
     base[0] = (tom >> 8) & ~0xff;
     lim[0] = 0x00ffff00;
     dst[0] = (sbnode << 8) | 3;
@@ -1482,17 +1482,17 @@ static void setup_local_mmio_maps(void)
 
     /* Apply default maps so we can bail without losing all hope */
     for (i = 0; i < 8; i++) {
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
     }
 
     for (i = 0; i < 8; i++) {
-        curbase = cht_read_config(sbnode, NB_FUNC_MAPS, 0x80 + i*8);
-        curlim = cht_read_config(sbnode, NB_FUNC_MAPS, 0x84 + i*8);
+        curbase = cht_read_conf(sbnode, NB_FUNC_MAPS, 0x80 + i*8);
+        curlim = cht_read_conf(sbnode, NB_FUNC_MAPS, 0x84 + i*8);
 	curdst = ((curlim & 0x7) << 8) | (curbase & 0x3);
 	/* This strips NP-bit */
 	curbase = curbase & ~0xff;
@@ -1580,11 +1580,11 @@ static void setup_local_mmio_maps(void)
     if (verbose > 0)
 	for (i = 0; i < 8; i++) {
 	    printf("NC MMIO region #%d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
-	    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	    cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 				H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	    cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 				H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-	    cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	    cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 				H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 	}
 }
@@ -2262,12 +2262,12 @@ static int unify_all_nodes(void)
 
     /* Set up local mapping registers etc from 0 - master node max */
     for (i = 0; i < dnc_master_ht_id; i++) {
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
 			    ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
-	cht_write_config_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
+	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
 			    H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
 			    (nc_node[0].ht[i].base << 8) | 3);
     }
@@ -2276,8 +2276,8 @@ static int unify_all_nodes(void)
      * NB: Assuming that memory is assigned sequentially to SCI nodes and HT nodes */
     for (i = 0; i < dnc_master_ht_id; i++) {
 	/* TODO: Verify that this DRAM slot is actually unused */
-	cht_write_config(i, 1, 0x7c, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
-	cht_write_config(i, 1, 0x78, (nc_node[1].ht[0].base << 16) | 3);
+	cht_write_conf(i, 1, 0x7c, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
+	cht_write_conf(i, 1, 0x78, (nc_node[1].ht[0].base << 16) | 3);
     }
 
     dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT,
@@ -2480,10 +2480,10 @@ static void constants(void)
 {
     family = cpu_family(0xfff0, 0) >> 16;
     if (family >= 0x15) {
-	u32 val = cht_read_config(0, NB_FUNC_EXTD, 0x160);
+	u32 val = cht_read_conf(0, NB_FUNC_EXTD, 0x160);
 	tsc_mhz = 200 * (((val >> 1) & 0x1f) + 4) / (1 + ((val >> 8) & 1));
     } else {
-	u32 val = cht_read_config(0, NB_FUNC_MISC, 0xd4);
+	u32 val = cht_read_conf(0, NB_FUNC_MISC, 0xd4);
 	u64 val6 = dnc_rdmsr(0xc0010071);
 	tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
     }
