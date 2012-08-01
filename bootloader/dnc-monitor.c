@@ -22,6 +22,7 @@
 #include "dnc-regs.h"
 #include "dnc-defs.h"
 #include "dnc-access.h"
+#include "dnc-commonlib.h"
 #include "dnc-bootloader.h"
 
 /* Linear feedback register to count */
