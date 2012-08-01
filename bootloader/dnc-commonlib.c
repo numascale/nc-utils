@@ -841,12 +841,14 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     ganged = cht_read_config(neigh, 0, 0x170 + link * 4) & 1;
     printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
 
-    printf("Checking width/freq ");
+    printf("Checking HT width/freq");
 
-    /* Set T0Time to max */
-    val = cht_read_config(neigh, NB_FUNC_HT, 0x16c);
-    printf(".");
-    cht_write_config(neigh, NB_FUNC_HT, 0x16c, (val & ~0x3f) | 0x3a);
+    /* Set T0Time to max on revB and older to avoid high LDTSTOP exit latency */
+    if (asic_mode && rev < 2) {
+	val = cht_read_config(neigh, NB_FUNC_HT, 0x16c);
+	cht_write_config(neigh, NB_FUNC_HT, 0x16c, (val & ~0x3f) | 0x3a);
+	printf(".");
+    }
 
     /* Make sure link towards NC is ganged, disable LS2En */
     /* XXX: Why do we alter this, optimally the link should be detected as
