@@ -18,7 +18,7 @@
 #ifndef __DNC_DEVICES
 #define __DNC_DEVICES 1
 
-#include <stdint.h>
+#include <inttypes.h>
 
 #define HcRevision 0x00
 

@@ -17,8 +17,8 @@
 
 #include <stdio.h>
 #include <unistd.h>
+
 #include "dnc-monitor.h"
-#include "dnc-types.h"
 #include "dnc-regs.h"
 #include "dnc-defs.h"
 #include "dnc-access.h"
@@ -26,7 +26,7 @@
 #include "dnc-bootloader.h"
 
 /* Linear feedback register to count */
-static int lfb_to_count(u32 val)
+static int lfb_to_count(uint32_t val)
 {
     unsigned long cMSB = 14;
     unsigned long lsb;
@@ -63,7 +63,7 @@ void lc3_activity(void)
 	msleep(500);
 
 	for (lc = 1; lc <= lim; lc++) {
-	    u32 val = dnc_read_csr(0xfff1 + lc, LC3_CSR_PCCNT);
+	    uint32_t val = dnc_read_csr(0xfff1 + lc, LC3_CSR_PCCNT);
 	    printf("- %d events on link %d\n", lfb_to_count(val), lc);
 	}
     }
@@ -106,7 +106,7 @@ void system_activity(void)
     };
 
     struct perf_ev *ev;
-    u64 val;
+    uint64_t val;
 
     printf("Profiling quiescent system activity...\n");
 

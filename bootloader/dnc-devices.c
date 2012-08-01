@@ -26,7 +26,7 @@
 static void pci_search(const struct devspec *list)
 {
     int bus, dev, fn;
-    u32 val;
+    uint32_t val;
     const struct devspec *listp;
 
     for (bus = 0; bus < 0x100; bus++)
@@ -45,7 +45,7 @@ static void pci_search(const struct devspec *list)
 
 static void disable_dma(int bus, int dev, int fn)
 {
-    u32 pci_cmd;
+    uint32_t pci_cmd;
 
     printf("Disabling DMA on device %02x:%02x.%x...\n", bus, dev, fn);
     pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
@@ -54,7 +54,7 @@ static void disable_dma(int bus, int dev, int fn)
 
 static void enable_dma(int bus, int dev, int fn)
 {
-    u32 pci_cmd;
+    uint32_t pci_cmd;
 
     printf("Enabling DMA on device %02x:%02x.%x...\n", bus, dev, fn);
     pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
@@ -88,7 +88,7 @@ void disable_dma_all(void)
     for (bus = 0; bus < 0x100; bus++)
 	for (dev = 0; dev < 0x100; dev++)
 	    for (fn = 0; fn < 0x10; fn++) {
-		u32 pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
+		uint32_t pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
 		/* PCI device functions are contiguous, so move to next device on first Master Abort */
 		if (pci_cmd == 0xffffffff)
 		    break;
@@ -103,7 +103,7 @@ void disable_dma_all(void)
 
 static void stop_ohci(int bus, int dev, int fn)
 {
-    u32 val, bar0;
+    uint32_t val, bar0;
 
     printf("OHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
 
@@ -116,7 +116,7 @@ static void stop_ohci(int bus, int dev, int fn)
     val = mem64_read32(bar0 + HcHCCA);
     val = mem64_read32(bar0 + HcControl);
     if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
-	u32 temp;
+	uint32_t temp;
 	/* This timeout is arbitrary.  we make it long, so systems
 	 * depending on usb keyboards may be usable even if the
 	 * BIOS/SMM code seems pretty broken
@@ -157,21 +157,21 @@ static void stop_ehci(int bus, int dev, int fn)
 {
     printf("EHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
 
-    u32 bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+    uint32_t bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
     if (bar0 == 0) {
 	printf("BAR not configured\n");
 	return;
     }
 
     /* Get EHCI Extended Capabilities Pointer */
-    u32 ecp = (mem64_read32(bar0 + 0x8) >> 8) & 0xff;
+    uint32_t ecp = (mem64_read32(bar0 + 0x8) >> 8) & 0xff;
     if (ecp == 0) {
 	printf("extended capabilities absent\n");
 	return;
     }
 
     /* Check legacy support register shows BIOS ownership */
-    u32 legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
+    uint32_t legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
     if ((legsup & 0x10100ff) != 0x0010001) {
 	printf("legacy support not enabled (status 0x%08x)\n", legsup);
 	return;
@@ -199,21 +199,21 @@ static void stop_xhci(int bus, int dev, int fn)
 {
     printf("XHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
 
-    u32 bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+    uint32_t bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
     if (bar0 == 0) {
 	printf("BAR not configured\n");
 	return;
     }
 
     /* Get XHCI Extended Capabilities Pointer */
-    u32 ecp = (mem64_read32(bar0 + 0x10) & 0xffff0000) >> (16 - 2);
+    uint32_t ecp = (mem64_read32(bar0 + 0x10) & 0xffff0000) >> (16 - 2);
     if (ecp == 0) {
 	printf("extended capabilities absent\n");
 	return;
     }
 
     /* Check legacy support register shows BIOS ownership */
-    u32 legsup = mem64_read32(bar0 + ecp);
+    uint32_t legsup = mem64_read32(bar0 + ecp);
     if ((legsup & 0x10100ff) != 0x0010001) {
 	printf("legacy support not enabled (status 0x%08x)\n", legsup);
 	return;
@@ -242,14 +242,14 @@ static void stop_ahci(int bus, int dev, int fn)
     printf("AHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
 
     /* BAR5 (ABAR) contains legacy control registers */
-    u32 bar5 = dnc_read_conf(0xfff0, bus, dev, fn, 0x24) & ~0xf;
+    uint32_t bar5 = dnc_read_conf(0xfff0, bus, dev, fn, 0x24) & ~0xf;
     if (bar5 == 0) {
 	printf("BAR not configured\n");
 	return;
     }
 
     /* Check legacy support register shows BIOS ownership */
-    u32 legsup = mem64_read32(bar5 + 0x24);
+    uint32_t legsup = mem64_read32(bar5 + 0x24);
     if ((legsup & 1) == 0) {
 	printf("legacy support not implemented\n");
 	return;

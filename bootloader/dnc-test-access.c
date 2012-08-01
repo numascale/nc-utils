@@ -39,8 +39,8 @@
 int cht_config_use_extd_addressing = 0;
 int lirq_nest = 0, lirq_print = 0;
 
-u64 dnc_csr_base = DEF_DNC_CSR_BASE;
-u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
+uint64_t dnc_csr_base = DEF_DNC_CSR_BASE;
+uint64_t dnc_csr_lim = DEF_DNC_CSR_LIM;
 
 static int devmemfd = -1;
 static inline int getdevmemfd(void)
@@ -61,7 +61,7 @@ static int cfgfd[32][8] = {
     {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
 
-static int get_config_space(u8 bus, u8 device, u8 func)
+static int get_config_space(uint8_t bus, uint8_t device, uint8_t func)
 {
     char cfgpath[256];
 
@@ -86,7 +86,7 @@ static int get_config_space(u8 bus, u8 device, u8 func)
     return cfgfd[device][func];
 }
 
-static u32 _read_config(u8 bus, u8 dev, u8 func, u16 reg)
+static uint32_t _read_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg)
 {
     int cfg;
     uint32_t val;
@@ -98,7 +98,7 @@ static u32 _read_config(u8 bus, u8 dev, u8 func, u16 reg)
     return val;
 }
 
-static void _write_config(u8 bus, u8 dev, u8 func, u16 reg, u32 val)
+static void _write_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg, uint32_t val)
 {
     int cfg;
     cfg = get_config_space(bus, dev, func);
@@ -107,22 +107,22 @@ static void _write_config(u8 bus, u8 dev, u8 func, u16 reg, u32 val)
     assert(pwrite64(cfg, &val, 4, reg) == 4);
 }
 
-u32 cht_read_conf(u8 node, u8 func, u16 reg)
+uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg)
 {
     return _read_config(0, node + 24, func, reg);
 }
 
-void cht_write_conf(u8 node, u8 func, u16 reg, u32 val)
+void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
 {
     _write_config(0, node + 24, func, reg, val);
 }
 
-u32 cht_read_conf_nc(u8 node, u8 func, int neigh, int link, u16 reg)
+uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int link, uint16_t reg)
 {
     return cht_read_conf(node, func, reg);
 }
 
-void cht_write_conf_nc(u8 node, u8 func, int neigh, int link, u16 reg, u32 val)
+void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int link, uint16_t reg, uint32_t val)
 {
     cht_write_conf(node, func, reg, val);
 }
@@ -131,7 +131,7 @@ void cht_write_conf_nc(u8 node, u8 func, int neigh, int link, u16 reg, u32 val)
 #define PAGE_LEN 0x1000ULL
 #endif
 
-static void *_map_mem64(u64 addr, u64 len)
+static void *_map_mem64(uint64_t addr, uint64_t len)
 {
     static int memfd = -1;
     static struct { uint64_t addr; uint64_t len; char *mem; } maps[16];
@@ -180,30 +180,30 @@ static void *_map_mem64(u64 addr, u64 len)
     return mem + (addr & 0xfff);
 }
 
-u32 mem64_read32(u64 addr)
+uint32_t mem64_read32(uint64_t addr)
 {
-    u32 ret;
+    uint32_t ret;
     asm volatile("mov (%%rdx), %%eax" : "=a"(ret) : "d"(_map_mem64(addr, 0)));
     return ret;
 }
 
-void mem64_write32(u64 addr, u32 val)
+void mem64_write32(uint64_t addr, uint32_t val)
 {
     asm volatile("mov %%eax, (%%rdx)" :: "a"(val), "d"(_map_mem64(addr, 0)));
 }
 
-u32 dnc_read_csr(u32 node, u16 csr)
+uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
 {
-    return u32bswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));
+    return uint32_tbswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));
 }
 
-void dnc_write_csr(u32 node, u16 csr, u32 val)
+void dnc_write_csr(uint32_t node, uint16_t csr, uint32_t val)
 {
-    mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, u32bswap(val));
+    mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, uint32_tbswap(val));
 }
 
 
-u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
+uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr)
 {
     if (csr >= 0x800) {
 	printf("*** dnc_write_csr_geo: read from unsupported range: "
@@ -212,10 +212,10 @@ u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
 	return 0xffffffff;
     }
 
-    return u32bswap(mem64_read32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr));
+    return uint32_tbswap(mem64_read32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr));
 }
 
-void dnc_write_csr_geo(u32 node, u8 bid, u16 csr, u32 val)
+void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val)
 {
     if (csr >= 0x800) {
 	printf("*** dnc_write_csr_geo: write to unsupported range: "
@@ -224,69 +224,69 @@ void dnc_write_csr_geo(u32 node, u8 bid, u16 csr, u32 val)
 	return;
     }
 
-    mem64_write32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr, u32bswap(val));
+    mem64_write32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr, uint32_tbswap(val));
 }
 
-u32 dnc_read_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg)
+uint32_t dnc_read_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg)
 {
-    u32 val;
+    uint32_t val;
     if (node == 0xfff0) {
         val = _read_config(bus, device, func, reg);
     } else {
-        val = mem64_read32(DNC_MCFG_BASE | ((u64)node << 28) | 
+        val = mem64_read32(DNC_MCFG_BASE | ((uint64_t)node << 28) | 
                            PCI_MMIO_CONF(bus, device, func, reg));
     }
     return val;
 }
 
-void dnc_write_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg, u32 val)
+void dnc_write_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg, uint32_t val)
 {
     if (node == 0xfff0) {
         _write_config(bus, device, func, reg, val);
     } else {
-        mem64_write32(DNC_MCFG_BASE | ((u64)node << 28) | 
+        mem64_write32(DNC_MCFG_BASE | ((uint64_t)node << 28) | 
                       PCI_MMIO_CONF(bus, device, func, reg), val);
     }
 }
 
-void pmio_writeb(u16 offset, u8 val)
+void pmio_writeb(uint16_t offset, uint8_t val)
 {
 }
 
-void pmio_writel(u16 offset, u32 val)
+void pmio_writel(uint16_t offset, uint32_t val)
 {
 }
 
-u8 pmio_readb(u16 offset)
+uint8_t pmio_readb(uint16_t offset)
 {
     return 0xff;
 }
 
-u32 pmio_readl(u16 offset)
+uint32_t pmio_readl(uint16_t offset)
 {
     return 0xffffffff;
 }
 
-void pmio_setb(u16 offset, u8 val)
+void pmio_setb(uint16_t offset, uint8_t val)
 {
 }
 
-void pmio_clearb(u16 offset, u8 val)
+void pmio_clearb(uint16_t offset, uint8_t val)
 {
 }
 
-void pmio_setl(u16 offset, u32 val)
+void pmio_setl(uint16_t offset, uint32_t val)
 {
 }
 
-void pmio_clearl(u16 offset, u32 val)
+void pmio_clearl(uint16_t offset, uint32_t val)
 {
 }
 
-u64 dnc_rdmsr(u32 msr)
+uint64_t dnc_rdmsr(uint32_t msr)
 {
     int fd;
-    u64 val;
+    uint64_t val;
 
     fd = open("/dev/cpu/0/msr", O_RDWR);
     if (fd < 0) {
@@ -304,7 +304,7 @@ u64 dnc_rdmsr(u32 msr)
 }
 
 
-void dnc_wrmsr(u32 msr, u64 v)
+void dnc_wrmsr(uint32_t msr, uint64_t v)
 {
     int fd;
 
@@ -332,7 +332,7 @@ void dnc_wrmsr(u32 msr, u64 v)
 
 int main(int argc, char **argv)
 {
-    u64 val;
+    uint64_t val;
 
     val = dnc_rdmsr(MSR_MTRR_DEFAULT_MTYPE);
     printf("MTRR_DEFAULT_MTYPE : %llx\n", val);

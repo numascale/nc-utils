@@ -32,7 +32,6 @@
 #include <arpa/inet.h>
 
 #include "dnc-regs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-fabric.h"
@@ -73,7 +72,7 @@ int read_config_file(char *file_name)
     return 0;
 }
 
-void test_route(u8 bxbarid, u16 dest);
+void test_route(uint8_t bxbarid, uint16_t dest);
 
 
 int udp_open(void)
@@ -159,7 +158,7 @@ int main(int argc, char **argv)
 {
     int cpu_fam  = -1;
     cpu_set_t cset;
-    u32 val, uuid = 40;
+    uint32_t val, uuid = 40;
     struct node_info *info;
     struct part_info *part;
     char *cmdline = NULL;
@@ -216,7 +215,7 @@ int main(int argc, char **argv)
  
     printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
     while (1) {
-	u32 val;
+	uint32_t val;
 
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 	if ((val & (1<<31))) {

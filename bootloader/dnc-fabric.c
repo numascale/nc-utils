@@ -21,7 +21,6 @@
 #include <inttypes.h>
 
 #include "dnc-regs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-fabric.h"
 #include "dnc-commonlib.h"
@@ -29,28 +28,28 @@
 
 /* RAW CSR accesses, use the RAW engine in SCC to make remote CSR accesses */
 
-static inline void _setrawentry(u32 index, u64 entry)
+static inline void _setrawentry(uint32_t index, uint64_t entry)
 {
     dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_INDEX, index);
-    dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_LO, (u32)(entry >> 32));
-    dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_HI, (u32)(entry & 0xffffffff));
+    dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_LO, (uint32_t)(entry >> 32));
+    dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_HI, (uint32_t)(entry & 0xffffffff));
 }
 
-static inline u64 _getrawentry(u32 index)
+static inline uint64_t _getrawentry(uint32_t index)
 {
-    u32 lo, hi;
+    uint32_t lo, hi;
     
     dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_INDEX, index);
     lo = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_LO);
     hi = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_HI);
-    return (u64)lo << 32 | hi;
+    return (uint64_t)lo << 32 | hi;
 }
 
-static int _raw_read(u32 dest, int geo, u32 addr, u32 *val)
+static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
 {
-    u16 ownnodeid;
-    u32 ctrl;
-    u32 cmd;
+    uint16_t ownnodeid;
+    uint32_t ctrl;
+    uint32_t cmd;
 
     cmd = (addr & 0xc) | 0x3; /* readsb */
 
@@ -58,7 +57,7 @@ static int _raw_read(u32 dest, int geo, u32 addr, u32 *val)
 
     dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
 
-    _setrawentry(0, (0x1fULL << 48) | (((u64)dest & 0xffffULL) << 32) | ((u64)cmd << 16) | ownnodeid);
+    _setrawentry(0, (0x1fULL << 48) | (((uint64_t)dest & 0xffffULL) << 32) | ((uint64_t)cmd << 16) | ownnodeid);
     if (geo) {
         _setrawentry(1, (0x1fULL << 48) | (0xffffeULL << 28) | (addr & 0x7ffc)); /* Bits 14:11 contains bxbarid */
     }
@@ -79,10 +78,10 @@ static int _raw_read(u32 dest, int geo, u32 addr, u32 *val)
     else {
         if (((ctrl >> 5) & 0xf) != 4) {
             printf("Wrong response packet size : %08x\n", ctrl);
-            printf("Entry 0: %016llx\n", _getrawentry(0));
-            printf("Entry 1: %016llx\n", _getrawentry(1));
-            printf("Entry 2: %016llx\n", _getrawentry(2));
-            printf("Entry 3: %016llx\n", _getrawentry(3));
+            printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
+            printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
+            printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
+            printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
             *val = 0xffffffff;
             return -1;
         } else {
@@ -100,12 +99,12 @@ static int _raw_read(u32 dest, int geo, u32 addr, u32 *val)
     return 0;
 }
 
-int dnc_raw_read_csr(u32 node, u16 csr, u32 *val)
+int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val)
 {
     return _raw_read(node, 0, csr, val);
 }
 
-int dnc_raw_read_csr_geo(u32 node, u8 bid, u16 csr, u32 *val)
+int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val)
 {
     if (csr >= 0x800) {
 	printf("*** dnc_write_csr_geo: read from unsupported range: "
@@ -122,7 +121,7 @@ int dnc_raw_read_csr_geo(u32 node, u8 bid, u16 csr, u32 *val)
 
 void dnc_reset_phy(int phy)
 {
-    u32 val;
+    uint32_t val;
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy);
     dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, val | (1<<7) | (1<<13) | (1<<12));
     udelay(1000);
@@ -130,7 +129,7 @@ void dnc_reset_phy(int phy)
 
 void dnc_reset_lc3(int lc)
 {
-    u32 val;
+    uint32_t val;
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc);
     dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, val | (1<<6) | (1<<13) | (1<<12));
     udelay(1000);
@@ -139,7 +138,7 @@ void dnc_reset_lc3(int lc)
 int dnc_check_phy(int phy)
 {
     const char *phyname = _get_linkname(phy);
-    u32 stat, elog, ctrl, tries;
+    uint32_t stat, elog, ctrl, tries;
 
     tries = 0;
 again:    
@@ -173,9 +172,9 @@ again:
 int dnc_check_lc3(int lc)
 {
     const char *linkname = _get_linkname(lc);
-    u32 initst, error_count;
-    const u32 fatal_mask0 = 0x0;
-    const u32 fatal_mask1 = 0x0;
+    uint32_t initst, error_count;
+    const uint32_t fatal_mask0 = 0x0;
+    const uint32_t fatal_mask1 = 0x0;
 
     if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_INIT_STATE, &initst) != 0) {
         return -1;
@@ -188,7 +187,7 @@ int dnc_check_lc3(int lc)
         return -1;
     }
     if (error_count != 0) {
-        u32 elog0, elog1;
+        uint32_t elog0, elog1;
         if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ELOG0, &elog0) != 0) {
             return -1;
         }
@@ -206,13 +205,13 @@ int dnc_check_lc3(int lc)
     return 0;
 }
 
-int dnc_init_lc3(u16 nodeid, int lc, u16 maxchunk,
-                 u16 rtbll[], u16 rtblm[], u16 rtblh[], u16 ltbl[])
+int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
+                 uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[])
 {
     const char *linkname = _get_linkname(lc);
-    u16 expected_id = (nodeid | ((lc+1) << 13));
-    u32 error_count1, error_count2;
-    u16 chunk, offs;
+    uint16_t expected_id = (nodeid | ((lc+1) << 13));
+    uint32_t error_count1, error_count2;
+    uint16_t chunk, offs;
 
     printf("Initializing LC3%s...\n", linkname);
 

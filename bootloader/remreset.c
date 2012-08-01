@@ -24,7 +24,6 @@
 #include <sys/io.h>
 
 #include "dnc-regs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-acpi.h"
@@ -36,7 +35,7 @@
 #define FUNC4_LINK  4
 
 com32sys_t inreg, outreg;
-u32 dnc_ht_node = 2;
+uint32_t dnc_ht_node = 2;
 
 unsigned char msleep(unsigned int msec)
 {
@@ -49,10 +48,10 @@ unsigned char msleep(unsigned int msec)
     return outreg.eax.b[1];
 }
 
-void add_extd_mmio_maps(int node, int idx, u64 start, u64 end, int dest)
+void add_extd_mmio_maps(int node, int idx, uint64_t start, uint64_t end, int dest)
 {
-    u32 val;
-    u64 mask;
+    uint32_t val;
+    uint64_t mask;
 
     mask = 0;
     start = start >> 27;
@@ -75,9 +74,9 @@ void add_extd_mmio_maps(int node, int idx, u64 start, u64 end, int dest)
     cht_write_conf(node, FUNC1_MAPS, 0x114, (mask << 8) | 1);
 }
 
-void reset_remote(u32 node)
+void reset_remote(uint32_t node)
 {
-    u8 portcf9;
+    uint8_t portcf9;
 
     /* Direct 08fd_fc00_0000 to node 0x008 00fd_fc00_0000 for remote PCI I/O */
     add_extd_mmio_maps(0, 1, 0x08fdfc000000ULL, 0x08fdfc000000ULL,
@@ -108,7 +107,7 @@ void reset_remote(u32 node)
 
 int main(void)
 {
-    u32 val;
+    uint32_t val;
     openconsole(&dev_rawcon_r, &dev_stdcon_w);
 
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);

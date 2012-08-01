@@ -30,11 +30,9 @@
 
 #include "dnc-defs.h"
 #include "dnc-regs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-config.h"
-
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
@@ -61,23 +59,23 @@ int udp_read_state(int handle, void *buf, int len) {
 int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nc_node[0].nc_ht_id */
 int dnc_asic_mode;
 int dnc_chip_rev;
-u16 dnc_node_count = 0;
+uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
-u16 ht_pdom_count = 0;
-u16 apic_per_node;
-u32 dnc_top_of_dram;       /* Top of DRAM, before MMIO, in 16MB chunks */
-u16 ht_next_apic;
-u32 dnc_top_of_mem;        /* Top of mem, in 16MB chunks */
-u8 post_apic_mapping[256]; /* POST APIC assigments */
+uint16_t ht_pdom_count = 0;
+uint16_t apic_per_node;
+uint32_t dnc_top_of_dram;       /* Top of DRAM, before MMIO, in 16MB chunks */
+uint16_t ht_next_apic;
+uint32_t dnc_top_of_mem;        /* Top of mem, in 16MB chunks */
+uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
-u8 nodedata[4096];
+uint8_t nodedata[4096];
 
 static int
 sci_fabric_setup(void)
 {
-    u32 val;
-    u16 i, node;
+    uint32_t val;
+    uint16_t i, node;
 
     tally_local_node(0);
     tally_all_remote_nodes();
@@ -116,7 +114,7 @@ sci_fabric_setup(void)
     }
 
     for (i = 1; i < dnc_node_count; i++) {
-        u8 ht_id = nc_node[i].nc_ht_id;
+        uint8_t ht_id = nc_node[i].nc_ht_id;
         node = nc_node[i].sci_id;
     
         // Set DRAM Limit on HT#1 to 0x2ffffffff
@@ -177,7 +175,7 @@ int main(int argc, char **argv)
     uint32_t val;
     int cpu_fam  = -1;
     cpu_set_t cset;
-    u32 uuid;
+    uint32_t uuid;
     struct node_info *info;
     struct part_info *part;
     int i;

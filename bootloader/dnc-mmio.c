@@ -16,6 +16,7 @@
  */
 
 #include <stdio.h>
+
 #include "dnc-defs.h"
 #include "dnc-access.h"
 #include "dnc-commonlib.h"
@@ -27,24 +28,24 @@
 #define _limit(range) ((range < 8 ? 0x084 : (0x1a4 - 0x40)) + range * 8)
 #define _high(range)  ((range < 8 ? 0x180 : (0x1c0 - 0x20)) + range * 4)
 
-static void mmio_range_read_fam10(u16 sci, int range, u64 *base, u64 *limit, int *flags)
+static void mmio_range_read_fam10(uint16_t sci, int range, uint64_t *base, uint64_t *limit, int *flags)
 {
-    u32 mask;
-    u32 val = (dnc_read_conf(sci, 0, 24, FUNC0_HT, 0x168) >> 8) & 3;
-    u32 shift = 19 + val * 4;
+    uint32_t mask;
+    uint32_t val = (dnc_read_conf(sci, 0, 24, FUNC0_HT, 0x168) >> 8) & 3;
+    uint32_t shift = 19 + val * 4;
 
     dnc_write_conf(sci, 0, 24, FUNC1_MAPS, 0x110, (3 << 28) | (range - 8));
     mask = (dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x114) >> 8) & 0x1fffff;
     *limit = 0; /* FIXME */
     dnc_write_conf(sci, 0, 24, FUNC1_MAPS, 0x110, (2 << 28) | (range - 8));
     val = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x114);
-    *base = (u64)val << shift;
+    *base = (uint64_t)val << shift;
 
     if (verbose)
-	printf("SCI%03x: MMIO range %d base=0x%016llx mask=0x%08x\n", sci, range, *base, mask);
+	printf("SCI%03x: MMIO range %d base=0x%016" PRIx64 " mask=0x%08x\n", sci, range, *base, mask);
 }
 
-static void mmio_range_read(u16 sci, int range, u64 *base, u64 *limit, int *flags)
+static void mmio_range_read(uint16_t sci, int range, uint64_t *base, uint64_t *limit, int *flags)
 {
     assert(family < 0x15 ? (range < (8 + 16)) : (range < 12));
 
@@ -53,41 +54,41 @@ static void mmio_range_read(u16 sci, int range, u64 *base, u64 *limit, int *flag
 	return;
     }
 
-    u32 base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _base(range));
-    u32 limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _limit(range));
+    uint32_t base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _base(range));
+    uint32_t limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _limit(range));
 
-    *base = ((u64)base_low & (~0xff)) << (16 - 8);
-    *limit = (((u64)limit_low & (~0xff)) << (16 - 8)) | 0xffff;
+    *base = ((uint64_t)base_low & (~0xff)) << (16 - 8);
+    *limit = (((uint64_t)limit_low & (~0xff)) << (16 - 8)) | 0xffff;
     *flags = (base_low & 0xff) | ((limit_low & 0xff) << 8); /* Lock, WE, RE etc flags */
     if (family >= 0x15) {
-	u32 high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _high(range));
-	*base |= ((u64)high & 0xff0000) << (40 - 16);
-	*limit |= ((u64)high & 0xff) << 40;
+	uint32_t high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _high(range));
+	*base |= ((uint64_t)high & 0xff0000) << (40 - 16);
+	*limit |= ((uint64_t)high & 0xff) << 40;
     }
 
     if (verbose)
-	printf("SCI%03x: MMIO range %d @ 0x%016llx-0x%016llx, flags 0x%x\n",
+	printf("SCI%03x: MMIO range %d @ 0x%016" PRIx64 "-0x%016" PRIx64 ", flags 0x%x\n",
 	    sci, range, *base, *limit, *flags);
 }
 
-void mmio_range_write(u16 sci, int range, u64 base, u64 limit, int ht, int link, int sublink)
+void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, int ht, int link, int sublink)
 {
     assert(family < 0x15 ? (range < (8 + 16)) : (range < 12));
 
     if (verbose)
-	printf("SCI%03x: adding MMIO range %d @ 0x%016llx-0x%016llx -> HT %d:%d.%d\n",
+	printf("SCI%03x: adding MMIO range %d @ 0x%016" PRIx64 "-0x%016" PRIx64 " -> HT %d:%d.%d\n",
 	    sci, range, base << DRAM_MAP_SHIFT, limit << DRAM_MAP_SHIFT, ht, link, sublink);
 
-    u32 base_low = (((base << DRAM_MAP_SHIFT) & 0xffffff0000ULL) >> 8);
+    uint32_t base_low = (((base << DRAM_MAP_SHIFT) & 0xffffff0000ULL) >> 8);
     /* Use limit to indicate if range is enabled, ie set read, write bits */
     if (limit)
 	base_low |= 3;
 
-    u32 limit_low = ((((limit << DRAM_MAP_SHIFT) - 1) & 0xffffff0000ULL) >> 8) |
+    uint32_t limit_low = ((((limit << DRAM_MAP_SHIFT) - 1) & 0xffffff0000ULL) >> 8) |
 	ht | (link << 4) | (sublink << 6);
 
     if (family >= 0x15) {
-	u32 high = (((base << DRAM_MAP_SHIFT) & 0xff0000000000ULL) >> 40) |
+	uint32_t high = (((base << DRAM_MAP_SHIFT) & 0xff0000000000ULL) >> 40) |
 	    ((((limit << DRAM_MAP_SHIFT) - 1) & 0xff0000000000ULL) >> (40 - 16));
 	dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _high(range), high);
     }
@@ -96,19 +97,19 @@ void mmio_range_write(u16 sci, int range, u64 base, u64 limit, int ht, int link,
     dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _base(range), base_low);
 }
 
-void mmio_show(u16 sci)
+void mmio_show(uint16_t sci)
 {
     int i;
     int regs = family < 0x15 ? (8 + 2) : 12; /* Should be 8+12, but it hangs */
 
     for (i = 0; i < regs; i++) {
-	u64 base, limit;
+	uint64_t base, limit;
 	int flags;
 	mmio_range_read(sci, i, &base, &limit, &flags);
     }
 }
 
-void dram_show(u16 sci)
+void dram_show(uint16_t sci)
 {
     int i;
 
@@ -121,18 +122,18 @@ void dram_show(u16 sci)
     );
 
     for (i = 0; i < 8; i++) {
-	u32 base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x40 + i * 8);
-	u32 limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x44 + i * 8);
-	u32 base_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x140 + i * 8);
-	u32 limit_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x144 + i * 8);
-	u64 base = (((u64)base_low & 0xffff0000) << 8) | (((u64)base_high & 0xff) << 40);
-	u64 limit = (((u64)limit_low & 0xffff0000) << 8) | (((u64)limit_high & 0xff) << 40) | 0xffffff;
-	printf("SCI%03x: DRAM range=%d base=0x%016llx limit=0x%016llx r=%d w=%d node=%d intl=%d\n", sci, i, base, limit,
+	uint32_t base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x40 + i * 8);
+	uint32_t limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x44 + i * 8);
+	uint32_t base_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x140 + i * 8);
+	uint32_t limit_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x144 + i * 8);
+	uint64_t base = (((uint64_t)base_low & 0xffff0000) << 8) | (((uint64_t)base_high & 0xff) << 40);
+	uint64_t limit = (((uint64_t)limit_low & 0xffff0000) << 8) | (((uint64_t)limit_high & 0xff) << 40) | 0xffffff;
+	printf("SCI%03x: DRAM range=%d base=0x%016" PRIx64 "limit=0x%016" PRIx64 " r=%d w=%d node=%d intl=%d\n", sci, i, base, limit,
 		base_low & 1, !!(base_low & 2), limit_low & 3, (limit_low >> 8) & 7);
     }
 }
 
-void io_show(u16 sci)
+void io_show(uint16_t sci)
 {
     int i;
 
@@ -146,13 +147,13 @@ void io_show(u16 sci)
 	    dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xe0 + i * 4));
 }
 
-static int mmio_range_add(u16 sci, u64 base_new, u64 limit_new, int ht, int link, int sublink)
+static int mmio_range_add(uint16_t sci, uint64_t base_new, uint64_t limit_new, int ht, int link, int sublink)
 {
     int i;
     int regs = family >= 0x15 ? 12 : 8;
     
     for (i = 0; i < regs; i++) {
-	u64 base, limit;
+	uint64_t base, limit;
 	int flags;
 	mmio_range_read(sci, i, &base, &limit, &flags);
 	if (base || limit) /* Skip non-free entries */
@@ -193,13 +194,13 @@ static int bridge_add_unique(int *bridges, int flags)
 
 static void setup_device(int node, int bus, int dev, int fun)
 {
-    u64 global = nc_node[node].mmio_base >> (32 - DRAM_MAP_SHIFT);
-    u16 sci = nc_node[node].sci_id;
+    uint64_t global = nc_node[node].mmio_base >> (32 - DRAM_MAP_SHIFT);
+    uint16_t sci = nc_node[node].sci_id;
     int offset = 0;
-    u32 val, val2;
-    u64 addr;
+    uint32_t val, val2;
+    uint64_t addr;
 
-    printf("node-global MMIO space at 0x%016llx\n", global);
+    printf("node-global MMIO space at 0x%016" PRIx64 "\n", global);
 
     while (offset < 6) {
 	/* Detect and disable any 32-bit I/O base */
@@ -225,8 +226,8 @@ static void setup_device(int node, int bus, int dev, int fun)
 	addr = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	offset++;
 	dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, global);	
-	addr |= (u64)dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4) << 32;
-	printf("[%03x device %d:%d.%d] setup BAR at offset %d to 0x%016llx\n", sci, bus, dev, fun, offset, addr);
+	addr |= (uint64_t)dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4) << 32;
+	printf("[%03x device %d:%d.%d] setup BAR at offset %d to 0x%016" PRIx64 "\n", sci, bus, dev, fun, offset, addr);
 	offset++;
     }
 
@@ -240,13 +241,13 @@ static void setup_device(int node, int bus, int dev, int fun)
 
 static void setup_bridge(int node, int bus, int dev, int fun)
 {
-    u64 global = nc_node[node].mmio_base >> (32 - DRAM_MAP_SHIFT);
-    u16 sci = nc_node[node].sci_id;
+    uint64_t global = nc_node[node].mmio_base >> (32 - DRAM_MAP_SHIFT);
+    uint16_t sci = nc_node[node].sci_id;
     int offset = 0;
-    u32 val, val2;
-    u64 addr;
+    uint32_t val, val2;
+    uint64_t addr;
 
-    printf("Node-global MMIO space at 0x%016llx\n", global);
+    printf("Node-global MMIO space at 0x%016" PRIx64 "\n", global);
 
     while (offset < 2) {
 	/* Detect and disable any 32-bit I/O base */
@@ -272,8 +273,8 @@ static void setup_bridge(int node, int bus, int dev, int fun)
 	addr = dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4);
 	offset++;
 	dnc_write_conf(sci, bus, dev, fun, 16 + offset * 4, global);	
-	addr |= (u64)dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4) << 32;
-	printf("[%03x bridge %d:%d.%d] Setup BAR at offset %d to 0x%016llx\n", sci, bus, dev, fun, offset, addr);
+	addr |= (uint64_t)dnc_read_conf(sci, bus, dev, fun, 16 + offset * 4) << 32;
+	printf("[%03x bridge %d:%d.%d] Setup BAR at offset %d to 0x%016" PRIx64 "\n", sci, bus, dev, fun, offset, addr);
 	offset++;
     }
 
@@ -285,8 +286,8 @@ static void setup_bridge(int node, int bus, int dev, int fun)
     dnc_write_conf(sci, bus, dev, fun, 4, val & ~1);
 }
 
-static void mmio_setup_bridge(int node, int ht, int link, int sublink, u32 base, u32 limit) {
-    u16 sci = nc_node[node].sci_id;
+static void mmio_setup_bridge(int node, int ht, int link, int sublink, uint32_t base, uint32_t limit) {
+    uint16_t sci = nc_node[node].sci_id;
     int bus, dev, fun, type;
 
     for (bus = 0; bus < 256; bus++)
@@ -315,12 +316,12 @@ static void mmio_setup_bridge(int node, int ht, int link, int sublink, u32 base,
 }
 
 /* Calculate contiguous MMIO regions */
-void tally_remote_node_mmio(u16 node)
+void tally_remote_node_mmio(uint16_t node)
 {
     int bridges[MAX_BRIDGES] = {0, };
     int i, flags;
-    u16 sci = nc_node[node].sci_id;
-    u64 base, limit, local_base;
+    uint16_t sci = nc_node[node].sci_id;
+    uint64_t base, limit, local_base;
     
     /* First node has MMIO setup below 4GB already */
     if (node == 0)
@@ -337,7 +338,7 @@ void tally_remote_node_mmio(u16 node)
 	    continue;
 
 	if (verbose)
-	    printf("Node %d: existing MMIO range %d from 0x%016llx-0x%016llx %s %s %s %s HT=%d link=%d sublink=%d flags=0x%08x\n",
+	    printf("Node %d: existing MMIO range %d from 0x%016" PRIx64 "-0x%016" PRIx64 " %s %s %s %s HT=%d link=%d sublink=%d flags=0x%08x\n",
 	    node, i, base << DRAM_MAP_SHIFT, limit << DRAM_MAP_SHIFT,
 	    (flags & 1) ? "R" : "", (flags & 2) ? "W" : "", (flags & 8) ? "L" : "",
 	    (flags & 0x8000) ? "NP" : "P", (flags >> 8) & 7, (flags >> 12) & 3, (flags >> 14) & 1, flags);
@@ -373,12 +374,12 @@ void tally_remote_node_mmio(u16 node)
 }
 
 /* Leave existing entries pointing to the root server, adding remote I/O regions */
-int setup_remote_node_mmio(u16 node)
+int setup_remote_node_mmio(uint16_t node)
 {
     int ret = 1;
     int ht = nc_node[node].nc_ht_id;
-    u16 sci = nc_node[node].sci_id;
-    u32 top;
+    uint16_t sci = nc_node[node].sci_id;
+    uint32_t top;
 
     /* Renumbering swaps proc @ HT0 with maxnode */
     if (renumber_bsp)

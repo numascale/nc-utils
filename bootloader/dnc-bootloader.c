@@ -26,13 +26,11 @@
 
 #include "dnc-regs.h"
 #include "dnc-defs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-acpi.h"
 #include "dnc-fabric.h"
 #include "dnc-config.h"
-
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
@@ -54,18 +52,18 @@
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
 int dnc_asic_mode;
 int dnc_chip_rev;
-u16 dnc_node_count = 0;
+uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
-u16 ht_pdom_count = 0;
-u16 apic_per_node;
-u16 ht_next_apic;
-u32 dnc_top_of_dram;      /* Top of DRAM, before MMIO, in 16MB chunks */
-u32 dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
-u8 post_apic_mapping[256]; /* POST APIC assigments */
+uint16_t ht_pdom_count = 0;
+uint16_t apic_per_node;
+uint16_t ht_next_apic;
+uint32_t dnc_top_of_dram;      /* Top of DRAM, before MMIO, in 16MB chunks */
+uint32_t dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
+uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static int scc_started = 0;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
-u8 nodedata[4096];
+uint8_t nodedata[4096];
 
 char *asm_relocated;
 static char *tables_relocated;
@@ -96,8 +94,8 @@ IMPORT_RELOCATED(new_osvw_status_msr);
 IMPORT_RELOCATED(new_hwcr_msr);
 IMPORT_RELOCATED(new_int_halt_msr);
 
-extern u8 smm_handler_start;
-extern u8 smm_handler_end;
+extern uint8_t smm_handler_start;
+extern uint8_t smm_handler_end;
 
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
@@ -168,18 +166,18 @@ static void load_orig_e820_map(void)
 
 static int install_e820_handler(void)
 {
-    u32 *int_vecs = 0x0;
+    uint32_t *int_vecs = 0x0;
     struct e820entry *e820;
-    volatile u16 *bda_tom_lower = (u16 *)0x413;
-    u32 tom_lower = *bda_tom_lower << 10;
-    u32 relocate_size;
+    volatile uint16_t *bda_tom_lower = (uint16_t *)0x413;
+    uint32_t tom_lower = *bda_tom_lower << 10;
+    uint32_t relocate_size;
     int last_32b = -1;
 
     relocate_size = (&asm_relocate_end - &asm_relocate_start + 1023) / 1024;
     relocate_size *= 1024;
     asm_relocated = (void *)((tom_lower - relocate_size) & ~0xfff);
     /* http://groups.google.com/group/comp.lang.asm.x86/msg/9b848f2359f78cdf
-     * *bda_tom_lower = ((u32)asm_relocated) >> 10; */
+     * *bda_tom_lower = ((uint32_t)asm_relocated) >> 10; */
 
     memcpy(asm_relocated, &asm_relocate_start, relocate_size);
 
@@ -187,7 +185,7 @@ static int install_e820_handler(void)
 
     unsigned int i, j = 0;
     for (i = 0; i < orig_e820_len / sizeof(struct e820entry); i++) {
-        u64 orig_end = orig_e820_map[i].base + orig_e820_map[i].length;
+        uint64_t orig_end = orig_e820_map[i].base + orig_e820_map[i].length;
 
 	if ((orig_e820_map[i].base >> DRAM_MAP_SHIFT) > max_mem_per_node) {
 	    /* Skip entry altogether */
@@ -197,22 +195,22 @@ static int install_e820_handler(void)
 	if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_node) {
 	    /* Adjust length to fit */
 	    printf("Master node exceeds cachable memory range, clamping...\n");
-	    orig_end = (u64)max_mem_per_node << DRAM_MAP_SHIFT;
+	    orig_end = (uint64_t)max_mem_per_node << DRAM_MAP_SHIFT;
 	    orig_e820_map[i].length = orig_end - orig_e820_map[i].base;
 	}
 
 	/* Reserve space for relocated code */
-        if ((orig_end > (u32)asm_relocated) && (orig_end <= tom_lower)) {
+        if ((orig_end > (uint32_t)asm_relocated) && (orig_end <= tom_lower)) {
 	    /* Current entry ends within relocate space */
-            if (orig_e820_map[i].base > (u32)asm_relocated)
+            if (orig_e820_map[i].base > (uint32_t)asm_relocated)
                 continue;
             e820[j].base = orig_e820_map[i].base;
             e820[j].length = 
-                (u32)asm_relocated - orig_e820_map[i].base;
+                (uint32_t)asm_relocated - orig_e820_map[i].base;
             e820[j].type = orig_e820_map[i].type;
             j++;
         }
-        else if ((orig_e820_map[i].base > (u32)asm_relocated) &&
+        else if ((orig_e820_map[i].base > (uint32_t)asm_relocated) &&
                  (orig_e820_map[i].base < tom_lower))
         {
 	    /* Current entry starts within relocate space */
@@ -221,13 +219,13 @@ static int install_e820_handler(void)
             e820[j].type = orig_e820_map[i].type;
             j++;
         }
-        else if ((orig_e820_map[i].base < (u32)asm_relocated) &&
+        else if ((orig_e820_map[i].base < (uint32_t)asm_relocated) &&
                  (orig_end > tom_lower))
         {
 	    /* Current entry covers relocate space */
             e820[j].base = orig_e820_map[i].base;
             e820[j].length = 
-                (u32)asm_relocated - orig_e820_map[i].base;
+                (uint32_t)asm_relocated - orig_e820_map[i].base;
             e820[j].type = orig_e820_map[i].type;
             j++;
 
@@ -262,8 +260,8 @@ static int install_e820_handler(void)
 	e820[last_32b].length -= TABLE_AREA_SIZE;
 	tables_relocated = (void *)(long)e820[last_32b].base + (long)e820[last_32b].length;
     }
-    int_vecs[0x15] = (((u32)asm_relocated)<<12)|
-        ((u32)(&new_e820_handler_relocate - &asm_relocate_start));
+    int_vecs[0x15] = (((uint32_t)asm_relocated)<<12)|
+        ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
 
     printf("Persistent code relocated to %p\n", asm_relocated);
     printf("Allocating ACPI tables at %p\n", tables_relocated);
@@ -272,10 +270,10 @@ static int install_e820_handler(void)
 
 static void update_e820_map(void)
 {
-    u64 prev_end, rest;
+    uint64_t prev_end, rest;
     unsigned int i, j, max;
     struct e820entry *e820;
-    u16 *len;
+    uint16_t *len;
 
     e820 = (void *)REL32(new_e820_map);
     len  = REL16(new_e820_len);
@@ -290,7 +288,7 @@ static void update_e820_map(void)
     }
 
     /* Truncate to SCI000/HT 0 end; rest added below */
-    e820[max].length = ((u64)nc_node[0].ht[0].size << DRAM_MAP_SHIFT)
+    e820[max].length = ((uint64_t)nc_node[0].ht[0].size << DRAM_MAP_SHIFT)
 	- e820[max].base;
 
     prev_end = e820[max].base + e820[max].length;
@@ -300,7 +298,7 @@ static void update_e820_map(void)
 	 * handles rest */
 	rest = prev_end & ((SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1);
 	if (rest) {
-	    printf("Deducting 0x%x from e820 entry...\n", (u32)rest);
+	    printf("Deducting 0x%x from e820 entry...\n", (uint32_t)rest);
 	    e820[max].length -= rest;
 	    prev_end -= rest;
 	}
@@ -319,8 +317,8 @@ static void update_e820_map(void)
 	    if ((i == 0) && (j == 0))
 		continue; /* Skip BSP */
 
-            e820[*len].base   = ((u64)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
-            e820[*len].length = ((u64)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);
+            e820[*len].base   = ((uint64_t)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
+            e820[*len].length = ((uint64_t)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);
             e820[*len].type   = 1;
 	    if (mem_offline && (i > 0)) {
 		if (e820[*len].length > MIN_NODE_MEM)
@@ -351,7 +349,7 @@ static void update_e820_map(void)
 static void load_existing_apic_map(void)
 {
     acpi_sdt_p srat = find_sdt("SRAT");
-    u16 apic_used[16];
+    uint16_t apic_used[16];
     int i, c;
     memset(post_apic_mapping, ~0, sizeof(post_apic_mapping));
     memset(apic_used, 0, sizeof(apic_used));
@@ -458,7 +456,7 @@ static void update_acpi_tables(void)
     acpi_sdt_p slit = (void *)tables_relocated + 128 * 1024;
     acpi_sdt_p apic = (void *)tables_relocated + 256 * 1024;
     acpi_sdt_p mcfg = (void *)tables_relocated + 512 * 1024;
-    u8 *dist;
+    uint8_t *dist;
 
     unsigned int i, j, apicid, pnum;
     unsigned int node, ht;
@@ -640,8 +638,8 @@ static void update_acpi_tables(void)
 	    mem.type     = 1;
 	    mem.len      = sizeof(mem);
 	    mem.prox_dom = nc_node[node].ht[ht].pdom;
-	    mem.mem_base = (u64)nc_node[node].ht[ht].base << DRAM_MAP_SHIFT;
-	    mem.mem_size = (u64)nc_node[node].ht[ht].size << DRAM_MAP_SHIFT;
+	    mem.mem_base = (uint64_t)nc_node[node].ht[ht].base << DRAM_MAP_SHIFT;
+	    mem.mem_size = (uint64_t)nc_node[node].ht[ht].size << DRAM_MAP_SHIFT;
 	    mem.enabled  = 1;
 	    mem.hotplug  = 0;
 	    mem.nonvol   = 0;
@@ -656,7 +654,7 @@ static void update_acpi_tables(void)
 	    if (!nc_node[node].ht[ht].cpuid)
 		continue;
 	    for (j = 0; j < nc_node[node].ht[ht].cores; j++) {
-		u16 apicid = j + nc_node[node].ht[ht].apic_base + nc_node[node].apic_offset;
+		uint16_t apicid = j + nc_node[node].ht[ht].apic_base + nc_node[node].apic_offset;
 		if (ht_next_apic < 0x100) {
 		    struct acpi_core_affinity core;
 
@@ -712,7 +710,7 @@ static void update_acpi_tables(void)
         struct acpi_mcfg_allocation mcfg_allocation;
 
         memset(&mcfg_allocation, 0, sizeof(mcfg_allocation));
-        mcfg_allocation.address = DNC_MCFG_BASE | ((u64)nc_node[node].sci_id << 28ULL);
+        mcfg_allocation.address = DNC_MCFG_BASE | ((uint64_t)nc_node[node].sci_id << 28ULL);
         mcfg_allocation.pci_segment = node;
         mcfg_allocation.start_bus_number = 0;
         mcfg_allocation.end_bus_number = 255;
@@ -764,7 +762,7 @@ static void update_mptable(void)
            mpfp->feature[0], mpfp->feature[1], mpfp->feature[2],
            mpfp->feature[3], mpfp->feature[4]);
 
-    if ((u32)mpfp > (u32)REL32(new_mpfp)) {
+    if ((uint32_t)mpfp > (uint32_t)REL32(new_mpfp)) {
         memcpy((void *)REL32(new_mpfp), mpfp, sizeof(*mpfp));
         mpfp = (void *)REL32(new_mpfp);
     }
@@ -794,8 +792,8 @@ static void update_mptable(void)
 
 static void setup_apic_atts(void)
 {
-    u32 apic_shift;
-    u16 i, j;
+    uint32_t apic_shift;
+    uint16_t i, j;
     
     apic_shift = 1;
     while (apic_per_node > (1 << apic_shift)) apic_shift++;
@@ -805,8 +803,8 @@ static void setup_apic_atts(void)
     
     /* Set APIC ATT for remote interrupts */
     for (i = 0; i < dnc_node_count; i++) {
-        u16 snode = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-	u16 dnode, ht;
+        uint16_t snode = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
+	uint16_t dnode, ht;
 
         printf("Initializing SCI%03x APIC ATT tables...\n", nc_node[i].sci_id);
         dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT,    apic_shift-1);
@@ -817,7 +815,7 @@ static void setup_apic_atts(void)
 	}
 		    
 	for (dnode = 0; dnode < dnc_node_count; dnode++) {
-	    u16 cur, min, max;
+	    uint16_t cur, min, max;
 	    min = ~0;
 	    max = 0;
 	    for (ht = 0; ht < 8; ht++) {
@@ -839,14 +837,14 @@ static void setup_apic_atts(void)
     }
 }
     
-static void add_scc_hotpatch_att(u64 addr, u16 node)
+static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
 {
-    u64 val;
-    u32 base, lim;
+    uint64_t val;
+    uint32_t base, lim;
     int i;
 
     if (scc_started) {
-	u32 att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
+	uint32_t att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
 	att_idx = (att_idx >> 27) & 0xf;
 	val = addr >> 20;
 	while (att_idx > 0) {
@@ -859,7 +857,7 @@ static void add_scc_hotpatch_att(u64 addr, u16 node)
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
 	    if (val != node) {
 		printf("add_att: Existing ATT entry differs from given node! %08x != %08x\n",
-		       (u32)val, node);
+		       (uint32_t)val, node);
 	    }
 	}
 	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
@@ -890,14 +888,14 @@ static void add_scc_hotpatch_att(u64 addr, u16 node)
     }
 }
 
-static void disable_smm_handler(u64 smm_base)
+static void disable_smm_handler(uint64_t smm_base)
 {
-    u64 val;
-    u64 smm_addr;
-    u16 node;
-    u32 sreq_ctrl;
+    uint64_t val;
+    uint64_t smm_addr;
+    uint16_t node;
+    uint32_t sreq_ctrl;
     int i;
-    u8 *cur;
+    uint8_t *cur;
 
     if (!disable_smm)
 	return;
@@ -929,12 +927,12 @@ static void disable_smm_handler(u64 smm_base)
 	
     cur = &smm_handler_start;
     while (cur + 4 <= &smm_handler_end) {
-	mem64_write32(smm_addr, *((u32 *)cur));
+	mem64_write32(smm_addr, *((uint32_t *)cur));
 	smm_addr += 4;
 	cur += 4;
     }
     if (cur + 2 <= &smm_handler_end) {
-	mem64_write16(smm_addr, *((u16 *)cur));
+	mem64_write16(smm_addr, *((uint16_t *)cur));
 	smm_addr += 2;
 	cur += 2;
     }
@@ -951,11 +949,11 @@ static void disable_smm_handler(u64 smm_base)
 
 static void setup_other_cores(void)
 {
-    u16 node = nc_node[0].sci_id;
-    u32 ht, apicid, oldid, i, j;
-    volatile u32 *icr;
-    volatile u32 *apic;
-    u64 val;
+    uint16_t node = nc_node[0].sci_id;
+    uint32_t ht, apicid, oldid, i, j;
+    volatile uint32_t *icr;
+    volatile uint32_t *apic;
+    uint64_t val;
 
     /* Set H2S_Init */
     printf("Setting SCI%03x H2S_Init...\n", node);
@@ -964,11 +962,11 @@ static void setup_other_cores(void)
 
     val = dnc_rdmsr(MSR_APIC_BAR);
     printf("MSR APIC_BAR: %012llx\n", val);
-    apic = (void *)((u32)val & ~0xfff);
+    apic = (void *)((uint32_t)val & ~0xfff);
     icr = &apic[0x300/4];
 
     printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
-           (u32)apic, apic[0x20/4], (u32)icr, *icr);
+           (uint32_t)apic, apic[0x20/4], (uint32_t)icr, *icr);
 
     /* ERRATA #N28: Disable HT Lock mechanism. 
      * AMD Email dated 31.05.2011 :
@@ -1021,8 +1019,8 @@ static void setup_other_cores(void)
 		printf("init IPI not delivered\n");
 
 	    apic[0x310/4] = apicid << 24;
-	    assert(((u32)REL32(init_dispatch) & ~0xff000) == 0);
-	    *icr = 0x00004600 | (((u32)REL32(init_dispatch) >> 12) & 0xff);
+	    assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
+	    *icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
 
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (!(*icr & 0x1000))
@@ -1054,12 +1052,12 @@ static void setup_other_cores(void)
     critical_leave();
 }
 
-static void renumber_remote_bsp(u16 num)
+static void renumber_remote_bsp(uint16_t num)
 {
-    u8 i, j;
-    u16 node = nc_node[num].sci_id;
-    u8 maxnode = nc_node[num].nc_ht_id;
-    u32 val;
+    uint8_t i, j;
+    uint16_t node = nc_node[num].sci_id;
+    uint8_t maxnode = nc_node[num].nc_ht_id;
+    uint32_t val;
 
     printf("Renumbering BSP to HT#%d on SCI%03x#0...\n", node, maxnode);
 
@@ -1184,17 +1182,17 @@ static void renumber_remote_bsp(u16 num)
     nc_node[num].nc_ht_id = 0;
 }
 
-static void setup_remote_cores(u16 num)
+static void setup_remote_cores(uint16_t num)
 {
-    u8 i, map_index;
-    u16 node = nc_node[num].sci_id;
-    u8 ht_id = nc_node[num].nc_ht_id;
+    uint8_t i, map_index;
+    uint16_t node = nc_node[num].sci_id;
+    uint8_t ht_id = nc_node[num].nc_ht_id;
     nc_node_info_t *cur_node = &nc_node[num];
-    u16 ht, apicid, oldid;
-    u32 j;
-    u32 val;
-    u64 tom;
-    u64 qval;
+    uint16_t ht, apicid, oldid;
+    uint32_t j;
+    uint32_t val;
+    uint64_t tom;
+    uint64_t qval;
 
     printf("Setting up cores on node #%d (SCI%03x), %d HT nodes\n",
            num, node, ht_id);
@@ -1408,7 +1406,7 @@ static void setup_remote_cores(u16 num)
 
     udelay(200);
     
-    *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((u64)node << 28ULL) | 0x21ULL;
+    *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)node << 28ULL) | 0x21ULL;
 
     /* Start all remote cores and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
@@ -1426,9 +1424,9 @@ static void setup_remote_cores(u16 num)
 
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (oldid<<16));
 	    udelay(50);
-	    assert(((u32)REL32(init_dispatch) & ~0xff000) == 0);
+	    assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
-			  0xff002600 | (oldid << 16) | (((u32)REL32(init_dispatch) >> 12) & 0xff));
+			  0xff002600 | (oldid << 16) | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff));
 	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
 		if (*REL32(cpu_status) == 0)
 		    break;
@@ -1453,11 +1451,11 @@ static void setup_remote_cores(u16 num)
 static void setup_local_mmio_maps(void)
 {
     int i, j, next;
-    u64 tom;
-    u32 base[8];
-    u32 lim[8];
-    u32 dst[8];
-    u32 curbase, curlim, curdst;
+    uint64_t tom;
+    uint32_t base[8];
+    uint32_t lim[8];
+    uint32_t dst[8];
+    uint32_t curbase, curlim, curdst;
     unsigned int sbnode;
 
     printf("Setting MMIO maps on local DNC...\n");
@@ -1644,7 +1642,7 @@ static int read_file(const char *filename, void *buf, int bufsz)
     return len;
 }
 
-static int convert_buf_u32(char *src, u32 *dst, int max_offset)
+static int convert_buf_uint32_t(char *src, uint32_t *dst, int max_offset)
 {
     char *b;
     int offs = 0;
@@ -1664,7 +1662,7 @@ static int convert_buf_u32(char *src, u32 *dst, int max_offset)
     return offs-1;
 }
 
-static int convert_buf_u16(char *src, u16 *dst, int max_offset)
+static int convert_buf_uint16_t(char *src, uint16_t *dst, int max_offset)
 {
     char *b;
     int offs = 0;
@@ -1684,16 +1682,16 @@ static int convert_buf_u16(char *src, u16 *dst, int max_offset)
     return offs-1;
 }
 
-static u32 mseq_ucode_update[1024];
-static u16 mseq_table_update[128];
+static uint32_t mseq_ucode_update[1024];
+static uint16_t mseq_table_update[128];
 
 static void read_microcode_update(void)
 {
     char path[512];
     int psep;
     int ucode_len, table_len;
-    u32 ucode_xor, table_xor;
-    u16 i;
+    uint32_t ucode_xor, table_xor;
+    uint16_t i;
 
     ucode_xor = 0;
     for (i = 0; i < mseq_ucode_length; i++) {
@@ -1725,7 +1723,7 @@ static void read_microcode_update(void)
         return;
     }
 
-    ucode_len = convert_buf_u32(__com32.cs_bounce, mseq_ucode_update, 1024);
+    ucode_len = convert_buf_uint32_t(__com32.cs_bounce, mseq_ucode_update, 1024);
     if (ucode_len < 0) {
         printf("Error decoding microcode update, continuing with built-in version (xor = %u, %u)\n",
                ucode_xor, table_xor);
@@ -1741,7 +1739,7 @@ static void read_microcode_update(void)
         return;
     }
 
-    table_len = convert_buf_u16(__com32.cs_bounce, mseq_table_update, 128);
+    table_len = convert_buf_uint16_t(__com32.cs_bounce, mseq_table_update, 128);
     if (table_len < 0) {
         printf("Error decoding microcode update, continuing with built-in version (xor = %u, %u)\n",
                ucode_xor, table_xor);
@@ -1786,7 +1784,7 @@ int read_config_file(char *file_name)
     return 0;
 }
 
-static int pxeapi_call(int func, u8 *buf)
+static int pxeapi_call(int func, uint8_t *buf)
 {
     static com32sys_t inargs, outargs;
 
@@ -1809,7 +1807,7 @@ int udp_open(void)
 
     tftp_close_param = __com32.cs_bounce;
     memset(tftp_close_param, 0, sizeof(*tftp_close_param));
-    pxeapi_call(PXENV_TFTP_CLOSE, (u8 *)tftp_close_param);
+    pxeapi_call(PXENV_TFTP_CLOSE, (uint8_t *)tftp_close_param);
     printf("TFTP close returns: %d\n", tftp_close_param->Status);
 
     srcip = 0xffffffff;
@@ -1821,7 +1819,7 @@ int udp_open(void)
     pxe_open_param = __com32.cs_bounce;
     memset(pxe_open_param, 0, sizeof(*pxe_open_param));
     pxe_open_param->src_ip = srcip;
-    pxeapi_call(PXENV_UDP_OPEN, (u8 *)pxe_open_param);
+    pxeapi_call(PXENV_UDP_OPEN, (uint8_t *)pxe_open_param);
     printf("PXE UDP open returns: %d\n", pxe_open_param->status);
     return 1;
 }
@@ -1845,7 +1843,7 @@ void udp_broadcast_state(int handle __attribute__((unused)),
     memcpy(buf_reloc, buf, len);
     pxe_write_param->buffer_size = len;
     
-    pxeapi_call(PXENV_UDP_WRITE, (u8 *)pxe_write_param);
+    pxeapi_call(PXENV_UDP_WRITE, (uint8_t *)pxe_write_param);
 }
 
 int udp_read_state(int handle __attribute__((unused)),
@@ -1863,7 +1861,7 @@ int udp_read_state(int handle __attribute__((unused)),
     pxe_read_param->buffer.offs = OFFS(buf_reloc);
     pxe_read_param->buffer_size = len;
 	
-    pxeapi_call(PXENV_UDP_READ, (u8 *)pxe_read_param);
+    pxeapi_call(PXENV_UDP_READ, (uint8_t *)pxe_read_param);
     if ((pxe_read_param->status == PXENV_STATUS_SUCCESS) &&
 	(pxe_read_param->s_port == htons(4711)))
     {
@@ -1894,7 +1892,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
     int count, backoff, last_stat;
     int do_restart;
     enum node_state waitfor, own_state;
-    u32 last_cmd = ~0;
+    uint32_t last_cmd = ~0;
     int len, i;
     int handle;
 
@@ -2071,7 +2069,7 @@ static void update_mtrr(void)
 
 static void local_chipset_fixup(void)
 {
-    u32 val;
+    uint32_t val;
 
     printf("Scanning for known chipsets, local pass...\n");
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
@@ -2084,10 +2082,10 @@ static void local_chipset_fixup(void)
 
     /* Only needed to workaround rev A/B issue */
     if (dnc_asic_mode && dnc_chip_rev < 2) {
-	u16 node;
-	u64 addr;
+	uint16_t node;
+	uint64_t addr;
 	int i;
-	u32 sreq_ctrl;
+	uint32_t sreq_ctrl;
 
 	addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
 	addr += 0x200000000000ULL;
@@ -2127,8 +2125,8 @@ static void local_chipset_fixup(void)
 
 static void global_chipset_fixup(void)
 {
-    u16 node;
-    u32 val;
+    uint16_t node;
+    uint32_t val;
     int i;
 
     printf("Scanning for known chipsets, global pass...\n");
@@ -2148,7 +2146,7 @@ static void global_chipset_fixup(void)
 			   dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
 	}
 	if ((val == 0x036910de)) {
-            u32 val = dnc_read_conf(node, 0, 0, 0, 0x90);
+            uint32_t val = dnc_read_conf(node, 0, 0, 0, 0x90);
 	    printf("Adjusting configuration of nVidia MCP55 on SCI%03x...\n",
 		   node);
             /* Disable mmcfg setting in bridge to avoid OS confusion */
@@ -2160,7 +2158,7 @@ static void global_chipset_fixup(void)
 
 static void setup_c1e_osvw(void)
 {
-    u64 msr;
+    uint64_t msr;
 
     /* Disable C1E in MSRs */
     msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
@@ -2196,15 +2194,15 @@ static void setup_c1e_osvw(void)
 
 static int unify_all_nodes(void)
 {
-    u64 val;
-    u16 i;
-    u16 node;
-    u8 abort = 0;
+    uint64_t val;
+    uint16_t i;
+    uint16_t node;
+    uint8_t abort = 0;
     int model, model_first = 0;
-    volatile u32 *apic;
+    volatile uint32_t *apic;
 
     val = dnc_rdmsr(MSR_APIC_BAR);
-    apic = (void *)((u32)val & ~0xfff);
+    apic = (void *)((uint32_t)val & ~0xfff);
 
     dnc_node_count = 0;
     ht_pdom_count  = 0;
@@ -2254,8 +2252,8 @@ static int unify_all_nodes(void)
 		    continue;
 		printf("SCI%03x/HT#%d: %012llx - %012llx\n",
 		       node, i,
-		       (u64)nc_node[node].ht[i].base << DRAM_MAP_SHIFT,
-		       (u64)(nc_node[node].ht[i].base + nc_node[node].ht[i].size) << DRAM_MAP_SHIFT);
+		       (uint64_t)nc_node[node].ht[i].base << DRAM_MAP_SHIFT,
+		       (uint64_t)(nc_node[node].ht[i].base + nc_node[node].ht[i].size) << DRAM_MAP_SHIFT);
 	    }
 	}
     }
@@ -2295,8 +2293,8 @@ static int unify_all_nodes(void)
 		  nc_node[0].ht[dnc_master_ht_id - 1].size);
 
     for (i = 0; i < dnc_node_count; i++) {
-	u16 dnode;
-	u32 addr, end, ht;
+	uint16_t dnode;
+	uint32_t addr, end, ht;
 
         node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
 	for (dnode = 0; dnode < dnc_node_count; dnode++) {
@@ -2330,8 +2328,8 @@ static int unify_all_nodes(void)
     update_mtrr();
 
     /* Set TOPMEM2 for ourselves and other cores */
-    dnc_wrmsr(MSR_TOPMEM2, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
-    *REL64(new_topmem2_msr) = (u64)dnc_top_of_mem << DRAM_MAP_SHIFT;
+    dnc_wrmsr(MSR_TOPMEM2, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
+    *REL64(new_topmem2_msr) = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
     /* Harmonize TOPMEM */
     *REL64(new_topmem_msr) = dnc_rdmsr(MSR_TOPMEM);
 
@@ -2350,8 +2348,8 @@ static int unify_all_nodes(void)
 
     setup_apic_atts();
 
-    dnc_wrmsr(MSR_MCFG_BASE, DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL);
-    *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((u64)nc_node[0].sci_id << 28ULL) | 0x21ULL;
+    dnc_wrmsr(MSR_MCFG_BASE, DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL);
+    *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL;
 
     /* Make chipset-specific adjustments */
     global_chipset_fixup();
@@ -2417,13 +2415,13 @@ static void cleanup_stack(void)
 
 static void set_wrap32_disable(void)
 {
-    u64 val = dnc_rdmsr(MSR_HWCR);
+    uint64_t val = dnc_rdmsr(MSR_HWCR);
     dnc_wrmsr(MSR_HWCR, val | (1ULL << 17));
 }
 
 static void clear_bsp_flag(void)
 {
-    u64 val = dnc_rdmsr(MSR_APIC_BAR);
+    uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
     dnc_wrmsr(MSR_APIC_BAR, val &= ~(1ULL << 8));
 }
 
@@ -2480,11 +2478,11 @@ static void constants(void)
 {
     family = cpu_family(0xfff0, 0) >> 16;
     if (family >= 0x15) {
-	u32 val = cht_read_conf(0, FUNC5_EXTD, 0x160);
+	uint32_t val = cht_read_conf(0, FUNC5_EXTD, 0x160);
 	tsc_mhz = 200 * (((val >> 1) & 0x1f) + 4) / (1 + ((val >> 8) & 1));
     } else {
-	u32 val = cht_read_conf(0, FUNC3_MISC, 0xd4);
-	u64 val6 = dnc_rdmsr(0xc0010071);
+	uint32_t val = cht_read_conf(0, FUNC3_MISC, 0xd4);
+	uint64_t val6 = dnc_rdmsr(0xc0010071);
 	tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
     }
 
@@ -2493,7 +2491,7 @@ static void constants(void)
 
 static int nc_start(void)
 {
-    u32 uuid;
+    uint32_t uuid;
     struct node_info *info;
     struct part_info *part;
     int wait;
@@ -2593,7 +2591,7 @@ static int nc_start(void)
 	start_user_os();
     } else {
 	/* Slave */
-	u32 val;
+	uint32_t val;
 
 	/* Get the original e820 map for reference */
 	load_orig_e820_map();

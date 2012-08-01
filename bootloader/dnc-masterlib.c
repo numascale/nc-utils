@@ -18,39 +18,34 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
 
 #include "dnc-regs.h"
 #include "dnc-defs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-fabric.h"
 #include "dnc-mmio.h"
-
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
 #include "hw-config.h"
 
-// -------------------------------------------------------------------------
-
 #include "../interface/numachip-mseq-ucode.h"
 #include "../interface/numachip-mseq-table.h"
 
-u32 *mseq_ucode = numachip_mseq_ucode;
-u16 *mseq_table = numachip_mseq_table;
+uint32_t *mseq_ucode = numachip_mseq_ucode;
+uint16_t *mseq_table = numachip_mseq_table;
 int mseq_ucode_length = (sizeof(numachip_mseq_ucode)/sizeof(numachip_mseq_ucode[0]));
 int mseq_table_length = (sizeof(numachip_mseq_table)/sizeof(numachip_mseq_table[0]));
 
 #define NUMACHIP_MSEQ_UCODE_LEN (mseq_ucode_length)
 #define NUMACHIP_MSEQ_TABLE_LEN (mseq_table_length)
 
-void load_scc_microcode(u16 node)
+void load_scc_microcode(uint16_t node)
 {
-    u32 val;
-    u16 i;
+    uint32_t val;
+    uint16_t i;
 
     dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
     for (i = 0; i < NUMACHIP_MSEQ_UCODE_LEN; i++)
@@ -67,9 +62,9 @@ void load_scc_microcode(u16 node)
 
 void tally_local_node(int enforce_alignment)
 {
-    u32 val, base, limit, rest;
-    u16 i, j, max_ht_node, tot_cores;
-    u16 last = 0;
+    uint32_t val, base, limit, rest;
+    uint16_t i, j, max_ht_node, tot_cores;
+    uint16_t last = 0;
 
     nc_node[0].node_mem = 0;
     tot_cores = 0;
@@ -214,13 +209,13 @@ void tally_local_node(int enforce_alignment)
     dnc_node_count++;
 }
 
-static int tally_remote_node(u16 node)
+static int tally_remote_node(uint16_t node)
 {
-    u32 val, base, limit;
-    u16 i, max_ht_node, tot_cores;
-    u16 apic_used[16];
-    u16 last = 0;
-    u16 cur_apic;
+    uint32_t val, base, limit;
+    uint16_t i, max_ht_node, tot_cores;
+    uint16_t apic_used[16];
+    uint16_t last = 0;
+    uint16_t cur_apic;
     nc_node_info_t *cur_node;
 
     if (dnc_raw_read_csr(node, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
@@ -378,7 +373,7 @@ static int tally_remote_node(u16 node)
 int tally_all_remote_nodes(void)
 {
     int ret = 1;
-    u16 node;
+    uint16_t node;
     for (node = 1; node < 4096; node++) {
         if ((nodedata[node] & 0xc0) != 0x80)
             continue;
@@ -397,8 +392,8 @@ int tally_all_remote_nodes(void)
     for (node = 0; node < dnc_node_count; node++)
 	ret &= setup_remote_node_mmio(node);
 
-    printf("DRAM top is 0x%016llx; MMIO top is 0x%016llx\n",
-	(u64)dnc_top_of_dram << DRAM_MAP_SHIFT, (u64)dnc_top_of_mem << DRAM_MAP_SHIFT);
+    printf("DRAM top is 0x%016" PRIx64 "; MMIO top is 0x%016" PRIx64 "\n",
+	(uint64_t)dnc_top_of_dram << DRAM_MAP_SHIFT, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 
     return ret;
 }

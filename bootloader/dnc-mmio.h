@@ -20,11 +20,11 @@
 
 #define MAX_BRIDGES 4
 
-extern void tally_remote_node_mmio(u16 sci);
-extern int setup_remote_node_mmio(u16 sci);
-extern void mmio_range_write(u16 sci, int range, u64 base, u64 limit, int ht, int link, int sublink);
-extern void mmio_show(u16 sci);
-extern void dram_show(u16 sci);
+extern void tally_remote_node_mmio(uint16_t sci);
+extern int setup_remote_node_mmio(uint16_t sci);
+extern void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, int ht, int link, int sublink);
+extern void mmio_show(uint16_t sci);
+extern void dram_show(uint16_t sci);
 
 #endif
 

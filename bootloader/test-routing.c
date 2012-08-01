@@ -26,20 +26,19 @@
 #include <fcntl.h>
 
 #include "dnc-regs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-fabric.h"
 
-static u16 shadow_rtbll[7][256];
-static u16 shadow_rtblm[7][256];
-static u16 shadow_rtblh[7][256];
-static u16 shadow_ltbl[7][256];
+static uint16_t shadow_rtbll[7][256];
+static uint16_t shadow_rtblm[7][256];
+static uint16_t shadow_rtblh[7][256];
+static uint16_t shadow_ltbl[7][256];
 
-static void test_route(u8 bxbarid, u16 dest)
+static void test_route(uint8_t bxbarid, uint16_t dest)
 {
-    u16 offs = (dest >> 4) & 0xff;
-    u16 mask = 1<<(dest & 0xf);
-    u8 out = 0;
+    uint16_t offs = (dest >> 4) & 0xff;
+    uint16_t mask = 1<<(dest & 0xf);
+    uint8_t out = 0;
     
 //    printf("Testing route on bxbarid %d to target ID %04x (offs=%02x, mask=%04x)\n", bxbarid, dest, offs, mask);
 //    printf("ltbl[%d][%02x] = %04x\n", bxbarid, offs, shadow_ltbl[bxbarid][offs]);
@@ -65,17 +64,17 @@ static void test_route(u8 bxbarid, u16 dest)
     }
 }
 
-static void load_scc_routing(u16 rtbll[], u16 rtblm[], u16 rtblh[])
+static void load_scc_routing(uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[])
 {
-    u16 chunk, offs;
-    u16 maxchunk = 16;
+    uint16_t chunk, offs;
+    uint16_t maxchunk = 16;
 
     printf("Loading routing table from SCC...");
     
     for (chunk = 0; chunk < maxchunk; chunk++) {
         dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, (1<<7) + chunk);
         for (offs = 0; offs < 16; offs++) {
-            u32 l, m, h;
+            uint32_t l, m, h;
             // SCC
             l = dnc_read_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLL00 + (offs<<2));
             m = dnc_read_csr(0xfff0, H2S_CSR_G0_ROUT_BLTBL00  + (offs<<2));
@@ -97,11 +96,11 @@ static void load_scc_routing(u16 rtbll[], u16 rtblm[], u16 rtblh[])
 }
 
 static void load_lc3_routing(int linkno,
-                             u16 rtbll[], u16 rtblm[], u16 rtblh[], u16 ltbl[])
+                             uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[])
 {
-    u16 chunk, offs;
-    u16 maxchunk = 16;
-    u32 csr;
+    uint16_t chunk, offs;
+    uint16_t maxchunk = 16;
+    uint32_t csr;
 
     printf("Loading routing table from LC3%s...", _get_linkname(linkno));
 
@@ -130,7 +129,7 @@ int main(int argc, char **argv)
 {
     int cpu_fam  = -1;
     cpu_set_t cset;
-    u32 val;
+    uint32_t val;
 
     // Bind to core 0
     CPU_ZERO(&cset);

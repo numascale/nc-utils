@@ -35,11 +35,11 @@
 
 /* Route all 256 bxbar entries for chunk corresponding to "dest" over "link"
  * on "node" */
-void add_chunk_route(u16 dest, u16 node, u8 link)
+void add_chunk_route(uint16_t dest, uint16_t node, uint8_t link)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
-    u16 base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
-    u16 reg;
+    uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
+    uint16_t reg;
     
     dnc_write_csr(node,
 		  scc 
@@ -62,10 +62,10 @@ void add_chunk_route(u16 dest, u16 node, u8 link)
 }
 
 /* Unroute all 256 entries for chunk corresponding to "dest" on "node" */
-void del_chunk_route(u16 dest, u16 node)
+void del_chunk_route(uint16_t dest, uint16_t node)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
-    u16 reg;
+    uint16_t reg;
 
     if (!scc) {
         dnc_write_csr(node, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
@@ -80,12 +80,12 @@ void del_chunk_route(u16 dest, u16 node)
 
 /* Set route on "node" towards "dest" over "link"; bitmask "width"
    signifies width of route */
-void set_route(u16 dest, u16 node, u16 width, u8 link)
+void set_route(uint16_t dest, uint16_t node, uint16_t width, uint8_t link)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
-    u16 reg = SCI_ID_REGNR(dest) * 4;
-    u16 bit = SCI_ID_BITNR(dest);
-    u16 base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
+    uint16_t reg = SCI_ID_REGNR(dest) * 4;
+    uint16_t bit = SCI_ID_BITNR(dest);
+    uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
 
     dnc_write_csr(node,
 		  scc 
@@ -104,13 +104,13 @@ void set_route(u16 dest, u16 node, u16 width, u8 link)
 
 /* Add route on "node" towards "dest" over "link"; bitmask "width"
    signifies width of route */
-void add_route(u16 dest, u16 node, u16 width, u8 link)
+void add_route(uint16_t dest, uint16_t node, uint16_t width, uint8_t link)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
-    u16 reg = SCI_ID_REGNR(dest) * 4;
-    u16 bit = SCI_ID_BITNR(dest);
-    u16 base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
-    u32 csr;
+    uint16_t reg = SCI_ID_REGNR(dest) * 4;
+    uint16_t bit = SCI_ID_BITNR(dest);
+    uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
+    uint32_t csr;
 
     dnc_write_csr(node,
 		  scc 
@@ -152,12 +152,12 @@ void add_route(u16 dest, u16 node, u16 width, u8 link)
 
 /* Remove route on "node" towards "dest"; bitmask "width" signifies
    width of route */
-void del_route(u16 dest, u16 node, u16 width)
+void del_route(uint16_t dest, uint16_t node, uint16_t width)
 {
     int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
-    u16 reg = SCI_ID_REGNR(dest) * 4;
-    u16 bit = SCI_ID_BITNR(dest);
-    u32 csr;
+    uint16_t reg = SCI_ID_REGNR(dest) * 4;
+    uint16_t bit = SCI_ID_BITNR(dest);
+    uint32_t csr;
 
     if (!scc) {
         dnc_write_csr(node, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
@@ -181,12 +181,12 @@ void del_route(u16 dest, u16 node, u16 width)
 
 /* Set route towards "dest" over "link" on blink id "bid" via "node";
    bitmask "width" signifies width of route */
-void set_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
+void set_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width, uint8_t link)
 {
     int scc = (bid == 0);
-    u16 reg = SCI_ID_REGNR(dest) * 4;
-    u16 bit = SCI_ID_BITNR(dest);
-    u16 base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
+    uint16_t reg = SCI_ID_REGNR(dest) * 4;
+    uint16_t bit = SCI_ID_BITNR(dest);
+    uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
 
     dnc_write_csr_geo(node, bid,
 		      scc 
@@ -205,13 +205,13 @@ void set_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
 
 /* Add route towards "dest" over "link" on blink id "bid" via "node";
    bitmask "width" signifies width of route */
-void add_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
+void add_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width, uint8_t link)
 {
     int scc = (bid == 0);
-    u16 reg = SCI_ID_REGNR(dest) * 4;
-    u16 bit = SCI_ID_BITNR(dest);
-    u16 base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
-    u32 csr;
+    uint16_t reg = SCI_ID_REGNR(dest) * 4;
+    uint16_t bit = SCI_ID_BITNR(dest);
+    uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
+    uint32_t csr;
     
     dnc_write_csr_geo(node, bid,
 		      scc 
@@ -253,12 +253,12 @@ void add_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link)
 
 /* Remove route towards "dest" on blink id "bid" via "node"; bitmask
    "width" signifies width of route */
-void del_route_geo(u16 dest, u16 node, u8 bid, u16 width)
+void del_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width)
 {
     int scc = (bid == 0);
-    u16 reg = SCI_ID_REGNR(dest) * 4;
-    u16 bit = SCI_ID_BITNR(dest);
-    u32 csr;
+    uint16_t reg = SCI_ID_REGNR(dest) * 4;
+    uint16_t bit = SCI_ID_BITNR(dest);
+    uint32_t csr;
 
     if (!scc) {
         dnc_write_csr_geo(node, bid, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
