@@ -38,6 +38,7 @@ void system_trace(void)
     start_ht_trace(0);
     udelay(100);
     stop_ht_trace(0);
+    dump_ht_trace(0);
 }
 
 #else
