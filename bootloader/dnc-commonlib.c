@@ -1102,6 +1102,8 @@ void enable_probefilter(void)
     /* 2. Wait 40us for outstanding scrub requests to complete */
     udelay(40);
 
+    critical_enter();
+
     /* 3. Ensure CD bit is shared amongst cores */
     if (family >= 0x15) {
 	val6 = dnc_rdmsr(MSR_CU_CFG3);
@@ -1188,6 +1190,8 @@ void enable_probefilter(void)
        CR0.CD for all active cores in the system */
     enable_cache();
     wake_local_cores(VECTOR_ENABLE_CACHE);
+
+    critical_leave();
 
     /* 9. Restore L3 and DRAM scrubber register values */
     for (int n = 0; n < dnc_node_count; n++) {
