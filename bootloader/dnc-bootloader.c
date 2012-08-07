@@ -2475,6 +2475,21 @@ static void constants(void)
     printf("NB/TSC freqency is %dMHz\n", tsc_mhz);
 }
 
+static void selftest_late(void)
+{
+    int node, ht;
+
+    for (node = 0; node < dnc_node_count; node++) {
+	for (ht = 0; ht < 8; ht++) {
+	    if (!nc_node[node].ht[ht].cpuid)
+		continue;
+	    uint16_t sci = nc_node[node].sci_id;
+
+	    printf("SCI%03x PCI 1:0.0 ven/dev ID 0x%08x\n", sci, dnc_read_conf(sci, 1, 0, 0, 0));
+	}
+    }
+}
+
 static int nc_start(void)
 {
     uint32_t uuid;
@@ -2574,6 +2589,8 @@ static int nc_start(void)
 	(void)dnc_check_mctr_status(1);
         
 	update_e820_map();
+	if (verbose)
+	    selftest_late();
 	start_user_os();
     } else {
 	/* Slave */
