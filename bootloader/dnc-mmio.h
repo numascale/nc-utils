@@ -19,9 +19,11 @@
 #define __DNC_MMIO_H 1
 
 #define MAX_BRIDGES 4
+#define MMIO_SMALL (2 << 20)
 
 extern void tally_remote_node_mmio(uint16_t sci);
 extern int setup_remote_node_mmio(uint16_t sci);
+extern void setup_mmio_late(void);
 extern void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, int ht, int link, int sublink);
 extern void mmio_show(uint16_t sci);
 extern void dram_show(uint16_t sci);
