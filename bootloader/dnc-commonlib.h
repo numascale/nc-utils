@@ -95,6 +95,7 @@ struct state_bcast {
     uint32_t tid;
 };
 
+const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
 void wait_key(void);
 int cpu_family(uint16_t scinode, uint8_t node);

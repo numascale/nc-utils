@@ -80,6 +80,30 @@ uint32_t max_mem_per_node;
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
 
+/* Return string pointer using rotated static buffer to avoid heap */
+const char *pr_size(uint64_t val)
+{
+    static char strs[4][8];
+    static int index = 0;
+    const char suffix[] = " KMGTPE!";
+    unsigned int offset = 0;
+
+    /* Use new string buffer */
+    index = (index + 1) % 4;
+
+    while (offset < sizeof(suffix) && val >= 1024) {
+	val /= 1024;
+	offset++;
+    }
+
+    if (offset > 0)
+	snprintf(strs[index], 8, "%" PRIu64 "%cB", val, suffix[offset]);
+    else
+	snprintf(strs[index], 8, "%" PRIu64 "B", val);
+
+    return strs[index];
+}
+
 void udelay(const uint32_t usecs)
 {
     uint64_t limit = rdtscll() + (uint64_t)usecs * tsc_mhz;
