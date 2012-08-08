@@ -101,7 +101,7 @@ void tally_local_node(int enforce_alignment)
 	    (nc_node[0].ht[i].cpuid == 0xffffffff) ||
 	    (nc_node[0].ht[i].cpuid != nc_node[0].ht[0].cpuid))
 	{
-	    printf("** Node has unknown/incompatible CPUID: %08x, skipping...\n", nc_node[0].ht[i].cpuid);
+	    printf("Error: Root server has mix of CPUIDs %08x and %08x, skipping...\n", nc_node[0].ht[0].cpuid, nc_node[0].ht[i].cpuid);
 	    nc_node[0].ht[i].cpuid = 0;
 	    nc_node[0].ht[i].pdom = 0;
 	    continue;
@@ -118,7 +118,7 @@ void tally_local_node(int enforce_alignment)
 	    nc_node[0].node_mem += nc_node[0].ht[i].size;
 	    last = i;
 	    if (nc_node[0].node_mem > max_mem_per_node) {
-		printf("** Node exceeds cachable memory range, clamping...\n");
+		printf("Node exceeds cachable memory range, clamping...\n");
 		nc_node[0].ht[i].size -= nc_node[0].node_mem - max_mem_per_node;
 		nc_node[0].node_mem = max_mem_per_node;
 		limit = nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1;
@@ -277,7 +277,7 @@ static int tally_remote_node(uint16_t node)
 	    (cur_node->ht[i].cpuid == 0xffffffff) ||
 	    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid))
 	{
-	    printf("Error: Node has unknown/incompatible CPUID: %08x; skipping...\n", cur_node->ht[i].cpuid);
+	    printf("Error: SCI%03x has CPUID %08x differing from root server CPUID %08x; skipping...\n", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
 	    cur_node->ht[i].pdom = 0;
 	    cur_node->ht[i].cpuid = 0;
 	    continue;
