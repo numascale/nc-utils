@@ -179,6 +179,12 @@ double CacheGraph::hitrate (unsigned long long hit, unsigned long long miss) {
 	  return ((double)100*hit/(hit + miss));
   }
 }
+void CacheGraph::set_num_chips(int numachips) {
+    m_num_chips=numachips;
+}
+int CacheGraph::get_num_chips(void) {
+    return m_num_chips;  
+}
 void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 
         if (m_counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, 100);
@@ -199,7 +205,9 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
             title.clear();
             //curves[i]->setRawSamples(m_timestep, _hitrate.hitarray, m_counter);
             //curves[0]->setRawSamples(sample_x, sample_y0, counter);
-            curves[i]->setRawSamples(m_timestep, (m_hitrates)[i], m_counter);
+            //curves[i]->setRawSamples(m_timestep, (m_hitrates)[i], m_counter);
+            curves[i]->setSamples(m_timestep, (m_hitrates)[i], m_counter);
+            
         }
 	
 	}
@@ -303,8 +311,7 @@ void CacheHistGraph::set_num_chips(int numachips) {
     
 }
 int CacheHistGraph::get_num_chips(void) {
-    return m_num_chips;
-       
+    return m_num_chips;  
 }
 void CacheHistGraph::showstat(const struct cachestats_t& statmsg) {
 
