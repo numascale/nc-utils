@@ -161,8 +161,10 @@ public slots:
 	void showCurve(QwtPlotItem*, bool on);
 
 private:
-	double m_timestep[250], m_hitrate0[250], m_hitrate1[240], m_hitrate2[250], m_hitrate3[250];
-	uint64_t m_transactions0[250], m_transactions1[250], m_transactions2[250], m_transactions3[250];
+    //double sample_y1[250], sample_y2[240],sample_y3[250], sample_y0[250];
+    double m_hitrates[250][4];
+	double m_timestep[250];
+    vector <uint64_t> m_transactions[250];	
 	unsigned int m_counter;
 
 };

@@ -190,44 +190,23 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 		
 		char s[80];
 		QString title;
-
-        m_hitrate0[m_counter]= hitrate(statmsg.hit[0],statmsg.miss[0]);
-		m_hitrate1[m_counter]= hitrate(statmsg.hit[1],statmsg.miss[1]);
-		m_hitrate2[m_counter]= hitrate(statmsg.hit[2],statmsg.miss[2]);
-		m_hitrate3[m_counter]= hitrate(statmsg.hit[3],statmsg.miss[3]);
-		
-		m_transactions0[m_counter]= statmsg.hit[0] + statmsg.miss[0];
-		
-		sprintf(s, "Remote Cache #0 transactions %lld", m_transactions0[m_counter]); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[0]->setTitle(title);
-		title.clear();
-		m_transactions1[m_counter]= statmsg.hit[1] + statmsg.miss[1];
-		sprintf(s, "Remote Cache #1 transactions %lld", m_transactions1[m_counter]); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[1]->setTitle(title);
-		title.clear();
-		
-		m_transactions2[m_counter]= statmsg.hit[2] + statmsg.miss[2];
-		
-		sprintf(s, "Remote Cache #2 transactions %lld", m_transactions2[m_counter]); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[2]->setTitle(title);
-		title.clear();
-		m_transactions3[m_counter]= statmsg.hit[3] + statmsg.miss[3];
-		sprintf(s, "Remote Cache #3 transactions %lld", m_transactions3[m_counter]); // s now contains the value 52300
-		title.append(QString(s));		
-		curves[3]->setTitle(title);
-		title.clear();
-		
+        for (int i=0; i<4; i++) {          
+            m_hitrates[m_counter][i]=hitrate(statmsg.hit[i],statmsg.miss[i]);
+            m_transactions[m_counter].push_back(statmsg.hit[i] + statmsg.miss[i]);
+        	sprintf(s, "Remote Cache #%d transactions %lld", i, m_transactions[m_counter][i]); 
+		    title.append(QString(s));		
+		    curves[i]->setTitle(title);	    
+            title.clear();
+            //curves[i]->setRawSamples(m_timestep, _hitrate.hitarray, m_counter);
+            //curves[0]->setRawSamples(sample_x, sample_y0, counter);
+            curves[i]->setRawSamples(m_timestep, (m_hitrates)[i], m_counter);
+        }
+	
 	}
 	
-    curves[0]->setRawSamples(m_timestep, m_hitrate0, m_counter);
-	curves[1]->setRawSamples(m_timestep, m_hitrate1, m_counter);
-	curves[2]->setRawSamples(m_timestep, m_hitrate2, m_counter);
-	curves[3]->setRawSamples(m_timestep, m_hitrate3, m_counter);
-     
+    
 	plot->replot();
+    m_transactions[m_counter].clear();
 	m_counter = m_counter++;
 	if (m_counter==240) m_counter=0;
 }
