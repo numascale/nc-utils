@@ -154,6 +154,7 @@ public:
 
 	QwtPlot* plot;
 	vector<QwtPlotCurve*> curves;
+    void addCurves();
 	void showstat(const struct cachestats_t& statmsg);
     double hitrate (unsigned long long hit, unsigned long long miss);
     int get_num_chips();

@@ -56,6 +56,7 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 		srvconnect(cacheAddr, cacheSocket, cacheConnected);
         int num=get_num_chips();
         graph1->set_num_chips(num);
+        graph5->set_num_chips(num);
 	}
 
 	if( !mpiAddr.empty() ) {
@@ -95,11 +96,14 @@ void Curve::setColor(const QColor &color) {
 
 CacheGraph::CacheGraph(QWidget* parent)
 	: plot(new QwtPlot(parent)) {
-
+    
 	m_counter=0;
-	for (int i=0; i<240;i++) {
-		m_timestep[i] = i;
+    m_num_chips=0;
+    for (int i=0; i<240;i++) {
+		 m_timestep[i] = i;
 	}
+
+
 	plot->canvas()->setFrameShape(QFrame::NoFrame);
 
 	QwtLegend* legend = new QwtLegend;
@@ -116,38 +120,42 @@ CacheGraph::CacheGraph(QWidget* parent)
 	plot->setAxisTitle(QwtPlot::xBottom, xtitle);
 	QwtText ytitle("Cache hitrate [%]");
 	plot->setAxisTitle(QwtPlot::yLeft, ytitle);
-
-	QwtPlotCurve* curve = new QwtPlotCurve(QString("Remote Cache #0"));
-	curve->setPen(QPen(Qt::blue,2));
-	curve->attach(plot);
-	curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-	showCurve(curve,true);
-	curves.push_back(curve);	
-	
-
-	curve = new QwtPlotCurve( QString("Remote Cache #1"));
-	curve->setPen(QPen(Qt::red,2));
-	curve->attach(plot);
-	curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-	showCurve(curve,true);
-	curves.push_back(curve);
-
-	curve = new QwtPlotCurve( QString("Remote Cache #2"));
-	curve->setPen(QPen(Qt::cyan,2));
-	curve->attach(plot);
-	curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-	showCurve(curve,true);
-	curves.push_back(curve);
-
-	curve = new QwtPlotCurve(QString("Remote Cache #3"));
-	curve->setPen(QPen(Qt::green,2));
-	curve->attach(plot);
-	curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-	showCurve(curve,true);
-	curves.push_back(curve);		
-    
+   
 	connect(plot, SIGNAL(legendChecked(QwtPlotItem*, bool)),
         SLOT(showCurve(QwtPlotItem*, bool)));
+}
+void CacheGraph::addCurves() {
+    char str[80];
+    QwtPlotCurve* curve;
+    for (int i=0; i<(m_num_chips); i++) {
+        sprintf(str, "Remote Cache #%d", i); // s now contains the value 52300         
+	    curve = new QwtPlotCurve(str);
+        if (i==0) curve->setPen(QPen(Qt::black,2));
+        else if (i==1) curve->setPen(QPen(Qt::green,2));
+        else if (i==2) curve->setPen(QPen(Qt::blue,2));
+        else if (i==3) curve->setPen(QPen(Qt::red,2));
+        else if (i==4) curve->setPen(QPen(Qt::cyan,2));
+        else if (i==5) curve->setPen(QPen(Qt::magenta,2));
+        else if (i==6) curve->setPen(QPen(Qt::yellow,2));
+        else if (i==7) curve->setPen(QPen(Qt::darkRed,2));
+        else if (i==8) curve->setPen(QPen(Qt::darkGreen,2));
+        else if (i==9) curve->setPen(QPen(Qt::darkBlue,2));
+        else if (i==10) curve->setPen(QPen(Qt::darkCyan,2));
+        else if (i==11) curve->setPen(QPen(Qt::darkMagenta,2));
+        else if (i==12) curve->setPen(QPen(Qt::darkYellow,2));
+        else if (i==13) curve->setPen(QPen(Qt::darkGray,2));
+        else if (i==14) curve->setPen(QPen(Qt::lightGray,2));
+        else curve->setPen(QPen(Qt::gray,2));
+        curve->attach(plot);
+	    curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+	    showCurve(curve,true);
+	    curves.push_back(curve);	
+    }
+    //We need initialize the array of doubles:
+    /*for (int i=0; i<240;i++) {
+        m_hitrates[i]=new double [m_num_chips];        
+	}*/
+	
 }
 
 void CacheGraph::showCurve(QwtPlotItem* item, bool on) {
@@ -181,6 +189,7 @@ double CacheGraph::hitrate (unsigned long long hit, unsigned long long miss) {
 }
 void CacheGraph::set_num_chips(int numachips) {
     m_num_chips=numachips;
+    addCurves();
 }
 int CacheGraph::get_num_chips(void) {
     return m_num_chips;  
@@ -196,18 +205,21 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 		
 		char s[80];
 		QString title;
-        for (int i=0; i<4; i++) {          
+        for (int i=0; i<m_num_chips; i++) {          
             m_hitrates[m_counter][i]=hitrate(statmsg.hit[i],statmsg.miss[i]);
+            //m_hitrates[m_counter].push_back(hitrate(statmsg.hit[i],statmsg.miss[i]));
             m_transactions[m_counter].push_back(statmsg.hit[i] + statmsg.miss[i]);
-        	sprintf(s, "Remote Cache #%d transactions %lld", i, m_transactions[m_counter][i]); 
+            	    
+        	sprintf(s, "Remote Cache #%d transactions %lld", 
+                i, 
+                m_transactions[m_counter][i]); 
 		    title.append(QString(s));		
 		    curves[i]->setTitle(title);	    
             title.clear();
             //curves[i]->setRawSamples(m_timestep, _hitrate.hitarray, m_counter);
             //curves[0]->setRawSamples(sample_x, sample_y0, counter);
-            //curves[i]->setRawSamples(m_timestep, (m_hitrates)[i], m_counter);
-            curves[i]->setSamples(m_timestep, (m_hitrates)[i], m_counter);
-            
+            curves[i]->setRawSamples(m_timestep, (m_hitrates)[i], m_counter);
+            //curves[i]->setSamples((m_timestep)[i], (m_hitrates)[i]);            
         }
 	
 	}
@@ -215,8 +227,10 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
     
 	plot->replot();
     m_transactions[m_counter].clear();
-	m_counter = m_counter++;
+    m_counter = m_counter++;
 	if (m_counter==240) m_counter=0;
+
+  
 }
 
 CacheHistGraph::CacheHistGraph(QWidget* parent)

@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'mpistat.hpp'
 **
-** Created: Thu 9. Aug 15:22:25 2012
+** Created: Fri 10. Aug 14:01:14 2012
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
 ** WARNING! All changes made in this file will be lost!
