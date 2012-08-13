@@ -98,12 +98,13 @@ private:
 
 	QTimer timer;
 	struct msgstats_t statmsg;
+    struct cachestats_t *m_cstat;
 	bool init;
 
 	void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
 	void showConnectionStatus();
 	bool getstat(int rank);
-    int  get_num_chips();
+    /*int  get_num_chips();*/
    
 	void getstat();
 	void getcache();
