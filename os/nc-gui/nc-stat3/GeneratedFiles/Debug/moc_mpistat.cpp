@@ -4,6 +4,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ** Created: Thu 5. Jul 14:28:24 2012
 =======
 ** Created: Tue 24. Jul 13:35:14 2012
@@ -13,6 +14,9 @@
 >>>>>>> win_av/master
 =======
 ** Created: Mon 13. Aug 13:42:01 2012
+>>>>>>> win_av/master
+=======
+** Created: Mon 13. Aug 15:06:00 2012
 >>>>>>> win_av/master
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
