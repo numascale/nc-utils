@@ -88,6 +88,7 @@ private:
 	SOCKET mpiSocket;
 
 	bool  cacheConnected;
+    bool  m_freeze;
 	bool  mpiConnected;
 
 	CacheHistGraph* graph1;
@@ -109,6 +110,7 @@ private:
 
 private slots:
 	void getinfo();
+    void handleButton();
 };
 
 

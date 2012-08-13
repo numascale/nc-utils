@@ -30,6 +30,7 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 	, mpiAddr(strMpiAddr)
 	, timer(this)
 	, cacheConnected(false)
+    , m_freeze(true)
 	, mpiConnected(false)
 	, init(true)
 {
@@ -43,10 +44,10 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 	ui.tab2layout->addWidget(graph2->plot);
 	ui.tab4layout->addWidget(graph4->plot);
 	ui.tab5layout->addWidget(graph5->plot);
-
+    ui.pushButton->setToolTip("Stop the communication with the Numascale master node deamon temporarily.");
     graph2->setmaxrank(0);
 
-	ui.tabWidget->setCurrentIndex(0);
+	ui.tabWidget->setCurrentIndex(1);
 
 	resize(800, 480);
 
@@ -63,6 +64,7 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 		srvconnect(mpiAddr, mpiSocket, mpiConnected);
 	}
     connect(&timer, SIGNAL(timeout()), this, SLOT(getinfo()));	
+    connect(ui.pushButton, SIGNAL(released()), this, SLOT(handleButton()));
 	timer.setInterval(1000);
 	timer.start();
 }
@@ -73,12 +75,23 @@ mpistat::~mpistat()
 	WSACleanup();
 }
 
-
 void mpistat::getinfo() {
-	getcache();
-	getstat();
+    if (m_freeze) {
+	    getcache();
+	    getstat();
+    }
 }
 
+void mpistat::handleButton() {	
+    if (m_freeze) {
+        ui.pushButton->setText("Continue");
+        ui.pushButton->setToolTip("Continue the communication with the Numascale master node deamon again to receive fresh statistics.");
+    } else {
+        ui.pushButton->setText("Freeze");
+        ui.pushButton->setToolTip("Stop the communication with the Numascale master node deamon temporarily.");
+    }
+    m_freeze=!m_freeze;
+}
 
 Curve::Curve(const int r, const QString& title) 
 	: QwtPlotHistogram(title) 
@@ -215,7 +228,7 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
             	    
         sprintf(s, "Remote Cache #%d transactions %lld", 
             i, 
-            m_transactions[m_counter][i],); 
+            m_transactions[m_counter][i]); 
 		title.append(QString(s));		
 		curves[i]->setTitle(title);	    
         title.clear();   
