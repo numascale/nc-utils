@@ -154,16 +154,21 @@ public:
 
 	QwtPlot* plot;
 	vector<QwtPlotCurve*> curves;
+    void addCurves();
 	void showstat(const struct cachestats_t& statmsg);
-  double hitrate (unsigned long long hit, unsigned long long miss);
+    double hitrate (unsigned long long hit, unsigned long long miss);
+    int get_num_chips();
+    void set_num_chips(int num);
 
 public slots:
 	void showCurve(QwtPlotItem*, bool on);
 
 private:
-	double m_timestep[250], m_hitrate0[250], m_hitrate1[240], m_hitrate2[250], m_hitrate3[250];
-	uint64_t m_transactions0[250], m_transactions1[250], m_transactions2[250], m_transactions3[250];
+    double **m_hitrates;
+    double m_timestep[250];
+    vector <uint64_t> m_transactions[250];	
 	unsigned int m_counter;
+    int m_num_chips;
 
 };
 

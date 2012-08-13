@@ -2,9 +2,13 @@
 ** Form generated from reading UI file 'mpistat.ui'
 **
 <<<<<<< HEAD
+<<<<<<< HEAD
 ** Created: Thu 5. Jul 14:28:24 2012
 =======
 ** Created: Tue 24. Jul 13:35:14 2012
+>>>>>>> win_av/master
+=======
+** Created: Mon 13. Aug 11:46:36 2012
 >>>>>>> win_av/master
 **      by: Qt User Interface Compiler version 4.8.1
 **
