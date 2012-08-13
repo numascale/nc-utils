@@ -51,19 +51,16 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 	ui.tabWidget->setCurrentIndex(1);
 
 	resize(800, 480);
+    if( !cacheAddr.empty() ) {
 
-    
-
-	if( !cacheAddr.empty() ) {
 		srvconnect(cacheAddr, cacheSocket, cacheConnected);
-        m_num_chips=get_num_chips();
-        graph1->set_num_chips(m_num_chips);
-        graph5->set_num_chips(m_num_chips);
 	}
 
 	if( !mpiAddr.empty() ) {
 		srvconnect(mpiAddr, mpiSocket, mpiConnected);
 	}
+    
+
     connect(&timer, SIGNAL(timeout()), this, SLOT(getinfo()));	
     connect(ui.pushButton, SIGNAL(released()), this, SLOT(handleButton()));
 	timer.setInterval(1000);
@@ -77,8 +74,16 @@ mpistat::~mpistat()
 }
 
 void mpistat::getinfo() {
+
+    
     if (m_freeze) {
-	    getcache();
+        getcache();
+        if( !cacheConnected ) {
+            if( !cacheAddr.empty() ) {
+
+	        	srvconnect(cacheAddr, cacheSocket, cacheConnected);
+	        }           
+        }
 	    getstat();
     }
 }
@@ -632,10 +637,10 @@ void mpistat::showConnectionStatus() {
 			title += QString("not connected to ") + QString(mpiAddr.c_str());
 		}*/
 	}
-
+    
 	setWindowTitle(title);
+    
 }
-
 
 void mpistat::getcache() {
 
@@ -645,27 +650,42 @@ void mpistat::getcache() {
     //We need to get information from client on how many numachips there are in the system
     //After getting this information, then we know how many graphs to create. 
     //We need a function returning the number of numachips in the system
-    int any = 0;
-	struct cachestats_t *cstat;
-    	
+    int num_chips = 0;
+	
 	//send request
-	if( ::send(cacheSocket, (char*)&any, sizeof(int), 0) == SOCKET_ERROR ){
+	if( ::send(cacheSocket, (char*)&num_chips, sizeof(int), 0) == SOCKET_ERROR ){
 		cacheConnected = false;
 		showConnectionStatus();
 		return;
 	}
-    printf("Let us check the first received value any %d\n", m_num_chips);
-    cstat = new cachestats_t[m_num_chips];
+
+    //receive response    
+	int rc = ::recv(cacheSocket, (char*)&num_chips, sizeof(num_chips), 0);    
+	if( (rc == SOCKET_ERROR) || (rc <= 0) ) {    
+		cacheConnected = false;
+		showConnectionStatus();
+		return;
+	}
+    if (m_num_chips!=num_chips) {
+        m_num_chips=num_chips;
+        graph1->set_num_chips(m_num_chips);
+        graph5->set_num_chips(m_num_chips);
+    
+        printf("Let us check the first received value any %d\n", m_num_chips);
+        m_cstat = new cachestats_t[m_num_chips];
+    }
+
+    
 	//receive response
-	int rc = ::recv(cacheSocket, (char*)cstat, m_num_chips*sizeof(struct cachestats_t), 0);
+	rc = ::recv(cacheSocket, (char*)m_cstat, m_num_chips*sizeof(struct cachestats_t), 0);
 	if( (rc == SOCKET_ERROR) || (rc <= 0) ) {
 		cacheConnected = false;
 		showConnectionStatus();
 		return;
 	}
-    printf("Let us check the first received value hit %lld\n", cstat[0].hit);
-	graph5->showstat(cstat);
-    graph1->showstat(cstat);
+    
+	graph5->showstat(m_cstat);
+    graph1->showstat(m_cstat);
 }
 
 void mpistat::getstat() {
@@ -772,7 +792,7 @@ bool mpistat::getstat(int rank) {
 
 	return true;
 }
-int mpistat::get_num_chips() {
+/*int mpistat::get_num_chips() {
     int num_chips=0;
 	if( !cacheConnected ) {
 		return 0;
@@ -793,7 +813,7 @@ int mpistat::get_num_chips() {
 	}
 
 	return num_chips;
-}
+}*/
 char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode) {
 
 	memset(buffer, 0, size);
