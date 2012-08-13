@@ -210,6 +210,9 @@ double CacheGraph::hitrate (unsigned long long hit, unsigned long long miss) {
 	  return ((double)100*hit/(hit + miss));
   }
 }
+void CacheGraph::deleteCurves() {
+    curves.clear();
+}
 void CacheGraph::set_num_chips(int numachips) {
     m_num_chips=numachips;
     addCurves();
@@ -280,6 +283,9 @@ CacheHistGraph::CacheHistGraph(QWidget* parent)
         connect(plot, SIGNAL(legendChecked(QwtPlotItem*, bool)),
             SLOT(showCurve(QwtPlotItem*, bool)));
 
+}
+void CacheHistGraph::deleteCurves() {
+    curves.clear();
 }
 void CacheHistGraph::addCurves() {
     char str[80];
@@ -668,10 +674,17 @@ void mpistat::getcache() {
 	}
     if (m_num_chips!=num_chips) {
         m_num_chips=num_chips;
+        /* We need to clean the old setup in order not to leak memory
+         * Better clean up this code.
+         */
+        graph1->deleteCurves(); 
+        graph5->deleteCurves();
+        if (m_num_chips>0) delete m_cstat;
         graph1->set_num_chips(m_num_chips);
         graph5->set_num_chips(m_num_chips);
     
-        printf("Let us check the first received value any %d\n", m_num_chips);
+        printf("Master node in the numaconnect single image cluster reports %d numchips.\n", 
+                m_num_chips);
         m_cstat = new cachestats_t[m_num_chips];
     }
 
