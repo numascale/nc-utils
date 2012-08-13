@@ -99,7 +99,7 @@ CacheGraph::CacheGraph(QWidget* parent)
     
 	m_counter=0;
     m_num_chips=0;
-    for (int i=0; i<240;i++) {
+    for (int i=0; i<250;i++) {
 		 m_timestep[i] = i;
 	}
 
@@ -127,7 +127,7 @@ CacheGraph::CacheGraph(QWidget* parent)
 void CacheGraph::addCurves() {
     char str[80];
     QwtPlotCurve* curve;
-    for (int i=0; i<(m_num_chips); i++) {
+    for (int i=0; i<m_num_chips; i++) {
         sprintf(str, "Remote Cache #%d", i); // s now contains the value 52300         
 	    curve = new QwtPlotCurve(str);
         if (i==0) curve->setPen(QPen(Qt::black,2));
@@ -152,10 +152,14 @@ void CacheGraph::addCurves() {
 	    curves.push_back(curve);	
     }
     //We need initialize the array of doubles:
-    /*for (int i=0; i<240;i++) {
-        m_hitrates[i]=new double [m_num_chips];        
-	}*/
-	
+    m_hitrates=new double *[m_num_chips]; 
+    for (int i=0; i<m_num_chips;i++) {
+       m_hitrates[i]=new double[250]; 
+       for (int j=0; j<250; j++) {
+            m_hitrates[i][j]=100;
+        }
+	}
+
 }
 
 void CacheGraph::showCurve(QwtPlotItem* item, bool on) {
@@ -196,39 +200,35 @@ int CacheGraph::get_num_chips(void) {
 }
 void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 
-        if (m_counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, 100);
-        else if (m_counter == 60) plot->setAxisScale(QwtPlot::xBottom, 50, 150); 
-        else if (m_counter==120) plot->setAxisScale(QwtPlot::xBottom, 100, 200);
-        else if (m_counter==180) plot->setAxisScale(QwtPlot::xBottom, 150, 250);  
+    if (m_counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, 100);
+    else if (m_counter == 60) plot->setAxisScale(QwtPlot::xBottom, 50, 150); 
+    else if (m_counter==120) plot->setAxisScale(QwtPlot::xBottom, 100, 200);
+    else if (m_counter==180) plot->setAxisScale(QwtPlot::xBottom, 150, 250);  
 	
-	{
+	
 		
-		char s[80];
-		QString title;
-        for (int i=0; i<m_num_chips; i++) {          
-            m_hitrates[m_counter][i]=hitrate(statmsg.hit[i],statmsg.miss[i]);
-            //m_hitrates[m_counter].push_back(hitrate(statmsg.hit[i],statmsg.miss[i]));
-            m_transactions[m_counter].push_back(statmsg.hit[i] + statmsg.miss[i]);
+	char s[80];
+	QString title;
+    for (int i=0; i<m_num_chips; i++) {          
+                m_hitrates[i][m_counter]=hitrate(statmsg.hit[i],statmsg.miss[i]);
+        m_transactions[m_counter].push_back(statmsg.hit[i] + statmsg.miss[i]);
             	    
-        	sprintf(s, "Remote Cache #%d transactions %lld", 
-                i, 
-                m_transactions[m_counter][i]); 
-		    title.append(QString(s));		
-		    curves[i]->setTitle(title);	    
-            title.clear();
-            //curves[i]->setRawSamples(m_timestep, _hitrate.hitarray, m_counter);
-            //curves[0]->setRawSamples(sample_x, sample_y0, counter);
-            curves[i]->setRawSamples(m_timestep, (m_hitrates)[i], m_counter);
-            //curves[i]->setSamples((m_timestep)[i], (m_hitrates)[i]);            
-        }
-	
-	}
-	
+        sprintf(s, "Remote Cache #%d transactions %lld", 
+            i, 
+            m_transactions[m_counter][i],); 
+		title.append(QString(s));		
+		curves[i]->setTitle(title);	    
+        title.clear();   
+        curves[i]->setRawSamples(m_timestep, *(m_hitrates + i), m_counter);
+        printf("Remote Cache #%d transactions %lld hitrate %.2f m_timestep %.2f m_counter %d\n", 
+            i, 
+            m_transactions[m_counter][i],m_hitrates[i][m_counter], m_timestep[i], m_counter );
+    }
     
 	plot->replot();
     m_transactions[m_counter].clear();
     m_counter = m_counter++;
-	if (m_counter==240) m_counter=0;
+	if (m_counter==250) m_counter=0;
 
   
 }
@@ -308,7 +308,7 @@ void CacheHistGraph::showCurve(QwtPlotItem* item, bool on) {
 }
 
 double CacheHistGraph::hitrate (unsigned long long hit, unsigned long long miss) {
-    cout << "hit " << hit << " miss " << miss << " avg " << (double)100*hit/(hit + miss) << endl;
+    //cout << "hit " << hit << " miss " << miss << " avg " << (double)100*hit/(hit + miss) << endl;
     if (hit + miss==0) {
         return 100;
     } else if (miss==0) {
@@ -607,16 +607,16 @@ void mpistat::showConnectionStatus() {
 	}
 
 	if( !mpiAddr.empty() ) {
-		if( !cacheAddr.empty() ) {
-			title += QString(",  ");
-		}
-
+		
 		if( mpiConnected ) {
+            if( !cacheAddr.empty() ) {
+			    title += QString(",  ");
+		    }
 			title += QString("connected to ") + QString(mpiAddr.c_str());
 		}
-		else {
+		/*else {
 			title += QString("not connected to ") + QString(mpiAddr.c_str());
-		}
+		}*/
 	}
 
 	setWindowTitle(title);
