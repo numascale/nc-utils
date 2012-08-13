@@ -62,8 +62,7 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
 	printf("Node %d: Avrage Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]);
     }
     printf("************************************************\n");
-	
-}
+	}
 
 void close_device(struct numachip_context *cntxt) {
     (void)numachip_close_device(cntxt);
@@ -146,6 +145,38 @@ int main(int argc, char* argv[]) {
     socklisten(sockfd, &cli_addr, &newsockfd);
     
     char buf[4096];
+
+
+    for( ; ; ) {
+	
+	n = read(newsockfd, buf, 4);
+	
+	if( n <= 0 ) {
+	    sleep(0);
+	    socklisten(sockfd, &cli_addr, &newsockfd);
+	    continue;
+	}
+	
+	if( n < 4 ) {
+	    sleep(0);
+	    socklisten(sockfd, &cli_addr, &newsockfd);
+	    continue;
+	}
+	    
+	memcpy(buf, &num_devices, sizeof(int));
+
+	printf("Size of %d \n", sizeof(int));
+	
+	n = write(newsockfd, buf, sizeof(int));
+	if( n < sizeof(int) ) {
+	    fprintf(stderr, "error writing to socket\n");
+	    sleep(0);
+	    socklisten(sockfd, &cli_addr, &newsockfd);
+	    continue;
+	} else {
+	    break;
+	}
+    }
     
     for( ; ; ) {
 	
@@ -163,18 +194,12 @@ int main(int argc, char* argv[]) {
 	    continue;
 	}
 	    
-	/*Do our stuff*/
-	    /*Do our stuff*/
-	//if (counter==11) {
-	    count_api_stop(cntxt, num_devices);
-	    count_api_start(cntxt, num_devices);
-	    //    counter=0;
-	    //}
-	//counter++;
-	
+	count_api_stop(cntxt, num_devices);
+	count_api_start(cntxt, num_devices);
 	count_rate(cntxt, num_devices,&countstat);
 	memcpy(buf, &countstat, sizeof(struct msgstats_t));
-	//printf("Size of %d \n", sizeof(struct msgstats_t));
+
+	printf("Size of %d \n", sizeof(struct msgstats_t));
 	
 	n = write(newsockfd, buf, msgsize);
 	if( n < msgsize ) {
