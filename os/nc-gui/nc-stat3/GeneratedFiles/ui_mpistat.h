@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mpistat.ui'
 **
-** Created: Mon 13. Aug 11:46:36 2012
+** Created: Mon 13. Aug 13:42:01 2012
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -161,7 +161,9 @@ public:
         horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
         pushButton = new QPushButton(widget);
         pushButton->setObjectName(QString::fromUtf8("pushButton"));
+        pushButton->setEnabled(true);
         pushButton->setMaximumSize(QSize(80, 16777215));
+        pushButton->setCheckable(false);
 
         horizontalLayout->addWidget(pushButton);
 
@@ -196,7 +198,7 @@ public:
         tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Send latency", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab3), QApplication::translate("mpistatClass", "Receive latency", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab4), QApplication::translate("mpistatClass", "Bandwidth", 0, QApplication::UnicodeUTF8));
-        pushButton->setText(QApplication::translate("mpistatClass", "PDF", 0, QApplication::UnicodeUTF8));
+        pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 
 };
