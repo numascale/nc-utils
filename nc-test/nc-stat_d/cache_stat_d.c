@@ -17,13 +17,13 @@
 #include "numachip_user.h"
 #include "pcounter_test.h"
 
-#define DEBUG_STATEMENT(x)
+#define DEBUG_STATEMENT(x) 
 
 struct msgstats_t {
-    int64_t hit[4];
-    int64_t miss[4];
-    int64_t totalhit[4];
-    int64_t totalmiss[4];
+    int64_t hit;
+    int64_t miss;
+    int64_t totalhit;
+    int64_t totalmiss;
 //    int64_t total[4];
 };
 uint64_t *totalhit, *totalmiss;
@@ -52,12 +52,12 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
 	double hitrate=0;
 	uint64_t total;
 	count_api_read_rcache2( cntxt[node], 0, 1, &missrate, &hitrate, &total, &miss_cnt, &hit_cnt, &retval);
-	countstat->hit[node]=hit_cnt;
-	countstat->miss[node]=miss_cnt;
+	countstat[node].hit=hit_cnt;
+	countstat[node].miss=miss_cnt;
 	totalhit[node]=hit_cnt + totalhit[node];
 	totalmiss[node]=miss_cnt + totalmiss[node];
-	countstat->totalhit[node]=totalhit[node];
-	countstat->totalmiss[node]=totalmiss[node];
+	countstat[node].totalhit=totalhit[node];
+	countstat[node].totalmiss=totalmiss[node];
 	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,missrate,hitrate, (unsigned long long) total);
 	printf("Node %d: Avrage Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]);
     }
@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in serv_addr, cli_addr;
     int n;
     int msgsize = sizeof(struct msgstats_t);
-    struct msgstats_t countstat;
+    struct msgstats_t *countstat;
     
     struct numachip_device **devices;
     struct numachip_context **cntxt;
@@ -86,18 +86,22 @@ int main(int argc, char* argv[]) {
         fprintf(stderr,"error, no port provided\n");
         exit(1);
     }
-        
+
+   
     devices = numachip_get_device_list(&num_devices, filename);
     DEBUG_STATEMENT(printf("Found %d NumaChip devices\n", num_devices));
-
+    msgsize = num_devices*sizeof(struct msgstats_t);
+    
+    
     totalhit = malloc (num_devices * sizeof(uint64_t));
     totalmiss = malloc (num_devices * sizeof(uint64_t));
-
+    countstat = malloc (num_devices * sizeof(struct msgstats_t));
+    
     for(node=0; node<num_nodes; node++) {
-	countstat.hit[node]=0;	
-	countstat.miss[node]=0;
-	countstat.totalhit[node]=0;	
-	countstat.totalmiss[node]=0;
+	countstat[node].hit=0;	
+	countstat[node].miss=0;
+	countstat[node].totalhit=0;	
+	countstat[node].totalmiss=0;
 	totalhit[node]=0;
 	totalmiss[node]=0;
     }
@@ -140,8 +144,8 @@ int main(int argc, char* argv[]) {
 
     count_api_stop(cntxt, num_devices);
     count_api_start(cntxt, num_devices);
-    count_rate(cntxt, num_devices,&countstat);
-    
+    count_rate(cntxt, num_devices,countstat);
+    DEBUG_STATEMENT(printf("Lets print the first hit %lld\n",countstat[0].hit));
     socklisten(sockfd, &cli_addr, &newsockfd);
     
     char buf[4096];
@@ -165,7 +169,7 @@ int main(int argc, char* argv[]) {
 	    
 	memcpy(buf, &num_devices, sizeof(int));
 
-	printf("Size of %d \n", sizeof(int));
+	printf("Size of %lu \n", sizeof(int));
 	
 	n = write(newsockfd, buf, sizeof(int));
 	if( n < sizeof(int) ) {
@@ -196,10 +200,10 @@ int main(int argc, char* argv[]) {
 	    
 	count_api_stop(cntxt, num_devices);
 	count_api_start(cntxt, num_devices);
-	count_rate(cntxt, num_devices,&countstat);
-	memcpy(buf, &countstat, sizeof(struct msgstats_t));
+	count_rate(cntxt, num_devices,countstat);
+	memcpy(buf, countstat, num_devices*sizeof(struct msgstats_t));
 
-	printf("Size of %d \n", sizeof(struct msgstats_t));
+	DEBUG_STATEMENT(printf("Size of %lu \n", num_devices*sizeof(struct msgstats_t)));
 	
 	n = write(newsockfd, buf, msgsize);
 	if( n < msgsize ) {
