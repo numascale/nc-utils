@@ -673,13 +673,14 @@ void mpistat::getcache() {
 		return;
 	}
     if (m_num_chips!=num_chips) {
+        if (m_num_chips>0) delete m_cstat;
         m_num_chips=num_chips;
         /* We need to clean the old setup in order not to leak memory
          * Better clean up this code.
          */
         graph1->deleteCurves(); 
         graph5->deleteCurves();
-        if (m_num_chips>0) delete m_cstat;
+        
         graph1->set_num_chips(m_num_chips);
         graph5->set_num_chips(m_num_chips);
     
