@@ -31,6 +31,7 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 	, timer(this)
 	, cacheConnected(false)
     , m_freeze(true)
+    , m_num_chips(0)
 	, mpiConnected(false)
 	, init(true)
 {
@@ -55,9 +56,9 @@ mpistat::mpistat(const string& strCacheAddr, const string& strMpiAddr)
 
 	if( !cacheAddr.empty() ) {
 		srvconnect(cacheAddr, cacheSocket, cacheConnected);
-        int num=get_num_chips();
-        graph1->set_num_chips(num);
-        graph5->set_num_chips(num);
+        m_num_chips=get_num_chips();
+        graph1->set_num_chips(m_num_chips);
+        graph5->set_num_chips(m_num_chips);
 	}
 
 	if( !mpiAddr.empty() ) {
@@ -211,7 +212,7 @@ void CacheGraph::set_num_chips(int numachips) {
 int CacheGraph::get_num_chips(void) {
     return m_num_chips;  
 }
-void CacheGraph::showstat(const struct cachestats_t& statmsg) {
+void CacheGraph::showstat(const struct cachestats_t* statmsg) {
 
     if (m_counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, 100);
     else if (m_counter == 60) plot->setAxisScale(QwtPlot::xBottom, 50, 150); 
@@ -223,8 +224,8 @@ void CacheGraph::showstat(const struct cachestats_t& statmsg) {
 	char s[80];
 	QString title;
     for (int i=0; i<m_num_chips; i++) {          
-                m_hitrates[i][m_counter]=hitrate(statmsg.hit[i],statmsg.miss[i]);
-        m_transactions[m_counter].push_back(statmsg.hit[i] + statmsg.miss[i]);
+        m_hitrates[i][m_counter]=hitrate(statmsg[i].hit,statmsg[i].miss);
+        m_transactions[m_counter].push_back(statmsg[i].hit + statmsg[i].miss);
             	    
         sprintf(s, "Remote Cache #%d transactions %lld", 
             i, 
@@ -340,7 +341,7 @@ void CacheHistGraph::set_num_chips(int numachips) {
 int CacheHistGraph::get_num_chips(void) {
     return m_num_chips;  
 }
-void CacheHistGraph::showstat(const struct cachestats_t& statmsg) {
+void CacheHistGraph::showstat(const struct cachestats_t* statmsg) {
 
     plot->setAxisScale(QwtPlot::xBottom,-1, m_num_chips + 0.5);
     plot->setAxisMaxMajor(QwtPlot::xBottom, m_num_chips);
@@ -352,14 +353,14 @@ void CacheHistGraph::showstat(const struct cachestats_t& statmsg) {
     for (int i=0; i<(m_num_chips*2); i++) {
 
         if (i<m_num_chips) {
-            m_hitrate.push_back(hitrate(statmsg.hit[i],statmsg.miss[i]));
-            m_transactions.push_back(statmsg.hit[i] + statmsg.miss[i]);
+            m_hitrate.push_back(hitrate(statmsg[i].hit,statmsg[i].miss));
+            m_transactions.push_back(statmsg[i].hit + statmsg[i].miss);
             sprintf(s, "Remote Cache #%d transactions %lld", i,m_transactions[i]); 
             samples[0]=QwtIntervalSample(m_hitrate[i], i-0.2,i+0.2);
             curves[i]->setSamples(samples);
         } else {
-            m_hitrate.push_back(hitrate(statmsg.tothit[i-m_num_chips],statmsg.totmiss[i-m_num_chips]));		    
-            m_transactions.push_back(statmsg.tothit[i-m_num_chips] + statmsg.totmiss[i-m_num_chips]);
+            m_hitrate.push_back(hitrate(statmsg[i-m_num_chips].tothit,statmsg[i-m_num_chips].totmiss));		    
+            m_transactions.push_back(statmsg[i-m_num_chips].tothit + statmsg[i-m_num_chips].totmiss);
             sprintf(s, "Average Remote Cache #%d transactions %lld",i-m_num_chips, m_transactions[i]); 
             samples[0]=QwtIntervalSample(m_hitrate[i], (i-m_num_chips)-0.2,(i-m_num_chips)+0.2);
             curves[i]->setSamples(samples);
@@ -645,22 +646,24 @@ void mpistat::getcache() {
     //After getting this information, then we know how many graphs to create. 
     //We need a function returning the number of numachips in the system
     int any = 0;
-	struct cachestats_t cstat;
-	
+	struct cachestats_t *cstat;
+    	
 	//send request
 	if( ::send(cacheSocket, (char*)&any, sizeof(int), 0) == SOCKET_ERROR ){
 		cacheConnected = false;
 		showConnectionStatus();
 		return;
 	}
-	  //receive response
-	int rc = ::recv(cacheSocket, (char*)&cstat, sizeof(cstat), 0);
+    printf("Let us check the first received value any %d\n", m_num_chips);
+    cstat = new cachestats_t[m_num_chips];
+	//receive response
+	int rc = ::recv(cacheSocket, (char*)cstat, m_num_chips*sizeof(struct cachestats_t), 0);
 	if( (rc == SOCKET_ERROR) || (rc <= 0) ) {
 		cacheConnected = false;
 		showConnectionStatus();
 		return;
 	}
- 
+    printf("Let us check the first received value hit %lld\n", cstat[0].hit);
 	graph5->showstat(cstat);
     graph1->showstat(cstat);
 }
@@ -781,7 +784,7 @@ int mpistat::get_num_chips() {
 		showConnectionStatus();
 		return 0;
 	}
-	  //receive response
+	//receive response
 	int rc = ::recv(cacheSocket, (char*)&num_chips, sizeof(num_chips), 0);
 	if( (rc == SOCKET_ERROR) || (rc <= 0) ) {
 		cacheConnected = false;
