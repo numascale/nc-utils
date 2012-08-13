@@ -32,12 +32,12 @@ typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
 
 struct cachestats_t {
-  uint64_t hit[4]; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
-  uint64_t miss[4]; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
+  uint64_t hit; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
+  uint64_t miss; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
   
   //From totmiss and tothit we can calculate avg hit/miss.  
-  uint64_t tothit[4]; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
-  uint64_t totmiss[4]; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
+  uint64_t tothit; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
+  uint64_t totmiss; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
   
   /*
    * Soon ;-)
@@ -86,7 +86,7 @@ private:
 
 	SOCKET cacheSocket;
 	SOCKET mpiSocket;
-
+    int m_num_chips;
 	bool  cacheConnected;
     bool  m_freeze;
 	bool  mpiConnected;
@@ -157,7 +157,7 @@ public:
 	QwtPlot* plot;
 	vector<QwtPlotCurve*> curves;
     void addCurves();
-	void showstat(const struct cachestats_t& statmsg);
+	void showstat(const struct cachestats_t* statmsg);
     double hitrate (unsigned long long hit, unsigned long long miss);
     int get_num_chips();
     void set_num_chips(int num);
@@ -179,7 +179,7 @@ class CacheHistGraph : public QWidget {
 public:
     CacheHistGraph(QWidget* parent = 0);
 
-    void showstat(const struct cachestats_t& statmsg);
+    void showstat(const struct cachestats_t* statmsg);
     double hitrate (unsigned long long hit, unsigned long long miss);
 
     QwtPlot* plot;
