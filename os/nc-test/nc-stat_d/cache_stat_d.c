@@ -172,32 +172,14 @@ int main(int argc, char* argv[]) {
 	printf("Size of %lu \n", sizeof(int));
 	
 	n = write(newsockfd, buf, sizeof(int));
+
 	if( n < sizeof(int) ) {
 	    fprintf(stderr, "error writing to socket\n");
 	    sleep(0);
 	    socklisten(sockfd, &cli_addr, &newsockfd);
 	    continue;
-	} else {
-	    break;
 	}
-    }
-    
-    for( ; ; ) {
-	
-	n = read(newsockfd, buf, 4);
-	
-	if( n <= 0 ) {
-	    sleep(0);
-	    socklisten(sockfd, &cli_addr, &newsockfd);
-	    continue;
-	}
-	
-	if( n < 4 ) {
-	    sleep(0);
-	    socklisten(sockfd, &cli_addr, &newsockfd);
-	    continue;
-	}
-	    
+
 	count_api_stop(cntxt, num_devices);
 	count_api_start(cntxt, num_devices);
 	count_rate(cntxt, num_devices,countstat);
