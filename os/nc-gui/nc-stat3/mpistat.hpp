@@ -158,6 +158,7 @@ public:
 	QwtPlot* plot;
 	vector<QwtPlotCurve*> curves;
     void addCurves();
+    void deleteCurves();
 	void showstat(const struct cachestats_t* statmsg);
     double hitrate (unsigned long long hit, unsigned long long miss);
     int get_num_chips();
@@ -189,6 +190,7 @@ public:
     void set_num_chips(int num);
     bool initialized();
     void addCurves();
+    void deleteCurves();
     public slots:
         void showCurve(QwtPlotItem*, bool on);
 
