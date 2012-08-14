@@ -22,10 +22,10 @@
 
 using namespace std;
 class CacheHistGraph;
+class CacheGraph;
 class HistGraph;
 class SizeHistGraph;
 class BandwidthGraph;
-class CacheGraph;
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
@@ -38,12 +38,9 @@ struct cachestats_t {
     //From totmiss and tothit we can calculate avg hit/miss.  
     uint64_t tothit; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
     uint64_t totmiss; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
-
-    /*
-    * Soon ;-)
-    uint64_t cave_in[4]; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
-    uint64_t cave_out[4]; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
-    */
+    uint64_t cave_in; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
+    uint64_t cave_out; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
+    
     /*
     uint64_t counter_4[4];
     uint64_t counter_5[4];
@@ -82,8 +79,7 @@ public:
 private:
     Ui::mpistatClass ui;
     const string cacheAddr;
-    const string mpiAddr;
-
+    const string mpiAddr;    
     SOCKET cacheSocket;
     SOCKET mpiSocket;
     int m_num_chips;
@@ -114,7 +110,6 @@ private:
         void handleButton();
 };
 
-
 class Curve : public QwtPlotHistogram {
 public:
     Curve(const int r, const QString& title);
@@ -123,30 +118,6 @@ public:
     bool showing;
     int ymax;
 };
-
-class HistGraph : public QWidget {
-    Q_OBJECT   
-public:
-    enum {curve_rt, curve_mpi, curve_mbsend, curve_sbw, curve_rbw, curve_cpy, curve_blocking};
-
-    HistGraph(QWidget* parent = 0, const int idx = -1);
-
-    virtual void showstat(const struct msgstats_t& statmsg) = 0;
-    virtual void setmaxrank(int maxrank);
-
-    QwtPlot* plot;
-    vector<Curve*> curves;
-    int maxrank;
-
-    public slots:
-        void showCurve(QwtPlotItem*, bool on);
-
-protected:
-    const int _idx;
-    QColor _color[8];
-};
-
-
 class CacheGraph : public QWidget {
     Q_OBJECT   
 public:
@@ -173,36 +144,91 @@ private:
     double m_timestep[TIME_LENGTH];
     vector <uint64_t> m_transactions[TIME_LENGTH];	
     unsigned int m_counter;
-    int m_num_chips;
+    int p_num_chips;
 
 };
 
-class CacheHistGraph : public QWidget {
+class PerfHistGraph : public QWidget {
+    Q_OBJECT   
+public:
+    PerfHistGraph(QWidget* parent = 0);
+
+    virtual void showstat(const struct cachestats_t* statmsg) = 0;
+    QwtPlot* plot;
+    vector<QwtPlotHistogram*> curves;
+    int get_num_chips();
+    virtual void addCurves();
+ 
+    public slots:
+        void showCurve(QwtPlotItem*, bool on);
+
+protected:
+    int p_num_chips;
+};
+
+class CacheHistGraph : public PerfHistGraph {
     Q_OBJECT   
 public:
     CacheHistGraph(QWidget* parent = 0);
 
-    void showstat(const struct cachestats_t* statmsg);
+    virtual void showstat(const struct cachestats_t* statmsg);
     double hitrate (unsigned long long hit, unsigned long long miss);
+    void set_num_chips(int num);
+    void addCurves();
+ 
 
+private:
+    static const int MAX_HITRATE = 100;
+    vector <double> m_hitrate;
+    vector <uint64_t> m_transactions;    
+};
+
+/*
+class TransactionHist : public QWidget {
+    Q_OBJECT   
+public:
+    TransactionHist(QWidget* parent = 0);
+
+    void showstat(const struct cachestats_t* statmsg);
     QwtPlot* plot;
     vector<QwtPlotHistogram*> curves;
     int get_num_chips();
-    void set_num_chips(int num);
-    bool initialized();
+    void set_num_chips(int num);    
     void addCurves();
     void clear_num_chips();
     public slots:
         void showCurve(QwtPlotItem*, bool on);
 
 private:
-    static const int MAX_HITRATE = 100;
-    vector <double> m_hitrate;
+    /*static const int MAX_HITRATE = 100;
+
     vector <uint64_t> m_transactions;
-    int m_num_chips;
+    vector <uint64_t> m_transactions2
+
+    int p_num_chips;
 };
+*/
+class HistGraph : public QWidget {
+    Q_OBJECT   
+public:
+    enum {curve_rt, curve_mpi, curve_mbsend, curve_sbw, curve_rbw, curve_cpy, curve_blocking};
 
+    HistGraph(QWidget* parent = 0, const int idx = -1);
 
+    virtual void showstat(const struct msgstats_t& statmsg) = 0;
+    virtual void setmaxrank(int maxrank);
+
+    QwtPlot* plot;
+    vector<Curve*> curves;
+    int maxrank;
+
+    public slots:
+        void showCurve(QwtPlotItem*, bool on);
+
+protected:
+    const int _idx;
+    QColor _color[8];
+};
 
 class SizeHistGraph : public HistGraph {
     Q_OBJECT   

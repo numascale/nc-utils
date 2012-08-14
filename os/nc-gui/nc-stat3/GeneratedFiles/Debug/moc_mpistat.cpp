@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'mpistat.hpp'
 **
-** Created: Tue 14. Aug 10:10:15 2012
+** Created: Tue 14. Aug 14:46:27 2012
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -93,79 +93,6 @@ int mpistat::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     }
     return _id;
 }
-static const uint qt_meta_data_HistGraph[] = {
-
- // content:
-       6,       // revision
-       0,       // classname
-       0,    0, // classinfo
-       1,   14, // methods
-       0,    0, // properties
-       0,    0, // enums/sets
-       0,    0, // constructors
-       0,       // flags
-       0,       // signalCount
-
- // slots: signature, parameters, type, tag, flags
-      15,   11,   10,   10, 0x0a,
-
-       0        // eod
-};
-
-static const char qt_meta_stringdata_HistGraph[] = {
-    "HistGraph\0\0,on\0showCurve(QwtPlotItem*,bool)\0"
-};
-
-void HistGraph::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
-{
-    if (_c == QMetaObject::InvokeMetaMethod) {
-        Q_ASSERT(staticMetaObject.cast(_o));
-        HistGraph *_t = static_cast<HistGraph *>(_o);
-        switch (_id) {
-        case 0: _t->showCurve((*reinterpret_cast< QwtPlotItem*(*)>(_a[1])),(*reinterpret_cast< bool(*)>(_a[2]))); break;
-        default: ;
-        }
-    }
-}
-
-const QMetaObjectExtraData HistGraph::staticMetaObjectExtraData = {
-    0,  qt_static_metacall 
-};
-
-const QMetaObject HistGraph::staticMetaObject = {
-    { &QWidget::staticMetaObject, qt_meta_stringdata_HistGraph,
-      qt_meta_data_HistGraph, &staticMetaObjectExtraData }
-};
-
-#ifdef Q_NO_DATA_RELOCATION
-const QMetaObject &HistGraph::getStaticMetaObject() { return staticMetaObject; }
-#endif //Q_NO_DATA_RELOCATION
-
-const QMetaObject *HistGraph::metaObject() const
-{
-    return QObject::d_ptr->metaObject ? QObject::d_ptr->metaObject : &staticMetaObject;
-}
-
-void *HistGraph::qt_metacast(const char *_clname)
-{
-    if (!_clname) return 0;
-    if (!strcmp(_clname, qt_meta_stringdata_HistGraph))
-        return static_cast<void*>(const_cast< HistGraph*>(this));
-    return QWidget::qt_metacast(_clname);
-}
-
-int HistGraph::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
-{
-    _id = QWidget::qt_metacall(_c, _id, _a);
-    if (_id < 0)
-        return _id;
-    if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 1)
-            qt_static_metacall(this, _c, _id, _a);
-        _id -= 1;
-    }
-    return _id;
-}
 static const uint qt_meta_data_CacheGraph[] = {
 
  // content:
@@ -239,7 +166,7 @@ int CacheGraph::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     }
     return _id;
 }
-static const uint qt_meta_data_CacheHistGraph[] = {
+static const uint qt_meta_data_PerfHistGraph[] = {
 
  // content:
        6,       // revision
@@ -253,20 +180,20 @@ static const uint qt_meta_data_CacheHistGraph[] = {
        0,       // signalCount
 
  // slots: signature, parameters, type, tag, flags
-      20,   16,   15,   15, 0x0a,
+      19,   15,   14,   14, 0x0a,
 
        0        // eod
 };
 
-static const char qt_meta_stringdata_CacheHistGraph[] = {
-    "CacheHistGraph\0\0,on\0showCurve(QwtPlotItem*,bool)\0"
+static const char qt_meta_stringdata_PerfHistGraph[] = {
+    "PerfHistGraph\0\0,on\0showCurve(QwtPlotItem*,bool)\0"
 };
 
-void CacheHistGraph::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+void PerfHistGraph::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
 {
     if (_c == QMetaObject::InvokeMetaMethod) {
         Q_ASSERT(staticMetaObject.cast(_o));
-        CacheHistGraph *_t = static_cast<CacheHistGraph *>(_o);
+        PerfHistGraph *_t = static_cast<PerfHistGraph *>(_o);
         switch (_id) {
         case 0: _t->showCurve((*reinterpret_cast< QwtPlotItem*(*)>(_a[1])),(*reinterpret_cast< bool(*)>(_a[2]))); break;
         default: ;
@@ -274,12 +201,78 @@ void CacheHistGraph::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _
     }
 }
 
+const QMetaObjectExtraData PerfHistGraph::staticMetaObjectExtraData = {
+    0,  qt_static_metacall 
+};
+
+const QMetaObject PerfHistGraph::staticMetaObject = {
+    { &QWidget::staticMetaObject, qt_meta_stringdata_PerfHistGraph,
+      qt_meta_data_PerfHistGraph, &staticMetaObjectExtraData }
+};
+
+#ifdef Q_NO_DATA_RELOCATION
+const QMetaObject &PerfHistGraph::getStaticMetaObject() { return staticMetaObject; }
+#endif //Q_NO_DATA_RELOCATION
+
+const QMetaObject *PerfHistGraph::metaObject() const
+{
+    return QObject::d_ptr->metaObject ? QObject::d_ptr->metaObject : &staticMetaObject;
+}
+
+void *PerfHistGraph::qt_metacast(const char *_clname)
+{
+    if (!_clname) return 0;
+    if (!strcmp(_clname, qt_meta_stringdata_PerfHistGraph))
+        return static_cast<void*>(const_cast< PerfHistGraph*>(this));
+    return QWidget::qt_metacast(_clname);
+}
+
+int PerfHistGraph::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+{
+    _id = QWidget::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    if (_c == QMetaObject::InvokeMetaMethod) {
+        if (_id < 1)
+            qt_static_metacall(this, _c, _id, _a);
+        _id -= 1;
+    }
+    return _id;
+}
+static const uint qt_meta_data_CacheHistGraph[] = {
+
+ // content:
+       6,       // revision
+       0,       // classname
+       0,    0, // classinfo
+       0,    0, // methods
+       0,    0, // properties
+       0,    0, // enums/sets
+       0,    0, // constructors
+       0,       // flags
+       0,       // signalCount
+
+       0        // eod
+};
+
+static const char qt_meta_stringdata_CacheHistGraph[] = {
+    "CacheHistGraph\0"
+};
+
+void CacheHistGraph::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+{
+    Q_UNUSED(_o);
+    Q_UNUSED(_id);
+    Q_UNUSED(_c);
+    Q_UNUSED(_a);
+}
+
 const QMetaObjectExtraData CacheHistGraph::staticMetaObjectExtraData = {
     0,  qt_static_metacall 
 };
 
 const QMetaObject CacheHistGraph::staticMetaObject = {
-    { &QWidget::staticMetaObject, qt_meta_stringdata_CacheHistGraph,
+    { &PerfHistGraph::staticMetaObject, qt_meta_stringdata_CacheHistGraph,
       qt_meta_data_CacheHistGraph, &staticMetaObjectExtraData }
 };
 
@@ -297,10 +290,78 @@ void *CacheHistGraph::qt_metacast(const char *_clname)
     if (!_clname) return 0;
     if (!strcmp(_clname, qt_meta_stringdata_CacheHistGraph))
         return static_cast<void*>(const_cast< CacheHistGraph*>(this));
-    return QWidget::qt_metacast(_clname);
+    return PerfHistGraph::qt_metacast(_clname);
 }
 
 int CacheHistGraph::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+{
+    _id = PerfHistGraph::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    return _id;
+}
+static const uint qt_meta_data_HistGraph[] = {
+
+ // content:
+       6,       // revision
+       0,       // classname
+       0,    0, // classinfo
+       1,   14, // methods
+       0,    0, // properties
+       0,    0, // enums/sets
+       0,    0, // constructors
+       0,       // flags
+       0,       // signalCount
+
+ // slots: signature, parameters, type, tag, flags
+      15,   11,   10,   10, 0x0a,
+
+       0        // eod
+};
+
+static const char qt_meta_stringdata_HistGraph[] = {
+    "HistGraph\0\0,on\0showCurve(QwtPlotItem*,bool)\0"
+};
+
+void HistGraph::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+{
+    if (_c == QMetaObject::InvokeMetaMethod) {
+        Q_ASSERT(staticMetaObject.cast(_o));
+        HistGraph *_t = static_cast<HistGraph *>(_o);
+        switch (_id) {
+        case 0: _t->showCurve((*reinterpret_cast< QwtPlotItem*(*)>(_a[1])),(*reinterpret_cast< bool(*)>(_a[2]))); break;
+        default: ;
+        }
+    }
+}
+
+const QMetaObjectExtraData HistGraph::staticMetaObjectExtraData = {
+    0,  qt_static_metacall 
+};
+
+const QMetaObject HistGraph::staticMetaObject = {
+    { &QWidget::staticMetaObject, qt_meta_stringdata_HistGraph,
+      qt_meta_data_HistGraph, &staticMetaObjectExtraData }
+};
+
+#ifdef Q_NO_DATA_RELOCATION
+const QMetaObject &HistGraph::getStaticMetaObject() { return staticMetaObject; }
+#endif //Q_NO_DATA_RELOCATION
+
+const QMetaObject *HistGraph::metaObject() const
+{
+    return QObject::d_ptr->metaObject ? QObject::d_ptr->metaObject : &staticMetaObject;
+}
+
+void *HistGraph::qt_metacast(const char *_clname)
+{
+    if (!_clname) return 0;
+    if (!strcmp(_clname, qt_meta_stringdata_HistGraph))
+        return static_cast<void*>(const_cast< HistGraph*>(this));
+    return QWidget::qt_metacast(_clname);
+}
+
+int HistGraph::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
     _id = QWidget::qt_metacall(_c, _id, _a);
     if (_id < 0)
