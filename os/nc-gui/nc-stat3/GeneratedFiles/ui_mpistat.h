@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mpistat.ui'
 **
-** Created: Tue 14. Aug 14:44:36 2012
+** Created: Tue 14. Aug 15:41:46 2012
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -42,12 +42,6 @@ public:
     QWidget *tab2;
     QVBoxLayout *verticalLayout_6;
     QVBoxLayout *tab2layout;
-    QWidget *tab3;
-    QVBoxLayout *verticalLayout_5;
-    QVBoxLayout *tab3layout;
-    QWidget *tab4;
-    QVBoxLayout *verticalLayout_8;
-    QVBoxLayout *tab4layout;
     QSpacerItem *verticalSpacer_3;
     QWidget *widget;
     QHBoxLayout *horizontalLayout_2;
@@ -116,32 +110,6 @@ public:
         verticalLayout_6->addLayout(tab2layout);
 
         tabWidget->addTab(tab2, QString());
-        tab3 = new QWidget();
-        tab3->setObjectName(QString::fromUtf8("tab3"));
-        verticalLayout_5 = new QVBoxLayout(tab3);
-        verticalLayout_5->setSpacing(6);
-        verticalLayout_5->setContentsMargins(11, 11, 11, 11);
-        verticalLayout_5->setObjectName(QString::fromUtf8("verticalLayout_5"));
-        tab3layout = new QVBoxLayout();
-        tab3layout->setSpacing(6);
-        tab3layout->setObjectName(QString::fromUtf8("tab3layout"));
-
-        verticalLayout_5->addLayout(tab3layout);
-
-        tabWidget->addTab(tab3, QString());
-        tab4 = new QWidget();
-        tab4->setObjectName(QString::fromUtf8("tab4"));
-        verticalLayout_8 = new QVBoxLayout(tab4);
-        verticalLayout_8->setSpacing(6);
-        verticalLayout_8->setContentsMargins(11, 11, 11, 11);
-        verticalLayout_8->setObjectName(QString::fromUtf8("verticalLayout_8"));
-        tab4layout = new QVBoxLayout();
-        tab4layout->setSpacing(6);
-        tab4layout->setObjectName(QString::fromUtf8("tab4layout"));
-
-        verticalLayout_8->addLayout(tab4layout);
-
-        tabWidget->addTab(tab4, QString());
 
         verticalLayout->addWidget(tabWidget);
 
@@ -184,7 +152,7 @@ public:
 
         retranslateUi(mpistatClass);
 
-        tabWidget->setCurrentIndex(1);
+        tabWidget->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(mpistatClass);
@@ -195,9 +163,7 @@ public:
         mpistatClass->setWindowTitle(QApplication::translate("mpistatClass", "mpistat", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "Cache rate distribution", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Send latency", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab3), QApplication::translate("mpistatClass", "Receive latency", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab4), QApplication::translate("mpistatClass", "Bandwidth", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Transactions In/Out", 0, QApplication::UnicodeUTF8));
         pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 

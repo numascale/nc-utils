@@ -42,7 +42,7 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="movable">
          <bool>true</bool>
@@ -69,31 +69,11 @@
         </widget>
         <widget class="QWidget" name="tab2">
          <attribute name="title">
-          <string>Send latency</string>
+          <string>Transactions In/Out</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_6">
           <item>
            <layout class="QVBoxLayout" name="tab2layout"/>
-          </item>
-         </layout>
-        </widget>
-        <widget class="QWidget" name="tab3">
-         <attribute name="title">
-          <string>Receive latency</string>
-         </attribute>
-         <layout class="QVBoxLayout" name="verticalLayout_5">
-          <item>
-           <layout class="QVBoxLayout" name="tab3layout"/>
-          </item>
-         </layout>
-        </widget>
-        <widget class="QWidget" name="tab4">
-         <attribute name="title">
-          <string>Bandwidth</string>
-         </attribute>
-         <layout class="QVBoxLayout" name="verticalLayout_8">
-          <item>
-           <layout class="QVBoxLayout" name="tab4layout"/>
           </item>
          </layout>
         </widget>

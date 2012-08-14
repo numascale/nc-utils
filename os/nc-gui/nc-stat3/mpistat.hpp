@@ -73,36 +73,29 @@ class mpistat : public QMainWindow
     Q_OBJECT
 
 public:
-    mpistat(const string& strCacheAddr, const string& strMpiAddr);
+    mpistat(const string& strCacheAddr);
     ~mpistat();
 
 private:
     Ui::mpistatClass ui;
     const string cacheAddr;
-    const string mpiAddr;    
     SOCKET cacheSocket;
-    SOCKET mpiSocket;
     int m_num_chips;
     bool  cacheConnected;
     bool  m_freeze;
-    bool  mpiConnected;
 
     CacheHistGraph* graph1;
-    HistGraph* graph2;
-    BandwidthGraph* graph4;
+    /*HistGraph* graph2;
+    BandwidthGraph* graph4;*/
     CacheGraph* graph5;
 
     QTimer timer;
-    struct msgstats_t statmsg;
+
     struct cachestats_t *m_cstat;
     bool init;
 
     void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
     void showConnectionStatus();
-    bool getstat(int rank);
-    /*int  get_num_chips();*/
-
-    void getstat();
     void getcache();
 
     private slots:
@@ -118,24 +111,31 @@ public:
     bool showing;
     int ymax;
 };
-class CacheGraph : public QWidget {
+class PerfGraph : public QWidget {
     Q_OBJECT   
 public:
+    PerfGraph(QWidget* parent = 0);
 
-    CacheGraph(QWidget* parent = 0);
-
+    virtual void showstat(const struct cachestats_t* statmsg) = 0;
     QwtPlot* plot;
-    vector<QwtPlotCurve*> curves;
-    void addCurves();
-    void clear_num_chips();
-    void showstat(const struct cachestats_t* statmsg);
-    double hitrate (unsigned long long hit, unsigned long long miss);
+    //vector<QwtPlotHistogram*> curves;
     int get_num_chips();
-    void set_num_chips(int num);
-
+     
     public slots:
         void showCurve(QwtPlotItem*, bool on);
 
+protected:
+    int p_num_chips;
+};
+class CacheGraph : public PerfGraph {
+    Q_OBJECT   
+public:
+    CacheGraph(QWidget* parent = 0);
+    vector<QwtPlotCurve*> curves;
+    void addCurves();
+    void showstat(const struct cachestats_t* statmsg);
+    double hitrate (unsigned long long hit, unsigned long long miss);
+    void set_num_chips(int num);
 private:
     static const int TIME_LENGTH = 250;
     static const int MAX_HITRATE = 100;
@@ -144,26 +144,17 @@ private:
     double m_timestep[TIME_LENGTH];
     vector <uint64_t> m_transactions[TIME_LENGTH];	
     unsigned int m_counter;
-    int p_num_chips;
-
+    
 };
 
-class PerfHistGraph : public QWidget {
+class PerfHistGraph : public PerfGraph {
     Q_OBJECT   
 public:
     PerfHistGraph(QWidget* parent = 0);
 
-    virtual void showstat(const struct cachestats_t* statmsg) = 0;
-    QwtPlot* plot;
-    vector<QwtPlotHistogram*> curves;
-    int get_num_chips();
+    virtual void showstat(const struct cachestats_t* statmsg) = 0;    
+    vector<QwtPlotHistogram*> curves;    
     virtual void addCurves();
- 
-    public slots:
-        void showCurve(QwtPlotItem*, bool on);
-
-protected:
-    int p_num_chips;
 };
 
 class CacheHistGraph : public PerfHistGraph {
@@ -183,81 +174,19 @@ private:
     vector <uint64_t> m_transactions;    
 };
 
-/*
-class TransactionHist : public QWidget {
+
+class TransactionHist : public PerfHistGraph {
     Q_OBJECT   
 public:
     TransactionHist(QWidget* parent = 0);
 
-    void showstat(const struct cachestats_t* statmsg);
-    QwtPlot* plot;
-    vector<QwtPlotHistogram*> curves;
-    int get_num_chips();
+    void showstat(const struct cachestats_t* statmsg);    
     void set_num_chips(int num);    
     void addCurves();
-    void clear_num_chips();
-    public slots:
-        void showCurve(QwtPlotItem*, bool on);
 
 private:
-    /*static const int MAX_HITRATE = 100;
-
     vector <uint64_t> m_transactions;
-    vector <uint64_t> m_transactions2
-
-    int p_num_chips;
+    vector <uint64_t> m_transactions2;
 };
-*/
-class HistGraph : public QWidget {
-    Q_OBJECT   
-public:
-    enum {curve_rt, curve_mpi, curve_mbsend, curve_sbw, curve_rbw, curve_cpy, curve_blocking};
-
-    HistGraph(QWidget* parent = 0, const int idx = -1);
-
-    virtual void showstat(const struct msgstats_t& statmsg) = 0;
-    virtual void setmaxrank(int maxrank);
-
-    QwtPlot* plot;
-    vector<Curve*> curves;
-    int maxrank;
-
-    public slots:
-        void showCurve(QwtPlotItem*, bool on);
-
-protected:
-    const int _idx;
-    QColor _color[8];
-};
-
-class SizeHistGraph : public HistGraph {
-    Q_OBJECT   
-public:
-    SizeHistGraph(QWidget* parent = 0);
-
-    virtual void showstat(const struct msgstats_t& statmsg);
-};
-
-
-class SendLatencyGraph : public HistGraph {
-    Q_OBJECT   
-public:
-    SendLatencyGraph(QWidget* parent = 0);
-
-    virtual void showstat(const struct msgstats_t& statmsg);
-};
-
-class BandwidthGraph : public HistGraph {
-    Q_OBJECT   
-public:
-    BandwidthGraph(QWidget* parent = 0);
-
-    virtual void showstat(const struct msgstats_t& statmsg);
-    virtual void setmaxrank(int maxrank);
-
-private:
-    vector<struct msgstats_t> data;
-};
-
 
 #endif // MPISTAT_H
