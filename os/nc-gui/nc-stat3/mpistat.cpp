@@ -1,5 +1,5 @@
 #include "mpistat.hpp"
-#include "log2scale.hpp"
+#include <qwt_scale_engine.h>
 #include <iostream>
 
 #include <QtGui/QPainter>
@@ -36,11 +36,11 @@ mpistat::mpistat(const string& strCacheAddr)
     ui.setupUi(this);
 
     graph1 = new CacheHistGraph(ui.tab1);
-    //graph2 = new SendLatencyGraph(ui.tab1);
+    graph2 = new TransactionHist(ui.tab1);
     //graph4 = new BandwidthGraph(ui.tab1);
     graph5 = new CacheGraph(ui.tab1);
     ui.tab1layout->addWidget(graph1->plot);
-    //ui.tab2layout->addWidget(graph2->plot);
+    ui.tab2layout->addWidget(graph2->plot);
     //ui.tab4layout->addWidget(graph4->plot);
     ui.tab5layout->addWidget(graph5->plot);
     ui.pushButton->setToolTip("Stop the communication with the Numascale master node deamon temporarily.");
@@ -61,7 +61,6 @@ mpistat::~mpistat()
 {
     WSACleanup();
 }
-
 void mpistat::getinfo() {
 
     if (m_freeze) {
@@ -262,6 +261,7 @@ void PerfHistGraph::addCurves() {
         }
     }
 }
+
 CacheHistGraph::CacheHistGraph(QWidget* parent) {
 
       plot->setAxisScale(QwtPlot::yLeft, 0, MAX_HITRATE);
@@ -354,6 +354,95 @@ void CacheHistGraph::showstat(const struct cachestats_t* statmsg) {
 } 
 
 
+TransactionHist::TransactionHist(QWidget* parent) {
+      //Double is 64 bit: 
+
+      plot->setAxisScale(QwtPlot::yLeft, 0, 12);
+      plot->setAxisAutoScale( QwtPlot::yLeft, true );
+	  //plot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLog10ScaleEngine());
+      //plot->setAxisScale(QwtPlot::yLeft, 0, MAX_HITRATE);
+      QwtText xtitle("Numachip #n");	
+      plot->setAxisTitle(QwtPlot::xBottom, xtitle);
+      
+      QwtText ytitle("Number of Transactions (Cave)");
+      plot->setAxisTitle(QwtPlot::yLeft, ytitle);
+      QwtText title("Numachip Number of Transactions (In&Out)");
+      plot->setTitle(title);      
+}
+void TransactionHist::set_num_chips(int numachips) {
+    p_num_chips=numachips;
+    addCurves();
+}
+void TransactionHist::addCurves() {
+ 
+    char str[80];
+    QwtPlotHistogram* curve;
+    curves.clear();
+    for (int i=0; i<(p_num_chips*2); i++) {
+        QColor blue = Qt::blue, red = Qt::red;
+
+        red.setAlpha(75);
+        blue.setAlpha(75);
+        if (i<p_num_chips) {
+            sprintf(str, "Numachip #%d In ", i); // s now contains the value 52300         
+            curve = new QwtPlotHistogram(str);
+            curve->setBrush(blue);
+            curve->setPen(blue);
+            curve->attach(plot);
+            curves.push_back(curve);
+            showCurve(curve, true);			      
+        } else {
+            sprintf(str, "Numachip #%d Out ", i-p_num_chips); // s now contains the value 52300         
+            curve = new QwtPlotHistogram(str);
+            curve->setBrush(red);
+            curve->setPen(red);
+            curve->attach(plot);
+            curves.push_back(curve);
+            showCurve(curve, true);		
+        }
+    }
+}
+
+void TransactionHist::showstat(const struct cachestats_t* statmsg) {
+
+    plot->setAxisScale(QwtPlot::xBottom,-1, p_num_chips + 0.5);
+    plot->setAxisMaxMajor(QwtPlot::xBottom, p_num_chips);
+    plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
+
+    char s[80];
+    QString title;
+    QVector<QwtIntervalSample> samples(1);  
+    for (int i=0; i<(p_num_chips*2); i++) {
+
+        if (i<p_num_chips) {
+            m_transactions.push_back(statmsg[i].cave_in);
+            /*printf(" m_transactions cave_in %lld\n",  m_transactions[i]);*/
+            sprintf(s, "Numachip #%d In", i); 
+            samples[0]=QwtIntervalSample(m_transactions[i], i-0.2,i+0.2);
+            curves[i]->setSamples(samples);
+        } else {
+            double a=1489323400, b=10,c=100;
+            int d=log10(a),e=log10(double(statmsg[i-p_num_chips].cave_out)), f=log10(c);
+            /*printf(" m_transactions cave_out %llx log(cave_out) %d %d %d\n", statmsg[i-p_num_chips].cave_out, 
+                d,e,f);
+            std::cout << "double: " << std::numeric_limits<double>::digits << "\n"
+              << "UINT64: " << std::numeric_limits<UINT64>::digits << std::endl;*/
+            m_transactions2.push_back(statmsg[i-p_num_chips].cave_out);
+            printf(" m_transactions cave_out %lld (index i-p_num_chips) =%d\n",  m_transactions2[i-p_num_chips], i-p_num_chips);
+            sprintf(s, "Numachip #%d Out",i-p_num_chips); 
+            samples[0]=QwtIntervalSample(m_transactions2[i-p_num_chips],(i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
+            curves[i]->setSamples(samples);
+        }
+
+        title.append(QString(s));		
+        curves[i]->setTitle(title);
+        title.clear();
+    }
+
+    plot->replot();    
+    m_transactions.clear();
+    m_transactions2.clear();
+} 
 
 void mpistat::srvconnect(const string& addr, SOCKET& toServer, bool& connected) {
 
@@ -478,6 +567,7 @@ void mpistat::getcache() {
         
         m_num_chips=num_chips;
         graph1->set_num_chips(m_num_chips);
+        graph2->set_num_chips(m_num_chips);
         graph5->set_num_chips(m_num_chips);
 
         printf("Master node in the numaconnect single image cluster reports %d numchips.\n", 
@@ -497,6 +587,8 @@ void mpistat::getcache() {
 
     graph5->showstat(m_cstat);
     graph1->showstat(m_cstat);
+    graph2->showstat(m_cstat);
+
 }
 
 char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode) {

@@ -23,9 +23,8 @@
 using namespace std;
 class CacheHistGraph;
 class CacheGraph;
-class HistGraph;
-class SizeHistGraph;
-class BandwidthGraph;
+class TransactionHist;
+
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
@@ -85,10 +84,9 @@ private:
     bool  m_freeze;
 
     CacheHistGraph* graph1;
-    /*HistGraph* graph2;
-    BandwidthGraph* graph4;*/
+    TransactionHist* graph2;
     CacheGraph* graph5;
-
+      
     QTimer timer;
 
     struct cachestats_t *m_cstat;
