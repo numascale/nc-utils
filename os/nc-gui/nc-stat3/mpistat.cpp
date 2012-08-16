@@ -442,21 +442,25 @@ void TransactionHist::addCurves() {
         red.setAlpha(75);
         blue.setAlpha(75);
         if (i<p_num_chips) {
-            sprintf(str, "Numachip #%d In ", i); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(blue);
-            curve->setPen(blue);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);			      
+            if ((i>=p_range_min) && i<=p_range_max) {
+                sprintf(str, "Numachip #%d In ", i); // s now contains the value 52300         
+                curve = new QwtPlotHistogram(str);
+                curve->setBrush(blue);
+                curve->setPen(blue);
+                curve->attach(plot);
+                curves.push_back(curve);
+                showCurve(curve, true);			      
+            }
         } else {
-            sprintf(str, "Numachip #%d Out ", i-p_num_chips); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(red);
-            curve->setPen(red);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);		
+            if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {
+                sprintf(str, "Numachip #%d Out ", i-p_num_chips); // s now contains the value 52300         
+                curve = new QwtPlotHistogram(str);
+                curve->setBrush(red);
+                curve->setPen(red);
+                curve->attach(plot);
+                curves.push_back(curve);
+                showCurve(curve, true);		
+            }
         }
     }
 }

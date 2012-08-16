@@ -42,7 +42,7 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>2</number>
+         <number>0</number>
         </property>
         <property name="movable">
          <bool>true</bool>
@@ -122,7 +122,7 @@
             </sizepolicy>
            </property>
            <property name="title">
-            <string>Display numachip number:</string>
+            <string>Select numachip node number range for display:</string>
            </property>
            <widget class="QSpinBox" name="spinBox">
             <property name="geometry">
