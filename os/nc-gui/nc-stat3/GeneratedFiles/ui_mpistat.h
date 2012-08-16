@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mpistat.ui'
 **
-** Created: Wed 15. Aug 10:48:08 2012
+** Created: Thu 16. Aug 12:57:20 2012
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -14,11 +14,14 @@
 #include <QtGui/QAction>
 #include <QtGui/QApplication>
 #include <QtGui/QButtonGroup>
+#include <QtGui/QGroupBox>
 #include <QtGui/QHBoxLayout>
 #include <QtGui/QHeaderView>
+#include <QtGui/QLabel>
 #include <QtGui/QMainWindow>
 #include <QtGui/QPushButton>
 #include <QtGui/QSpacerItem>
+#include <QtGui/QSpinBox>
 #include <QtGui/QTabWidget>
 #include <QtGui/QVBoxLayout>
 #include <QtGui/QWidget>
@@ -45,6 +48,10 @@ public:
     QSpacerItem *verticalSpacer_3;
     QWidget *widget;
     QHBoxLayout *horizontalLayout_2;
+    QGroupBox *groupBox;
+    QSpinBox *spinBox;
+    QLabel *label;
+    QSpinBox *spinBox_2;
     QHBoxLayout *horizontalLayout;
     QPushButton *pushButton;
     QSpacerItem *verticalSpacer;
@@ -53,7 +60,7 @@ public:
     {
         if (mpistatClass->objectName().isEmpty())
             mpistatClass->setObjectName(QString::fromUtf8("mpistatClass"));
-        mpistatClass->resize(919, 595);
+        mpistatClass->resize(957, 822);
         mpistatClass->setMinimumSize(QSize(100, 160));
         centralWidget = new QWidget(mpistatClass);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
@@ -119,11 +126,36 @@ public:
 
         widget = new QWidget(centralWidget);
         widget->setObjectName(QString::fromUtf8("widget"));
-        widget->setMinimumSize(QSize(0, 0));
+        widget->setEnabled(true);
+        QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        sizePolicy.setHeightForWidth(widget->sizePolicy().hasHeightForWidth());
+        widget->setSizePolicy(sizePolicy);
+        widget->setMinimumSize(QSize(0, 75));
         horizontalLayout_2 = new QHBoxLayout(widget);
         horizontalLayout_2->setSpacing(6);
         horizontalLayout_2->setContentsMargins(11, 11, 11, 11);
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
+        groupBox = new QGroupBox(widget);
+        groupBox->setObjectName(QString::fromUtf8("groupBox"));
+        QSizePolicy sizePolicy1(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        sizePolicy1.setHorizontalStretch(0);
+        sizePolicy1.setVerticalStretch(0);
+        sizePolicy1.setHeightForWidth(groupBox->sizePolicy().hasHeightForWidth());
+        groupBox->setSizePolicy(sizePolicy1);
+        spinBox = new QSpinBox(groupBox);
+        spinBox->setObjectName(QString::fromUtf8("spinBox"));
+        spinBox->setGeometry(QRect(20, 20, 42, 22));
+        label = new QLabel(groupBox);
+        label->setObjectName(QString::fromUtf8("label"));
+        label->setGeometry(QRect(70, 20, 16, 16));
+        spinBox_2 = new QSpinBox(groupBox);
+        spinBox_2->setObjectName(QString::fromUtf8("spinBox_2"));
+        spinBox_2->setGeometry(QRect(90, 20, 42, 22));
+
+        horizontalLayout_2->addWidget(groupBox);
+
         horizontalLayout = new QHBoxLayout();
         horizontalLayout->setSpacing(6);
         horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
@@ -152,7 +184,7 @@ public:
 
         retranslateUi(mpistatClass);
 
-        tabWidget->setCurrentIndex(0);
+        tabWidget->setCurrentIndex(2);
 
 
         QMetaObject::connectSlotsByName(mpistatClass);
@@ -164,6 +196,8 @@ public:
         tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "Cache rate distribution", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Transactions In/Out", 0, QApplication::UnicodeUTF8));
+        groupBox->setTitle(QApplication::translate("mpistatClass", "Display numachip number:", 0, QApplication::UnicodeUTF8));
+        label->setText(QApplication::translate("mpistatClass", "to", 0, QApplication::UnicodeUTF8));
         pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 

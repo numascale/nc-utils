@@ -82,6 +82,8 @@ private:
     int m_num_chips;
     bool  cacheConnected;
     bool  m_freeze;
+    int m_spinbox;
+    int m_spinbox2;
 
     CacheHistGraph* graph1;
     TransactionHist* graph2;
@@ -99,6 +101,8 @@ private:
     private slots:
         void getinfo();
         void handleButton();
+        void handleBox(int newvalue);
+        void handleBox2(int newvalue);
 };
 
 class Curve : public QwtPlotHistogram {
@@ -118,12 +122,15 @@ public:
     QwtPlot* plot;
     //vector<QwtPlotHistogram*> curves;
     int get_num_chips();
-     
+    void set_num_chips(int num);
+    void set_range(int min, int max);
     public slots:
         void showCurve(QwtPlotItem*, bool on);
 
 protected:
     int p_num_chips;
+    int p_range_min;
+    int p_range_max;
 };
 class CacheGraph : public PerfGraph {
     Q_OBJECT   
@@ -132,8 +139,7 @@ public:
     vector<QwtPlotCurve*> curves;
     void addCurves();
     void showstat(const struct cachestats_t* statmsg);
-    double hitrate (unsigned long long hit, unsigned long long miss);
-    void set_num_chips(int num);
+    double hitrate (unsigned long long hit, unsigned long long miss);    
 private:
     static const int TIME_LENGTH = 250;
     static const int MAX_HITRATE = 100;
@@ -161,8 +167,7 @@ public:
     CacheHistGraph(QWidget* parent = 0);
 
     virtual void showstat(const struct cachestats_t* statmsg);
-    double hitrate (unsigned long long hit, unsigned long long miss);
-    void set_num_chips(int num);
+    double hitrate (unsigned long long hit, unsigned long long miss);    
     void addCurves();
  
 
@@ -178,8 +183,7 @@ class TransactionHist : public PerfHistGraph {
 public:
     TransactionHist(QWidget* parent = 0);
 
-    void showstat(const struct cachestats_t* statmsg);    
-    void set_num_chips(int num);    
+    void showstat(const struct cachestats_t* statmsg);        
     void addCurves();
 
 private:

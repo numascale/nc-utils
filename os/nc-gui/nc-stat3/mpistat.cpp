@@ -53,6 +53,8 @@ mpistat::mpistat(const string& strCacheAddr)
     
     connect(&timer, SIGNAL(timeout()), this, SLOT(getinfo()));	
     connect(ui.pushButton, SIGNAL(released()), this, SLOT(handleButton()));
+    connect(ui.spinBox, SIGNAL(valueChanged(int)), this, SLOT(handleBox(int)));
+    connect(ui.spinBox_2, SIGNAL(valueChanged(int)), this, SLOT(handleBox2(int)));
     timer.setInterval(1000);
     timer.start();
 }
@@ -82,22 +84,36 @@ void mpistat::handleButton() {
     }
     m_freeze=!m_freeze;
 }
-Curve::Curve(const int r, const QString& title) 
-    : QwtPlotHistogram(title) 
-    , rank(r) {
+void mpistat::handleBox(int newvalue) {	
+    m_spinbox=newvalue;
+    ui.spinBox_2->setMinimum(m_spinbox);
+    printf("handleBox:Current value is %d\n", newvalue);
+    graph1->set_range(m_spinbox,m_spinbox2);
+    graph2->set_range(m_spinbox,m_spinbox2);
+    graph5->set_range(m_spinbox,m_spinbox2);
+    graph1->addCurves();
+    graph2->addCurves();
+    graph5->addCurves();
 }
-void Curve::setColor(const QColor &color) {
-    QColor c = color;
-    c.setAlpha(75);
-    setPen(c);
-    setBrush(c);
+void mpistat::handleBox2(int newvalue) {	
+    m_spinbox2=newvalue;
+    ui.spinBox->setMaximum(m_spinbox2);  
+    printf("handleBox2: Current value is %d\n", newvalue);
+    graph1->set_range(m_spinbox,m_spinbox2);
+    graph2->set_range(m_spinbox,m_spinbox2);
+    graph5->set_range(m_spinbox,m_spinbox2);
+    graph1->addCurves();
+    graph2->addCurves();
+    graph5->addCurves();
 }
 PerfGraph::PerfGraph(QWidget* parent)
     : plot(new QwtPlot(parent)) {
 
       p_num_chips=0;
+      p_range_min=0;
+      p_range_max=0;
       plot->canvas()->setFrameShape(QFrame::NoFrame);
-
+      
       QwtLegend* legend = new QwtLegend;
       legend->setItemMode(QwtLegend::CheckableItem);
       plot->insertLegend(legend, QwtPlot::BottomLegend);
@@ -108,6 +124,13 @@ PerfGraph::PerfGraph(QWidget* parent)
 
       connect(plot, SIGNAL(legendChecked(QwtPlotItem*, bool)),
             SLOT(showCurve(QwtPlotItem*, bool)));
+}
+void PerfGraph::set_num_chips(int numachips) {
+    p_num_chips=numachips;    
+}
+void PerfGraph::set_range(int min, int max) {
+    p_range_min=min;    
+    p_range_max=max;    
 }
 void PerfGraph::showCurve(QwtPlotItem* item, bool on) {
 
@@ -146,30 +169,43 @@ void CacheGraph::addCurves() {
 
     char str[80];
     QwtPlotCurve* curve;
-    curves.clear();
+    curves.clear();    
+    plot->detachItems();
+    m_counter=0;
     for (int i=0; i<p_num_chips; i++) {
+        
         sprintf(str, "Remote Cache #%d", i); // s now contains the value 52300         
         curve = new QwtPlotCurve(str);
-        if (i==0) curve->setPen(QPen(Qt::black,2));
-        else if (i==1) curve->setPen(QPen(Qt::green,2));
-        else if (i==2) curve->setPen(QPen(Qt::blue,2));
-        else if (i==3) curve->setPen(QPen(Qt::red,2));
-        else if (i==4) curve->setPen(QPen(Qt::cyan,2));
-        else if (i==5) curve->setPen(QPen(Qt::magenta,2));
-        else if (i==6) curve->setPen(QPen(Qt::yellow,2));
-        else if (i==7) curve->setPen(QPen(Qt::darkRed,2));
-        else if (i==8) curve->setPen(QPen(Qt::darkGreen,2));
-        else if (i==9) curve->setPen(QPen(Qt::darkBlue,2));
-        else if (i==10) curve->setPen(QPen(Qt::darkCyan,2));
-        else if (i==11) curve->setPen(QPen(Qt::darkMagenta,2));
-        else if (i==12) curve->setPen(QPen(Qt::darkYellow,2));
-        else if (i==13) curve->setPen(QPen(Qt::darkGray,2));
-        else if (i==14) curve->setPen(QPen(Qt::lightGray,2));
-        else curve->setPen(QPen(Qt::gray,2));
-        curve->attach(plot);
-        curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-        showCurve(curve,true);
-        curves.push_back(curve);	
+        //curve->detach();
+        if ((i>=p_range_min) && i<=p_range_max) {
+
+            if (i==0) curve->setPen(QPen(Qt::black,2));
+            else if (i==1) curve->setPen(QPen(Qt::green,2));
+            else if (i==2) curve->setPen(QPen(Qt::blue,2));
+            else if (i==3) curve->setPen(QPen(Qt::red,2));
+            else if (i==4) curve->setPen(QPen(Qt::cyan,2));
+            else if (i==5) curve->setPen(QPen(Qt::magenta,2));
+            else if (i==6) curve->setPen(QPen(Qt::yellow,2));
+            else if (i==7) curve->setPen(QPen(Qt::darkRed,2));
+            else if (i==8) curve->setPen(QPen(Qt::darkGreen,2));
+            else if (i==9) curve->setPen(QPen(Qt::darkBlue,2));
+            else if (i==10) curve->setPen(QPen(Qt::darkCyan,2));
+            else if (i==11) curve->setPen(QPen(Qt::darkMagenta,2));
+            else if (i==12) curve->setPen(QPen(Qt::darkYellow,2));
+            else if (i==13) curve->setPen(QPen(Qt::darkGray,2));
+            else if (i==14) curve->setPen(QPen(Qt::lightGray,2));
+            else curve->setPen(QPen(Qt::gray,2));
+            
+            curve->attach(plot);
+            curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+            showCurve(curve,true);
+            printf ("i = %d p_range_min = %d p_range_max =%d\n", 
+                i,
+                p_range_min, 
+                p_range_max);
+        
+            curves.push_back(curve);	
+        }
     }
     //We need initialize the array of doubles:
     m_hitrates=new double *[p_num_chips]; 
@@ -194,10 +230,6 @@ double CacheGraph::hitrate (unsigned long long hit,
         return ((double)100*hit/(hit + miss));
     }
 }
-void CacheGraph::set_num_chips(int numachips) {
-    p_num_chips=numachips;
-    addCurves();
-}
 void CacheGraph::showstat(const struct cachestats_t* statmsg) {
 
     if (m_counter == 0) plot->setAxisScale(QwtPlot::xBottom, 0, MAX_HITRATE);
@@ -207,19 +239,24 @@ void CacheGraph::showstat(const struct cachestats_t* statmsg) {
 
     char s[80];
     QString title;
+    int j=0;
     for (int i=0; i<p_num_chips; i++) {          
+    
         m_hitrates[i][m_counter]=hitrate(statmsg[i].hit,statmsg[i].miss);
         m_transactions[m_counter].push_back(statmsg[i].hit + statmsg[i].miss);
         sprintf(s, "Remote Cache #%d transactions %lld", 
             i, 
             m_transactions[m_counter][i]); 
-        title.append(QString(s));		
-        curves[i]->setTitle(title);	    
-        title.clear();   
-        curves[i]->setRawSamples(m_timestep, *(m_hitrates + i), m_counter);
-        printf("Remote Cache #%d transactions %lld hitrate %.2f m_timestep %.2f m_counter %d\n", 
-            i, 
-            m_transactions[m_counter][i],m_hitrates[i][m_counter], m_timestep[i], m_counter );
+        if ((i>=p_range_min) && i<=p_range_max) {            
+            title.append(QString(s));		
+            curves[j]->setTitle(title);	    
+            title.clear();   
+            curves[j]->setRawSamples(m_timestep, *(m_hitrates + i), m_counter);
+            j++;
+            /*printf("Remote Cache #%d (j=%d) transactions %lld hitrate %.2f m_timestep %.2f m_counter %d\n", 
+                i, j,
+                m_transactions[m_counter][i],m_hitrates[i][m_counter], m_timestep[i], m_counter );*/
+        }
     }
 
     plot->replot();
@@ -228,37 +265,46 @@ void CacheGraph::showstat(const struct cachestats_t* statmsg) {
     if (m_counter==TIME_LENGTH) m_counter=0;
 }
 PerfHistGraph::PerfHistGraph(QWidget* parent) {
-      plot->setAxisScale(QwtPlot::xBottom, 0, p_num_chips);
-      plot->setAxisMaxMajor(QwtPlot::xBottom, p_num_chips + 1);
-      plot->setAxisMaxMinor(QwtPlot::xBottom, 0);    
+    plot->setAxisScale(QwtPlot::xBottom,p_range_min-0.5, p_range_max + 0.5);
+    plot->setAxisMaxMajor(QwtPlot::xBottom, p_range_max);
+    plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
+
+    plot->setAxisMaxMinor(QwtPlot::xBottom, 0);    
 }
 void PerfHistGraph::addCurves() {
  
     char str[80];
     QwtPlotHistogram* curve;
     curves.clear();
+    plot->detachItems();
     for (int i=0; i<(p_num_chips*2); i++) {
         QColor blue = Qt::blue, red = Qt::red;
 
         red.setAlpha(75);
         blue.setAlpha(75);
         if (i<p_num_chips) {
-            sprintf(str, "Numachip #%d", i); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(blue);
-            curve->setPen(blue);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);			      
+            if ((i>=p_range_min) && i<=p_range_max) {
+                sprintf(str, "Numachip #%d", i); // s now contains the value 52300         
+                curve = new QwtPlotHistogram(str);
+                curve->setBrush(blue);
+                curve->setPen(blue);
+                curve->attach(plot);
+                curves.push_back(curve);
+                showCurve(curve, true);			      
+            }
         } else {
-            sprintf(str, "Average Remote Cache #%d", i-p_num_chips); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(red);
-            curve->setPen(red);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);		
+            if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {
+            
+                sprintf(str, "Average Remote Cache #%d", i-p_num_chips); // s now contains the value 52300         
+                curve = new QwtPlotHistogram(str);
+                curve->setBrush(red);
+                curve->setPen(red);
+                curve->attach(plot);
+                curves.push_back(curve);
+                showCurve(curve, true);		
+            }
         }
+
     }
 }
 
@@ -273,36 +319,39 @@ CacheHistGraph::CacheHistGraph(QWidget* parent) {
       QwtText title("Numachip Remote Cache HIT (%)");
       plot->setTitle(title);      
 }
-void CacheHistGraph::set_num_chips(int numachips) {
-    p_num_chips=numachips;
-    addCurves();
-}
+
 void CacheHistGraph::addCurves() {
  
     char str[80];
     QwtPlotHistogram* curve;
     curves.clear();
+    plot->detachItems();
     for (int i=0; i<(p_num_chips*2); i++) {
         QColor blue = Qt::blue, red = Qt::red;
 
         red.setAlpha(75);
         blue.setAlpha(75);
         if (i<p_num_chips) {
-            sprintf(str, "Numachip #%d", i); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(blue);
-            curve->setPen(blue);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);			      
-        } else {
-            sprintf(str, "Average Remote Cache #%d", i-p_num_chips); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(red);
-            curve->setPen(red);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);		
+            if ((i>=p_range_min) && i<=p_range_max) {
+                sprintf(str, "Numachip #%d", i); // s now contains the value 52300         
+                curve = new QwtPlotHistogram(str);
+                curve->setBrush(blue);
+                curve->setPen(blue);
+                curve->attach(plot);
+                curves.push_back(curve);
+                showCurve(curve, true);			      
+            }
+        }
+        else {
+            if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {
+                sprintf(str, "Average Remote Cache #%d", i-p_num_chips); // s now contains the value 52300         
+                curve = new QwtPlotHistogram(str);
+                curve->setBrush(red);
+                curve->setPen(red);
+                curve->attach(plot);
+                curves.push_back(curve);
+                showCurve(curve, true);		
+            }
         }
     }
 }
@@ -320,40 +369,50 @@ double CacheHistGraph::hitrate (unsigned long long hit, unsigned long long miss)
 }
 void CacheHistGraph::showstat(const struct cachestats_t* statmsg) {
 
-    plot->setAxisScale(QwtPlot::xBottom,-1, p_num_chips + 0.5);
-    plot->setAxisMaxMajor(QwtPlot::xBottom, p_num_chips);
+    plot->setAxisScale(QwtPlot::xBottom,p_range_min-0.5, p_range_max + 0.5);
+    plot->setAxisMaxMajor(QwtPlot::xBottom, p_range_max);
     plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
+
 
     char s[80];
     QString title;
     QVector<QwtIntervalSample> samples(1);  
+    int j=0;
     for (int i=0; i<(p_num_chips*2); i++) {
 
         if (i<p_num_chips) {
             m_hitrate.push_back(hitrate(statmsg[i].hit,statmsg[i].miss));
             m_transactions.push_back(statmsg[i].hit + statmsg[i].miss);
             sprintf(s, "Remote Cache #%d transactions %lld", i,m_transactions[i]); 
-            samples[0]=QwtIntervalSample(m_hitrate[i], i-0.2,i+0.2);
-            curves[i]->setSamples(samples);
+            if ((i>=p_range_min) && i<=p_range_max) {  
+                samples[0]=QwtIntervalSample(m_hitrate[i], i-0.2,i+0.2);
+                curves[j]->setSamples(samples);
+                title.append(QString(s));		
+                curves[j]->setTitle(title);
+                title.clear();    
+                j++;
+            }
         } else {
             m_hitrate.push_back(hitrate(statmsg[i-p_num_chips].tothit,statmsg[i-p_num_chips].totmiss));		    
             m_transactions.push_back(statmsg[i-p_num_chips].tothit + statmsg[i-p_num_chips].totmiss);
             sprintf(s, "Average Remote Cache #%d transactions %lld",i-p_num_chips, m_transactions[i]); 
-            samples[0]=QwtIntervalSample(m_hitrate[i], (i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
-            curves[i]->setSamples(samples);
+             if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {            
+                samples[0]=QwtIntervalSample(m_hitrate[i], (i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
+                curves[j]->setSamples(samples);
+                title.append(QString(s));		
+                curves[j]->setTitle(title);
+                title.clear();
+                j++;
+            }    
         }
-
-        title.append(QString(s));		
-        curves[i]->setTitle(title);
-        title.clear();
+        
+        
     }
 
     plot->replot();    
     m_hitrate.clear();
     m_transactions.clear();
 } 
-
-
 TransactionHist::TransactionHist(QWidget* parent) {
       //Double is 64 bit: 
 
@@ -369,15 +428,12 @@ TransactionHist::TransactionHist(QWidget* parent) {
       QwtText title("Numachip Number of Transactions (In&Out)");
       plot->setTitle(title);      
 }
-void TransactionHist::set_num_chips(int numachips) {
-    p_num_chips=numachips;
-    addCurves();
-}
 void TransactionHist::addCurves() {
  
     char str[80];
     QwtPlotHistogram* curve;
     curves.clear();
+    plot->detachItems();
     for (int i=0; i<(p_num_chips*2); i++) {
         QColor blue = Qt::blue, red = Qt::red;
 
@@ -402,24 +458,31 @@ void TransactionHist::addCurves() {
         }
     }
 }
-
 void TransactionHist::showstat(const struct cachestats_t* statmsg) {
 
-    plot->setAxisScale(QwtPlot::xBottom,-1, p_num_chips + 0.5);
-    plot->setAxisMaxMajor(QwtPlot::xBottom, p_num_chips);
+    plot->setAxisScale(QwtPlot::xBottom,p_range_min-0.5, p_range_max + 0.5);
+    plot->setAxisMaxMajor(QwtPlot::xBottom, p_range_max);
     plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
 
     char s[80];
     QString title;
-    QVector<QwtIntervalSample> samples(1);  
+    QVector<QwtIntervalSample> samples(1); 
+    int j=0;
     for (int i=0; i<(p_num_chips*2); i++) {
 
         if (i<p_num_chips) {
             m_transactions.push_back(statmsg[i].cave_in);
             /*printf(" m_transactions cave_in %lld\n",  m_transactions[i]);*/
             sprintf(s, "Numachip #%d In", i); 
-            samples[0]=QwtIntervalSample(m_transactions[i], i-0.2,i+0.2);
-            curves[i]->setSamples(samples);
+            
+            if ((i>=p_range_min) && i<=p_range_max) {  
+                samples[0]=QwtIntervalSample(m_transactions[i], i-0.2,i+0.2);
+                curves[j]->setSamples(samples);
+                title.append(QString(s));		
+                curves[j]->setTitle(title);
+                title.clear();
+                j++;
+            }
         } else {
             double a=1489323400, b=10,c=100;
             int d=log10(a),e=log10(double(statmsg[i-p_num_chips].cave_out)), f=log10(c);
@@ -428,15 +491,20 @@ void TransactionHist::showstat(const struct cachestats_t* statmsg) {
             std::cout << "double: " << std::numeric_limits<double>::digits << "\n"
               << "UINT64: " << std::numeric_limits<UINT64>::digits << std::endl;*/
             m_transactions2.push_back(statmsg[i-p_num_chips].cave_out);
-            printf(" m_transactions cave_out %lld (index i-p_num_chips) =%d\n",  m_transactions2[i-p_num_chips], i-p_num_chips);
+            /*printf(" m_transactions cave_out %lld (index i-p_num_chips) =%d\n",  m_transactions2[i-p_num_chips], i-p_num_chips);*/
             sprintf(s, "Numachip #%d Out",i-p_num_chips); 
             samples[0]=QwtIntervalSample(m_transactions2[i-p_num_chips],(i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
-            curves[i]->setSamples(samples);
+            if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {            
+                samples[0]=QwtIntervalSample(m_transactions2[i-p_num_chips],(i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
+                curves[j]->setSamples(samples);
+                title.append(QString(s));		
+                curves[j]->setTitle(title);
+                title.clear();
+                j++;
+            }
         }
 
-        title.append(QString(s));		
-        curves[i]->setTitle(title);
-        title.clear();
+
     }
 
     plot->replot();    
@@ -566,9 +634,24 @@ void mpistat::getcache() {
         if (m_num_chips>0) delete m_cstat;
         
         m_num_chips=num_chips;
+        ui.spinBox->setValue(0);        
+        ui.spinBox_2->setValue(m_num_chips - 1);
+        ui.spinBox->setRange(0,m_num_chips-1);
+        ui.spinBox_2->setRange(0,m_num_chips-1);
+        handleBox(0);
+        handleBox2(m_num_chips-1);
+
         graph1->set_num_chips(m_num_chips);
         graph2->set_num_chips(m_num_chips);
         graph5->set_num_chips(m_num_chips);
+
+        graph1->set_range(0,m_num_chips-1);
+        graph2->set_range(0,m_num_chips-1);
+        graph5->set_range(0,m_num_chips-1);
+        graph1->addCurves();
+        graph2->addCurves();
+        graph5->addCurves();
+        graph5->addCurves();
 
         printf("Master node in the numaconnect single image cluster reports %d numchips.\n", 
             m_num_chips);
