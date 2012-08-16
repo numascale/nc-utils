@@ -172,6 +172,7 @@ void CacheGraph::addCurves() {
     curves.clear();    
     plot->detachItems();
     m_counter=0;
+    int j=0;
     for (int i=0; i<p_num_chips; i++) {
         
         sprintf(str, "Remote Cache #%d", i); // s now contains the value 52300         
@@ -179,21 +180,21 @@ void CacheGraph::addCurves() {
         //curve->detach();
         if ((i>=p_range_min) && i<=p_range_max) {
 
-            if (i==0) curve->setPen(QPen(Qt::black,2));
-            else if (i==1) curve->setPen(QPen(Qt::green,2));
-            else if (i==2) curve->setPen(QPen(Qt::blue,2));
-            else if (i==3) curve->setPen(QPen(Qt::red,2));
-            else if (i==4) curve->setPen(QPen(Qt::cyan,2));
-            else if (i==5) curve->setPen(QPen(Qt::magenta,2));
-            else if (i==6) curve->setPen(QPen(Qt::yellow,2));
-            else if (i==7) curve->setPen(QPen(Qt::darkRed,2));
-            else if (i==8) curve->setPen(QPen(Qt::darkGreen,2));
-            else if (i==9) curve->setPen(QPen(Qt::darkBlue,2));
-            else if (i==10) curve->setPen(QPen(Qt::darkCyan,2));
-            else if (i==11) curve->setPen(QPen(Qt::darkMagenta,2));
-            else if (i==12) curve->setPen(QPen(Qt::darkYellow,2));
-            else if (i==13) curve->setPen(QPen(Qt::darkGray,2));
-            else if (i==14) curve->setPen(QPen(Qt::lightGray,2));
+            if (j==0) curve->setPen(QPen(Qt::black,2));
+            else if (j==1) curve->setPen(QPen(Qt::green,2));
+            else if (j==2) curve->setPen(QPen(Qt::blue,2));
+            else if (j==3) curve->setPen(QPen(Qt::red,2));
+            else if (j==4) curve->setPen(QPen(Qt::cyan,2));
+            else if (j==5) curve->setPen(QPen(Qt::magenta,2));
+            else if (j==6) curve->setPen(QPen(Qt::yellow,2));
+            else if (j==7) curve->setPen(QPen(Qt::darkRed,2));
+            else if (j==8) curve->setPen(QPen(Qt::darkGreen,2));
+            else if (j==9) curve->setPen(QPen(Qt::darkBlue,2));
+            else if (j==10) curve->setPen(QPen(Qt::darkCyan,2));
+            else if (j==11) curve->setPen(QPen(Qt::darkMagenta,2));
+            else if (j==12) curve->setPen(QPen(Qt::darkYellow,2));
+            else if (j==13) curve->setPen(QPen(Qt::darkGray,2));
+            else if (j==14) curve->setPen(QPen(Qt::lightGray,2));
             else curve->setPen(QPen(Qt::gray,2));
             
             curve->attach(plot);
@@ -204,7 +205,8 @@ void CacheGraph::addCurves() {
                 p_range_min, 
                 p_range_max);
         
-            curves.push_back(curve);	
+            curves.push_back(curve);
+            j++;
         }
     }
     //We need initialize the array of doubles:
