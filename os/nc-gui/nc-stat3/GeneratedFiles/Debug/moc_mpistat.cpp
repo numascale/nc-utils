@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'mpistat.hpp'
 **
-** Created: Thu 16. Aug 12:57:20 2012
+** Created: Fri 17. Aug 11:42:48 2012
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -23,7 +23,7 @@ static const uint qt_meta_data_mpistat[] = {
        6,       // revision
        0,       // classname
        0,    0, // classinfo
-       4,   14, // methods
+       5,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -33,15 +33,17 @@ static const uint qt_meta_data_mpistat[] = {
  // slots: signature, parameters, type, tag, flags
        9,    8,    8,    8, 0x08,
       19,    8,    8,    8, 0x08,
-      43,   34,    8,    8, 0x08,
-      58,   34,    8,    8, 0x08,
+      42,    8,    8,    8, 0x08,
+      66,   57,    8,    8, 0x08,
+      81,   57,    8,    8, 0x08,
 
        0        // eod
 };
 
 static const char qt_meta_stringdata_mpistat[] = {
-    "mpistat\0\0getinfo()\0handleButton()\0"
-    "newvalue\0handleBox(int)\0handleBox2(int)\0"
+    "mpistat\0\0getinfo()\0handleDeselectButton()\0"
+    "handleButton()\0newvalue\0handleBox(int)\0"
+    "handleBox2(int)\0"
 };
 
 void mpistat::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
@@ -51,9 +53,10 @@ void mpistat::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, voi
         mpistat *_t = static_cast<mpistat *>(_o);
         switch (_id) {
         case 0: _t->getinfo(); break;
-        case 1: _t->handleButton(); break;
-        case 2: _t->handleBox((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 3: _t->handleBox2((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 1: _t->handleDeselectButton(); break;
+        case 2: _t->handleButton(); break;
+        case 3: _t->handleBox((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 4: _t->handleBox2((*reinterpret_cast< int(*)>(_a[1]))); break;
         default: ;
         }
     }
@@ -91,9 +94,9 @@ int mpistat::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 4)
+        if (_id < 5)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 4;
+        _id -= 5;
     }
     return _id;
 }

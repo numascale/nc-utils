@@ -72,7 +72,7 @@ class mpistat : public QMainWindow
     Q_OBJECT
 
 public:
-    mpistat(const string& strCacheAddr);
+    mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes);
     ~mpistat();
 
 private:
@@ -80,8 +80,11 @@ private:
     const string cacheAddr;
     SOCKET cacheSocket;
     int m_num_chips;
-    bool  cacheConnected;
-    bool  m_freeze;
+    bool cacheConnected;
+    bool m_freeze;
+    bool m_deselected;
+    bool m_simulate;
+    int m_simulate_nodes;
     int m_spinbox;
     int m_spinbox2;
 
@@ -97,9 +100,11 @@ private:
     void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
     void showConnectionStatus();
     void getcache();
+    
 
     private slots:
         void getinfo();
+        void handleDeselectButton();
         void handleButton();
         void handleBox(int newvalue);
         void handleBox2(int newvalue);
@@ -124,6 +129,7 @@ public:
     int get_num_chips();
     void set_num_chips(int num);
     void set_range(int min, int max);
+    
     public slots:
         void showCurve(QwtPlotItem*, bool on);
 
@@ -158,7 +164,7 @@ public:
 
     virtual void showstat(const struct cachestats_t* statmsg) = 0;    
     vector<QwtPlotHistogram*> curves;    
-    virtual void addCurves();
+    //virtual void addCurves();
 };
 
 class CacheHistGraph : public PerfHistGraph {
@@ -182,9 +188,9 @@ class TransactionHist : public PerfHistGraph {
     Q_OBJECT   
 public:
     TransactionHist(QWidget* parent = 0);
-
+    void deselectAllLegends(bool turn_off);
     void showstat(const struct cachestats_t* statmsg);        
-    void addCurves();
+    void addCurves();    
 
 private:
     vector <uint64_t> m_transactions;

@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mpistat.ui'
 **
-** Created: Thu 16. Aug 13:33:41 2012
+** Created: Fri 17. Aug 11:46:44 2012
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -54,6 +54,7 @@ public:
     QSpinBox *spinBox_2;
     QHBoxLayout *horizontalLayout;
     QPushButton *pushButton;
+    QPushButton *pushButton_2;
     QSpacerItem *verticalSpacer;
 
     void setupUi(QMainWindow *mpistatClass)
@@ -147,12 +148,14 @@ public:
         spinBox = new QSpinBox(groupBox);
         spinBox->setObjectName(QString::fromUtf8("spinBox"));
         spinBox->setGeometry(QRect(20, 20, 42, 22));
+        spinBox->setMaximum(4096);
         label = new QLabel(groupBox);
         label->setObjectName(QString::fromUtf8("label"));
         label->setGeometry(QRect(70, 20, 16, 16));
         spinBox_2 = new QSpinBox(groupBox);
         spinBox_2->setObjectName(QString::fromUtf8("spinBox_2"));
         spinBox_2->setGeometry(QRect(90, 20, 42, 22));
+        spinBox_2->setMaximum(4096);
 
         horizontalLayout_2->addWidget(groupBox);
 
@@ -169,6 +172,17 @@ public:
 
 
         horizontalLayout_2->addLayout(horizontalLayout);
+
+        pushButton_2 = new QPushButton(widget);
+        pushButton_2->setObjectName(QString::fromUtf8("pushButton_2"));
+        QSizePolicy sizePolicy2(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        sizePolicy2.setHorizontalStretch(0);
+        sizePolicy2.setVerticalStretch(0);
+        sizePolicy2.setHeightForWidth(pushButton_2->sizePolicy().hasHeightForWidth());
+        pushButton_2->setSizePolicy(sizePolicy2);
+        pushButton_2->setMaximumSize(QSize(120, 16777215));
+
+        horizontalLayout_2->addWidget(pushButton_2);
 
 
         verticalLayout->addWidget(widget);
@@ -199,6 +213,7 @@ public:
         groupBox->setTitle(QApplication::translate("mpistatClass", "Select numachip node number range for display:", 0, QApplication::UnicodeUTF8));
         label->setText(QApplication::translate("mpistatClass", "to", 0, QApplication::UnicodeUTF8));
         pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
+        pushButton_2->setText(QApplication::translate("mpistatClass", "Deselect all graphs", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 
 };

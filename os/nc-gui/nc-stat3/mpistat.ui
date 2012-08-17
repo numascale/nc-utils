@@ -133,6 +133,9 @@
               <height>22</height>
              </rect>
             </property>
+            <property name="maximum">
+             <number>4096</number>
+            </property>
            </widget>
            <widget class="QLabel" name="label">
             <property name="geometry">
@@ -155,6 +158,9 @@
               <width>42</width>
               <height>22</height>
              </rect>
+            </property>
+            <property name="maximum">
+             <number>4096</number>
             </property>
            </widget>
           </widget>
@@ -181,6 +187,25 @@
             </widget>
            </item>
           </layout>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_2">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>120</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Deselect all graphs</string>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>
