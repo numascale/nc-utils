@@ -8,6 +8,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ** Created: Thu 5. Jul 14:28:24 2012
 =======
 ** Created: Tue 24. Jul 13:35:14 2012
@@ -30,6 +31,9 @@
 =======
 ** Created: Tue 14. Aug 10:10:15 2012
 >>>>>>> win_av/master
+=======
+** Created: Fri 17. Aug 11:46:44 2012
+>>>>>>> win_av/master
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -42,11 +46,14 @@
 #include <QtGui/QAction>
 #include <QtGui/QApplication>
 #include <QtGui/QButtonGroup>
+#include <QtGui/QGroupBox>
 #include <QtGui/QHBoxLayout>
 #include <QtGui/QHeaderView>
+#include <QtGui/QLabel>
 #include <QtGui/QMainWindow>
 #include <QtGui/QPushButton>
 #include <QtGui/QSpacerItem>
+#include <QtGui/QSpinBox>
 #include <QtGui/QTabWidget>
 #include <QtGui/QVBoxLayout>
 #include <QtGui/QWidget>
@@ -70,24 +77,23 @@ public:
     QWidget *tab2;
     QVBoxLayout *verticalLayout_6;
     QVBoxLayout *tab2layout;
-    QWidget *tab3;
-    QVBoxLayout *verticalLayout_5;
-    QVBoxLayout *tab3layout;
-    QWidget *tab4;
-    QVBoxLayout *verticalLayout_8;
-    QVBoxLayout *tab4layout;
     QSpacerItem *verticalSpacer_3;
     QWidget *widget;
     QHBoxLayout *horizontalLayout_2;
+    QGroupBox *groupBox;
+    QSpinBox *spinBox;
+    QLabel *label;
+    QSpinBox *spinBox_2;
     QHBoxLayout *horizontalLayout;
     QPushButton *pushButton;
+    QPushButton *pushButton_2;
     QSpacerItem *verticalSpacer;
 
     void setupUi(QMainWindow *mpistatClass)
     {
         if (mpistatClass->objectName().isEmpty())
             mpistatClass->setObjectName(QString::fromUtf8("mpistatClass"));
-        mpistatClass->resize(919, 595);
+        mpistatClass->resize(957, 822);
         mpistatClass->setMinimumSize(QSize(100, 160));
         centralWidget = new QWidget(mpistatClass);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
@@ -144,32 +150,6 @@ public:
         verticalLayout_6->addLayout(tab2layout);
 
         tabWidget->addTab(tab2, QString());
-        tab3 = new QWidget();
-        tab3->setObjectName(QString::fromUtf8("tab3"));
-        verticalLayout_5 = new QVBoxLayout(tab3);
-        verticalLayout_5->setSpacing(6);
-        verticalLayout_5->setContentsMargins(11, 11, 11, 11);
-        verticalLayout_5->setObjectName(QString::fromUtf8("verticalLayout_5"));
-        tab3layout = new QVBoxLayout();
-        tab3layout->setSpacing(6);
-        tab3layout->setObjectName(QString::fromUtf8("tab3layout"));
-
-        verticalLayout_5->addLayout(tab3layout);
-
-        tabWidget->addTab(tab3, QString());
-        tab4 = new QWidget();
-        tab4->setObjectName(QString::fromUtf8("tab4"));
-        verticalLayout_8 = new QVBoxLayout(tab4);
-        verticalLayout_8->setSpacing(6);
-        verticalLayout_8->setContentsMargins(11, 11, 11, 11);
-        verticalLayout_8->setObjectName(QString::fromUtf8("verticalLayout_8"));
-        tab4layout = new QVBoxLayout();
-        tab4layout->setSpacing(6);
-        tab4layout->setObjectName(QString::fromUtf8("tab4layout"));
-
-        verticalLayout_8->addLayout(tab4layout);
-
-        tabWidget->addTab(tab4, QString());
 
         verticalLayout->addWidget(tabWidget);
 
@@ -179,11 +159,38 @@ public:
 
         widget = new QWidget(centralWidget);
         widget->setObjectName(QString::fromUtf8("widget"));
-        widget->setMinimumSize(QSize(0, 0));
+        widget->setEnabled(true);
+        QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        sizePolicy.setHeightForWidth(widget->sizePolicy().hasHeightForWidth());
+        widget->setSizePolicy(sizePolicy);
+        widget->setMinimumSize(QSize(0, 75));
         horizontalLayout_2 = new QHBoxLayout(widget);
         horizontalLayout_2->setSpacing(6);
         horizontalLayout_2->setContentsMargins(11, 11, 11, 11);
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
+        groupBox = new QGroupBox(widget);
+        groupBox->setObjectName(QString::fromUtf8("groupBox"));
+        QSizePolicy sizePolicy1(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        sizePolicy1.setHorizontalStretch(0);
+        sizePolicy1.setVerticalStretch(0);
+        sizePolicy1.setHeightForWidth(groupBox->sizePolicy().hasHeightForWidth());
+        groupBox->setSizePolicy(sizePolicy1);
+        spinBox = new QSpinBox(groupBox);
+        spinBox->setObjectName(QString::fromUtf8("spinBox"));
+        spinBox->setGeometry(QRect(20, 20, 42, 22));
+        spinBox->setMaximum(4096);
+        label = new QLabel(groupBox);
+        label->setObjectName(QString::fromUtf8("label"));
+        label->setGeometry(QRect(70, 20, 16, 16));
+        spinBox_2 = new QSpinBox(groupBox);
+        spinBox_2->setObjectName(QString::fromUtf8("spinBox_2"));
+        spinBox_2->setGeometry(QRect(90, 20, 42, 22));
+        spinBox_2->setMaximum(4096);
+
+        horizontalLayout_2->addWidget(groupBox);
+
         horizontalLayout = new QHBoxLayout();
         horizontalLayout->setSpacing(6);
         horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
@@ -197,6 +204,17 @@ public:
 
 
         horizontalLayout_2->addLayout(horizontalLayout);
+
+        pushButton_2 = new QPushButton(widget);
+        pushButton_2->setObjectName(QString::fromUtf8("pushButton_2"));
+        QSizePolicy sizePolicy2(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        sizePolicy2.setHorizontalStretch(0);
+        sizePolicy2.setVerticalStretch(0);
+        sizePolicy2.setHeightForWidth(pushButton_2->sizePolicy().hasHeightForWidth());
+        pushButton_2->setSizePolicy(sizePolicy2);
+        pushButton_2->setMaximumSize(QSize(120, 16777215));
+
+        horizontalLayout_2->addWidget(pushButton_2);
 
 
         verticalLayout->addWidget(widget);
@@ -212,7 +230,7 @@ public:
 
         retranslateUi(mpistatClass);
 
-        tabWidget->setCurrentIndex(1);
+        tabWidget->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(mpistatClass);
@@ -223,10 +241,11 @@ public:
         mpistatClass->setWindowTitle(QApplication::translate("mpistatClass", "mpistat", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "Cache rate distribution", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Send latency", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab3), QApplication::translate("mpistatClass", "Receive latency", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab4), QApplication::translate("mpistatClass", "Bandwidth", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Transactions In/Out", 0, QApplication::UnicodeUTF8));
+        groupBox->setTitle(QApplication::translate("mpistatClass", "Select numachip node number range for display:", 0, QApplication::UnicodeUTF8));
+        label->setText(QApplication::translate("mpistatClass", "to", 0, QApplication::UnicodeUTF8));
         pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
+        pushButton_2->setText(QApplication::translate("mpistatClass", "Deselect all graphs", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 
 };

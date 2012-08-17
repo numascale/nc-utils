@@ -5,9 +5,9 @@
 int main(int argc, char *argv[])
 {
 	QApplication a(argc, argv);
-
-	std::string strCacheAddr;
-	std::string strMpiAddr;
+    bool simulate=false;
+	std::string strCacheAddr;	
+    int nodes;
 
 	if( argc > 1 ) {
 		for( int i = 1; i < argc; i++ ) {
@@ -17,16 +17,19 @@ int main(int argc, char *argv[])
 					++i;
 				}
 			}
-			if( strcmp(argv[i], "-mpi") == 0 ) {
-				if( argc > i + 1 ) {
-					strMpiAddr = std::string(argv[i + 1]);
-					++i;
-				}
+            else if( strcmp(argv[i], "-simulate") == 0 ) {
+				simulate=true;
+                if( argc > i + 1 ) {
+                    nodes=atoi(argv[i+1]);
+                }
+
+                break;
 			}
+
 		}			
 	}
 
-	mpistat w(strCacheAddr, strMpiAddr);
+	mpistat w(strCacheAddr, simulate, nodes);
 
 	w.show();
 	return a.exec();

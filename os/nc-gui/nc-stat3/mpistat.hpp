@@ -22,10 +22,9 @@
 
 using namespace std;
 class CacheHistGraph;
-class HistGraph;
-class SizeHistGraph;
-class BandwidthGraph;
 class CacheGraph;
+class TransactionHist;
+
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
@@ -38,12 +37,9 @@ struct cachestats_t {
     //From totmiss and tothit we can calculate avg hit/miss.  
     uint64_t tothit; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
     uint64_t totmiss; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
-
-    /*
-    * Soon ;-)
-    uint64_t cave_in[4]; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
-    uint64_t cave_out[4]; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
-    */
+    uint64_t cave_in; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
+    uint64_t cave_out; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
+    
     /*
     uint64_t counter_4[4];
     uint64_t counter_5[4];
@@ -76,44 +72,43 @@ class mpistat : public QMainWindow
     Q_OBJECT
 
 public:
-    mpistat(const string& strCacheAddr, const string& strMpiAddr);
+    mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes);
     ~mpistat();
 
 private:
     Ui::mpistatClass ui;
     const string cacheAddr;
-    const string mpiAddr;
-
     SOCKET cacheSocket;
-    SOCKET mpiSocket;
     int m_num_chips;
-    bool  cacheConnected;
-    bool  m_freeze;
-    bool  mpiConnected;
+    bool cacheConnected;
+    bool m_freeze;
+    bool m_deselected;
+    bool m_simulate;
+    int m_simulate_nodes;
+    int m_spinbox;
+    int m_spinbox2;
 
     CacheHistGraph* graph1;
-    HistGraph* graph2;
-    BandwidthGraph* graph4;
+    TransactionHist* graph2;
     CacheGraph* graph5;
-
+      
     QTimer timer;
-    struct msgstats_t statmsg;
+
     struct cachestats_t *m_cstat;
     bool init;
 
     void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
     void showConnectionStatus();
-    bool getstat(int rank);
-    /*int  get_num_chips();*/
-
-    void getstat();
     void getcache();
+    
 
     private slots:
         void getinfo();
+        void handleDeselectButton();
         void handleButton();
+        void handleBox(int newvalue);
+        void handleBox2(int newvalue);
 };
-
 
 class Curve : public QwtPlotHistogram {
 public:
@@ -123,48 +118,34 @@ public:
     bool showing;
     int ymax;
 };
-
-class HistGraph : public QWidget {
+class PerfGraph : public QWidget {
     Q_OBJECT   
 public:
-    enum {curve_rt, curve_mpi, curve_mbsend, curve_sbw, curve_rbw, curve_cpy, curve_blocking};
+    PerfGraph(QWidget* parent = 0);
 
-    HistGraph(QWidget* parent = 0, const int idx = -1);
-
-    virtual void showstat(const struct msgstats_t& statmsg) = 0;
-    virtual void setmaxrank(int maxrank);
-
+    virtual void showstat(const struct cachestats_t* statmsg) = 0;
     QwtPlot* plot;
-    vector<Curve*> curves;
-    int maxrank;
-
+    //vector<QwtPlotHistogram*> curves;
+    int get_num_chips();
+    void set_num_chips(int num);
+    void set_range(int min, int max);
+    
     public slots:
         void showCurve(QwtPlotItem*, bool on);
 
 protected:
-    const int _idx;
-    QColor _color[8];
+    int p_num_chips;
+    int p_range_min;
+    int p_range_max;
 };
-
-
-class CacheGraph : public QWidget {
+class CacheGraph : public PerfGraph {
     Q_OBJECT   
 public:
-
     CacheGraph(QWidget* parent = 0);
-
-    QwtPlot* plot;
     vector<QwtPlotCurve*> curves;
     void addCurves();
-    void clear_num_chips();
     void showstat(const struct cachestats_t* statmsg);
-    double hitrate (unsigned long long hit, unsigned long long miss);
-    int get_num_chips();
-    void set_num_chips(int num);
-
-    public slots:
-        void showCurve(QwtPlotItem*, bool on);
-
+    double hitrate (unsigned long long hit, unsigned long long miss);    
 private:
     static const int TIME_LENGTH = 250;
     static const int MAX_HITRATE = 100;
@@ -173,65 +154,47 @@ private:
     double m_timestep[TIME_LENGTH];
     vector <uint64_t> m_transactions[TIME_LENGTH];	
     unsigned int m_counter;
-    int m_num_chips;
-
+    
 };
 
-class CacheHistGraph : public QWidget {
+class PerfHistGraph : public PerfGraph {
+    Q_OBJECT   
+public:
+    PerfHistGraph(QWidget* parent = 0);
+
+    virtual void showstat(const struct cachestats_t* statmsg) = 0;    
+    vector<QwtPlotHistogram*> curves;    
+    //virtual void addCurves();
+};
+
+class CacheHistGraph : public PerfHistGraph {
     Q_OBJECT   
 public:
     CacheHistGraph(QWidget* parent = 0);
 
-    void showstat(const struct cachestats_t* statmsg);
-    double hitrate (unsigned long long hit, unsigned long long miss);
-
-    QwtPlot* plot;
-    vector<QwtPlotHistogram*> curves;
-    int get_num_chips();
-    void set_num_chips(int num);
-    bool initialized();
+    virtual void showstat(const struct cachestats_t* statmsg);
+    double hitrate (unsigned long long hit, unsigned long long miss);    
     void addCurves();
-    void clear_num_chips();
-    public slots:
-        void showCurve(QwtPlotItem*, bool on);
+ 
 
 private:
     static const int MAX_HITRATE = 100;
     vector <double> m_hitrate;
-    vector <uint64_t> m_transactions;
-    int m_num_chips;
+    vector <uint64_t> m_transactions;    
 };
 
 
-
-class SizeHistGraph : public HistGraph {
+class TransactionHist : public PerfHistGraph {
     Q_OBJECT   
 public:
-    SizeHistGraph(QWidget* parent = 0);
-
-    virtual void showstat(const struct msgstats_t& statmsg);
-};
-
-
-class SendLatencyGraph : public HistGraph {
-    Q_OBJECT   
-public:
-    SendLatencyGraph(QWidget* parent = 0);
-
-    virtual void showstat(const struct msgstats_t& statmsg);
-};
-
-class BandwidthGraph : public HistGraph {
-    Q_OBJECT   
-public:
-    BandwidthGraph(QWidget* parent = 0);
-
-    virtual void showstat(const struct msgstats_t& statmsg);
-    virtual void setmaxrank(int maxrank);
+    TransactionHist(QWidget* parent = 0);
+    void deselectAllLegends(bool turn_off);
+    void showstat(const struct cachestats_t* statmsg);        
+    void addCurves();    
 
 private:
-    vector<struct msgstats_t> data;
+    vector <uint64_t> m_transactions;
+    vector <uint64_t> m_transactions2;
 };
-
 
 #endif // MPISTAT_H
