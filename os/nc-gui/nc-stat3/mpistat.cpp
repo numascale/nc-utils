@@ -92,6 +92,8 @@ void mpistat::handleButton() {
 void mpistat::handleDeselectButton() {	
     m_deselected=!m_deselected;
     graph2->deselectAllLegends(m_deselected);
+    graph1->deselectAllLegends(m_deselected);
+    graph5->deselectAllLegends(m_deselected);
     if (m_deselected) {        
         ui.pushButton_2->setText("Select all graphs");
         ui.pushButton_2->setToolTip("Select all the legends.");
@@ -189,6 +191,15 @@ CacheGraph::CacheGraph(QWidget* parent) {
     plot->setTitle(title);
     plot->replot();
 }
+void CacheGraph::deselectAllLegends(bool turn_off) {
+
+    for (int i=p_range_min; i<(p_range_max+1); i++) {
+              
+        showCurve(curves[i], !turn_off);
+        
+        
+    }
+}
 void CacheGraph::addCurves() {
 
     char str[80];
@@ -243,6 +254,7 @@ void CacheGraph::addCurves() {
     }
 
 }
+
 double CacheGraph::hitrate (unsigned long long hit, 
     unsigned long long miss) {
 
@@ -394,6 +406,15 @@ double CacheHistGraph::hitrate (unsigned long long hit, unsigned long long miss)
         return 0;
     } else {
         return ((double)100*hit/(hit + miss));
+    }
+}
+void CacheHistGraph::deselectAllLegends(bool turn_off) {
+
+    for (int i=p_range_min; i<((p_range_max+1)*2); i++) {
+              
+        showCurve(curves[i], !turn_off);
+        
+        
     }
 }
 void CacheHistGraph::showstat(const struct cachestats_t* statmsg) {

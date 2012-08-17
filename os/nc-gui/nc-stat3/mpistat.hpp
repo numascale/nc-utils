@@ -146,6 +146,7 @@ public:
     void addCurves();
     void showstat(const struct cachestats_t* statmsg);
     double hitrate (unsigned long long hit, unsigned long long miss);    
+    void deselectAllLegends(bool turn_off);
 private:
     static const int TIME_LENGTH = 250;
     static const int MAX_HITRATE = 100;
@@ -175,7 +176,7 @@ public:
     virtual void showstat(const struct cachestats_t* statmsg);
     double hitrate (unsigned long long hit, unsigned long long miss);    
     void addCurves();
- 
+    void deselectAllLegends(bool turn_off);
 
 private:
     static const int MAX_HITRATE = 100;
