@@ -108,15 +108,17 @@ void mpistat::handleDeselectButton() {
 
 void mpistat::handleBox(int newvalue) {	
     if (m_spinbox!=newvalue) {
-        //printf("handleBox:Current value is %d was %d\n", newvalue, m_spinbox);
+        printf("handleBox:Current value is %d was %d\n", newvalue, m_spinbox);
         m_spinbox=newvalue;
 
         ui.spinBox_2->setMinimum(m_spinbox);
-        ui.spinBox->setMinimum(m_spinbox);
-        ui.spinBox_2->setMaximum(maxnodes - 1 + m_spinbox);       
-        ui.spinBox->setRange(m_spinbox,maxnodes-1 + m_spinbox);
-        ui.spinBox_2->setRange(m_spinbox,maxnodes-1 + m_spinbox);
         
+        if (maxnodes<m_num_chips) {
+            ui.spinBox->setMinimum(m_spinbox);
+            ui.spinBox_2->setMaximum(maxnodes - 1 + m_spinbox);       
+            ui.spinBox->setRange(m_spinbox,maxnodes-1 + m_spinbox);
+            ui.spinBox_2->setRange(m_spinbox,maxnodes-1 + m_spinbox);
+        }
         graph1->set_range(m_spinbox,m_spinbox2);
         graph2->set_range(m_spinbox,m_spinbox2);
         graph5->set_range(m_spinbox,m_spinbox2);
@@ -131,25 +133,24 @@ void mpistat::handleBox(int newvalue) {
 void mpistat::handleBox2(int newvalue) {	
     if (m_spinbox2!=newvalue) {
         printf("handleBox2: Current value is %d was %d\n", newvalue, m_spinbox2);
-
-        if(m_spinbox2>newvalue) {
-            //New minimum?
-            if (m_spinbox2 - maxnodes >0) {
-                ui.spinBox->setMinimum(m_spinbox2 - maxnodes);
-                ui.spinBox->setRange(m_spinbox2 - maxnodes,maxnodes-1 + m_spinbox);
-                ui.spinBox_2->setRange(m_spinbox2 - maxnodes,maxnodes-1 + m_spinbox);
-            } else {
-                ui.spinBox->setMinimum(0);
-                ui.spinBox->setRange(0,maxnodes-1 + m_spinbox);
-                ui.spinBox_2->setRange(m_spinbox,maxnodes-1 + m_spinbox);
+        if (maxnodes<m_num_chips) {
+            if(m_spinbox2>newvalue) {
+                //New minimum?
+                if (m_spinbox2 - maxnodes >0) {
+                    ui.spinBox->setMinimum(m_spinbox2 - maxnodes);
+                    ui.spinBox->setRange(m_spinbox2 - maxnodes,maxnodes-1 + m_spinbox);
+                    ui.spinBox_2->setRange(m_spinbox2 - maxnodes,maxnodes-1 + m_spinbox);
+                } else {
+                    ui.spinBox->setMinimum(0);
+                    ui.spinBox->setRange(0,maxnodes-1 + m_spinbox);
+                    ui.spinBox_2->setRange(m_spinbox,maxnodes-1 + m_spinbox);
+                }
             }
+            ui.spinBox_2->setMaximum(maxnodes - 1 + m_spinbox);
         }
         m_spinbox2=newvalue;
-        ui.spinBox->setMaximum(m_spinbox2);         
-                
+        ui.spinBox->setMaximum(m_spinbox2);
         ui.spinBox_2->setMinimum(m_spinbox);
-        
-        ui.spinBox_2->setMaximum(maxnodes - 1 + m_spinbox);       
         graph1->set_range(m_spinbox,m_spinbox2);
         graph2->set_range(m_spinbox,m_spinbox2);
         graph5->set_range(m_spinbox,m_spinbox2);
@@ -360,7 +361,7 @@ void CacheHistGraph::addCurves() {
     int max=2*(p_range_max +1) - p_range_min;
     for (int i=p_range_min; i<max; i++) {
         
-        //printf("CacheHistGraph:addCurves 4 %d p_range_max %d p_range_min %d\n", i,p_range_max, p_range_min);        
+        printf("CacheHistGraph:addCurves 4 %d p_range_max %d p_range_min %d\n", i,p_range_max, p_range_min);
         if (i<(p_range_max+1)) {
            
             sprintf(str, "Numachip #%d", i); // s now contains the value 52300         
