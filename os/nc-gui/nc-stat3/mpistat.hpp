@@ -87,6 +87,7 @@ private:
     int m_simulate_nodes;
     int m_spinbox;
     int m_spinbox2;
+    
 
     CacheHistGraph* graph1;
     TransactionHist* graph2;

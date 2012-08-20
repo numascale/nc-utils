@@ -19,7 +19,7 @@
 #include <qwt_scale_engine.h>
 
 const int msgsize = sizeof(uint32_t) + sizeof(struct msgstats_t);
-
+const int maxnodes = 200;
 char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode);
 char* getSockAddrAsString(char* buffer, DWORD size, struct sockaddr* saddr);
 
@@ -34,6 +34,8 @@ mpistat::mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes)
     , m_freeze(true)
     , m_deselected(false)
     , m_num_chips(0)
+    , m_spinbox(0)
+    , m_spinbox2(0)
     , init(true)
 {
     ui.setupUi(this);
@@ -105,31 +107,58 @@ void mpistat::handleDeselectButton() {
 }
 
 void mpistat::handleBox(int newvalue) {	
-    m_spinbox=newvalue;
-    ui.spinBox_2->setMinimum(m_spinbox);
-    printf("handleBox:Current value is %d\n", newvalue);
-    graph1->set_range(m_spinbox,m_spinbox2);
-    graph2->set_range(m_spinbox,m_spinbox2);
-    graph5->set_range(m_spinbox,m_spinbox2);
-    graph1->addCurves();
-    graph2->addCurves();
-    graph5->addCurves();
-    m_deselected=true;
-    handleDeselectButton();
-    
+    if (m_spinbox!=newvalue) {
+        //printf("handleBox:Current value is %d was %d\n", newvalue, m_spinbox);
+        m_spinbox=newvalue;
+
+        ui.spinBox_2->setMinimum(m_spinbox);
+        ui.spinBox->setMinimum(m_spinbox);
+        ui.spinBox_2->setMaximum(maxnodes - 1 + m_spinbox);       
+        ui.spinBox->setRange(m_spinbox,maxnodes-1 + m_spinbox);
+        ui.spinBox_2->setRange(m_spinbox,maxnodes-1 + m_spinbox);
+        
+        graph1->set_range(m_spinbox,m_spinbox2);
+        graph2->set_range(m_spinbox,m_spinbox2);
+        graph5->set_range(m_spinbox,m_spinbox2);
+        graph1->addCurves();
+        graph2->addCurves();
+        graph5->addCurves();
+        m_deselected=true;
+        handleDeselectButton();
+    }
 }
+
 void mpistat::handleBox2(int newvalue) {	
-    m_spinbox2=newvalue;
-    ui.spinBox->setMaximum(m_spinbox2);  
-    printf("handleBox2: Current value is %d\n", newvalue);
-    graph1->set_range(m_spinbox,m_spinbox2);
-    graph2->set_range(m_spinbox,m_spinbox2);
-    graph5->set_range(m_spinbox,m_spinbox2);
-    graph1->addCurves();
-    graph2->addCurves();
-    graph5->addCurves();
-    m_deselected=true;
-    handleDeselectButton();
+    if (m_spinbox2!=newvalue) {
+        printf("handleBox2: Current value is %d was %d\n", newvalue, m_spinbox2);
+
+        if(m_spinbox2>newvalue) {
+            //New minimum?
+            if (m_spinbox2 - maxnodes >0) {
+                ui.spinBox->setMinimum(m_spinbox2 - maxnodes);
+                ui.spinBox->setRange(m_spinbox2 - maxnodes,maxnodes-1 + m_spinbox);
+                ui.spinBox_2->setRange(m_spinbox2 - maxnodes,maxnodes-1 + m_spinbox);
+            } else {
+                ui.spinBox->setMinimum(0);
+                ui.spinBox->setRange(0,maxnodes-1 + m_spinbox);
+                ui.spinBox_2->setRange(m_spinbox,maxnodes-1 + m_spinbox);
+            }
+        }
+        m_spinbox2=newvalue;
+        ui.spinBox->setMaximum(m_spinbox2);         
+                
+        ui.spinBox_2->setMinimum(m_spinbox);
+        
+        ui.spinBox_2->setMaximum(maxnodes - 1 + m_spinbox);       
+        graph1->set_range(m_spinbox,m_spinbox2);
+        graph2->set_range(m_spinbox,m_spinbox2);
+        graph5->set_range(m_spinbox,m_spinbox2);
+        graph1->addCurves();
+        graph2->addCurves();
+        graph5->addCurves();
+        m_deselected=true;
+        handleDeselectButton();
+    }
     
 }
 PerfGraph::PerfGraph(QWidget* parent)
@@ -193,11 +222,8 @@ CacheGraph::CacheGraph(QWidget* parent) {
 }
 void CacheGraph::deselectAllLegends(bool turn_off) {
 
-    for (int i=p_range_min; i<(p_range_max+1); i++) {
-              
-        showCurve(curves[i], !turn_off);
-        
-        
+    for (int i=0; i<((p_range_max+1)-p_range_min); i++) {              
+        showCurve(curves[i], !turn_off);                
     }
 }
 void CacheGraph::addCurves() {
@@ -309,41 +335,6 @@ PerfHistGraph::PerfHistGraph(QWidget* parent) {
 
     plot->setAxisMaxMinor(QwtPlot::xBottom, 0);    
 }
-/*void PerfHistGraph::addCurves() {
- 
-    char str[80];
-    QwtPlotHistogram* curve;
-    curves.clear();
-    plot->detachItems();
-    for (int i=p_range_min; i<((p_range_max+1)*2); i++) {
-        QColor blue = Qt::blue, red = Qt::red;
-
-        red.setAlpha(75);
-        blue.setAlpha(75);
-        if (i<((p_range_max+1) - p_range_min)) {
-            
-            sprintf(str, "Numachip #%d", i); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(blue);
-            curve->setPen(blue);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);			      
-        
-        } else {
-                    
-            sprintf(str, "Average Remote Cache #%d", i-p_num_chips); // s now contains the value 52300         
-            curve = new QwtPlotHistogram(str);
-            curve->setBrush(red);
-            curve->setPen(red);
-            curve->attach(plot);
-            curves.push_back(curve);
-            showCurve(curve, true);		
-        
-        }
-    }
-}
-*/
 
 CacheHistGraph::CacheHistGraph(QWidget* parent) {
 
@@ -360,36 +351,36 @@ CacheHistGraph::CacheHistGraph(QWidget* parent) {
 void CacheHistGraph::addCurves() {
  
     char str[80];
-    printf("addCurves 1\n");
     QwtPlotHistogram* curve;
-    printf("addCurves 2\n");
-    curves.clear();
-    printf("addCurves 3\n");
+    curves.clear();    
     plot->detachItems();
     QColor blue = Qt::blue, red = Qt::red;
     red.setAlpha(75);
     blue.setAlpha(75);
+    int max=2*(p_range_max +1) - p_range_min;
+    for (int i=p_range_min; i<max; i++) {
         
-    for (int i=p_range_min; i<((p_range_max+1)*2); i++) {
-        
-        printf("addCurves 4 %d\n", i);
-        if (i<((p_range_max+1) - p_range_min)) {
+        //printf("CacheHistGraph:addCurves 4 %d p_range_max %d p_range_min %d\n", i,p_range_max, p_range_min);        
+        if (i<(p_range_max+1)) {
            
             sprintf(str, "Numachip #%d", i); // s now contains the value 52300         
             curve = new QwtPlotHistogram(str);
             curve->setBrush(blue);
             curve->setPen(blue);
             curve->attach(plot);
+            /*curve->setItemAttribute(
+            curve->setPaintAttribute(QwtPlotHistogram::PaintFiltered);*/
             curves.push_back(curve);
             showCurve(curve, true);			      
         
         }
         else {
-            sprintf(str, "Average Remote Cache #%d", i-p_num_chips); // s now contains the value 52300         
+            sprintf(str, "Average Remote Cache #%d", i-max); // s now contains the value 52300         
             curve = new QwtPlotHistogram(str);
             curve->setBrush(red);
             curve->setPen(red);
             curve->attach(plot);
+            //curve->setPaintAttribute(QwtPlotCurve::PaintFiltered);
             curves.push_back(curve);
             showCurve(curve, true);		
 
@@ -409,12 +400,9 @@ double CacheHistGraph::hitrate (unsigned long long hit, unsigned long long miss)
     }
 }
 void CacheHistGraph::deselectAllLegends(bool turn_off) {
-
-    for (int i=p_range_min; i<((p_range_max+1)*2); i++) {
-              
-        showCurve(curves[i], !turn_off);
-        
-        
+    int max=2*(p_range_max +1) - p_range_min;
+    for (int i=p_range_min; i<max; i++) {                 
+        showCurve(curves[i- p_range_min], !turn_off);       
     }
 }
 void CacheHistGraph::showstat(const struct cachestats_t* statmsg) {
@@ -486,12 +474,16 @@ void TransactionHist::addCurves() {
     QwtPlotHistogram* curve;
     curves.clear();
     plot->detachItems();
-    for (int i=p_range_min; i<((p_range_max+1)*2); i++) {
+    int max=2*(p_range_max +1) - p_range_min;
+    for (int i=p_range_min; i<max; i++) {
+            
         QColor blue = Qt::blue, red = Qt::red;
-
+        //printf("TransactionHist:addCurves  %d\n", i);
         red.setAlpha(75);
         blue.setAlpha(75);
-        if (i<((p_range_max+1)-p_range_min)) {
+        
+        if (i<(p_range_max+1)) {
+    
             //if ((i>=p_range_min) && i<=p_range_max) {
                 sprintf(str, "Numachip #%d In ", i); // s now contains the value 52300         
                 curve = new QwtPlotHistogram(str);
@@ -515,10 +507,10 @@ void TransactionHist::addCurves() {
     }
 }
 void TransactionHist::deselectAllLegends(bool turn_off) {
-
-    for (int i=p_range_min; i<((p_range_max+1)*2); i++) {
-              
-        showCurve(curves[i], !turn_off);
+    int max=2*(p_range_max +1) - p_range_min;
+    for (int i=p_range_min; i<max; i++) {
+        //printf("TransactionHist::deselectAllLegends i = %d p_range_min %d p_range_max %d\n",  i,p_range_min, p_range_max);
+        showCurve(curves[i-p_range_min], !turn_off);
         
         
     }
@@ -678,12 +670,6 @@ void mpistat::getcache() {
             if (m_num_chips>0) delete m_cstat;
         
             m_num_chips=num_chips;
-            ui.spinBox->setValue(0);                   
-            ui.spinBox_2->setValue(m_num_chips - 1);
-            ui.spinBox->setRange(0,m_num_chips-1);
-            ui.spinBox_2->setRange(0,m_num_chips-1);
-            handleBox(0);
-            handleBox2(m_num_chips-1);
             printf("graph1->set_num_chips(m_num_chips);\n");
             graph1->set_num_chips(m_num_chips);
             printf("graph2->set_num_chips(m_num_chips);\n");
@@ -691,19 +677,22 @@ void mpistat::getcache() {
             printf("graph5->set_num_chips(m_num_chips);\n");
             graph5->set_num_chips(m_num_chips);
 
-            graph1->set_range(0,m_num_chips-1);
-            printf("graph1->set_range(0,m_num_chips-1);\n");
-            graph2->set_range(0,m_num_chips-1);
-            printf("graph2->set_range(0,m_num_chips-1);\n");
-            graph5->set_range(0,m_num_chips-1);
-            printf("graph5->set_range(0,m_num_chips-1);\n");
-            graph1->addCurves();
-            printf("graph1->addCurves(); is done\n");
-            graph2->addCurves();
-            printf("graph2->addCurves(); is done\n");
-            graph5->addCurves();
-            printf("graph3->addCurves(); is done\n");
-           
+            ui.spinBox->setValue(0); 
+            if (maxnodes<m_num_chips) {
+                ui.spinBox_2->setValue(maxnodes-1); 
+                ui.spinBox->setRange(0,maxnodes-1);
+                ui.spinBox_2->setRange(0,maxnodes-1);
+            } else {
+            
+                ui.spinBox_2->setValue(m_num_chips - 1);
+                ui.spinBox->setRange(0,m_num_chips-1);
+                ui.spinBox_2->setRange(0,m_num_chips-1);
+            }
+                                  
+            
+            handleBox(0);
+            if (maxnodes<m_num_chips) handleBox2(maxnodes-1);
+            else handleBox2(m_num_chips-1);
             printf("Master node in the numaconnect single image cluster reports %d numchips.\n", 
                 m_num_chips);
 
@@ -753,24 +742,29 @@ void mpistat::getcache() {
             if (m_num_chips>0) delete m_cstat;
         
             m_num_chips=num_chips;
-            ui.spinBox->setValue(0);        
-            ui.spinBox_2->setValue(m_num_chips - 1);
-            ui.spinBox->setRange(0,m_num_chips-1);
-            ui.spinBox_2->setRange(0,m_num_chips-1);
-            handleBox(0);
-            handleBox2(m_num_chips-1);
-
+            printf("graph1->set_num_chips(m_num_chips);\n");
             graph1->set_num_chips(m_num_chips);
+            printf("graph2->set_num_chips(m_num_chips);\n");
             graph2->set_num_chips(m_num_chips);
+            printf("graph5->set_num_chips(m_num_chips);\n");
             graph5->set_num_chips(m_num_chips);
 
-            graph1->set_range(0,m_num_chips-1);
-            graph2->set_range(0,m_num_chips-1);
-            graph5->set_range(0,m_num_chips-1);
-            graph1->addCurves();
-            graph2->addCurves();
-            graph5->addCurves();
+            ui.spinBox->setValue(0); 
+            if (maxnodes<m_num_chips) {
+                ui.spinBox_2->setValue(maxnodes-1); 
+                ui.spinBox->setRange(0,maxnodes-1);
+                ui.spinBox_2->setRange(0,maxnodes-1);
+            } else {
             
+                ui.spinBox_2->setValue(m_num_chips - 1);
+                ui.spinBox->setRange(0,m_num_chips-1);
+                ui.spinBox_2->setRange(0,m_num_chips-1);
+            }
+                                  
+            
+            handleBox(0);
+            if (maxnodes<m_num_chips) handleBox2(maxnodes-1);
+            else handleBox2(m_num_chips-1);
             printf("Master node in the numaconnect single image cluster reports %d numchips.\n", 
                 m_num_chips);
 
