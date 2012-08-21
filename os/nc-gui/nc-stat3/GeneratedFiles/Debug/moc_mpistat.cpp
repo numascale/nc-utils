@@ -10,6 +10,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ** Created: Thu 5. Jul 14:28:24 2012
 =======
 ** Created: Tue 24. Jul 13:35:14 2012
@@ -37,6 +38,9 @@
 >>>>>>> win_av/master
 =======
 ** Created: Fri 17. Aug 12:43:03 2012
+>>>>>>> win_av/master
+=======
+** Created: Tue 21. Aug 17:27:31 2012
 >>>>>>> win_av/master
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
@@ -264,6 +268,67 @@ void *CacheGraph::qt_metacast(const char *_clname)
 }
 
 int CacheGraph::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+{
+    _id = PerfGraph::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    return _id;
+}
+static const uint qt_meta_data_TransGraph[] = {
+
+ // content:
+       6,       // revision
+       0,       // classname
+       0,    0, // classinfo
+       0,    0, // methods
+       0,    0, // properties
+       0,    0, // enums/sets
+       0,    0, // constructors
+       0,       // flags
+       0,       // signalCount
+
+       0        // eod
+};
+
+static const char qt_meta_stringdata_TransGraph[] = {
+    "TransGraph\0"
+};
+
+void TransGraph::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+{
+    Q_UNUSED(_o);
+    Q_UNUSED(_id);
+    Q_UNUSED(_c);
+    Q_UNUSED(_a);
+}
+
+const QMetaObjectExtraData TransGraph::staticMetaObjectExtraData = {
+    0,  qt_static_metacall 
+};
+
+const QMetaObject TransGraph::staticMetaObject = {
+    { &PerfGraph::staticMetaObject, qt_meta_stringdata_TransGraph,
+      qt_meta_data_TransGraph, &staticMetaObjectExtraData }
+};
+
+#ifdef Q_NO_DATA_RELOCATION
+const QMetaObject &TransGraph::getStaticMetaObject() { return staticMetaObject; }
+#endif //Q_NO_DATA_RELOCATION
+
+const QMetaObject *TransGraph::metaObject() const
+{
+    return QObject::d_ptr->metaObject ? QObject::d_ptr->metaObject : &staticMetaObject;
+}
+
+void *TransGraph::qt_metacast(const char *_clname)
+{
+    if (!_clname) return 0;
+    if (!strcmp(_clname, qt_meta_stringdata_TransGraph))
+        return static_cast<void*>(const_cast< TransGraph*>(this));
+    return PerfGraph::qt_metacast(_clname);
+}
+
+int TransGraph::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
     _id = PerfGraph::qt_metacall(_c, _id, _a);
     if (_id < 0)

@@ -10,6 +10,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ** Created: Thu 5. Jul 14:28:24 2012
 =======
 ** Created: Tue 24. Jul 13:35:14 2012
@@ -37,6 +38,9 @@
 >>>>>>> win_av/master
 =======
 ** Created: Fri 17. Aug 12:43:03 2012
+>>>>>>> win_av/master
+=======
+** Created: Tue 21. Aug 17:27:31 2012
 >>>>>>> win_av/master
 **      by: Qt User Interface Compiler version 4.8.1
 **
@@ -81,6 +85,9 @@ public:
     QWidget *tab2;
     QVBoxLayout *verticalLayout_6;
     QVBoxLayout *tab2layout;
+    QWidget *tab;
+    QVBoxLayout *verticalLayout_5;
+    QVBoxLayout *tablayout;
     QSpacerItem *verticalSpacer_3;
     QWidget *widget;
     QHBoxLayout *horizontalLayout_2;
@@ -114,6 +121,11 @@ public:
 
         tabWidget = new QTabWidget(centralWidget);
         tabWidget->setObjectName(QString::fromUtf8("tabWidget"));
+        QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        sizePolicy.setHeightForWidth(tabWidget->sizePolicy().hasHeightForWidth());
+        tabWidget->setSizePolicy(sizePolicy);
         tabWidget->setMovable(true);
         tab5 = new QWidget();
         tab5->setObjectName(QString::fromUtf8("tab5"));
@@ -154,6 +166,19 @@ public:
         verticalLayout_6->addLayout(tab2layout);
 
         tabWidget->addTab(tab2, QString());
+        tab = new QWidget();
+        tab->setObjectName(QString::fromUtf8("tab"));
+        verticalLayout_5 = new QVBoxLayout(tab);
+        verticalLayout_5->setSpacing(6);
+        verticalLayout_5->setContentsMargins(11, 11, 11, 11);
+        verticalLayout_5->setObjectName(QString::fromUtf8("verticalLayout_5"));
+        tablayout = new QVBoxLayout();
+        tablayout->setSpacing(6);
+        tablayout->setObjectName(QString::fromUtf8("tablayout"));
+
+        verticalLayout_5->addLayout(tablayout);
+
+        tabWidget->addTab(tab, QString());
 
         verticalLayout->addWidget(tabWidget);
 
@@ -164,11 +189,11 @@ public:
         widget = new QWidget(centralWidget);
         widget->setObjectName(QString::fromUtf8("widget"));
         widget->setEnabled(true);
-        QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-        sizePolicy.setHorizontalStretch(0);
-        sizePolicy.setVerticalStretch(0);
-        sizePolicy.setHeightForWidth(widget->sizePolicy().hasHeightForWidth());
-        widget->setSizePolicy(sizePolicy);
+        QSizePolicy sizePolicy1(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        sizePolicy1.setHorizontalStretch(0);
+        sizePolicy1.setVerticalStretch(0);
+        sizePolicy1.setHeightForWidth(widget->sizePolicy().hasHeightForWidth());
+        widget->setSizePolicy(sizePolicy1);
         widget->setMinimumSize(QSize(0, 75));
         horizontalLayout_2 = new QHBoxLayout(widget);
         horizontalLayout_2->setSpacing(6);
@@ -176,11 +201,11 @@ public:
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
         groupBox = new QGroupBox(widget);
         groupBox->setObjectName(QString::fromUtf8("groupBox"));
-        QSizePolicy sizePolicy1(QSizePolicy::Fixed, QSizePolicy::Preferred);
-        sizePolicy1.setHorizontalStretch(0);
-        sizePolicy1.setVerticalStretch(0);
-        sizePolicy1.setHeightForWidth(groupBox->sizePolicy().hasHeightForWidth());
-        groupBox->setSizePolicy(sizePolicy1);
+        QSizePolicy sizePolicy2(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        sizePolicy2.setHorizontalStretch(0);
+        sizePolicy2.setVerticalStretch(0);
+        sizePolicy2.setHeightForWidth(groupBox->sizePolicy().hasHeightForWidth());
+        groupBox->setSizePolicy(sizePolicy2);
         spinBox = new QSpinBox(groupBox);
         spinBox->setObjectName(QString::fromUtf8("spinBox"));
         spinBox->setGeometry(QRect(20, 20, 42, 22));
@@ -211,11 +236,11 @@ public:
 
         pushButton_2 = new QPushButton(widget);
         pushButton_2->setObjectName(QString::fromUtf8("pushButton_2"));
-        QSizePolicy sizePolicy2(QSizePolicy::Minimum, QSizePolicy::Fixed);
-        sizePolicy2.setHorizontalStretch(0);
-        sizePolicy2.setVerticalStretch(0);
-        sizePolicy2.setHeightForWidth(pushButton_2->sizePolicy().hasHeightForWidth());
-        pushButton_2->setSizePolicy(sizePolicy2);
+        QSizePolicy sizePolicy3(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        sizePolicy3.setHorizontalStretch(0);
+        sizePolicy3.setVerticalStretch(0);
+        sizePolicy3.setHeightForWidth(pushButton_2->sizePolicy().hasHeightForWidth());
+        pushButton_2->setSizePolicy(sizePolicy3);
         pushButton_2->setMaximumSize(QSize(120, 16777215));
 
         horizontalLayout_2->addWidget(pushButton_2);
@@ -234,7 +259,7 @@ public:
 
         retranslateUi(mpistatClass);
 
-        tabWidget->setCurrentIndex(0);
+        tabWidget->setCurrentIndex(3);
 
 
         QMetaObject::connectSlotsByName(mpistatClass);
@@ -243,9 +268,10 @@ public:
     void retranslateUi(QMainWindow *mpistatClass)
     {
         mpistatClass->setWindowTitle(QApplication::translate("mpistatClass", "mpistat", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate (snapshot)", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "Cache rate distribution", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Transactions In/Out", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Transactions distribution In/Out", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab), QApplication::translate("mpistatClass", "Transaction In/Out (snapshot)", 0, QApplication::UnicodeUTF8));
         groupBox->setTitle(QApplication::translate("mpistatClass", "Select numachip node number range for display:", 0, QApplication::UnicodeUTF8));
         label->setText(QApplication::translate("mpistatClass", "to", 0, QApplication::UnicodeUTF8));
         pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
