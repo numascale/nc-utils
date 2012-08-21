@@ -24,6 +24,7 @@ using namespace std;
 class CacheHistGraph;
 class CacheGraph;
 class TransactionHist;
+class TransGraph;
 
 
 typedef int int32_t;
@@ -39,6 +40,8 @@ struct cachestats_t {
     uint64_t totmiss; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
     uint64_t cave_in; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
     uint64_t cave_out; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
+    uint64_t tot_cave_in; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
+    uint64_t tot_cave_out; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
     
     /*
     uint64_t counter_4[4];
@@ -92,7 +95,7 @@ private:
     CacheHistGraph* graph1;
     TransactionHist* graph2;
     CacheGraph* graph5;
-      
+    TransGraph* graph3;
     QTimer timer;
 
     struct cachestats_t *m_cstat;
@@ -111,14 +114,6 @@ private:
         void handleBox2(int newvalue);
 };
 
-class Curve : public QwtPlotHistogram {
-public:
-    Curve(const int r, const QString& title);
-    void setColor(const QColor& color);
-    const int rank;
-    bool showing;
-    int ymax;
-};
 class PerfGraph : public QWidget {
     Q_OBJECT   
 public:
@@ -159,6 +154,23 @@ private:
     
 };
 
+class TransGraph : public PerfGraph {
+    Q_OBJECT   
+public:
+    TransGraph(QWidget* parent = 0);
+    vector<QwtPlotCurve*> curves;
+    void addCurves();
+    void showstat(const struct cachestats_t* statmsg);
+    void deselectAllLegends(bool turn_off);
+private:
+    static const int TIME_LENGTH = 250;
+    static const int MAX_HITRATE = 100;
+
+    double m_timestep[TIME_LENGTH];
+    double **m_trans, **m_trans2;
+    unsigned int m_counter;
+    
+};
 class PerfHistGraph : public PerfGraph {
     Q_OBJECT   
 public:
