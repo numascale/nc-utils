@@ -11,6 +11,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ** Created: Thu 5. Jul 14:28:24 2012
 =======
 ** Created: Tue 24. Jul 13:35:14 2012
@@ -41,6 +42,9 @@
 >>>>>>> win_av/master
 =======
 ** Created: Tue 21. Aug 17:27:31 2012
+>>>>>>> win_av/master
+=======
+** Created: Wed 22. Aug 13:30:35 2012
 >>>>>>> win_av/master
 **      by: Qt User Interface Compiler version 4.8.1
 **
@@ -88,6 +92,9 @@ public:
     QWidget *tab;
     QVBoxLayout *verticalLayout_5;
     QVBoxLayout *tablayout;
+    QWidget *tab_2;
+    QVBoxLayout *verticalLayout_15;
+    QVBoxLayout *probeLayout;
     QSpacerItem *verticalSpacer_3;
     QWidget *widget;
     QHBoxLayout *horizontalLayout_2;
@@ -179,6 +186,19 @@ public:
         verticalLayout_5->addLayout(tablayout);
 
         tabWidget->addTab(tab, QString());
+        tab_2 = new QWidget();
+        tab_2->setObjectName(QString::fromUtf8("tab_2"));
+        verticalLayout_15 = new QVBoxLayout(tab_2);
+        verticalLayout_15->setSpacing(6);
+        verticalLayout_15->setContentsMargins(11, 11, 11, 11);
+        verticalLayout_15->setObjectName(QString::fromUtf8("verticalLayout_15"));
+        probeLayout = new QVBoxLayout();
+        probeLayout->setSpacing(6);
+        probeLayout->setObjectName(QString::fromUtf8("probeLayout"));
+
+        verticalLayout_15->addLayout(probeLayout);
+
+        tabWidget->addTab(tab_2, QString());
 
         verticalLayout->addWidget(tabWidget);
 
@@ -259,7 +279,7 @@ public:
 
         retranslateUi(mpistatClass);
 
-        tabWidget->setCurrentIndex(3);
+        tabWidget->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(mpistatClass);
@@ -268,10 +288,19 @@ public:
     void retranslateUi(QMainWindow *mpistatClass)
     {
         mpistatClass->setWindowTitle(QApplication::translate("mpistatClass", "mpistat", 0, QApplication::UnicodeUTF8));
+#ifndef QT_NO_TOOLTIP
+        tabWidget->setToolTip(QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt; color:#000000;\">This GUI monitors performance characteristics for the all the Numachips in the NumaConnect Single Image Cluster. Hold the mouse over each tab for more information.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
+#endif // QT_NO_TOOLTIP
         tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate (snapshot)", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt; color:#000000;\">The tab shows a graph displaying cache hitrate (%) pr.second over time. The number of accesses to the cache per update is displayed in the legend text for each remote cache. The graph monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "Cache rate distribution", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt; color:#000000;\">This tab shows a histogram displaying a cache hitrate (%) snapshot (shown in blue color) on top of an average (shown in red) cache hitrate over time (red over blue gives purple). The number of accesses to the cache per update is displayed in the legend text for each remote cache. The histogram monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Transactions distribution In/Out", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt;\">This tab shows a histogram displaying all Incoming </span><span style=\" font-size:12pt; color:#000000;\">(shown in blue color)</span><span style=\" font-size:12pt;\"> non-posted HT-Request and Outgoing</span><span style=\" font-size:12pt; color:#000000;\">(shown in</span><span style=\" font-size:12pt;\"> red color) non-posted HT-Request </span><span style=\" font-size:12pt; color:#000000;\">(red over blue gives purple)</span><span style=\" font-size:12pt;\"> to the Numachip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each Numachip. The histogram shows the total accumulated number of non-posted HT-Request for each Numachip in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab), QApplication::translate("mpistatClass", "Transaction In/Out (snapshot)", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt;\">This tab shows a histogram displaying all Incoming  non-posted HT-Request and Outgoing non-posted HT-Request to the Numachip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each Numachip. The histogram shows a snapshot of the total accumulated number of non-posted HT-Request pr.second for each Numachip in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab_2), QApplication::translate("mpistatClass", "Probes distribution In/Out", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab_2), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt;\">This tab shows a histogram displaying all Incoming (shown in red color) HT-Probe and Outgoing (shown in blue color) HT-Probe </span><span style=\" font-size:12pt; color:#000000;\">(red over blue gives purple) </span><span style=\" font-size:12pt;\">to the Numachip (Cave). The coherent hyper transport probes are necessary for maintaining the caches (L1, L2, L3 and L4). The histogram shows the total accumulated number of HT-Probes for each Numachip in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
         groupBox->setTitle(QApplication::translate("mpistatClass", "Select numachip node number range for display:", 0, QApplication::UnicodeUTF8));
         label->setText(QApplication::translate("mpistatClass", "to", 0, QApplication::UnicodeUTF8));
         pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
