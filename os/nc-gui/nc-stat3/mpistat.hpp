@@ -25,7 +25,7 @@ class CacheHistGraph;
 class CacheGraph;
 class TransactionHist;
 class TransGraph;
-
+class ProbeHist;
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
@@ -40,9 +40,10 @@ struct cachestats_t {
     uint64_t totmiss; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
     uint64_t cave_in; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
     uint64_t cave_out; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
-    uint64_t tot_cave_in; //counter_2 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
-    uint64_t tot_cave_out; //counter_3 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
-    
+    uint64_t tot_cave_in; //counter_4 - Select = 7, cHT-Cave value 0 - Incoming non-posted HT-Request
+    uint64_t tot_cave_out; //counter_5 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
+    uint64_t tot_probe_in; //counter_6 - Select = 7, cHT-Cave value 3 - Incoming probe HT-Request
+    uint64_t tot_probe_out; //counter_7 - Select = 7, cHT-Cave value 7 - Outgoing probe HT-Request
     /*
     uint64_t counter_4[4];
     uint64_t counter_5[4];
@@ -96,6 +97,7 @@ private:
     TransactionHist* graph2;
     CacheGraph* graph5;
     TransGraph* graph3;
+    ProbeHist* graph4;
     QTimer timer;
 
     struct cachestats_t *m_cstat;
@@ -210,5 +212,16 @@ private:
     vector <uint64_t> m_transactions;
     vector <uint64_t> m_transactions2;
 };
+class ProbeHist : public PerfHistGraph {
+    Q_OBJECT   
+public:
+    ProbeHist(QWidget* parent = 0);
+    void deselectAllLegends(bool turn_off);
+    void showstat(const struct cachestats_t* statmsg);        
+    void addCurves();    
 
+private:
+    vector <uint64_t> m_transactions;
+    vector <uint64_t> m_transactions2;
+};
 #endif // MPISTAT_H
