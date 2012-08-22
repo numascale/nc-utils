@@ -8,6 +8,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 ** Created: Thu 5. Jul 14:28:24 2012
 =======
 ** Created: Tue 24. Jul 13:35:14 2012
@@ -30,6 +34,18 @@
 =======
 ** Created: Tue 14. Aug 10:10:15 2012
 >>>>>>> win_av/master
+=======
+** Created: Fri 17. Aug 11:46:44 2012
+>>>>>>> win_av/master
+=======
+** Created: Fri 17. Aug 12:43:03 2012
+>>>>>>> win_av/master
+=======
+** Created: Tue 21. Aug 17:27:31 2012
+>>>>>>> win_av/master
+=======
+** Created: Wed 22. Aug 13:30:35 2012
+>>>>>>> win_av/master
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -42,11 +58,14 @@
 #include <QtGui/QAction>
 #include <QtGui/QApplication>
 #include <QtGui/QButtonGroup>
+#include <QtGui/QGroupBox>
 #include <QtGui/QHBoxLayout>
 #include <QtGui/QHeaderView>
+#include <QtGui/QLabel>
 #include <QtGui/QMainWindow>
 #include <QtGui/QPushButton>
 #include <QtGui/QSpacerItem>
+#include <QtGui/QSpinBox>
 #include <QtGui/QTabWidget>
 #include <QtGui/QVBoxLayout>
 #include <QtGui/QWidget>
@@ -70,24 +89,29 @@ public:
     QWidget *tab2;
     QVBoxLayout *verticalLayout_6;
     QVBoxLayout *tab2layout;
-    QWidget *tab3;
+    QWidget *tab;
     QVBoxLayout *verticalLayout_5;
-    QVBoxLayout *tab3layout;
-    QWidget *tab4;
-    QVBoxLayout *verticalLayout_8;
-    QVBoxLayout *tab4layout;
+    QVBoxLayout *tablayout;
+    QWidget *tab_2;
+    QVBoxLayout *verticalLayout_15;
+    QVBoxLayout *probeLayout;
     QSpacerItem *verticalSpacer_3;
     QWidget *widget;
     QHBoxLayout *horizontalLayout_2;
+    QGroupBox *groupBox;
+    QSpinBox *spinBox;
+    QLabel *label;
+    QSpinBox *spinBox_2;
     QHBoxLayout *horizontalLayout;
     QPushButton *pushButton;
+    QPushButton *pushButton_2;
     QSpacerItem *verticalSpacer;
 
     void setupUi(QMainWindow *mpistatClass)
     {
         if (mpistatClass->objectName().isEmpty())
             mpistatClass->setObjectName(QString::fromUtf8("mpistatClass"));
-        mpistatClass->resize(919, 595);
+        mpistatClass->resize(957, 822);
         mpistatClass->setMinimumSize(QSize(100, 160));
         centralWidget = new QWidget(mpistatClass);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
@@ -104,6 +128,11 @@ public:
 
         tabWidget = new QTabWidget(centralWidget);
         tabWidget->setObjectName(QString::fromUtf8("tabWidget"));
+        QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        sizePolicy.setHeightForWidth(tabWidget->sizePolicy().hasHeightForWidth());
+        tabWidget->setSizePolicy(sizePolicy);
         tabWidget->setMovable(true);
         tab5 = new QWidget();
         tab5->setObjectName(QString::fromUtf8("tab5"));
@@ -144,32 +173,32 @@ public:
         verticalLayout_6->addLayout(tab2layout);
 
         tabWidget->addTab(tab2, QString());
-        tab3 = new QWidget();
-        tab3->setObjectName(QString::fromUtf8("tab3"));
-        verticalLayout_5 = new QVBoxLayout(tab3);
+        tab = new QWidget();
+        tab->setObjectName(QString::fromUtf8("tab"));
+        verticalLayout_5 = new QVBoxLayout(tab);
         verticalLayout_5->setSpacing(6);
         verticalLayout_5->setContentsMargins(11, 11, 11, 11);
         verticalLayout_5->setObjectName(QString::fromUtf8("verticalLayout_5"));
-        tab3layout = new QVBoxLayout();
-        tab3layout->setSpacing(6);
-        tab3layout->setObjectName(QString::fromUtf8("tab3layout"));
+        tablayout = new QVBoxLayout();
+        tablayout->setSpacing(6);
+        tablayout->setObjectName(QString::fromUtf8("tablayout"));
 
-        verticalLayout_5->addLayout(tab3layout);
+        verticalLayout_5->addLayout(tablayout);
 
-        tabWidget->addTab(tab3, QString());
-        tab4 = new QWidget();
-        tab4->setObjectName(QString::fromUtf8("tab4"));
-        verticalLayout_8 = new QVBoxLayout(tab4);
-        verticalLayout_8->setSpacing(6);
-        verticalLayout_8->setContentsMargins(11, 11, 11, 11);
-        verticalLayout_8->setObjectName(QString::fromUtf8("verticalLayout_8"));
-        tab4layout = new QVBoxLayout();
-        tab4layout->setSpacing(6);
-        tab4layout->setObjectName(QString::fromUtf8("tab4layout"));
+        tabWidget->addTab(tab, QString());
+        tab_2 = new QWidget();
+        tab_2->setObjectName(QString::fromUtf8("tab_2"));
+        verticalLayout_15 = new QVBoxLayout(tab_2);
+        verticalLayout_15->setSpacing(6);
+        verticalLayout_15->setContentsMargins(11, 11, 11, 11);
+        verticalLayout_15->setObjectName(QString::fromUtf8("verticalLayout_15"));
+        probeLayout = new QVBoxLayout();
+        probeLayout->setSpacing(6);
+        probeLayout->setObjectName(QString::fromUtf8("probeLayout"));
 
-        verticalLayout_8->addLayout(tab4layout);
+        verticalLayout_15->addLayout(probeLayout);
 
-        tabWidget->addTab(tab4, QString());
+        tabWidget->addTab(tab_2, QString());
 
         verticalLayout->addWidget(tabWidget);
 
@@ -179,11 +208,38 @@ public:
 
         widget = new QWidget(centralWidget);
         widget->setObjectName(QString::fromUtf8("widget"));
-        widget->setMinimumSize(QSize(0, 0));
+        widget->setEnabled(true);
+        QSizePolicy sizePolicy1(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        sizePolicy1.setHorizontalStretch(0);
+        sizePolicy1.setVerticalStretch(0);
+        sizePolicy1.setHeightForWidth(widget->sizePolicy().hasHeightForWidth());
+        widget->setSizePolicy(sizePolicy1);
+        widget->setMinimumSize(QSize(0, 75));
         horizontalLayout_2 = new QHBoxLayout(widget);
         horizontalLayout_2->setSpacing(6);
         horizontalLayout_2->setContentsMargins(11, 11, 11, 11);
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
+        groupBox = new QGroupBox(widget);
+        groupBox->setObjectName(QString::fromUtf8("groupBox"));
+        QSizePolicy sizePolicy2(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        sizePolicy2.setHorizontalStretch(0);
+        sizePolicy2.setVerticalStretch(0);
+        sizePolicy2.setHeightForWidth(groupBox->sizePolicy().hasHeightForWidth());
+        groupBox->setSizePolicy(sizePolicy2);
+        spinBox = new QSpinBox(groupBox);
+        spinBox->setObjectName(QString::fromUtf8("spinBox"));
+        spinBox->setGeometry(QRect(20, 20, 42, 22));
+        spinBox->setMaximum(4096);
+        label = new QLabel(groupBox);
+        label->setObjectName(QString::fromUtf8("label"));
+        label->setGeometry(QRect(70, 20, 16, 16));
+        spinBox_2 = new QSpinBox(groupBox);
+        spinBox_2->setObjectName(QString::fromUtf8("spinBox_2"));
+        spinBox_2->setGeometry(QRect(90, 20, 42, 22));
+        spinBox_2->setMaximum(4096);
+
+        horizontalLayout_2->addWidget(groupBox);
+
         horizontalLayout = new QHBoxLayout();
         horizontalLayout->setSpacing(6);
         horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
@@ -197,6 +253,17 @@ public:
 
 
         horizontalLayout_2->addLayout(horizontalLayout);
+
+        pushButton_2 = new QPushButton(widget);
+        pushButton_2->setObjectName(QString::fromUtf8("pushButton_2"));
+        QSizePolicy sizePolicy3(QSizePolicy::Minimum, QSizePolicy::Fixed);
+        sizePolicy3.setHorizontalStretch(0);
+        sizePolicy3.setVerticalStretch(0);
+        sizePolicy3.setHeightForWidth(pushButton_2->sizePolicy().hasHeightForWidth());
+        pushButton_2->setSizePolicy(sizePolicy3);
+        pushButton_2->setMaximumSize(QSize(120, 16777215));
+
+        horizontalLayout_2->addWidget(pushButton_2);
 
 
         verticalLayout->addWidget(widget);
@@ -212,7 +279,7 @@ public:
 
         retranslateUi(mpistatClass);
 
-        tabWidget->setCurrentIndex(1);
+        tabWidget->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(mpistatClass);
@@ -221,12 +288,23 @@ public:
     void retranslateUi(QMainWindow *mpistatClass)
     {
         mpistatClass->setWindowTitle(QApplication::translate("mpistatClass", "mpistat", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate", 0, QApplication::UnicodeUTF8));
+#ifndef QT_NO_TOOLTIP
+        tabWidget->setToolTip(QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt; color:#000000;\">This GUI monitors performance characteristics for the all the Numachips in the NumaConnect Single Image Cluster. Hold the mouse over each tab for more information.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
+#endif // QT_NO_TOOLTIP
+        tabWidget->setTabText(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "Cache rate (snapshot)", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab5), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt; color:#000000;\">The tab shows a graph displaying cache hitrate (%) pr.second over time. The number of accesses to the cache per update is displayed in the legend text for each remote cache. The graph monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
         tabWidget->setTabText(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "Cache rate distribution", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Send latency", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab3), QApplication::translate("mpistatClass", "Receive latency", 0, QApplication::UnicodeUTF8));
-        tabWidget->setTabText(tabWidget->indexOf(tab4), QApplication::translate("mpistatClass", "Bandwidth", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab1), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt; color:#000000;\">This tab shows a histogram displaying a cache hitrate (%) snapshot (shown in blue color) on top of an average (shown in red) cache hitrate over time (red over blue gives purple). The number of accesses to the cache per update is displayed in the legend text for each remote cache. The histogram monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "Transactions distribution In/Out", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab2), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt;\">This tab shows a histogram displaying all Incoming </span><span style=\" font-size:12pt; color:#000000;\">(shown in blue color)</span><span style=\" font-size:12pt;\"> non-posted HT-Request and Outgoing</span><span style=\" font-size:12pt; color:#000000;\">(shown in</span><span style=\" font-size:12pt;\"> red color) non-posted HT-Request </span><span style=\" font-size:12pt; color:#000000;\">(red over blue gives purple)</span><span style=\" font-size:12pt;\"> to the Numachip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each Numachip. The histogram shows the total accumulated number of non-posted HT-Request for each Numachip in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab), QApplication::translate("mpistatClass", "Transaction In/Out (snapshot)", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt;\">This tab shows a histogram displaying all Incoming  non-posted HT-Request and Outgoing non-posted HT-Request to the Numachip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each Numachip. The histogram shows a snapshot of the total accumulated number of non-posted HT-Request pr.second for each Numachip in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabText(tabWidget->indexOf(tab_2), QApplication::translate("mpistatClass", "Probes distribution In/Out", 0, QApplication::UnicodeUTF8));
+        tabWidget->setTabToolTip(tabWidget->indexOf(tab_2), QApplication::translate("mpistatClass", "<html><head/><body><p><span style=\" font-size:12pt;\">This tab shows a histogram displaying all Incoming (shown in red color) HT-Probe and Outgoing (shown in blue color) HT-Probe </span><span style=\" font-size:12pt; color:#000000;\">(red over blue gives purple) </span><span style=\" font-size:12pt;\">to the Numachip (Cave). The coherent hyper transport probes are necessary for maintaining the caches (L1, L2, L3 and L4). The histogram shows the total accumulated number of HT-Probes for each Numachip in the NumaConnect Single Image Cluster.</span></p></body></html>", 0, QApplication::UnicodeUTF8));
+        groupBox->setTitle(QApplication::translate("mpistatClass", "Select numachip node number range for display:", 0, QApplication::UnicodeUTF8));
+        label->setText(QApplication::translate("mpistatClass", "to", 0, QApplication::UnicodeUTF8));
         pushButton->setText(QApplication::translate("mpistatClass", "Freeze", 0, QApplication::UnicodeUTF8));
+        pushButton_2->setText(QApplication::translate("mpistatClass", "Deselect all graphs", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 
 };

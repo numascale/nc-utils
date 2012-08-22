@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>919</width>
-    <height>595</height>
+    <width>957</width>
+    <height>822</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -41,15 +41,27 @@
       </item>
       <item>
        <widget class="QTabWidget" name="tabWidget">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;This GUI monitors performance characteristics for the all the Numachips in the NumaConnect Single Image Cluster. Hold the mouse over each tab for more information.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <property name="movable">
          <bool>true</bool>
         </property>
         <widget class="QWidget" name="tab5">
          <attribute name="title">
-          <string>Cache rate</string>
+          <string>Cache rate (snapshot)</string>
+         </attribute>
+         <attribute name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;The tab shows a graph displaying cache hitrate (%) pr.second over time. The number of accesses to the cache per update is displayed in the legend text for each remote cache. The graph monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_7">
           <item>
@@ -61,6 +73,9 @@
          <attribute name="title">
           <string>Cache rate distribution</string>
          </attribute>
+         <attribute name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;This tab shows a histogram displaying a cache hitrate (%) snapshot (shown in blue color) on top of an average (shown in red) cache hitrate over time (red over blue gives purple). The number of accesses to the cache per update is displayed in the legend text for each remote cache. The histogram monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_4">
           <item>
            <layout class="QVBoxLayout" name="tab1layout"/>
@@ -69,7 +84,10 @@
         </widget>
         <widget class="QWidget" name="tab2">
          <attribute name="title">
-          <string>Send latency</string>
+          <string>Transactions distribution In/Out</string>
+         </attribute>
+         <attribute name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(shown in blue color)&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; non-posted HT-Request and Outgoing&lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(shown in&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; red color) non-posted HT-Request &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(red over blue gives purple)&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; to the Numachip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each Numachip. The histogram shows the total accumulated number of non-posted HT-Request for each Numachip in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_6">
           <item>
@@ -77,23 +95,29 @@
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="tab3">
+        <widget class="QWidget" name="tab">
          <attribute name="title">
-          <string>Receive latency</string>
+          <string>Transaction In/Out (snapshot)</string>
+         </attribute>
+         <attribute name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming  non-posted HT-Request and Outgoing non-posted HT-Request to the Numachip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each Numachip. The histogram shows a snapshot of the total accumulated number of non-posted HT-Request pr.second for each Numachip in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_5">
           <item>
-           <layout class="QVBoxLayout" name="tab3layout"/>
+           <layout class="QVBoxLayout" name="tablayout"/>
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="tab4">
+        <widget class="QWidget" name="tab_2">
          <attribute name="title">
-          <string>Bandwidth</string>
+          <string>Probes distribution In/Out</string>
          </attribute>
-         <layout class="QVBoxLayout" name="verticalLayout_8">
+         <attribute name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming (shown in red color) HT-Probe and Outgoing (shown in blue color) HT-Probe &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(red over blue gives purple) &lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;to the Numachip (Cave). The coherent hyper transport probes are necessary for maintaining the caches (L1, L2, L3 and L4). The histogram shows the total accumulated number of HT-Probes for each Numachip in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout_15">
           <item>
-           <layout class="QVBoxLayout" name="tab4layout"/>
+           <layout class="QVBoxLayout" name="probeLayout"/>
           </item>
          </layout>
         </widget>
@@ -117,13 +141,74 @@
       </item>
       <item>
        <widget class="QWidget" name="widget" native="true">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>0</height>
+          <height>75</height>
          </size>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QGroupBox" name="groupBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="title">
+            <string>Select numachip node number range for display:</string>
+           </property>
+           <widget class="QSpinBox" name="spinBox">
+            <property name="geometry">
+             <rect>
+              <x>20</x>
+              <y>20</y>
+              <width>42</width>
+              <height>22</height>
+             </rect>
+            </property>
+            <property name="maximum">
+             <number>4096</number>
+            </property>
+           </widget>
+           <widget class="QLabel" name="label">
+            <property name="geometry">
+             <rect>
+              <x>70</x>
+              <y>20</y>
+              <width>16</width>
+              <height>16</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string>to</string>
+            </property>
+           </widget>
+           <widget class="QSpinBox" name="spinBox_2">
+            <property name="geometry">
+             <rect>
+              <x>90</x>
+              <y>20</y>
+              <width>42</width>
+              <height>22</height>
+             </rect>
+            </property>
+            <property name="maximum">
+             <number>4096</number>
+            </property>
+           </widget>
+          </widget>
+         </item>
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout">
            <item>
@@ -146,6 +231,25 @@
             </widget>
            </item>
           </layout>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_2">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>120</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Deselect all graphs</string>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>
