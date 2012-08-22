@@ -124,6 +124,11 @@ void numachip_write_config(struct numachip_context *context,
 void numachip_clear_pcounter(struct numachip_context *cntxt,
 			     uint32_t counterno,
 			     nc_error_t *error);
+
+void numachip_restart_pcounter(struct numachip_context *cntxt,
+			     uint32_t counterno,
+			     nc_error_t *error);
+
 void numachip_mask_pcounter(struct numachip_context *cntxt,
 			    uint32_t counterno,
 			    uint32_t mask,

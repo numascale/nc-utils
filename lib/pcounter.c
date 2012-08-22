@@ -393,6 +393,32 @@ void numachip_clear_pcounter(struct numachip_context *cntxt,
         
 }
 
+/**
+ * numachip_clear_counter - Clear Performance Counter Register
+ */
+void numachip_restart_pcounter(struct numachip_context *cntxt,
+			     uint32_t counterno,
+			     nc_error_t *error) { 
+    uint32_t perf_reg;
+
+    *error = NUMACHIP_ERR_OK;
+    if (counterno > 7) {
+	*error=NUMACHIP_ERR_INVALID_PARAMETER;
+	return;
+    } 
+    /*
+     * 1. Clear: Clear only the corresponding performance register.
+     */
+    
+    /* We need to clear the corresponding Performance counter register we plan to use
+     * H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS (0xFC0 + (0x8
+     */
+    perf_reg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS + (0x8*counterno);
+    numachip_write_csr(cntxt, perf_reg,0x0);
+    perf_reg=H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + (0x8*counterno);
+    numachip_write_csr(cntxt, perf_reg ,0x0);
+        
+}
    
 /**
  * numachip_get_counter - Read Performance Counter Register
