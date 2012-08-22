@@ -86,6 +86,7 @@ nc_error_t counter_mask(struct numachip_context *cntxt, uint32_t counterno, uint
     return retval;
 
 }
+
 nc_error_t counter_clear(struct numachip_context *cntxt, uint32_t counterno) {
     nc_error_t retval = NUMACHIP_ERR_OK;
     
@@ -94,6 +95,16 @@ nc_error_t counter_clear(struct numachip_context *cntxt, uint32_t counterno) {
     return retval;
 
 }
+
+nc_error_t counter_restart(struct numachip_context *cntxt, uint32_t counterno) {
+    nc_error_t retval = NUMACHIP_ERR_OK;
+    
+    numachip_restart_pcounter(cntxt,counterno,&retval);
+    if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip restart pcounter failed  %s\n", numachip_strerror(retval));
+    return retval;
+
+}
+
 nc_error_t counter_stop(struct numachip_context *cntxt, uint32_t counterno) {
     nc_error_t retval = NUMACHIP_ERR_OK;
     
@@ -154,6 +165,7 @@ nc_error_t counter_mask_all(struct numachip_context **cntxt, uint32_t num_nodes,
     }
     return retval;
 }
+
 nc_error_t counter_clear_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno) {
     uint32_t node=0;
     nc_error_t retval = NUMACHIP_ERR_OK;
@@ -163,6 +175,17 @@ nc_error_t counter_clear_all(struct numachip_context **cntxt, uint32_t num_nodes
     }
     return retval;
 }
+
+nc_error_t counter_restart_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno) {
+    uint32_t node=0;
+    nc_error_t retval = NUMACHIP_ERR_OK;
+    for(node=0; node<num_nodes; node++) {
+	retval=counter_restart(cntxt[node],counterno);
+	if (retval != NUMACHIP_ERR_OK)  return retval;
+    }
+    return retval;
+}
+
 nc_error_t counter_stop_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno) {
     nc_error_t retval = NUMACHIP_ERR_OK;
     uint32_t node=0;
