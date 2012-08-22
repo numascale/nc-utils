@@ -24,9 +24,39 @@ struct msgstats_t {
     int64_t miss;
     int64_t totalhit;
     int64_t totalmiss;
+    int64_t cave_in;
+    int64_t cave_out;
+    int64_t tot_cave_in;
+    int64_t tot_cave_out;
+    int64_t tot_probe_in;
+    int64_t tot_probe_out;
+  
+    
 //    int64_t total[4];
 };
 uint64_t *totalhit, *totalmiss;
+
+static int cave=7;
+static int cache=1;
+
+
+static const int cachehit = 0;
+static const int cachemiss = 1;
+static const int cave_in=2;
+static const int cave_out=3;
+static const int tot_cave_in=4;
+static const int tot_cave_out=5;
+static const int tot_probe_in=6;
+static const int tot_probe_out=7;
+
+static const int cave_in_mask=0;
+static const int cave_out_mask=4;
+static const int probe_in_mask=3;
+static const int probe_out_mask=7;
+
+static const int cachehit_mask = 6;
+static const int cachemiss_mask = 5;
+
 
 static void socklisten();
 
@@ -46,23 +76,77 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
     uint64_t hit_cnt=0, miss_cnt=0;
     uint32_t node=0;
     printf("************************************************\n");
+
+
+
+//    for(node=num_nodes; node>0; node--) {
     
     for(node=0; node<num_nodes; node++) {
 	double missrate = 0;
 	double hitrate=0;
 	uint64_t total;
-	count_api_read_rcache2( cntxt[node], 0, 1, &missrate, &hitrate, &total, &miss_cnt, &hit_cnt, &retval);
+	count_api_read_rcache2( cntxt[node],
+				0,
+				1,
+				&missrate,
+				&hitrate,
+				&total,
+				&miss_cnt,
+				&hit_cnt,
+				&retval);
+	
 	countstat[node].hit=hit_cnt;
 	countstat[node].miss=miss_cnt;
 	totalhit[node]=hit_cnt + totalhit[node];
 	totalmiss[node]=miss_cnt + totalmiss[node];
 	countstat[node].totalhit=totalhit[node];
 	countstat[node].totalmiss=totalmiss[node];
+
+		
 	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,missrate,hitrate, (unsigned long long) total);
 	printf("Node %d: Avrage Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]);
     }
-    printf("************************************************\n");
-	}
+
+
+}
+void get_cave(struct numachip_context **cntxt, uint32_t num_nodes, struct msgstats_t* countstat) {
+    uint32_t node=0;
+
+
+
+
+//    for(node=num_nodes; node>0; node--) {
+    
+    for(node=0; node<num_nodes; node++) {
+
+	/*
+	 * Cave
+	 */
+
+	/*Is this accurate enough. We will loose a lot of counts doing the reset stuff....*/
+	countstat[node].cave_in=counter_read(*(cntxt + node),cave_in);
+	countstat[node].cave_out=counter_read(*(cntxt + node),cave_out);
+	countstat[node].tot_cave_in=counter_read(*(cntxt + node),tot_cave_in);
+	countstat[node].tot_cave_out=counter_read(*(cntxt + node),tot_cave_out);
+	countstat[node].tot_probe_in=counter_read(*(cntxt + node),tot_probe_in);
+	countstat[node].tot_probe_out=counter_read(*(cntxt + node),tot_probe_out);
+	//countstat[node].tot_cave_in=countstat[node].cave_in;
+	//countstat[node].tot_cave_out=countstat[node].cave_out;
+
+	
+	printf("Reading counter node %d counterno %d (cave_in) = %lld tot_cave_in %lld \n",
+	       node,cave_in, (unsigned long long)countstat[node].cave_in,(unsigned long long)countstat[node].tot_cave_in );
+	printf("Reading counter node %d counterno %d (cave_out) = %lld  tot_cave_out %lld \n",
+	       node,cave_out, (unsigned long long)countstat[node].cave_out,(unsigned long long)countstat[node].tot_cave_out);
+	printf("Reading counter node %d counterno %d tot_probe_in %lld \n",
+	       node,cave_in, (unsigned long long)countstat[node].tot_probe_in );
+	printf("Reading counter node %d counterno %d tot_probe_out %lld \n",
+	       node,cave_out, (unsigned long long)countstat[node].tot_probe_out);
+    
+
+    }
+
+}
 
 void close_device(struct numachip_context *cntxt) {
     (void)numachip_close_device(cntxt);
@@ -80,6 +164,9 @@ int main(int argc, char* argv[]) {
     struct numachip_context **cntxt;
     int i=0, node=0, num_nodes=4;
     int num_devices;
+    //Real files are found in /var/lib/tftpboot/nc-config
+//    const char *filename = "/net/numastore/storage/home/av/handy/nc-config/fabric-loop-05.json";
+    //const char *filename = "fabric-narya-2d.json";
     const char *filename = "fabric-loop-05.json";
 
     if( argc < 2 ) {
@@ -104,6 +191,12 @@ int main(int argc, char* argv[]) {
 	countstat[node].totalmiss=0;
 	totalhit[node]=0;
 	totalmiss[node]=0;
+	countstat[node].cave_in=0;
+	countstat[node].cave_out=0;
+	countstat[node].tot_cave_in=0;
+	countstat[node].tot_cave_out=0;
+	countstat[node].tot_probe_in=0;
+	countstat[node].tot_probe_out=0;
     }
 
     
@@ -142,9 +235,104 @@ int main(int argc, char* argv[]) {
 	exit(-1);
     }
 
-    count_api_stop(cntxt, num_devices);
-    count_api_start(cntxt, num_devices);
+
+    /*
+     * Cave should use counter 2 and 3 
+     */
+
+    /*
+     * Cave should use counter 2 and 3 
+     */
+    counter_clear_all(cntxt,num_devices,cave_in);
+    counter_clear_all(cntxt,num_devices,cave_out);
+    counter_clear_all(cntxt,num_devices,tot_cave_in);
+    counter_clear_all(cntxt,num_devices,tot_cave_out);
+    counter_clear_all(cntxt,num_devices,tot_probe_in);
+    counter_clear_all(cntxt,num_devices,tot_probe_out);
+
+    if (counter_select_all(cntxt,num_devices,cave_in,cave) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_select_all(cntxt,num_devices,cave_out,cave) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_mask_all(cntxt,num_devices,cave_in,cave_in_mask) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_mask_all(cntxt,num_devices,cave_out,cave_out_mask) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+
+    /*tot*/
+    if (counter_select_all(cntxt,num_devices,tot_cave_in,cave) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_select_all(cntxt,num_devices,tot_cave_out,cave) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_mask_all(cntxt,num_devices,tot_cave_in,cave_in_mask) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_mask_all(cntxt,num_devices,tot_cave_out,cave_out_mask) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+
+    /*tot probe*/
+    if (counter_select_all(cntxt,num_devices,tot_probe_in,cave) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_select_all(cntxt,num_devices,tot_probe_out,cave) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_mask_all(cntxt,num_devices,tot_probe_in,probe_in_mask) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    
+    if (counter_mask_all(cntxt,num_devices,tot_probe_out,probe_out_mask) == NUMACHIP_ERR_BUSY)
+    {
+	printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+	return -1;
+    }
+    counter_restart_all(cntxt,num_devices,cave_in);
+    counter_restart_all(cntxt,num_devices,cave_out);
+    counter_stop_all(cntxt,num_devices,cachehit);
+    counter_stop_all(cntxt,num_devices,cachemiss);
+    /*count_api_stop(cntxt, num_devices);*/
+    counter_start_all(cntxt, num_devices, cachehit, cache, cachehit_mask);
+    counter_start_all(cntxt, num_devices, cachemiss, cache, cachemiss_mask);
+    /*count_api_start(cntxt, num_devices);*/
     count_rate(cntxt, num_devices,countstat);
+    get_cave(cntxt, num_devices,countstat);
     DEBUG_STATEMENT(printf("Lets print the first hit %lld\n",countstat[0].hit));
     socklisten(sockfd, &cli_addr, &newsockfd);
     
@@ -180,9 +368,20 @@ int main(int argc, char* argv[]) {
 	    continue;
 	}
 
-	count_api_stop(cntxt, num_devices);
-	count_api_start(cntxt, num_devices);
+	/*
+	 * We are currently not stopping/starting (restarting) the cave count
+	 */
+	counter_restart_all(cntxt,num_devices,cave_in);
+	counter_restart_all(cntxt,num_devices,cave_out);
+
+	counter_stop_all(cntxt,num_devices,cachehit);
+	counter_stop_all(cntxt,num_devices,cachemiss);
+	/*count_api_stop(cntxt, num_devices);*/
+	counter_start_all(cntxt, num_devices, cachehit, cache, cachehit_mask);
+	counter_start_all(cntxt, num_devices, cachemiss, cache, cachemiss_mask);
+	/*count_api_start(cntxt, num_devices);*/
 	count_rate(cntxt, num_devices,countstat);
+	get_cave(cntxt, num_devices,countstat);
 	memcpy(buf, countstat, num_devices*sizeof(struct msgstats_t));
 
 	DEBUG_STATEMENT(printf("Size of %lu \n", num_devices*sizeof(struct msgstats_t)));
