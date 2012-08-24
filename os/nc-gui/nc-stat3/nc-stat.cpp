@@ -1,4 +1,4 @@
-#include "mpistat.hpp"
+#include "nc-stat.hpp"
 #include <qwt_scale_engine.h>
 #include <iostream>
 
@@ -24,7 +24,7 @@ char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode);
 char* getSockAddrAsString(char* buffer, DWORD size, struct sockaddr* saddr);
 
 
-mpistat::mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes)
+NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simulate_nodes)
     : QMainWindow()
     , cacheAddr(strCacheAddr)
     , m_simulate(simulate)
@@ -67,11 +67,11 @@ mpistat::mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes)
     timer.start();
 }
 
-mpistat::~mpistat()
+NumaChipStats::~NumaChipStats()
 {
     WSACleanup();
 }
-void mpistat::getinfo() {
+void NumaChipStats::getinfo() {
 
     if (m_freeze) {
         getcache();
@@ -82,7 +82,7 @@ void mpistat::getinfo() {
         }
     }
 }
-void mpistat::handleButton() {	
+void NumaChipStats::handleButton() {	
     if (m_freeze) {
         ui.pushButton->setText("Continue");
         ui.pushButton->setToolTip("Continue the communication with the Numascale master node deamon again to receive fresh statistics.");
@@ -93,7 +93,7 @@ void mpistat::handleButton() {
     m_freeze=!m_freeze;
 }
 
-void mpistat::handleDeselectButton() {	
+void NumaChipStats::handleDeselectButton() {	
     m_deselected=!m_deselected;
     graph2->deselectAllLegends(m_deselected);
     graph1->deselectAllLegends(m_deselected);
@@ -110,7 +110,7 @@ void mpistat::handleDeselectButton() {
     
 }
 
-void mpistat::handleBox(int newvalue) {	
+void NumaChipStats::handleBox(int newvalue) {	
     if (m_spinbox!=newvalue) {
         printf("handleBox:Current value is %d was %d\n", newvalue, m_spinbox);
         m_spinbox=newvalue;
@@ -137,7 +137,7 @@ void mpistat::handleBox(int newvalue) {
     }
 }
 
-void mpistat::handleBox2(int newvalue) {	
+void NumaChipStats::handleBox2(int newvalue) {	
     if (m_spinbox2!=newvalue) {
         printf("handleBox2: Current value is %d was %d\n", newvalue, m_spinbox2);
         if (maxnodes<m_num_chips) {
@@ -802,7 +802,7 @@ void TransactionHist::showstat(const struct cachestats_t* statmsg) {
     m_transactions2.clear();
 } 
 
-void mpistat::srvconnect(const string& addr, SOCKET& toServer, bool& connected) {
+void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& connected) {
 
     //initialize the winsock 2.2
     WSAData wsadata;
@@ -874,7 +874,7 @@ void mpistat::srvconnect(const string& addr, SOCKET& toServer, bool& connected) 
     showConnectionStatus();
 }
 
-void mpistat::showConnectionStatus() {
+void NumaChipStats::showConnectionStatus() {
     QString title;
 
     if( !cacheAddr.empty() ) {
@@ -890,7 +890,7 @@ void mpistat::showConnectionStatus() {
     setWindowTitle(title);
 }
 
-void mpistat::getcache() {
+void NumaChipStats::getcache() {
     if (m_simulate) {
         static int j=0;
 

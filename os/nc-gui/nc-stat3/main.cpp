@@ -1,4 +1,4 @@
-#include "mpistat.hpp"
+#include "nc-stat.hpp"
 #include <QtGui/QApplication>
 #include <string>
 
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 		}			
 	}
 
-	mpistat w(strCacheAddr, simulate, nodes);
+	NumaChipStats w(strCacheAddr, simulate, nodes);
 
 	w.show();
 	return a.exec();

@@ -1,59 +1,15 @@
 /****************************************************************************
-** Meta object code from reading C++ file 'mpistat.hpp'
+** Meta object code from reading C++ file 'nc-stat.hpp'
 **
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-** Created: Thu 5. Jul 14:28:24 2012
-=======
-** Created: Tue 24. Jul 13:35:14 2012
->>>>>>> win_av/master
-=======
-** Created: Mon 13. Aug 12:00:04 2012
->>>>>>> win_av/master
-=======
-** Created: Mon 13. Aug 13:42:01 2012
->>>>>>> win_av/master
-=======
-** Created: Mon 13. Aug 15:06:00 2012
->>>>>>> win_av/master
-=======
-** Created: Mon 13. Aug 16:39:08 2012
->>>>>>> win_av/master
-=======
-** Created: Mon 13. Aug 21:30:20 2012
->>>>>>> win_av/master
-=======
-** Created: Tue 14. Aug 10:10:15 2012
->>>>>>> win_av/master
-=======
-** Created: Fri 17. Aug 11:42:48 2012
->>>>>>> win_av/master
-=======
-** Created: Fri 17. Aug 12:43:03 2012
->>>>>>> win_av/master
-=======
-** Created: Tue 21. Aug 17:27:31 2012
->>>>>>> win_av/master
-=======
-** Created: Wed 22. Aug 13:30:35 2012
->>>>>>> win_av/master
+** Created: Thu 23. Aug 16:07:05 2012
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../../mpistat.hpp"
+#include "../../nc-stat.hpp"
 #if !defined(Q_MOC_OUTPUT_REVISION)
-#error "The header file 'mpistat.hpp' doesn't include <QObject>."
+#error "The header file 'nc-stat.hpp' doesn't include <QObject>."
 #elif Q_MOC_OUTPUT_REVISION != 63
 #error "This file was generated using the moc from 4.8.1. It"
 #error "cannot be used with the include files from this version of Qt."
@@ -61,7 +17,7 @@
 #endif
 
 QT_BEGIN_MOC_NAMESPACE
-static const uint qt_meta_data_mpistat[] = {
+static const uint qt_meta_data_NumaChipStats[] = {
 
  // content:
        6,       // revision
@@ -75,26 +31,26 @@ static const uint qt_meta_data_mpistat[] = {
        0,       // signalCount
 
  // slots: signature, parameters, type, tag, flags
-       9,    8,    8,    8, 0x08,
-      19,    8,    8,    8, 0x08,
-      42,    8,    8,    8, 0x08,
-      66,   57,    8,    8, 0x08,
-      81,   57,    8,    8, 0x08,
+      15,   14,   14,   14, 0x08,
+      25,   14,   14,   14, 0x08,
+      48,   14,   14,   14, 0x08,
+      72,   63,   14,   14, 0x08,
+      87,   63,   14,   14, 0x08,
 
        0        // eod
 };
 
-static const char qt_meta_stringdata_mpistat[] = {
-    "mpistat\0\0getinfo()\0handleDeselectButton()\0"
-    "handleButton()\0newvalue\0handleBox(int)\0"
-    "handleBox2(int)\0"
+static const char qt_meta_stringdata_NumaChipStats[] = {
+    "NumaChipStats\0\0getinfo()\0"
+    "handleDeselectButton()\0handleButton()\0"
+    "newvalue\0handleBox(int)\0handleBox2(int)\0"
 };
 
-void mpistat::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+void NumaChipStats::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
 {
     if (_c == QMetaObject::InvokeMetaMethod) {
         Q_ASSERT(staticMetaObject.cast(_o));
-        mpistat *_t = static_cast<mpistat *>(_o);
+        NumaChipStats *_t = static_cast<NumaChipStats *>(_o);
         switch (_id) {
         case 0: _t->getinfo(); break;
         case 1: _t->handleDeselectButton(); break;
@@ -106,33 +62,33 @@ void mpistat::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, voi
     }
 }
 
-const QMetaObjectExtraData mpistat::staticMetaObjectExtraData = {
+const QMetaObjectExtraData NumaChipStats::staticMetaObjectExtraData = {
     0,  qt_static_metacall 
 };
 
-const QMetaObject mpistat::staticMetaObject = {
-    { &QMainWindow::staticMetaObject, qt_meta_stringdata_mpistat,
-      qt_meta_data_mpistat, &staticMetaObjectExtraData }
+const QMetaObject NumaChipStats::staticMetaObject = {
+    { &QMainWindow::staticMetaObject, qt_meta_stringdata_NumaChipStats,
+      qt_meta_data_NumaChipStats, &staticMetaObjectExtraData }
 };
 
 #ifdef Q_NO_DATA_RELOCATION
-const QMetaObject &mpistat::getStaticMetaObject() { return staticMetaObject; }
+const QMetaObject &NumaChipStats::getStaticMetaObject() { return staticMetaObject; }
 #endif //Q_NO_DATA_RELOCATION
 
-const QMetaObject *mpistat::metaObject() const
+const QMetaObject *NumaChipStats::metaObject() const
 {
     return QObject::d_ptr->metaObject ? QObject::d_ptr->metaObject : &staticMetaObject;
 }
 
-void *mpistat::qt_metacast(const char *_clname)
+void *NumaChipStats::qt_metacast(const char *_clname)
 {
     if (!_clname) return 0;
-    if (!strcmp(_clname, qt_meta_stringdata_mpistat))
-        return static_cast<void*>(const_cast< mpistat*>(this));
+    if (!strcmp(_clname, qt_meta_stringdata_NumaChipStats))
+        return static_cast<void*>(const_cast< NumaChipStats*>(this));
     return QMainWindow::qt_metacast(_clname);
 }
 
-int mpistat::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+int NumaChipStats::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
     _id = QMainWindow::qt_metacall(_c, _id, _a);
     if (_id < 0)

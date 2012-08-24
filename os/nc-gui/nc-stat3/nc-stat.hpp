@@ -1,10 +1,10 @@
-﻿#ifndef MPISTAT_H
-#define MPISTAT_H
+﻿#ifndef NumaChipStats_H
+#define NumaChipStats_H
 
 #include <QtGui/QMainWindow>
 #include <QtGui/QPaintEvent>
 #include <QTimer>
-#include "ui_mpistat.h"
+#include "ui_NumaChipStats.h"
 #include <vector>
 #include <string>
 #include <time.h>
@@ -71,16 +71,16 @@ struct msgstats_t {
     uint64_t scnt;		   // sync buf lock failed ticks
 };
 
-class mpistat : public QMainWindow
+class NumaChipStats : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes);
-    ~mpistat();
+    NumaChipStats(const string& strCacheAddr, bool simulate, int simulate_nodes);
+    ~NumaChipStats();
 
 private:
-    Ui::mpistatClass ui;
+    Ui::NumaChipStatsClass ui;
     const string cacheAddr;
     SOCKET cacheSocket;
     int m_num_chips;
@@ -224,4 +224,4 @@ private:
     vector <uint64_t> m_transactions;
     vector <uint64_t> m_transactions2;
 };
-#endif // MPISTAT_H
+#endif // NumaChipStats_H
