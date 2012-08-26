@@ -884,6 +884,8 @@ void NumaChipStats::showConnectionStatus() {
         else {
             title = QString("not connected to ") + QString(cacheAddr.c_str());
         }
+    } else {
+        title = QString("Wrong params: nc-pstat_gui.exe [-cache <ipaddr>:<portno>] | [-simulate <number of nodes>]");
     }
 
 
@@ -943,6 +945,8 @@ void NumaChipStats::getcache() {
          j++;
     } else {
         if( !cacheConnected ) {
+            cacheConnected = false;
+            showConnectionStatus();
             return;
         }
 
