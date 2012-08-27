@@ -34,7 +34,6 @@ typedef unsigned long long uint64_t;
 struct cachestats_t {
     uint64_t hit; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
     uint64_t miss; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
-
     //From totmiss and tothit we can calculate avg hit/miss.  
     uint64_t tothit; //counter_1 - Select = 1, REM/HReq value 5 - HT-Request with ctag hit
     uint64_t totmiss; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
@@ -44,12 +43,6 @@ struct cachestats_t {
     uint64_t tot_cave_out; //counter_5 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
     uint64_t tot_probe_in; //counter_6 - Select = 7, cHT-Cave value 3 - Incoming probe HT-Request
     uint64_t tot_probe_out; //counter_7 - Select = 7, cHT-Cave value 7 - Outgoing probe HT-Request
-    /*
-    uint64_t counter_4[4];
-    uint64_t counter_5[4];
-    uint64_t counter_6[4];
-    uint64_t counter_7[4];  
-    */
 };
 
 struct msgstats_t {

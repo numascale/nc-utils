@@ -1,5 +1,6 @@
 #include "nc-stat.hpp"
 #include <QtGui/QApplication>
+#include <QMessageBox>
 #include <string>
 
 int main(int argc, char *argv[])
@@ -8,7 +9,12 @@ int main(int argc, char *argv[])
     bool simulate=false;
 	std::string strCacheAddr;	
     int nodes;
-
+    if (argc<3) {
+        QMessageBox msgBox;
+        msgBox.setText("Wrong paramameters. \n Options are:\n nc-pstat_gui.exe [-cache <ipaddr>:<portno>] | [-simulate <number of nodes>]");
+        msgBox.exec();
+        return a.quit();
+    }
 	if( argc > 1 ) {
 		for( int i = 1; i < argc; i++ ) {
 			if( strcmp(argv[i], "-cache") == 0 ) {
