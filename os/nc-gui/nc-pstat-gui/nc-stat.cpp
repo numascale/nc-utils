@@ -1,4 +1,4 @@
-#include "mpistat.hpp"
+#include "nc-stat.hpp"
 #include <qwt_scale_engine.h>
 #include <iostream>
 
@@ -24,7 +24,7 @@ char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode);
 char* getSockAddrAsString(char* buffer, DWORD size, struct sockaddr* saddr);
 
 
-mpistat::mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes)
+NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simulate_nodes)
     : QMainWindow()
     , cacheAddr(strCacheAddr)
     , m_simulate(simulate)
@@ -67,11 +67,11 @@ mpistat::mpistat(const string& strCacheAddr, bool simulate, int simulate_nodes)
     timer.start();
 }
 
-mpistat::~mpistat()
+NumaChipStats::~NumaChipStats()
 {
     WSACleanup();
 }
-void mpistat::getinfo() {
+void NumaChipStats::getinfo() {
 
     if (m_freeze) {
         getcache();
@@ -82,7 +82,7 @@ void mpistat::getinfo() {
         }
     }
 }
-void mpistat::handleButton() {	
+void NumaChipStats::handleButton() {	
     if (m_freeze) {
         ui.pushButton->setText("Continue");
         ui.pushButton->setToolTip("Continue the communication with the Numascale master node deamon again to receive fresh statistics.");
@@ -93,7 +93,7 @@ void mpistat::handleButton() {
     m_freeze=!m_freeze;
 }
 
-void mpistat::handleDeselectButton() {	
+void NumaChipStats::handleDeselectButton() {	
     m_deselected=!m_deselected;
     graph2->deselectAllLegends(m_deselected);
     graph1->deselectAllLegends(m_deselected);
@@ -110,7 +110,7 @@ void mpistat::handleDeselectButton() {
     
 }
 
-void mpistat::handleBox(int newvalue) {	
+void NumaChipStats::handleBox(int newvalue) {	
     if (m_spinbox!=newvalue) {
         printf("handleBox:Current value is %d was %d\n", newvalue, m_spinbox);
         m_spinbox=newvalue;
@@ -137,7 +137,7 @@ void mpistat::handleBox(int newvalue) {
     }
 }
 
-void mpistat::handleBox2(int newvalue) {	
+void NumaChipStats::handleBox2(int newvalue) {	
     if (m_spinbox2!=newvalue) {
         printf("handleBox2: Current value is %d was %d\n", newvalue, m_spinbox2);
         if (maxnodes<m_num_chips) {
@@ -228,7 +228,7 @@ TransGraph::TransGraph(QWidget* parent) {
     plot->setAxisTitle(QwtPlot::xBottom, xtitle);
     QwtText ytitle("Transactions pr second");
     plot->setAxisTitle(QwtPlot::yLeft, ytitle);
-    QwtText title("Numachip In/Out transactions (cave)");
+    QwtText title("NumaChip In/Out transactions (cave)");
     plot->setTitle(title);
     plot->replot();
 }
@@ -251,7 +251,7 @@ void TransGraph::addCurves() {
     for (int i=p_range_min; i<max; i++) {
         if (i<(p_range_max+1)) {
 
-            sprintf(str, "Numachip #%d In ", i);
+            sprintf(str, "NumaChip #%d In ", i);
             curve = new QwtPlotCurve(str);
             if (j==0) curve->setPen(QPen(Qt::black,2));
             else if (j==1) curve->setPen(QPen(Qt::green,2));
@@ -274,7 +274,7 @@ void TransGraph::addCurves() {
             curves.push_back(curve);
             showCurve(curve, true);
         } else {
-            sprintf(str, "Numachip #%d Out ", i-p_num_chips); 
+            sprintf(str, "NumaChip #%d Out ", i-p_num_chips); 
             curve = new QwtPlotCurve(str);
             if (j==0) curve->setPen(QPen(Qt::black,2));
             else if (j==1) curve->setPen(QPen(Qt::green,2));
@@ -334,7 +334,7 @@ void TransGraph::showstat(const struct cachestats_t* statmsg) {
         if (i<p_num_chips) {
             m_trans[i][m_counter]=statmsg[i].cave_in;
             m_trans2[i][m_counter]=statmsg[i].cave_out;
-            sprintf(s, "Numachip #%d In", i); 
+            sprintf(s, "NumaChip #%d In", i); 
             if ((i>=p_range_min) && i<=p_range_max) {            
                 if (i<(p_range_max+1)) {
                     title.append(QString(s));
@@ -346,7 +346,7 @@ void TransGraph::showstat(const struct cachestats_t* statmsg) {
             }
         } else {
 
-            sprintf(s, "Numachip #%d Out",i-p_num_chips); 
+            sprintf(s, "NumaChip #%d Out",i-p_num_chips); 
             if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {
                 title.append(QString(s));
                 curves[j]->setRawSamples(m_timestep, *(m_trans2 + (i-p_num_chips)), m_counter);
@@ -376,7 +376,7 @@ CacheGraph::CacheGraph(QWidget* parent) {
     plot->setAxisTitle(QwtPlot::xBottom, xtitle);
     QwtText ytitle("Cache hitrate [%]");
     plot->setAxisTitle(QwtPlot::yLeft, ytitle);
-    QwtText title("Numachip Remote Cache HIT (%)");
+    QwtText title("NumaChip Remote Cache HIT (%)");
     plot->setTitle(title);
     plot->replot();
 }
@@ -497,7 +497,7 @@ CacheHistGraph::CacheHistGraph(QWidget* parent) {
       
       QwtText ytitle("Cache hitrate [%]");
       plot->setAxisTitle(QwtPlot::yLeft, ytitle);
-      QwtText title("Numachip Remote Cache HIT (%)");
+      QwtText title("NumaChip Remote Cache HIT (%)");
       plot->setTitle(title);      
 }
 
@@ -515,7 +515,7 @@ void CacheHistGraph::addCurves() {
 
         if (i<(p_range_max+1)) {
            
-            sprintf(str, "Numachip #%d", i);
+            sprintf(str, "NumaChip #%d", i);
             curve = new QwtPlotHistogram(str);
             curve->setBrush(blue);
             curve->setPen(blue);
@@ -607,13 +607,13 @@ ProbeHist::ProbeHist(QWidget* parent) {
       plot->setAxisAutoScale( QwtPlot::yLeft, true );
 	  //plot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLog10ScaleEngine());
       //plot->setAxisScale(QwtPlot::yLeft, 0, MAX_HITRATE);
-      QwtText xtitle("Numachip #n");	
+      QwtText xtitle("NumaChip #n");	
       plot->setAxisTitle(QwtPlot::xBottom, xtitle);
       plot->setAxisAutoScale( QwtPlot::xBottom, true );
       
       QwtText ytitle("Number of probes (Cave)");
       plot->setAxisTitle(QwtPlot::yLeft, ytitle);
-      QwtText title("Numachip Number of Probes (In&Out)");
+      QwtText title("NumaChip Number of Probes (In&Out)");
       plot->setTitle(title);      
 }
 void ProbeHist::addCurves() {
@@ -633,7 +633,7 @@ void ProbeHist::addCurves() {
         if (i<(p_range_max+1)) {
     
             //if ((i>=p_range_min) && i<=p_range_max) {
-                sprintf(str, "Numachip #%d In ", i); // s now contains the value 52300         
+                sprintf(str, "NumaChip #%d In ", i); // s now contains the value 52300         
                 curve = new QwtPlotHistogram(str);
                 curve->setBrush(blue);
                 curve->setPen(blue);
@@ -643,7 +643,7 @@ void ProbeHist::addCurves() {
             //}
         } else {
             //if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {
-                sprintf(str, "Numachip #%d Out ", i-p_num_chips); // s now contains the value 52300         
+                sprintf(str, "NumaChip #%d Out ", i-p_num_chips); // s now contains the value 52300         
                 curve = new QwtPlotHistogram(str);
                 curve->setBrush(red);
                 curve->setPen(red);
@@ -675,7 +675,7 @@ void ProbeHist::showstat(const struct cachestats_t* statmsg) {
         if (i<p_num_chips) {
             m_transactions.push_back(statmsg[i].tot_probe_in);
             /*printf(" m_transactions tot_cave_in %lld\n",  m_transactions[i]);*/
-            sprintf(s, "Numachip #%d In", i); 
+            sprintf(s, "NumaChip #%d In", i); 
             
             if ((i>=p_range_min) && i<=p_range_max) {  
                 samples[0]=QwtIntervalSample(m_transactions[i], i-0.2,i+0.2);
@@ -688,7 +688,7 @@ void ProbeHist::showstat(const struct cachestats_t* statmsg) {
         } else {
             m_transactions2.push_back(statmsg[i-p_num_chips].tot_probe_out);
             /*printf(" m_transactions tot_cave_out %lld (index i-p_num_chips) =%d\n",  m_transactions2[i-p_num_chips], i-p_num_chips);*/
-            sprintf(s, "Numachip #%d Out",i-p_num_chips); 
+            sprintf(s, "NumaChip #%d Out",i-p_num_chips); 
             samples[0]=QwtIntervalSample(m_transactions2[i-p_num_chips],(i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
             if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {            
                 samples[0]=QwtIntervalSample(m_transactions2[i-p_num_chips],(i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
@@ -710,13 +710,13 @@ TransactionHist::TransactionHist(QWidget* parent) {
 
       plot->setAxisScale(QwtPlot::yLeft, 0, 12);
       plot->setAxisAutoScale( QwtPlot::yLeft, true );
-      QwtText xtitle("Numachip #n");	
+      QwtText xtitle("NumaChip #n");	
       plot->setAxisTitle(QwtPlot::xBottom, xtitle);
       plot->setAxisAutoScale( QwtPlot::xBottom, true );
       
       QwtText ytitle("Number of Transactions (Cave)");
       plot->setAxisTitle(QwtPlot::yLeft, ytitle);
-      QwtText title("Numachip Number of Transactions (In&Out)");
+      QwtText title("NumaChip Number of Transactions (In&Out)");
       plot->setTitle(title);      
 }
 void TransactionHist::addCurves() {
@@ -734,7 +734,7 @@ void TransactionHist::addCurves() {
         
         if (i<(p_range_max+1)) {
 
-            sprintf(str, "Numachip #%d In ", i);
+            sprintf(str, "NumaChip #%d In ", i);
             curve = new QwtPlotHistogram(str);
             curve->setBrush(blue);
             curve->setPen(blue);
@@ -742,7 +742,7 @@ void TransactionHist::addCurves() {
             curves.push_back(curve);
             showCurve(curve, true);
         } else {
-            sprintf(str, "Numachip #%d Out ", i-p_num_chips);
+            sprintf(str, "NumaChip #%d Out ", i-p_num_chips);
             curve = new QwtPlotHistogram(str);
             curve->setBrush(red);
             curve->setPen(red);
@@ -772,7 +772,7 @@ void TransactionHist::showstat(const struct cachestats_t* statmsg) {
 
         if (i<p_num_chips) {
             m_transactions.push_back(statmsg[i].tot_cave_in);
-            sprintf(s, "Numachip #%d In", i); 
+            sprintf(s, "NumaChip #%d In", i); 
 
             if ((i>=p_range_min) && i<=p_range_max) {  
                 samples[0]=QwtIntervalSample(m_transactions[i], i-0.2,i+0.2);
@@ -784,7 +784,7 @@ void TransactionHist::showstat(const struct cachestats_t* statmsg) {
             }
         } else {
             m_transactions2.push_back(statmsg[i-p_num_chips].tot_cave_out);
-            sprintf(s, "Numachip #%d Out",i-p_num_chips); 
+            sprintf(s, "NumaChip #%d Out",i-p_num_chips); 
             samples[0]=QwtIntervalSample(m_transactions2[i-p_num_chips],(i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
             if (((i-p_num_chips)>=p_range_min) && (i-p_num_chips)<=p_range_max) {            
                 samples[0]=QwtIntervalSample(m_transactions2[i-p_num_chips],(i-p_num_chips)-0.2,(i-p_num_chips)+0.2);
@@ -802,7 +802,7 @@ void TransactionHist::showstat(const struct cachestats_t* statmsg) {
     m_transactions2.clear();
 } 
 
-void mpistat::srvconnect(const string& addr, SOCKET& toServer, bool& connected) {
+void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& connected) {
 
     //initialize the winsock 2.2
     WSAData wsadata;
@@ -874,7 +874,7 @@ void mpistat::srvconnect(const string& addr, SOCKET& toServer, bool& connected) 
     showConnectionStatus();
 }
 
-void mpistat::showConnectionStatus() {
+void NumaChipStats::showConnectionStatus() {
     QString title;
 
     if( !cacheAddr.empty() ) {
@@ -884,13 +884,15 @@ void mpistat::showConnectionStatus() {
         else {
             title = QString("not connected to ") + QString(cacheAddr.c_str());
         }
+    } else {
+        title = QString("Wrong params: nc-pstat_gui.exe [-cache <ipaddr>:<portno>] | [-simulate <number of nodes>]");
     }
 
 
     setWindowTitle(title);
 }
 
-void mpistat::getcache() {
+void NumaChipStats::getcache() {
     if (m_simulate) {
         static int j=0;
 
@@ -943,6 +945,8 @@ void mpistat::getcache() {
          j++;
     } else {
         if( !cacheConnected ) {
+            cacheConnected = false;
+            showConnectionStatus();
             return;
         }
 
