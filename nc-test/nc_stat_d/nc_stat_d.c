@@ -75,7 +75,7 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
     nc_error_t retval = NUMACHIP_ERR_OK;
     uint64_t hit_cnt=0, miss_cnt=0;
     uint32_t node=0;
-    printf("************************************************\n");
+    DEBUG_STATEMENT(printf("************************************************\n"));
 
 
 
@@ -103,8 +103,8 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
 	countstat[node].totalmiss=totalmiss[node];
 
 		
-	printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,missrate,hitrate, (unsigned long long) total);
-	printf("Node %d: Avrage Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]);
+	DEBUG_STATEMENT(printf("Node %d: Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,missrate,hitrate, (unsigned long long) total);
+			printf("Node %d: Avrage Miss rate %0.2f  Hit rate %0.2f transactions %llu\n",  node,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]));
     }
 
 
@@ -134,14 +134,14 @@ void get_cave(struct numachip_context **cntxt, uint32_t num_nodes, struct msgsta
 	//countstat[node].tot_cave_out=countstat[node].cave_out;
 
 	
-	printf("Reading counter node %d counterno %d (cave_in) = %lld tot_cave_in %lld \n",
+	DEBUG_STATEMENT(printf("Reading counter node %d counterno %d (cave_in) = %lld tot_cave_in %lld \n",
 	       node,cave_in, (unsigned long long)countstat[node].cave_in,(unsigned long long)countstat[node].tot_cave_in );
 	printf("Reading counter node %d counterno %d (cave_out) = %lld  tot_cave_out %lld \n",
 	       node,cave_out, (unsigned long long)countstat[node].cave_out,(unsigned long long)countstat[node].tot_cave_out);
 	printf("Reading counter node %d counterno %d tot_probe_in %lld \n",
 	       node,cave_in, (unsigned long long)countstat[node].tot_probe_in );
 	printf("Reading counter node %d counterno %d tot_probe_out %lld \n",
-	       node,cave_out, (unsigned long long)countstat[node].tot_probe_out);
+	       node,cave_out, (unsigned long long)countstat[node].tot_probe_out));
     
 
     }
@@ -357,7 +357,7 @@ int main(int argc, char* argv[]) {
 	    
 	memcpy(buf, &num_devices, sizeof(int));
 
-	printf("Size of %lu \n", sizeof(int));
+	DEBUG_STATEMENT(printf("Size of %lu \n", sizeof(int)));
 	
 	n = write(newsockfd, buf, sizeof(int));
 
