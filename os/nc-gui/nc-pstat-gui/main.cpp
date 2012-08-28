@@ -8,12 +8,13 @@ int main(int argc, char *argv[])
 	QApplication a(argc, argv);
     bool simulate=false;
 	std::string strCacheAddr;	
-    int nodes;
+    int nodes = 0;
     if (argc<3) {
         QMessageBox msgBox;
         msgBox.setText("Wrong paramameters. \n Options are:\n nc-pstat_gui.exe [-cache <ipaddr>:<portno>] | [-simulate <number of nodes>]");
         msgBox.exec();
-        return a.quit();
+        a.quit();
+        return -1;
     }
 	if( argc > 1 ) {
 		for( int i = 1; i < argc; i++ ) {

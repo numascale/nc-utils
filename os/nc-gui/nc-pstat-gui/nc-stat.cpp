@@ -69,7 +69,9 @@ NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simu
 
 NumaChipStats::~NumaChipStats()
 {
+#ifdef OS_IS_WINDOWS
     WSACleanup();
+#endif
 }
 void NumaChipStats::getinfo() {
 
@@ -804,13 +806,14 @@ void TransactionHist::showstat(const struct cachestats_t* statmsg) {
 
 void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& connected) {
 
+#ifdef OS_IS_WINDOWS
     //initialize the winsock 2.2
     WSAData wsadata;
     if( WSAStartup(MAKEWORD(2,2), &wsadata) ) { 
         printf("Failed to Startup WSA");
         return; 
     };
-
+#endif
     //try to resolve the IP from hostname
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
@@ -837,7 +840,11 @@ void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& conne
     }
 
     if( getaddrinfo(serverName, serverPort, &hints, &addrs) ) {
+#ifdef OS_IS_WINDOWS
         printf("failed to resolve ip from hostname %s\n", getLastErrorMessage(localBuffer, 1024, WSAGetLastError()));
+#else
+        printf("failed to resolve ip from hostname %s\n", strerror(errno));
+#endif
         connected = false;	
         showConnectionStatus();
         return;
@@ -852,14 +859,19 @@ void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& conne
     //create client socket
     toServer = socket(AF_INET, SOCK_STREAM, 0);
     if( ::connect(toServer, addrs->ai_addr, sizeof(*(addrs->ai_addr))) == SOCKET_ERROR ) {
-        printf("Failed to Connect, reason %s\n", getLastErrorMessage(localBuffer, 1024, WSAGetLastError()));
+        printf("Failed to Connect, reason %s\n",
+#ifdef OS_IS_WINDOWS
+        getLastErrorMessage(localBuffer, 1024, WSAGetLastError()));
+#else
+        strerror(errno));
+#endif
         connected = false;	
         showConnectionStatus();
         return;
     }
 
     struct sockaddr myaddr;
-    int namelength = sizeof(myaddr);
+    unsigned int namelength = sizeof(myaddr);
     memset(&myaddr, 0, namelength);
     getsockname(toServer, &myaddr, &namelength);
     printf("Mine=%s\n\n", getSockAddrAsString(localBuffer, 1024, &myaddr));
@@ -1015,7 +1027,7 @@ void NumaChipStats::getcache() {
     graph2->showstat(m_cstat);
 
 }
-
+#ifdef OS_IS_WINDOWS
 char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode) {
 
     memset(buffer, 0, size);
@@ -1034,7 +1046,7 @@ char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode) {
     }
     return buffer;
 }
-
+#endif
 char* getSockAddrAsString(char* buffer, DWORD size, struct sockaddr* saddr) {
 
     memset(buffer, 0, size);

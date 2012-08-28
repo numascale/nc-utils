@@ -11,14 +11,41 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifdef OS_IS_WINDOWS
 #include <winsock2.h>
 #include <Ws2tcpip.h>
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
+#include <syslog.h>
+#include <string.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#endif
 
 #include <qwt.h>
 #include <qwt_plot.h>
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_item.h>
+
+#ifndef OS_IS_WINDOWS
+typedef int SOCKET;
+typedef unsigned long DWORD;
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR   -1
+#define closesocket close
+#endif
 
 using namespace std;
 class CacheHistGraph;
@@ -29,7 +56,9 @@ class ProbeHist;
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
+#ifdef OS_IS_WINDOWS
 typedef unsigned long long uint64_t;
+#endif
 
 struct cachestats_t {
     uint64_t hit; //counter_0 - Select = 1, REM/HReq value 6 - HT-Request with ctag miss
