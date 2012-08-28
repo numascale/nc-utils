@@ -4,7 +4,7 @@
 #include <QtGui/QMainWindow>
 #include <QtGui/QPaintEvent>
 #include <QTimer>
-#include "ui_NumaChipStats.h"
+#include "ui_nc-stat.h"
 #include <vector>
 #include <string>
 #include <time.h>
