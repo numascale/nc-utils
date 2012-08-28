@@ -69,7 +69,7 @@ NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simu
 
 NumaChipStats::~NumaChipStats()
 {
-#ifdef OS_IS_WINDOWS
+#ifdef WIN32
     WSACleanup();
 #endif
 }
@@ -806,7 +806,7 @@ void TransactionHist::showstat(const struct cachestats_t* statmsg) {
 
 void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& connected) {
 
-#ifdef OS_IS_WINDOWS
+#ifdef WIN32
     //initialize the winsock 2.2
     WSAData wsadata;
     if( WSAStartup(MAKEWORD(2,2), &wsadata) ) { 
@@ -840,7 +840,7 @@ void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& conne
     }
 
     if( getaddrinfo(serverName, serverPort, &hints, &addrs) ) {
-#ifdef OS_IS_WINDOWS
+#ifdef WIN32
         printf("failed to resolve ip from hostname %s\n", getLastErrorMessage(localBuffer, 1024, WSAGetLastError()));
 #else
         printf("failed to resolve ip from hostname %s\n", strerror(errno));
@@ -860,10 +860,11 @@ void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& conne
     toServer = socket(AF_INET, SOCK_STREAM, 0);
     if( ::connect(toServer, addrs->ai_addr, sizeof(*(addrs->ai_addr))) == SOCKET_ERROR ) {
         printf("Failed to Connect, reason %s\n",
-#ifdef OS_IS_WINDOWS
+#ifdef WIN32
         getLastErrorMessage(localBuffer, 1024, WSAGetLastError()));
 #else
         strerror(errno));
+        printf("%s\n", localBuffer);
 #endif
         connected = false;	
         showConnectionStatus();
@@ -871,7 +872,12 @@ void NumaChipStats::srvconnect(const string& addr, SOCKET& toServer, bool& conne
     }
 
     struct sockaddr myaddr;
-    unsigned int namelength = sizeof(myaddr);
+#ifdef WIN32
+    int namelength;
+#else
+    unsigned int namelength;
+#endif
+    namelength = sizeof(myaddr);
     memset(&myaddr, 0, namelength);
     getsockname(toServer, &myaddr, &namelength);
     printf("Mine=%s\n\n", getSockAddrAsString(localBuffer, 1024, &myaddr));
@@ -1027,7 +1033,7 @@ void NumaChipStats::getcache() {
     graph2->showstat(m_cstat);
 
 }
-#ifdef OS_IS_WINDOWS
+#ifdef WIN32
 char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode) {
 
     memset(buffer, 0, size);

@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifdef OS_IS_WINDOWS
+#ifdef WIN32
 #include <winsock2.h>
 #include <Ws2tcpip.h>
 #else
@@ -39,7 +39,7 @@
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_item.h>
 
-#ifndef OS_IS_WINDOWS
+#ifndef WIN32
 typedef int SOCKET;
 typedef unsigned long DWORD;
 #define INVALID_SOCKET -1
@@ -56,7 +56,7 @@ class ProbeHist;
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
-#ifdef OS_IS_WINDOWS
+#ifdef WIN32
 typedef unsigned long long uint64_t;
 #endif
 
