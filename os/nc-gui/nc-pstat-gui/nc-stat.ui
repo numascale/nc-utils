@@ -48,7 +48,7 @@
          </sizepolicy>
         </property>
         <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;This GUI monitors performance characteristics for the all the NumaChips in the NumaConnect Single Image Cluster. Hold the mouse over each tab for more information.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;This GUI monitors performance characteristics for the all the NumaChips in the NumaConnect Single Image System. Hold the mouse over each tab for more information.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="currentIndex">
          <number>4</number>
@@ -61,7 +61,7 @@
           <string>Cache rate (snapshot)</string>
          </attribute>
          <attribute name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;The tab shows a graph displaying cache hitrate (%) pr.second over time. The number of accesses to the cache per update is displayed in the legend text for each remote cache. The graph monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-family:'Verdana,sans-serif'; font-size:12pt; color:#000000;&quot;&gt;The tab shows a graph displaying cache hitrate (%) per second over time. The number of accesses to the cache per update is displayed in the legend text for each remote cache. The graph monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image System. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_7">
           <item>
@@ -74,7 +74,7 @@
           <string>Cache rate distribution</string>
          </attribute>
          <attribute name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;This tab shows a histogram displaying a cache hitrate (%) snapshot (shown in blue color) on top of an average (shown in red) cache hitrate over time (red over blue gives purple). The number of accesses to the cache per update is displayed in the legend text for each remote cache. The histogram monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;This tab shows a histogram displaying a cache hitrate (%) snapshot (shown in blue color) on top of an average (shown in red) cache hitrate over time (red over blue gives purple). The number of accesses to the cache per update is displayed in the legend text for each remote cache. The histogram monitors the cache hit ratio for all remote caches (L4 NumaConnect type caches) in the NumaConnect Single Image System.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_4">
           <item>
@@ -87,7 +87,7 @@
           <string>Transactions distribution In/Out</string>
          </attribute>
          <attribute name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(shown in blue color)&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; non-posted HT-Request and Outgoing&lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(shown in&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; red color) non-posted HT-Request &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(red over blue gives purple)&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; to the NumaChip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each NumaChip. The histogram shows the total accumulated number of non-posted HT-Request for each NumaChip in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(shown in blue color)&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; non-posted HT-Request and Outgoing &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(shown in&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; red color) non-posted HT-Request &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(red over blue gives purple)&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt; to the NumaChip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each NumaChip. The histogram shows the total accumulated number of non-posted HT-Requests for each NumaChip in the NumaConnect Single Image System. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_6">
           <item>
@@ -100,7 +100,7 @@
           <string>Transaction In/Out (snapshot)</string>
          </attribute>
          <attribute name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming non-posted HT-Request and Outgoing non-posted HT-Request to the NumaChip (Cave). The non-posted HT-Requests gives an impression of the amount of actual hyper transport traffic in and out of each NumaChip. The histogram shows a snapshot of the total accumulated number of non-posted HT-Request pr.second for each NumaChip in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-family:'Verdana,sans-serif'; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming non-posted HT-Requests and Outgoing non-posted HT-Request to the NumaChip (Cave). The non-posted HT-Requests give an impression of the amount of actual hyper transport traffic in and out of each NumaChip. The histogram shows a snapshot of the total accumulated number of non-posted HT-Requests per second for each NumaChip in the NumaConnect Single Image System.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_5">
           <item>
@@ -113,7 +113,7 @@
           <string>Probes distribution In/Out</string>
          </attribute>
          <attribute name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming (shown in red color) HT-Probe and Outgoing (shown in blue color) HT-Probe &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(red over blue gives purple) &lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;to the NumaChip (Cave). The coherent hyper transport probes are necessary for maintaining the caches (L1, L2, L3 and L4). The histogram shows the total accumulated number of HT-Probes for each NumaChip in the NumaConnect Single Image Cluster.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;This tab shows a histogram displaying all Incoming (shown in red color) HT-Probe and Outgoing (shown in blue color) HT-Probe &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;(red over blue gives purple) &lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;to the NumaChip (Cave). The coherent hyper transport probes are necessary for maintaining the cache coherency in L1, L2, L3 and L4. The histogram shows the total accumulated number of HT-Probes for each NumaChip in the NumaConnect Single Image System.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout_15">
           <item>

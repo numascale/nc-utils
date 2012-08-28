@@ -941,7 +941,7 @@ void NumaChipStats::getcache() {
             handleBox(0);
             if (maxnodes<m_num_chips) handleBox2(maxnodes-1);
             else handleBox2(m_num_chips-1);
-            printf("Master node in the numaconnect single image cluster reports %d numchips.\n", 
+            printf("Master node in the numaconnect single image system reports %d numchips.\n", 
                 m_num_chips);
 
             m_cstat = new cachestats_t[m_num_chips];
@@ -1012,7 +1012,7 @@ void NumaChipStats::getcache() {
             handleBox(0);
             if (maxnodes<m_num_chips) handleBox2(maxnodes-1);
             else handleBox2(m_num_chips-1);
-            //printf("Master node in the numaconnect single image cluster reports %d numchips.\n", m_num_chips);
+            //printf("Master node in the numaconnect single image system reports %d numchips.\n", m_num_chips);
 
             m_cstat = new cachestats_t[m_num_chips];
         }
