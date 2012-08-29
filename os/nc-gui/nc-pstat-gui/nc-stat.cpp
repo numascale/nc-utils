@@ -50,7 +50,7 @@ NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simu
     ui.tab2layout->addWidget(graph2->plot);
     ui.tab5layout->addWidget(graph5->plot);
     ui.probeLayout->addWidget(graph4->plot);
-    ui.pushButton->setToolTip("Stop the communication with the Numascale master node deamon temporarily.");
+    ui.pushButton->setToolTip("Stop the communication with the Numascale master node daemon temporarily.");
     ui.pushButton_2->setToolTip("Deselect all the legends. Then it might be easier to select the graph you want?");
     ui.tabWidget->setCurrentIndex(1);
     resize(800, 480);
@@ -87,10 +87,10 @@ void NumaChipStats::getinfo() {
 void NumaChipStats::handleButton() {	
     if (m_freeze) {
         ui.pushButton->setText("Continue");
-        ui.pushButton->setToolTip("Continue the communication with the Numascale master node deamon again to receive fresh statistics.");
+        ui.pushButton->setToolTip("Continue the communication with the Numascale master node daemon again to receive fresh statistics.");
     } else {
         ui.pushButton->setText("Freeze");
-        ui.pushButton->setToolTip("Stop the communication with the Numascale master node deamon temporarily.");
+        ui.pushButton->setToolTip("Stop the communication with the Numascale master node daemon temporarily.");
     }
     m_freeze=!m_freeze;
 }

@@ -32,7 +32,7 @@
 #define DEBUG_STATEMENT(x) 
 void print_involved() {
     printf("------------------------------------------\n");
-    printf("INVOLVED REGISTRIES:----------------------\n");
+    printf("INVOLVED REGISTERS:----------------------\n");
 }
 void print_involved_api() {
     printf("------------------------------------------\n");
@@ -301,7 +301,7 @@ void counter_start_help() {
     print_perf_cnt();
     print_involved_api();
     printf("------------------------------------------\n");
-    printf("numachip_start_pcounter is just doing clear,select and mask in one step.\n");
+    printf("numachip_start_pcounter is just doing clear, select and mask in one step.\n");
     printf("Checkout ./nc_perf help -counter-clear, -counter-select and -counter-mask for \nmore details for eventreg and mask.\n");
     printf("------------------------------------------\n");
     printf("void numachip_start_pcounter(struct numachip_context *cntxt,\n");
