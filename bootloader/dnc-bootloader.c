@@ -29,6 +29,7 @@
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-acpi.h"
+#include "dnc-aml.h"
 #include "dnc-fabric.h"
 #include "dnc-config.h"
 #include "dnc-bootloader.h"
@@ -739,7 +740,7 @@ static void update_acpi_tables(void)
     memcpy(mcfg->creatorid, "1B47", 4);
     mcfg->creatorrev = 1;
 
-    for (node = 0; node < dnc_node_count; node++) {
+    for (node = 0; node < (remote_io ? dnc_node_count : 1); node++) {
         struct acpi_mcfg_allocation mcfg_allocation;
 
         memset(&mcfg_allocation, 0, sizeof(mcfg_allocation));
@@ -2654,8 +2655,11 @@ static int nc_start(void)
 	(void)dnc_check_mctr_status(1);
         
 	update_e820_map();
-	if (remote_io)
+	if (remote_io) {
 	    setup_mmio_late();
+	    acpi_update_ssdt();
+	}
+
 	if (verbose)
 	    selftest_late();
 
