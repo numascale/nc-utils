@@ -78,11 +78,11 @@ dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-route.h
 	@echo \#define VER \"`git describe --always`\" >dnc-version.h
 
 dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-devices.o dnc-monitor.o dnc-trace.o dnc-masterlib.o dnc-mmio.o \
-	dnc-fabric.o dnc-access.o dnc-route.o dnc-acpi.o dnc-config.o \
+	dnc-fabric.o dnc-access.o dnc-route.o dnc-acpi.o dnc-aml.o dnc-config.o \
 	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS)
 
 dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-regs.h \
-	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h dnc-version.h \
+	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-aml.h dnc-config.h dnc-version.h \
 	dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h dnc-masterlib.h dnc-mmio.h hw-config.h
 
 dnc-e820-handler.o: hw-config.h dnc-defs.h
@@ -104,6 +104,10 @@ dnc-access.o: dnc-access.c dnc-access.h
 dnc-route.o: dnc-route.c dnc-route.h
 
 dnc-acpi.o: dnc-acpi.c dnc-acpi.h
+
+dnc-aml.o: dnc-aml.c dnc-aml.h
+
+auto-dnc-gitlog.c:
 
 remreset.elf: remreset.o dnc-access.o $(COM32DEPS)
 
