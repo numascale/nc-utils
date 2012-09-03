@@ -1,4 +1,4 @@
-#include "nc-stat.hpp"
+#include "nc_stat.hpp"
 #include <QtGui/QApplication>
 #include <QMessageBox>
 #include <string>

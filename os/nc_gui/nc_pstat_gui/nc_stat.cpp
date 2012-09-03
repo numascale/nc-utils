@@ -1,4 +1,4 @@
-#include "nc-stat.hpp"
+#include "nc_stat.hpp"
 #include <qwt_scale_engine.h>
 #include <iostream>
 
