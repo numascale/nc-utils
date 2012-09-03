@@ -13,8 +13,8 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        nc-stat.cpp
+        nc_stat.cpp
 
-HEADERS  += nc-stat.hpp
+HEADERS  += nc_stat.hpp
 
-FORMS    += nc-stat.ui
+FORMS    += nc_stat.ui
