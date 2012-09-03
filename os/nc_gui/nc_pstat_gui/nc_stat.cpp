@@ -1,4 +1,4 @@
-#include "nc-stat.hpp"
+#include "nc_stat.hpp"
 #include <qwt_scale_engine.h>
 #include <iostream>
 
@@ -903,7 +903,7 @@ void NumaChipStats::showConnectionStatus() {
             title = QString("not connected to ") + QString(cacheAddr.c_str());
         }
     } else {
-        title = QString("Wrong params: nc-pstat_gui.exe [-cache <ipaddr>:<portno>] | [-simulate <number of nodes>]");
+        title = QString("Wrong params: nc_pstat_gui.exe [-cache <ipaddr>:<portno>] | [-simulate <number of nodes>]");
     }
 
 
