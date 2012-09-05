@@ -377,7 +377,7 @@ void numachip_clear_pcounter(struct numachip_context *cntxt,
     current_counter_val=current_counter_val & (~(0x7 << (counterno*4)));
     DEBUG_STATEMENT(printf("New Current counter value to be cleared 0x%x\n",current_counter_val));
     numachip_write_csr(cntxt,H2S_CSR_G3_SELECT_COUNTER,current_counter_val);
-    /* We need to clear the corresponing comare and mask register we are planning to use:
+    /* We need to clear the corresponing compare and mask register we are planning to use:
      * H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 (0xFA0 + 0x4*counterno)
      */
     mask_register=H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + (0x4*counterno);
