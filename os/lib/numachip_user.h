@@ -33,6 +33,16 @@ BEGIN_C_DECLS
 
 #define NUMACHIP_CSR_BASE 0x3fff00000000ULL;
 
+/*
+ * Error codes are defined here.
+ * - NUMACHIP_ERR_BUSY:
+ * The performance counter has been selected by someone else.
+ * The performance counter has non-zero value.
+ * To solve: Clear the performance counter to claim ownership
+ *
+ * - NUMACHIP_ERR_INVALID_PARAMETER
+ * An invalid performance counter has been selected.
+ */
 typedef enum {
     NUMACHIP_ERR_OK                         = 0x000,
     NUMACHIP_ERR_INVALID_PARAMETER          = 0x001,
@@ -118,44 +128,129 @@ void numachip_write_config(struct numachip_context *context,
 			   uint8_t fn, uint16_t offset, uint32_t value);
 
 /**
- * numachip_select_counter - Select Performance Counter
+ * numachip_clear_pcounter
+ * Clear the counter selection register
+ * (H2S_CSR_G3_SELECT_COUNTER),
+ * mask-register
+ * ( H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_X)
+ * and the corresponding performance register
+ * (H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_UPPER_BITS
+ * and
+ * (H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_LOWER_BITS)
+ * for this performance counter.
  */
 
 void numachip_clear_pcounter(struct numachip_context *cntxt,
 			     uint32_t counterno,
 			     nc_error_t *error);
 
+/**
+ * numachip_restart_pcounter
+ * Clear only the performance register for this counter:
+ * H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_UPPER_BITS
+ * and
+ * H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_LOWER_BITS
+ */
 void numachip_restart_pcounter(struct numachip_context *cntxt,
 			     uint32_t counterno,
 			     nc_error_t *error);
 
+
+/**
+ * numachip_mask_pcounter
+ * Write to the counter mask register
+ * H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_X
+ *
+ */
 void numachip_mask_pcounter(struct numachip_context *cntxt,
 			    uint32_t counterno,
 			    uint32_t mask,
 			    nc_error_t *error);
+
+/**
+ * numachip_stop_pcounter
+ * Clear both the mask register
+ * H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_X
+ * and the corresponding performance register
+ * for this counter:
+ * H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_UPPER_BITS
+ * and
+ * H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_LOWER_BITS
+ */
 void numachip_stop_pcounter(struct numachip_context *cntxt,
 			    uint32_t counterno,
 			    nc_error_t *error);
+
+/**
+ * numachip_get_pcounter_mask
+ * Read the mask from the counter mask register
+ * H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_X
+ *
+ */
 uint32_t numachip_get_pcounter_mask(struct numachip_context *cntxt,
 					uint32_t counterno,
 					nc_error_t *error) ;
+
+/**
+ * numachip_get_pcounter - Read Performance Counter Register
+ * H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_UPPER_BITS
+ * and
+ * H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_LOWER_BITS
+ */
 uint64_t numachip_get_pcounter(struct numachip_context *cntxt,
 					 uint32_t counterno,
 					 nc_error_t *error);
+
+/**
+ * numachip_get_pcounter
+ * Reads the counter selection register
+ * H2S_CSR_G3_SELECT_COUNTER
+ * for this counter.
+ */
 uint32_t numachip_get_pcounter_select(struct numachip_context *cntxt,
 					  uint32_t counterno,
 					  nc_error_t *error);
+
+/**
+ * numachip_select_pcounter
+ * Write the  the counter selection register
+ * H2S_CSR_G3_SELECT_COUNTER
+ * for this counter to select the source.
+ *
+ * There are eight different sources to choose from:
+ * Select = 0, REM/SPrb
+ * Select = 1, REM/HReq
+ * Select = 2, LOC/SReq
+ * Select = 3, LOC/HPrb
+ * Select = 4, CData
+ * Select = 5, FTag
+ * Select = 6, MCTag
+ * Select = 7, cHT-Cave
+ */
 void numachip_select_pcounter(struct numachip_context *cntxt,
 			      uint32_t counterno,
 			      uint32_t eventreg,
 			      nc_error_t *error);
 
+/**
+ * numachip_fullstart_pcounter
+ *
+ * In this order do all these operations:
+ * - numachip_clear_pcounter
+ * - numachip_select_pcounter
+ * - numachip_mask_pcounter
+ *
+ */
 void numachip_fullstart_pcounter(struct numachip_context *cntxt,
 				 uint32_t counterno,
 				 uint32_t event,
 				 uint32_t mask,
 				 nc_error_t *error);
 
+/**
+ * For an array of numachips do
+ * numachip_fullstart_pcounter
+ */
 void numachip_all_start_pcounter(struct numachip_context **cntxt,
 				 uint32_t num_nodes,
 				 uint32_t counterno,
