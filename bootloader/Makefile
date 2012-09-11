@@ -8,7 +8,7 @@ GITLOG    := $(shell ./gen-gitlog.sh auto-dnc-gitlog.c gitlog_dnc_bootloader)
 syslinux_version := 4.05
 syslinux_dir     := syslinux-$(syslinux_version)
 
-mjson_version    := 1.4
+mjson_version    := 1.5
 mjson_dir        := json-$(mjson_version)
 
 COM32DEPS := $(syslinux_dir)/com32/libutil/libutil_com.a $(syslinux_dir)/com32/lib/libcom32.a
