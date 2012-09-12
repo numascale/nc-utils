@@ -362,9 +362,9 @@ EXPORT(new_osvw_id_len_msr)
 	.long 0, 0
 EXPORT(new_osvw_status_msr)
 	.long 0, 0
-EXPORT(new_hwcr_msr);
+EXPORT(new_hwcr_msr)
 	.long 0, 0
-EXPORT(new_int_halt_msr);
+EXPORT(new_int_halt_msr)
 	.long 0, 0
 
 cpu_mtrr:
