@@ -50,6 +50,7 @@ int disable_smm = 0;
 int disable_c1e = 0;
 int renumber_bsp = 0;
 int remote_io = 0;
+bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 static int singleton = 0;
 static int ht_200mhz_only = 0;
@@ -1778,6 +1779,7 @@ static int parse_cmdline(const char *cmdline)
         {"trace-buf",       &parse_uint64_t,    &trace_buf_size},
         {"verbose",         &parse_int,    &verbose},
         {"remote-io",       &parse_int,    &remote_io},
+        {"boot-wait",       &parse_int,    &boot_wait},
         {"print-git-log",   &print_git_log, NULL},
     };
     char arg[256];

@@ -2386,6 +2386,10 @@ static void start_user_os(void)
     rm.ebx.w[0] = OFFS(__com32.cs_bounce);
     rm.es = SEG(__com32.cs_bounce);
     printf("Unification succeeded; loading %s...\n", next_label);
+
+    if (boot_wait)
+	wait_key();
+
     __intcall(0x22, &rm, NULL);
 }
 

@@ -19,6 +19,7 @@
 #define __DNC_COMMONLIB_H 1
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "dnc-config.h"
 
@@ -135,6 +136,7 @@ extern int nc_neigh, nc_neigh_link;
 extern int pf_probefilter;
 extern int forwarding_mode;
 extern int remote_io;
+extern bool boot_wait;
 extern int family;
 extern uint32_t tsc_mhz;
 
