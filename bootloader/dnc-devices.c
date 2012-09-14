@@ -29,9 +29,9 @@ static void pci_search(const struct devspec *list)
     uint32_t val;
     const struct devspec *listp;
 
-    for (bus = 0; bus < 0x100; bus++)
-	for (dev = 0; dev < 0x100; dev++)
-	    for (fn = 0; fn < 0x10; fn++) {
+    for (bus = 0; bus < 256; bus++)
+	for (dev = 0; dev < 32; dev++)
+	    for (fn = 0; fn < 8; fn++) {
 		val = dnc_read_conf(0xfff0, bus, dev, fn, 8);
 		/* PCI device functions are contiguous, so move to next device on first Master Abort */
 		if (val == 0xffffffff)
@@ -87,9 +87,9 @@ void disable_dma_all(void)
 {
     int bus, dev, fn;
 
-    for (bus = 0; bus < 0x100; bus++)
-	for (dev = 0; dev < 0x100; dev++)
-	    for (fn = 0; fn < 0x10; fn++) {
+    for (bus = 0; bus < 256; bus++)
+	for (dev = 0; dev < 32; dev++)
+	    for (fn = 0; fn < 8; fn++) {
 		uint32_t pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
 		/* PCI device functions are contiguous, so move to next device on first Master Abort */
 		if (pci_cmd == 0xffffffff)
