@@ -279,11 +279,9 @@ static void stop_ahci(int bus, int dev, int fn)
     printf("legacy handoff timed out\n");
 }
 
-extern void system_activity(void);
-
 static void stop_acpi(void)
 {
-    printf("AHCI handoff: ");
+    printf("ACPI handoff: ");
 
     acpi_sdt_p fadt = find_sdt("FACP");
     if (!fadt) {
