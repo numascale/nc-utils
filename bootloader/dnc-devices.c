@@ -33,9 +33,9 @@ static void pci_search(const struct devspec *list)
 	for (dev = 0; dev < 32; dev++)
 	    for (fn = 0; fn < 8; fn++) {
 		val = dnc_read_conf(0xfff0, bus, dev, fn, 8);
-		/* PCI device functions are contiguous, so move to next device on first Master Abort */
+		/* PCI device functions are not necessarily contiguous */
 		if (val == 0xffffffff)
-		    break;
+		    continue;
 
 		for (listp = list; listp->class; listp++)
 		    if ((val >> ((4 - listp->classlen) * 8)) == listp->class)
@@ -91,9 +91,9 @@ void disable_dma_all(void)
 	for (dev = 0; dev < 32; dev++)
 	    for (fn = 0; fn < 8; fn++) {
 		uint32_t pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
-		/* PCI device functions are contiguous, so move to next device on first Master Abort */
+		/* PCI device functions are not necessarily contiguous */
 		if (pci_cmd == 0xffffffff)
-		    break;
+		    continue;
 
 		if (!(pci_cmd & (1 << 2)))
 		    continue;
