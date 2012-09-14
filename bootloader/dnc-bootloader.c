@@ -2501,6 +2501,8 @@ static void constants(void)
 
 static void selftest_late(void)
 {
+    /* Test disabled due to remote PCI access hanging */
+#ifdef BROKEN
     int node, ht;
 
     for (node = 0; node < dnc_node_count; node++) {
@@ -2512,6 +2514,7 @@ static void selftest_late(void)
 	    printf("SCI%03x PCI 1:0.0 ven/dev ID 0x%08x\n", sci, dnc_read_conf(sci, 1, 0, 0, 0));
 	}
     }
+#endif
 }
 
 static int nc_start(void)
