@@ -144,8 +144,6 @@ void watchdog_setup(void)
 
     /* Write watchdog base address */
     pmio_writel(0x6c, (unsigned int)watchdog_ctl);
-
-    printf("watchdog enabled\n");
 }
 
 void reset_cf9(int mode, int last)
