@@ -66,6 +66,7 @@ void disable_vga(void)
     const struct devspec devices[] = {
 	{PCI_CLASS_DISPLAY_VGA, 3, disable_dma},
 	{PCI_CLASS_DISPLAY_CONTROLLER, 3, disable_dma},
+	{0, 0, 0},
     };
 
     pci_search(devices);
@@ -76,6 +77,7 @@ void enable_vga(void)
     const struct devspec devices[] = {
 	{PCI_CLASS_DISPLAY_VGA, 3, enable_dma},
 	{PCI_CLASS_DISPLAY_CONTROLLER, 3, enable_dma},
+	{0, 0, 0},
     };
 
     pci_search(devices);
@@ -327,6 +329,7 @@ void handover_legacy(void)
 	{PCI_CLASS_SERIAL_USB_XHCI, 3, stop_xhci},
 	{PCI_CLASS_STORAGE_SATA, 2, stop_ahci},
 	{PCI_CLASS_STORAGE_RAID, 2, stop_ahci},
+	{0, 0, 0}
     };
 
     pci_search(devices);
