@@ -897,6 +897,9 @@ static void disable_smm_handler(uint64_t smm_base)
     int i;
     uint8_t *cur;
 
+    if (verbose)
+	printf("SMM base is 0x%" PRIx64 "\n", smm_base);
+
     if (!disable_smm)
 	return;
 
@@ -905,7 +908,7 @@ static void disable_smm_handler(uint64_t smm_base)
     else
 	return;
 
-    printf("Disabling SMM handler at %llx...\n", smm_base);
+    printf("Disabling SMM handler...\n");
     smm_addr = 0x200000000000ULL | smm_base;
 
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
