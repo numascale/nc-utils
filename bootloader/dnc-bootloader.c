@@ -1366,25 +1366,41 @@ static void setup_remote_cores(uint16_t num)
 	}
     }
 
+    printf("SCI%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
     dnc_write_csr(node, H2S_CSR_G3_PCI_SEG0, nc_node[0].sci_id << 16);
+    printf("SCI%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
 
-    /* Direct I/O access to NumaChip */
+    /* Quick and dirty: zero out I/O and config space maps; add
+     * all-covering map towards DNC */
+    /* Note that rewriting F1xE0 prevents remote PCI config access hitting the remote
+       bus and it is decoded locally */
     for (i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
-
+        for (j = 0xc0; j < 0xf0; j += 4) {
+            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, j, 0);
+        }
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xc4, 0x00fff000 | ht_id);
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xc0, 0x00000003);
-
-	for (j = 0xc8; j < 0xe0; j += 4)
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, j, 0);
+        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xe0, 0xff000003 | (ht_id << 4));
     }
 
     /* Set DRAM range on local NumaChip */
     dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->addr_base >> 6);
     dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT, (cur_node->addr_end >> 6) - 1);
+    printf("SCI%03x/NGCM0: %x\n", node, dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT));
+    printf("SCI%03x/NGCM1: %x\n", node, dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT));
+
     dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->addr_base);
     dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->addr_end);
+
+    /* Redo the Global CSR and MMCFG maps here just in case master and slave are out of sync */
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
+        add_extd_mmio_maps(node, i, 0, DNC_CSR_BASE, DNC_CSR_LIM, ht_id);
+        add_extd_mmio_maps(node, i, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, ht_id);
+    }
 
     /* "Wraparound" entry, lets APIC 0xff00 - 0xffff target 0x0 to 0xff on destination node */
     dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x0000002f);
@@ -2338,7 +2354,8 @@ static int unify_all_nodes(void)
 
     setup_apic_atts();
 
-    dnc_wrmsr(MSR_MCFG_BASE, DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL);
+    *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL;
+    dnc_wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
 
     /* Make chipset-specific adjustments */
     global_chipset_fixup();
