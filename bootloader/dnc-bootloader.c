@@ -1104,7 +1104,7 @@ static void renumber_remote_bsp(uint16_t num)
     dnc_write_conf(node, 0, 24+0, FUNC0_HT, 0x60,
 		   (val & ~0xff0f) | (maxnode << 12) | (maxnode << 8) | maxnode);
     val = dnc_read_conf(node, 0, 24+maxnode, FUNC0_HT, 0x60);
-    printf("F0x60 value 0x%08x (BSP) on SCI%03x#%x...\n", maxnode, val, node);
+    printf("F0x60 value 0x%08x (BSP) on SCI%03x#%x...\n", val, node, maxnode);
 
     for (i = 1; i <= maxnode; i++) {
 	/* Update LkNode, SbNode */
