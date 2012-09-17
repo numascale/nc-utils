@@ -41,6 +41,7 @@
 	wait_key();							\
    } while (0)
 
+#ifdef __i386__
 #define disable_cache() do { \
     asm volatile( \
 	"mov %%cr0, %%eax\n" \
@@ -55,6 +56,7 @@
 	"and $~0x40000000, %%eax\n" \
 	"mov %%eax, %%cr0\n" ::: "eax", "memory"); \
 	} while (0)
+#endif
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -135,6 +137,7 @@ extern int verbose;
 extern int nc_neigh, nc_neigh_link;
 extern int pf_probefilter;
 extern int forwarding_mode;
+extern int force_probefilteroff;
 extern int remote_io;
 extern bool boot_wait;
 extern int family;

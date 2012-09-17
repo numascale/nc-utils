@@ -2609,7 +2609,8 @@ static int nc_start(void)
 	if (i < 0)
 	    return ERR_UNIFY_ALL_NODES;
 
-	if (pf_probefilter)
+	/* Only enable if also not disabled */
+	if (pf_probefilter && !force_probefilteroff)
 	    enable_probefilter();
 
 	(void)dnc_check_mctr_status(0);
