@@ -40,7 +40,7 @@ int sync_mode = 1;
 static int init_only = 0;
 static int route_only = 0;
 static int enable_nbmce = -1;
-static int enable_nbwdt = -1;
+static int enable_nbwdt = 0;
 static int disable_sram = 0;
 int enable_vga_redir = 0;
 static int enable_selftest = 1;
@@ -1758,8 +1758,8 @@ static int parse_cmdline(const char *cmdline)
         {"init-only",	    &parse_int,    &init_only},       /* Only initialize chip, but then load <nest-label> without setting up a full system */
         {"route-only",	    &parse_int,    &route_only},
         {"disable-nc",	    &parse_int,    &disable_nc},      /* Disable the HT link to NumaChip */
-        {"enablenbmce",	    &parse_int,    &enable_nbmce},    /* Enable northbridge MCE (will be disabled by default) */
-        {"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enbale northbridge WDT (will be disabled by default) */
+        {"enablenbmce",	    &parse_int,    &enable_nbmce},    /* Enable northbridge MCE */
+        {"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enbale northbridge WDT */
         {"disable-sram",    &parse_int,    &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
         {"enable-vga",	    &parse_int,    &enable_vga_redir},/* Enable redirect of VGA to master, known issue with this on HP DL165 (default disable) */
         {"self-test",       &parse_int,    &enable_selftest},
