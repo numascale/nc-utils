@@ -93,6 +93,8 @@ IMPORT_RELOCATED(new_osvw_id_len_msr);
 IMPORT_RELOCATED(new_osvw_status_msr);
 IMPORT_RELOCATED(new_hwcr_msr);
 IMPORT_RELOCATED(new_int_halt_msr);
+IMPORT_RELOCATED(new_lscfg_msr);
+IMPORT_RELOCATED(new_cucfg2_msr);
 
 extern uint8_t smm_handler_start;
 extern uint8_t smm_handler_end;
@@ -961,38 +963,41 @@ static void setup_other_cores(void)
     uint32_t ht, apicid, oldid, i, j;
     volatile uint32_t *icr;
     volatile uint32_t *apic;
-    uint64_t val;
+    uint32_t val;
+    uint64_t msr;
 
     /* Set H2S_Init */
     printf("Setting SCI%03x H2S_Init...\n", node);
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
     dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1<<12));
 
-    val = dnc_rdmsr(MSR_APIC_BAR);
-    printf("MSR APIC_BAR: %012llx\n", val);
-    apic = (void *)((uint32_t)val & ~0xfff);
+    msr = dnc_rdmsr(MSR_APIC_BAR);
+    printf("MSR APIC_BAR: %012llx\n", msr);
+    apic = (void *)((uint32_t)msr & ~0xfff);
     icr = &apic[0x300/4];
 
     printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
            (uint32_t)apic, apic[0x20/4], (uint32_t)icr, *icr);
 
-    /* ERRATA #N28: Disable HT Lock mechanism. 
+    /* ERRATA #N28: Disable HT Lock mechanism on Fam10h
      * AMD Email dated 31.05.2011 :
      * There is a switch that can help with these high contention issues,
      * but it isn't "productized" due to a very rare potential for live lock if turned on.
      * Given that HUGE caveat, here is the information that I got from a good source:
      * LSCFG[44] =1 will disable it. MSR number is C001_1020 */
-    val = dnc_rdmsr(MSR_LSCFG);
-    val = val | (1ULL << 44);
-    dnc_wrmsr(MSR_LSCFG, val);
+    msr = dnc_rdmsr(MSR_LSCFG);
+    if (family == 0x10)
+	msr = msr | (1ULL << 44);
+    dnc_wrmsr(MSR_LSCFG, msr);
+    *REL64(new_lscfg_msr) = msr;
 
     /* AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
-     * Suggested Workaround
-     * BIOS should set MSRC001_102A[27] = 1b
-     * We do this unconditionally (ie on fam10h as well) */
-    val = dnc_rdmsr(MSR_CU_CFG2);
-    val = val | (1ULL << 27);
-    dnc_wrmsr(MSR_CU_CFG2, val);
+     * Suggested Workaround: BIOS should set MSRC001_102A[27] = 1b */
+    msr = dnc_rdmsr(MSR_CU_CFG2);
+    if (family >= 0x15)
+	msr = msr | (1ULL << 27);
+    dnc_wrmsr(MSR_CU_CFG2, msr);
+    *REL64(new_cucfg2_msr) = msr;
    
     critical_enter();
 
@@ -1048,8 +1053,8 @@ static void setup_other_cores(void)
 		if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
 		    printf("Adjusted topmem from 0x%llx to 0x%llx\n",
 			   *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
-		val = *REL64(rem_smm_base_msr);
-		disable_smm_handler(val);
+		msr = *REL64(rem_smm_base_msr);
+		disable_smm_handler(msr);
 	    }
 	    else {
 		printf("did not toggle init flag (status %08x)\n", *REL32(cpu_status));

@@ -164,6 +164,18 @@ init_trampoline:
 	mov	$MSR_HWCR, %ecx
 	wrmsr
 
+        /* Set LSCFG MSR */
+	mov	%cs:SYM_OFFSET(new_lscfg_msr), %eax
+	mov	%cs:SYM_OFFSET(new_lscfg_msr+4), %edx
+	mov	$MSR_LSCFG, %ecx
+	wrmsr
+
+        /* SET CUCFG2 MSR */
+	mov	%cs:SYM_OFFSET(new_cucfg2_msr), %eax
+	mov	%cs:SYM_OFFSET(new_cucfg2_msr+4), %edx
+	mov	$MSR_CU_CFG2, %ecx
+	wrmsr
+
 	mov	$SYM_OFFSET(cpu_cr), %si
 	call	print_strz
 
@@ -226,26 +238,6 @@ init_trampoline:
 	mov	$MSR_MCFG_BASE, %ecx
 	mov	%cs:SYM_OFFSET(new_mcfg_msr), %eax
 	mov	%cs:SYM_OFFSET(new_mcfg_msr+4), %edx
-	wrmsr
-
-	/* ERRATA #N28: Disable HT Lock mechanism. 
-	   AMD Email dated 31.05.2011 :
-	   There is a switch that can help with these high contention issues,
-	   but it isn't "productized" due to a very rare potential for live lock if turned on.
-	   Given that HUGE caveat, here is the information that I got from a good source:
-	   LSCFG[44] =1 will disable it. MSR number is C001_1020. */
-	mov	$MSR_LSCFG, %ecx
-	rdmsr
-	or	$0x1000, %edx
-	wrmsr
-
-	/* AMD Fam 15h Errate #572: Access to PCI Extended Configuration Space in SMM is Blocked
-	   Suggested Workaround
-	   BIOS should set MSRC001_102A[27] = 1b.
-	   We do this unconditionally (ie on fam10h as well). */
-	mov	$MSR_CU_CFG2, %ecx
-	rdmsr
-	or	$0x8000000, %eax
 	wrmsr
 
 	mov	$MSR_SMM_BASE, %ecx
@@ -365,6 +357,10 @@ EXPORT(new_osvw_status_msr)
 EXPORT(new_hwcr_msr)
 	.long 0, 0
 EXPORT(new_int_halt_msr)
+	.long 0, 0
+EXPORT(new_lscfg_msr)
+	.long 0, 0
+EXPORT(new_cucfg2_msr)
 	.long 0, 0
 
 cpu_mtrr:
