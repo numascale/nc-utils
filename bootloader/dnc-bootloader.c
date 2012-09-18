@@ -307,6 +307,8 @@ static void update_e820_map(void)
     if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size)) {
 	e820[max].length -= trace_buf_size;
 	trace_buf = e820[max].base + e820[max].length;
+	printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
+	    nc_node[0].sci_id, 0, trace_buf, trace_buf + trace_buf_size);
     }
 
     /* Add remote nodes */
@@ -325,8 +327,11 @@ static void update_e820_map(void)
 		    e820[*len].length = MIN_NODE_MEM;
 	    }
 	    else {
-		if ((trace_buf_size > 0) && (e820[*len].length > trace_buf_size))
+		if ((trace_buf_size > 0) && (e820[*len].length > trace_buf_size)) {
 		    e820[*len].length -= trace_buf_size;
+		    printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
+			nc_node[i].sci_id, j, e820[*len].base + e820[*len].length, e820[*len].base + e820[*len].length + trace_buf_size);
+		}
 	    }
 	    prev_end = e820[*len].base + e820[*len].length;
             (*len)++;
@@ -2496,7 +2501,8 @@ static void constants(void)
 	tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
     }
 
-    printf("NB/TSC freqency is %dMHz\n", tsc_mhz);
+    if (verbose)
+	printf("NB/TSC frequency is %dMHz\n", tsc_mhz);
 }
 
 static void selftest_late(void)
