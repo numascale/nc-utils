@@ -308,7 +308,7 @@ static void update_e820_map(void)
 	e820[max].length -= trace_buf_size;
 	trace_buf = e820[max].base + e820[max].length;
 	printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
-	    nc_node[0].sci_id, 0, trace_buf, trace_buf + trace_buf_size);
+	    nc_node[0].sci_id, 0, trace_buf, trace_buf + trace_buf_size - (1 << 24));
     }
 
     /* Add remote nodes */
@@ -330,7 +330,7 @@ static void update_e820_map(void)
 		if ((trace_buf_size > 0) && (e820[*len].length > trace_buf_size)) {
 		    e820[*len].length -= trace_buf_size;
 		    printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
-			nc_node[i].sci_id, j, e820[*len].base + e820[*len].length, e820[*len].base + e820[*len].length + trace_buf_size);
+			nc_node[i].sci_id, j, e820[*len].base + e820[*len].length, e820[*len].base + e820[*len].length + trace_buf_size - (1 << 24));
 		}
 	    }
 	    prev_end = e820[*len].base + e820[*len].length;
