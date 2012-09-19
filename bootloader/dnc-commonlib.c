@@ -1370,8 +1370,10 @@ static int adjust_oscillator(char *type, u8 osc_setting)
     if ((strncmp("313001", type, 6) == 0) ||
 	(strncmp("N313001", type, 7) == 0) ||
 	(strncmp("N313002", type, 7) == 0) ||
+	(strncmp("N313025", type, 7) == 0) ||
 	(strncmp("N323011", type, 7) == 0) ||
-	(strncmp("N323023", type, 7) == 0))
+	(strncmp("N323023", type, 7) == 0) ||
+	(strncmp("N323024", type, 7) == 0))
     {
         if (osc_setting > 2) {
             printf("Invalid Oscillator setting %d read from EEPROM; skipping\n", osc_setting);
