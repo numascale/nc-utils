@@ -2089,7 +2089,7 @@ static void local_chipset_fixup(void)
 
     printf("Scanning for known chipsets, local pass...\n");
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
-    if (val == 0x43851002) {
+    if (val == VENDEV_SP5100) {
 	printf("Adjusting local configuration of AMD SP5100...\n");
 	/* Disable config-space triggered SMI */
 	val = pmio_readb(0xa8);
@@ -2149,19 +2149,19 @@ static void global_chipset_fixup(void)
     for (i = 0; i < dnc_node_count; i++) {
 	node = nc_node[i].sci_id;
 	val = dnc_read_conf(node, 0, 0, 0, 0);
-	if ((val == 0x5a101002) || (val == 0x5a121002) || (val == 0x5a131002)) {
+	if ((val == VENDEV_SR5690) || (val == VENDEV_SR5670) || (val == VENDEV_SR5650)) {
 	    printf("Adjusting configuration of AMD SR56x0 on SCI%03x...\n",
 		   node);
-	    /* NBHTIU_INDEX is 0x94
-	     * Set TOM2; HTIU 0x30/0x31 are TOM2 lo/hi */
-	    dnc_write_conf(node, 0, 0, 0, 0x94, 0x30|0x100);
-	    dnc_write_conf(node, 0, 0, 0, 0x98, 
-			   ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
-	    dnc_write_conf(node, 0, 0, 0, 0x94, 0x31|0x100);
-	    dnc_write_conf(node, 0, 0, 0, 0x98,
-			   dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
+	    ioh_ind_write(node, SR56X0_HTIU_TOM2LO, ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
+	    ioh_ind_write(node, SR56X0_HTIU_TOM2HI, dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
+	    ioh_ind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) & 0x3fffffff) | (1 << 31));
+
+	    /* 0xf8/fc IOAPIC config space access
+	     * write 0 to register 0 to disable IOAPIC */
+	    dnc_write_conf(node, 0, 0, 2, 0xf8, 0);
+	    dnc_write_conf(node, 0, 0, 2, 0xfc, 0);
 	}
-	if ((val == 0x036910de)) {
+	if ((val == VENDEV_MCP55)) {
             uint32_t val = dnc_read_conf(node, 0, 0, 0, 0x90);
 	    printf("Adjusting configuration of nVidia MCP55 on SCI%03x...\n",
 		   node);
