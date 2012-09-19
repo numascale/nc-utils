@@ -1,4 +1,4 @@
-static u32 numachip_mseq_ucode[] = {0x55F320,
+static uint32_t numachip_mseq_ucode[] = {0x55F320,
     0x51F220,
     0x14001A,
     0x51F02C,

@@ -18,7 +18,9 @@
 #ifndef __DNC_COMMONLIB_H
 #define __DNC_COMMONLIB_H 1
 
-#include "dnc-types.h"
+#include <inttypes.h>
+#include <stdbool.h>
+
 #include "dnc-config.h"
 
 #define assert(cond) do { if (!(cond)) {				\
@@ -39,19 +41,22 @@
 	wait_key();							\
    } while (0)
 
+#ifdef __i386__
 #define disable_cache() do { \
-    asm volatile("wbinvd\n" \
+    asm volatile( \
 	"mov %%cr0, %%eax\n" \
 	"or $0x40000000, %%eax\n" \
-	"mov %%eax, %%cr0\n" ::: "eax", "memory"); \
+	"mov %%eax, %%cr0\n" \
+	"wbinvd\n" ::: "eax", "memory"); \
 	} while (0)
 
 #define enable_cache() do { \
-    asm volatile("wbinvd\n" \
+    asm volatile( \
 	"mov %%cr0, %%eax\n" \
 	"and $~0x40000000, %%eax\n" \
 	"mov %%eax, %%cr0\n" ::: "eax", "memory"); \
 	} while (0)
+#endif
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -88,32 +93,35 @@ enum node_state { NODE_SYNC_STATES(ENUM_DEF) };
 
 struct state_bcast {
     enum node_state state;
-    u32 uuid;
-    u32 sciid;
-    u32 tid;
+    uint32_t uuid;
+    uint32_t sciid;
+    uint32_t tid;
 };
 
+const char *pr_size(uint64_t val);
+void udelay(uint32_t usecs);
 void wait_key(void);
-int cpu_family(u16 scinode, u8 node);
-void add_extd_mmio_maps(u16 scinode, u8 node, u8 idx, u64 start, u64 end, u8 dest);
-void del_extd_mmio_maps(u16 scinode, u8 node, u8 idx);
+int cpu_family(uint16_t scinode, uint8_t node);
+void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t start, uint64_t end, uint8_t dest);
+void del_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx);
 void detect_southbridge(void);
 void disable_smi(void);
 void enable_smi(void);
 void critical_enter(void);
 void critical_leave(void);
-int dnc_init_bootloader(u32 *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline);
+int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline);
 int dnc_setup_fabric(struct node_info *info);
 int dnc_check_fabric(struct node_info *info);
-u32 dnc_check_mctr_status(int cdata);
+uint32_t dnc_check_mctr_status(int cdata);
 int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
 		   struct node_info *info, struct part_info *part);
 void wait_for_master(struct node_info *info, struct part_info *part);
+void enable_probefilter(void);
 
 extern int dnc_asic_mode;
 extern int dnc_chip_rev;
-extern u32 max_mem_per_node;
+extern uint32_t max_mem_per_node;
 
 extern char *next_label;
 extern int sync_mode;
@@ -123,13 +131,17 @@ extern int disable_smm;
 extern int disable_c1e;
 extern int renumber_bsp;
 extern int mem_offline;
-extern u64 trace_buf;
-extern u32 trace_buf_size;
+extern uint64_t trace_buf;
+extern uint32_t trace_buf_size;
 extern int verbose;
 extern int nc_neigh, nc_neigh_link;
+extern int pf_probefilter;
 extern int forwarding_mode;
+extern int force_probefilteroff;
 extern int remote_io;
+extern bool boot_wait;
 extern int family;
+extern uint32_t tsc_mhz;
 
 extern const char* node_state_name[];
 

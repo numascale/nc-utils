@@ -42,24 +42,24 @@ int lirq_nest = 0;
 //#define DEBUG(...) printf(__VA_ARGS__)
 #define DEBUG(...) do { } while (0)
 
-#define WATCHDOG_BASE (u32 *)0xfec000f0 /* AMD recommended */
+#define WATCHDOG_BASE (uint32_t *)0xfec000f0 /* AMD recommended */
 
-static volatile u32 *watchdog_ctl = WATCHDOG_BASE;
-static volatile u32 *watchdog_timer = WATCHDOG_BASE + 1;
+static volatile uint32_t *watchdog_ctl = WATCHDOG_BASE;
+static volatile uint32_t *watchdog_timer = WATCHDOG_BASE + 1;
 
 int ht_testmode;
 int cht_config_use_extd_addressing = 0;
 
-u64 dnc_csr_base = DEF_DNC_CSR_BASE;
-u64 dnc_csr_lim = DEF_DNC_CSR_LIM;
+uint64_t dnc_csr_base = DEF_DNC_CSR_BASE;
+uint64_t dnc_csr_lim = DEF_DNC_CSR_LIM;
 
-void pmio_writeb(u16 offset, u8 val)
+void pmio_writeb(uint16_t offset, uint8_t val)
 {
     /* Write offset and value in single 16-bit write */
     outw(offset | val << 8, PMIO_PORT);
 }
 
-void pmio_writel(u16 offset, u32 val)
+void pmio_writel(uint16_t offset, uint32_t val)
 {
     unsigned int i;
 
@@ -67,16 +67,16 @@ void pmio_writel(u16 offset, u32 val)
 	pmio_writeb(offset + i, val >> (i * 8));
 }
 
-u8 pmio_readb(u16 offset)
+uint8_t pmio_readb(uint16_t offset)
 {
     outb(offset, PMIO_PORT /* PMIO index */);
     return inb(PMIO_PORT + 1 /* PMIO data */);
 }
 
-u16 pmio_reads(u16 offset)
+uint16_t pmio_reads(uint16_t offset)
 {
     unsigned int i;
-    u16 val = 0;
+    uint16_t val = 0;
 
     for (i = 0; i < sizeof(val); i++)
 	val |= pmio_readb(offset + i) << (i * 8);
@@ -84,10 +84,10 @@ u16 pmio_reads(u16 offset)
     return val;
 }
 
-u32 pmio_readl(u16 offset)
+uint32_t pmio_readl(uint16_t offset)
 {
     unsigned int i;
-    u32 val = 0;
+    uint32_t val = 0;
 
     for (i = 0; i < sizeof(val); i++)
 	val |= pmio_readb(offset + i) << (i * 8);
@@ -95,27 +95,27 @@ u32 pmio_readl(u16 offset)
     return val;
 }
 
-void pmio_setb(u16 offset, u8 mask)
+void pmio_setb(uint16_t offset, uint8_t mask)
 {
-    u8 val = pmio_readb(offset) | mask;
+    uint8_t val = pmio_readb(offset) | mask;
     pmio_writeb(offset, val);
 }
 
-void pmio_clearb(u16 offset, u8 mask)
+void pmio_clearb(uint16_t offset, uint8_t mask)
 {
-    u8 val = pmio_readb(offset) & ~mask;
+    uint8_t val = pmio_readb(offset) & ~mask;
     pmio_writeb(offset, val);
 }
 
-void pmio_setl(u16 offset, u32 mask)
+void pmio_setl(uint16_t offset, uint32_t mask)
 {
-    u32 val = pmio_readl(offset) | mask;
+    uint32_t val = pmio_readl(offset) | mask;
     pmio_writel(offset, val);
 }
 
-void pmio_clearl(u16 offset, u32 mask)
+void pmio_clearl(uint16_t offset, uint32_t mask)
 {
-    u32 val = pmio_readb(offset) & ~mask;
+    uint32_t val = pmio_readb(offset) & ~mask;
     pmio_writel(offset, val);
 }
 
@@ -139,13 +139,11 @@ void watchdog_setup(void)
     pmio_clearb(0x69, 1);
 
     /* Enable watchdog decode */
-    u32 val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
-    dnc_write_conf(0xfff0, 0, 20, NB_FUNC_HT, 0x41, val2 | (1 << 3));
+    uint32_t val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
+    dnc_write_conf(0xfff0, 0, 20, FUNC0_HT, 0x41, val2 | (1 << 3));
 
     /* Write watchdog base address */
     pmio_writel(0x6c, (unsigned int)watchdog_ctl);
-
-    printf("watchdog enabled\n");
 }
 
 void reset_cf9(int mode, int last)
@@ -156,16 +154,16 @@ void reset_cf9(int mode, int last)
     msleep(1000);
 
     for (i = 0; i <= last; i++) {
-	u32 val = cht_read_config(i, NB_FUNC_HT, 0x6c);
-	cht_write_config(i, NB_FUNC_HT, 0x6c, val | 0x20); /* BiosRstDet */
+	uint32_t val = cht_read_conf(i, FUNC0_HT, 0x6c);
+	cht_write_conf(i, FUNC0_HT, 0x6c, val | 0x20); /* BiosRstDet */
     }
     outb(mode, 0xcf9);
     outb(mode | 4, 0xcf9);
 }
 
-static u32 _read_config(u8 bus, u8 dev, u8 func, u16 reg)
+static uint32_t _read_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg)
 {
-    u32 ret;
+    uint32_t ret;
     DEBUG("pci:%02x:%02x.%x %03x -> ",
 	  bus, dev, func, reg);
     cli();
@@ -176,7 +174,7 @@ static u32 _read_config(u8 bus, u8 dev, u8 func, u16 reg)
     return ret;
 }
 
-static void _write_config(u8 bus, u8 dev, u8 func, u16 reg, u32 val)
+static void _write_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg, uint32_t val)
 {
     DEBUG("pci:%02x:%02x.%x %03x <- %08x",
 	  bus, dev, func, reg, val);
@@ -187,9 +185,9 @@ static void _write_config(u8 bus, u8 dev, u8 func, u16 reg, u32 val)
     DEBUG("\n");
 }
 
-u32 cht_read_config(u8 node, u8 func, u16 reg)
+uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg)
 {
-    u32 ret;
+    uint32_t ret;
     DEBUG("HT#%d F%xx%03x -> ",
 	  node, func, reg);
     cli();
@@ -200,7 +198,7 @@ u32 cht_read_config(u8 node, u8 func, u16 reg)
     return ret;
 }
 
-void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
+void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
 {
     DEBUG("HT#%d F%xx%03x <- %08x",
 	  node, func, reg, val);
@@ -214,14 +212,14 @@ void cht_write_config(u8 node, u8 func, u16 reg, u32 val)
 /* Check for link instability */
 static int cht_error(int node, int link)
 {
-    u32 status = cht_read_config(node, NB_FUNC_HT, 0x84 + link * 0x20);
+    uint32_t status = cht_read_conf(node, FUNC0_HT, 0x84 + link * 0x20);
     return status & ((3 << 8) | (1 << 4)); /* CrcErr, LinkFail */
 }
 
-void cht_test(u8 node, int neigh, int neigh_link)
+void cht_test(uint8_t node, int neigh, int neigh_link)
 {
     static int loop = 0, errors = 0;
-    u32 base;
+    uint32_t base;
     int i;
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG) {
@@ -233,10 +231,10 @@ void cht_test(u8 node, int neigh, int neigh_link)
     if (ht_testmode & HT_TESTMODE_LOOP)
 	printf("loop %d ", loop++);
 
-    base = cht_read_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
+    base = cht_read_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
 
     for (i = 0; i < 2000000; i++) {
-	u32 h = i;
+	uint32_t h = i;
 	h ^= h >> 16;
 	h *= 0x85ebca6b;
 	h ^= h >> 13;
@@ -244,13 +242,13 @@ void cht_test(u8 node, int neigh, int neigh_link)
 	h ^= h >> 16;
 	h &= ~0xfc; /* Clear read-only bits */
 
-	cht_write_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, h);
-	if (cht_read_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS) != h)
+	cht_write_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, h);
+	if (cht_read_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS) != h)
 	    errors++;
     }
 
     /* Restore previous value */
-    cht_write_config(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base);
+    cht_write_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base);
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
@@ -264,15 +262,15 @@ void cht_test(u8 node, int neigh, int neigh_link)
     printf("%d errors\n", errors);
 }
 
-u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
+uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg)
 {
-    u32 ret;
+    uint32_t ret;
     int reboot;
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_run(100); /* 1s timeout if read hangs due to unstable link */
 
-    ret = cht_read_config(node, func, reg);
+    ret = cht_read_conf(node, func, reg);
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
@@ -298,12 +296,12 @@ u32 cht_read_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg)
     return ret;
 }
 
-void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u32 val)
+void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg, uint32_t val)
 {
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_run(100); /* 1s timeout if write hangs due to unstable link */
 
-    cht_write_config(node, func, reg, val);
+    cht_write_conf(node, func, reg, val);
 
     if (ht_testmode & HT_TESTMODE_WATCHDOG)
 	watchdog_stop();
@@ -326,9 +324,9 @@ void cht_write_config_nc(u8 node, u8 func, int neigh, int neigh_link, u16 reg, u
                      : "A"(canonicalize(addr)), "c"(MSR_FS_BASE));      \
     } while(0)
 
-u32 mem64_read32(u64 addr)
+uint32_t mem64_read32(uint64_t addr)
 {
-    u32 ret;
+    uint32_t ret;
     cli();
     setup_fs(addr);
     asm volatile("mov %%fs:(0), %%eax" : "=a"(ret));
@@ -336,7 +334,7 @@ u32 mem64_read32(u64 addr)
     return ret;
 }
 
-void mem64_write32(u64 addr, u32 val)
+void mem64_write32(uint64_t addr, uint32_t val)
 {
     cli();
     setup_fs(addr);
@@ -344,9 +342,9 @@ void mem64_write32(u64 addr, u32 val)
     sti();
 }
 
-u16 mem64_read16(u64 addr)
+uint16_t mem64_read16(uint64_t addr)
 {
-    u16 ret;
+    uint16_t ret;
     cli();
     setup_fs(addr);
     asm volatile("movw %%fs:(0), %%ax" : "=a"(ret));
@@ -354,7 +352,7 @@ u16 mem64_read16(u64 addr)
     return ret;
 }
 
-void mem64_write16(u64 addr, u16 val)
+void mem64_write16(uint64_t addr, uint16_t val)
 {
     cli();
     setup_fs(addr);
@@ -362,9 +360,9 @@ void mem64_write16(u64 addr, u16 val)
     sti();
 }
 
-u8 mem64_read8(u64 addr)
+uint8_t mem64_read8(uint64_t addr)
 {
-    u8 ret;
+    uint8_t ret;
     cli();
     setup_fs(addr);
     asm volatile("movb %%fs:(0), %%al" : "=a"(ret));
@@ -372,7 +370,7 @@ u8 mem64_read8(u64 addr)
     return ret;
 }
 
-void mem64_write8(u64 addr, u8 val)
+void mem64_write8(uint64_t addr, uint8_t val)
 {
     cli();
     setup_fs(addr);
@@ -380,24 +378,24 @@ void mem64_write8(u64 addr, u8 val)
     sti();
 }
 
-u32 dnc_read_csr(u32 node, u16 csr)
+uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
 {
-    u32 val;
+    uint32_t val;
     DEBUG("SCI%03x:csr%04x :  ", node, csr);
-    val = u32bswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));
+    val = uint32_tbswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));
     DEBUG("%08x\n", val);
     return val;
 }
 
-void dnc_write_csr(u32 node, u16 csr, u32 val)
+void dnc_write_csr(uint32_t node, uint16_t csr, uint32_t val)
 {
     DEBUG("SCI%03x:csr%04x <- %08x", node, csr, val);
-    mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, u32bswap(val));
+    mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, uint32_tbswap(val));
     DEBUG("\n");
 }
 
 
-u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
+uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr)
 {
     if (csr >= 0x800) {
 	printf("Error: dnc_write_csr_geo read from unsupported range: "
@@ -406,10 +404,10 @@ u32 dnc_read_csr_geo(u32 node, u8 bid, u16 csr)
 	return 0xffffffff;
     }
 
-    return u32bswap(mem64_read32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr));
+    return uint32_tbswap(mem64_read32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr));
 }
 
-void dnc_write_csr_geo(u32 node, u8 bid, u16 csr, u32 val)
+void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val)
 {
     if (csr >= 0x800) {
 	printf("Error: dnc_write_csr_geo write to unsupported range: "
@@ -418,54 +416,54 @@ void dnc_write_csr_geo(u32 node, u8 bid, u16 csr, u32 val)
 	return;
     }
 
-    mem64_write32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr, u32bswap(val));
+    mem64_write32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr, uint32_tbswap(val));
 }
 
 
-u32 dnc_read_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg)
+uint32_t dnc_read_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg)
 {
-    u32 val;
+    uint32_t val;
     if (node == 0xfff0) {
         val = _read_config(bus, device, func, reg);
     } else {
         DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ",
               node, bus, device, func, reg);
-        val = mem64_read32(DNC_MCFG_BASE | ((u64)node << 28) | 
+        val = mem64_read32(DNC_MCFG_BASE | ((uint64_t)node << 28) | 
                            PCI_MMIO_CONF(bus, device, func, reg));
         DEBUG("%08x\n", val);
     }
     return val;
 }
 
-void dnc_write_conf(u16 node, u8 bus, u8 device, u8 func, u16 reg, u32 val)
+void dnc_write_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg, uint32_t val)
 {
     if (node == 0xfff0) {
         _write_config(bus, device, func, reg, val);
     } else {
         DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x",
               node, bus, device, func, reg, val);
-        mem64_write32(DNC_MCFG_BASE | ((u64)node << 28) | 
+        mem64_write32(DNC_MCFG_BASE | ((uint64_t)node << 28) | 
                       PCI_MMIO_CONF(bus, device, func, reg), val);
         DEBUG("\n");
     }
 }
 
-u64 dnc_rdmsr(u32 msr)
+uint64_t dnc_rdmsr(uint32_t msr)
 {
     union {
-        u32 dw[2];
-        u64 qw;
+        uint32_t dw[2];
+        uint64_t qw;
     } val;
     asm volatile("rdmsr" : "=d"(val.dw[1]), "=a"(val.dw[0]) : "c"(msr));
     return val.qw;
 }
 
 
-void dnc_wrmsr(u32 msr, u64 v)
+void dnc_wrmsr(uint32_t msr, uint64_t v)
 {
     union {
-        u32 dw[2];
-        u64 qw;
+        uint32_t dw[2];
+        uint64_t qw;
     } val;
     val.qw = v;
     asm volatile("wrmsr" :: "d"(val.dw[1]), "a"(val.dw[0]), "c"(msr));

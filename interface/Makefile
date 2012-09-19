@@ -18,8 +18,8 @@ numachip-defines.h: numachip-define-generate.h numachip-overrides.def numachip-a
 	cpp -P $< > $@
 
 numachip-mseq-ucode.h: $(UCODEDIR)/mseq.code $(MCODEPARSE)
-	$(MCODEPARSE) "u32 numachip_mseq_ucode[] = " < $< > $@
+	$(MCODEPARSE) "uint32_t numachip_mseq_ucode[] = " < $< > $@
 
 numachip-mseq-table.h: $(UCODEDIR)/mseq.table $(MCODEPARSE)
-	$(MCODEPARSE) "u16 numachip_mseq_table[] = " < $< > $@
+	$(MCODEPARSE) "uint16_t numachip_mseq_table[] = " < $< > $@
 

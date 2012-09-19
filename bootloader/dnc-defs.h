@@ -18,12 +18,12 @@
 #ifndef __DNC_DEFS
 #define __DNC_DEFS 1
 
-#define NB_FUNC_HT    0
-#define NB_FUNC_MAPS  1
-#define NB_FUNC_DRAM  2
-#define NB_FUNC_MISC  3
-#define NB_FUNC_LINK  4
-#define NB_FUNC_EXTD  5
+#define FUNC0_HT    0
+#define FUNC1_MAPS  1
+#define FUNC2_DRAM  2
+#define FUNC3_MISC  3
+#define FUNC4_LINK  4
+#define FUNC5_EXTD  5
 
 #define MSR_APIC_BAR    0x0000001b
 #define MSR_FS_BASE     0xc0000100
@@ -40,6 +40,7 @@
 #define MSR_NODE_ID     0xc001100c
 #define MSR_LSCFG       0xc0011020
 #define MSR_CU_CFG2     0xc001102a
+#define MSR_CU_CFG3	0xc001102b
 
 #define MSR_MTRR_PHYS_BASE0 0x00000200
 #define MSR_MTRR_PHYS_BASE1 0x00000202

@@ -18,20 +18,18 @@
 #ifndef __DNC_FABRIC_H
 #define __DNC_FABRIC_H 1
 
-#include "dnc-types.h"
-
 /* These functions can be used to do remote CSR accesses without the risk of locking the CPU
    typically used when performing fabric requests */
 
-int dnc_raw_read_csr(u32 node, u16 csr, u32 *val);
-int dnc_raw_read_csr_geo(u32 node, u8 bid, u16 csr, u32 *val);
+int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val);
+int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val);
 
 void dnc_reset_phy(int phy);
 void dnc_reset_lc3(int lc);
 int dnc_check_phy(int phy);
 int dnc_check_lc3(int lc);
-int dnc_init_lc3(u16 nodeid, int lc, u16 maxchunk,
-                 u16 rtbll[], u16 rtblm[], u16 rtblh[], u16 ltbl[]);
+int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
+                 uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[]);
 
 static inline const char *_get_linkname(int linkno)
 {

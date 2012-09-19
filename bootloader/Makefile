@@ -2,7 +2,7 @@ IFACEPATH := ../interface
 IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS := $(IFACEPATH)/numachip-mseq-ucode.h $(IFACEPATH)/numachip-mseq-table.h
 CFLAGS    := -I$(IFACEPATH)
-COPT      := -g -Wall -Wextra -Wno-unused-parameter -O2
+COPT      := -g -Wall -Wextra -Wno-unused-parameter -O2 -std=gnu99
 GITLOG    := $(shell ./gen-gitlog.sh auto-dnc-gitlog.c gitlog_dnc_bootloader)
 
 syslinux_version := 4.05
@@ -80,7 +80,7 @@ dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-devices.o dnc-monitor.o
 	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS) \
 	auto-dnc-gitlog.o
 
-dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-types.h dnc-regs.h \
+dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-regs.h \
 	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h \
 	dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h dnc-masterlib.h dnc-mmio.h hw-config.h
 
@@ -123,17 +123,17 @@ test-routing: test-routing.o dnc-test-access.o
 	$(CC) $(COPT) $^ -o $@
 
 test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
-	dnc-masterlib.h dnc-mmio.h dnc-fabric.h dnc-types.h dnc-regs.h dnc-access.h \
+	dnc-masterlib.h dnc-mmio.h dnc-fabric.h dnc-regs.h dnc-access.h \
 	dnc-route.h  dnc-config.h
 	$(CC) $(COPT) -c $< -o $@
 
 test-slavenode.o: test-slavenode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
-	dnc-fabric.h dnc-types.h dnc-regs.h dnc-access.h \
+	dnc-fabric.h dnc-regs.h dnc-access.h \
 	dnc-route.h  dnc-config.h
 	$(CC) $(COPT) -c $< -o $@
 
 test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
-	dnc-types.h dnc-regs.h dnc-access.h dnc-fabric.h
+	dnc-regs.h dnc-access.h dnc-fabric.h
 	$(CC) $(COPT) -c $< -o $@
 
 test-json.o: $(mjson_dir)/src/json.c

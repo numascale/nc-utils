@@ -30,20 +30,14 @@
 
 #include "dnc-defs.h"
 #include "dnc-regs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-config.h"
-
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
 int ht_testmode = 0;
-
-void tsc_wait(u32 mticks) {
-    usleep((useconds_t)mticks*1000);
-}
 
 static void sighandler(int sig)
 {
@@ -65,23 +59,23 @@ int udp_read_state(int handle, void *buf, int len) {
 int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nc_node[0].nc_ht_id */
 int dnc_asic_mode;
 int dnc_chip_rev;
-u16 dnc_node_count = 0;
+uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
-u16 ht_pdom_count = 0;
-u16 apic_per_node;
-u32 dnc_top_of_dram;       /* Top of DRAM, before MMIO, in 16MB chunks */
-u16 ht_next_apic;
-u32 dnc_top_of_mem;        /* Top of mem, in 16MB chunks */
-u8 post_apic_mapping[256]; /* POST APIC assigments */
+uint16_t ht_pdom_count = 0;
+uint16_t apic_per_node;
+uint32_t dnc_top_of_dram;       /* Top of DRAM, before MMIO, in 16MB chunks */
+uint16_t ht_next_apic;
+uint32_t dnc_top_of_mem;        /* Top of mem, in 16MB chunks */
+uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked. */
-u8 nodedata[4096];
+uint8_t nodedata[4096];
 
 static int
 sci_fabric_setup(void)
 {
-    u32 val;
-    u16 i, node;
+    uint32_t val;
+    uint16_t i, node;
 
     tally_local_node(0);
     tally_all_remote_nodes();
@@ -101,9 +95,9 @@ sci_fabric_setup(void)
     
     //[    0.000000] Bootmem setup node 1 0000000220000000-0000000420000000
     // Shared memory on node: 300000000-400000000 (4G window)
-    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 0);
-    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, 0x00030003);
-    cht_write_config(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, 0x0003ff01);
+    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 0);
+    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, 0x00030003);
+    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, 0x0003ff01);
 
     // SCC NGC window overlaps a bit because of the boundaries
     dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, 12); // 200000000
@@ -120,20 +114,20 @@ sci_fabric_setup(void)
     }
 
     for (i = 1; i < dnc_node_count; i++) {
-        u8 ht_id = nc_node[i].nc_ht_id;
+        uint8_t ht_id = nc_node[i].nc_ht_id;
         node = nc_node[i].sci_id;
     
         // Set DRAM Limit on HT#1 to 0x2ffffffff
-        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x124, 0x5f);
+        dnc_write_conf(node, 0, 24+1, FUNC1_MAPS, 0x124, 0x5f);
         // Adjust Limit on HT#1 window to 0x2ffffffff
-        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x4c, 0x02ff0001);
-        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x4c, 0x02ff0001);
+        dnc_write_conf(node, 0, 24+0, FUNC1_MAPS, 0x4c, 0x02ff0001);
+        dnc_write_conf(node, 0, 24+1, FUNC1_MAPS, 0x4c, 0x02ff0001);
 
         // Insert new window for 0x300000000 - 0x3ffffffff to point to NC
-        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x54, 0x03ff0000 | ht_id);
-        dnc_write_conf(node, 0, 24+0, NB_FUNC_MAPS, 0x50, 0x03000000 | 3);
-        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x54, 0x03ff0000 | ht_id);
-        dnc_write_conf(node, 0, 24+1, NB_FUNC_MAPS, 0x50, 0x03000000 | 3);
+        dnc_write_conf(node, 0, 24+0, FUNC1_MAPS, 0x54, 0x03ff0000 | ht_id);
+        dnc_write_conf(node, 0, 24+0, FUNC1_MAPS, 0x50, 0x03000000 | 3);
+        dnc_write_conf(node, 0, 24+1, FUNC1_MAPS, 0x54, 0x03ff0000 | ht_id);
+        dnc_write_conf(node, 0, 24+1, FUNC1_MAPS, 0x50, 0x03000000 | 3);
     }
 
     for (i = 0; i < dnc_node_count; i++) {
@@ -181,7 +175,7 @@ int main(int argc, char **argv)
     uint32_t val;
     int cpu_fam  = -1;
     cpu_set_t cset;
-    u32 uuid;
+    uint32_t uuid;
     struct node_info *info;
     struct part_info *part;
     int i;

@@ -17,15 +17,16 @@
 
 #include <stdio.h>
 #include <unistd.h>
+
 #include "dnc-monitor.h"
-#include "dnc-types.h"
 #include "dnc-regs.h"
 #include "dnc-defs.h"
 #include "dnc-access.h"
+#include "dnc-commonlib.h"
 #include "dnc-bootloader.h"
 
 /* Linear feedback register to count */
-static int lfb_to_count(u32 val)
+static int lfb_to_count(uint32_t val)
 {
     unsigned long cMSB = 14;
     unsigned long lsb;
@@ -62,7 +63,7 @@ void lc3_activity(void)
 	msleep(500);
 
 	for (lc = 1; lc <= lim; lc++) {
-	    u32 val = dnc_read_csr(0xfff1 + lc, LC3_CSR_PCCNT);
+	    uint32_t val = dnc_read_csr(0xfff1 + lc, LC3_CSR_PCCNT);
 	    printf("- %d events on link %d\n", lfb_to_count(val), lc);
 	}
     }
@@ -105,7 +106,7 @@ void system_activity(void)
     };
 
     struct perf_ev *ev;
-    u64 val;
+    uint64_t val;
 
     printf("Profiling quiescent system activity...\n");
 
@@ -113,13 +114,13 @@ void system_activity(void)
 	dnc_wrmsr(MSR_PERF_CTL0, 0); /* Disable counter */
 	dnc_wrmsr(MSR_PERF_CTR0, 0); /* Reset count */
 
-	tsc_wait(10); /* Warmup */
+	udelay(10); /* Warmup */
 
 	dnc_wrmsr(MSR_PERF_CTL0,
 	    (ev->event & 0xff) | (ev->unitmask << 8) | (3 << 16) |
 	    (1 << 22) | ((ev->event & 0xf00ULL) << (32 - 8)));
 
-	tsc_wait(2000);
+	udelay(2000);
 
 	val = dnc_rdmsr(MSR_PERF_CTR0);
 

@@ -36,8 +36,9 @@ void system_trace(void)
 
     printf("Tracing HT activity...buf @ 0x%016llx for 0x%08x\n", trace_buf, trace_buf_size);
     start_ht_trace(0);
-    tsc_wait(100);
+    udelay(100);
     stop_ht_trace(0);
+    dump_ht_trace(0);
 }
 
 #else

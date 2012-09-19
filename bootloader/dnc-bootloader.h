@@ -18,10 +18,12 @@
 #ifndef __DNC_BOOTLOADER_H
 #define __DNC_BOOTLOADER_H 1
 
-#include <stdint.h>
-#include "dnc-types.h"
-
-#define BOOTSTRAP_DELAY 10000
+#define IMPORT_RELOCATED(sym) extern volatile uint8_t sym ## _relocate
+#define REL8(sym) ((uint8_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+#define REL16(sym) ((uint16_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+#define REL32(sym) ((uint32_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+#define REL64(sym) ((uint64_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+#define BOOTSTRAP_DELAY 1000
 
 struct mp_config_table {
     union {
@@ -56,46 +58,48 @@ struct mp_floating_pointer {
 } __attribute__((packed));
 
 struct e820entry {
-    u64 base;
-    u64 length;
-    u32 type;
+    uint64_t base;
+    uint64_t length;
+    uint32_t type;
 } __attribute__((packed));
 
 typedef struct ht_node_info {
-    u32 base;		/* Start of DRAM at individual HT nodes, in 16MB chunks */
-    u32 size;		/* Amount of DRAM at individual HT nodes, in 16MB chunks */
-    u16 pdom;		/* Proximity domain of individual HT nodes */
-    u16 cores;		/* Number of cores at individual HT nodes */
-    u16 apic_base;
-    u32 cpuid;
+    uint32_t base;		/* Start of DRAM at individual HT nodes, in 16MB chunks */
+    uint32_t size;		/* Amount of DRAM at individual HT nodes, in 16MB chunks */
+    uint16_t pdom;		/* Proximity domain of individual HT nodes */
+    uint16_t cores;		/* Number of cores at individual HT nodes */
+    uint16_t apic_base;
+    uint32_t cpuid;
 } ht_node_info_t;
 
 typedef struct nc_node_info {
-    u32 node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
-    u32 addr_base;
-    u32 addr_end;
-    u32 mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
-    u32 mmio_end;
+    uint32_t node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
+    uint32_t addr_base;
+    uint32_t addr_end;
+    uint32_t mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
+    uint32_t mmio_end;
     ht_node_info_t ht[8];
-    u16 sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
-    u16 nc_ht_id;	/* HT id of dnc node dnc controller on local system */
-    u16 apic_offset;	/* Offset to shift APIC ids by when unifying */
-    u8 nc_neigh;	/* Our nearest neighbour HT node on local system */
+    uint16_t sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
+    uint16_t nc_ht_id;	/* HT id of dnc node dnc controller on local system */
+    uint16_t apic_offset;	/* Offset to shift APIC ids by when unifying */
+    uint8_t nc_neigh;	/* Our nearest neighbour HT node on local system */
 } nc_node_info_t;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
-extern u8 nodedata[4096];
-extern u8 post_apic_mapping[256];
-extern u16 dnc_node_count;
+extern uint8_t nodedata[4096];
+extern uint8_t post_apic_mapping[256];
+extern uint16_t dnc_node_count;
 extern int dnc_master_ht_id;     /* HT id of NC on master node, equivalent to dnc_node_ht_id[0] */
 extern nc_node_info_t nc_node[128];
-extern u16 ht_pdom_count;
-extern u16 apic_per_node;
-extern u16 ht_next_apic;
-extern u32 dnc_top_of_dram;
-extern u32 dnc_top_of_mem;
+extern uint16_t ht_pdom_count;
+extern uint16_t apic_per_node;
+extern uint16_t ht_next_apic;
+extern uint32_t dnc_top_of_dram;
+extern uint32_t dnc_top_of_mem;
+extern char *asm_relocated;
+extern unsigned char asm_relocate_start;
+extern unsigned char asm_relocate_end;
 
-void tsc_wait(u32 mticks);
 int read_config_file(char *file_name);
 int udp_open(void);
 void udp_broadcast_state(int handle, void *buf, int len);

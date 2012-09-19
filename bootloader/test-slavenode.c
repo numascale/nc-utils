@@ -32,7 +32,6 @@
 #include <arpa/inet.h>
 
 #include "dnc-regs.h"
-#include "dnc-types.h"
 #include "dnc-access.h"
 #include "dnc-route.h"
 #include "dnc-fabric.h"
@@ -40,10 +39,6 @@
 #include "dnc-commonlib.h"
 
 int ht_testmode = 0;
-
-void tsc_wait(u32 mticks) {
-    usleep((useconds_t)mticks*1000);
-}
 
 static void sighandler(int sig)
 {
@@ -77,7 +72,7 @@ int read_config_file(char *file_name)
     return 0;
 }
 
-void test_route(u8 bxbarid, u16 dest);
+void test_route(uint8_t bxbarid, uint16_t dest);
 
 
 int udp_open(void)
@@ -163,7 +158,7 @@ int main(int argc, char **argv)
 {
     int cpu_fam  = -1;
     cpu_set_t cset;
-    u32 val, uuid = 40;
+    uint32_t val, uuid = 40;
     struct node_info *info;
     struct part_info *part;
     char *cmdline = NULL;
@@ -203,7 +198,7 @@ int main(int argc, char **argv)
 
     if (sync_mode >= 1) {
 	wait_for_master(info, part);
-	tsc_wait(5000);
+	udelay(5000);
     }
     else {
 	printf("Only doing out-of-band sync rev 01 hardware and later...\n"); 
@@ -220,7 +215,7 @@ int main(int argc, char **argv)
  
     printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
     while (1) {
-	u32 val;
+	uint32_t val;
 
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 	if ((val & (1<<31))) {
@@ -230,7 +225,7 @@ int main(int argc, char **argv)
 	}
 
 	dnc_check_fabric(info);
-	tsc_wait(1000);
+	udelay(1000);
     }
     
     return 0;

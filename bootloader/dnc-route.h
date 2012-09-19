@@ -18,15 +18,15 @@
 #ifndef __DNC_ROUTE
 #define __DNC_ROUTE 1
 
-#include "dnc-types.h"
+#include <inttypes.h>
 
-void add_chunk_route(u16 dest, u16 node, u8 link);
-void del_chunk_route(u16 dest, u16 node);
-void set_route(u16 dest, u16 node, u16 width, u8 link);
-void add_route(u16 dest, u16 node, u16 width, u8 link);
-void del_route(u16 dest, u16 node, u16 width);
-void set_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link);
-void add_route_geo(u16 dest, u16 node, u8 bid, u16 width, u8 link);
-void del_route_geo(u16 dest, u16 node, u8 bid, u16 width);
+void add_chunk_route(uint16_t dest, uint16_t node, uint8_t link);
+void del_chunk_route(uint16_t dest, uint16_t node);
+void set_route(uint16_t dest, uint16_t node, uint16_t width, uint8_t link);
+void add_route(uint16_t dest, uint16_t node, uint16_t width, uint8_t link);
+void del_route(uint16_t dest, uint16_t node, uint16_t width);
+void set_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width, uint8_t link);
+void add_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width, uint8_t link);
+void del_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width);
 
 #endif
