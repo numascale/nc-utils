@@ -37,7 +37,12 @@ extern uint64_t dnc_csr_lim;
 #define DEF_DNC_CSR_BASE 0xffff00000000ULL
 #define DEF_DNC_CSR_LIM  0xffffffffffffULL
 
-#define PMIO_PORT 0xcd6
+#define PMIO_PORT		0xcd6
+
+#define SR56X0_HTIU_TOM2LO	0x9430
+#define SR56X0_HTIU_TOM2HI	0x9431
+#define SR56X0_MISC_TOM		0x6016
+#define SR56X0_MISC_TOM3	0x604e
 
 extern int lirq_nest;
 #define cli() if (lirq_nest++ == 0) { asm volatile("cli"); }
@@ -69,6 +74,8 @@ void pmio_setb(uint16_t offset, uint8_t val);
 void pmio_clearb(uint16_t offset, uint8_t val);
 void pmio_setl(uint16_t offset, uint32_t val);
 void pmio_clearl(uint16_t offset, uint32_t val);
+uint32_t ioh_ind_read(uint16_t node, uint16_t reg);
+void ioh_ind_write(uint16_t node, uint16_t reg, uint32_t val);
 void watchdog_setup(void);
 void reset_cf9(int mode, int last);
 void cht_test(uint8_t node, int neigh, int neigh_link);
