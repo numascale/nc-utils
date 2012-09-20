@@ -56,6 +56,7 @@ static int singleton = 0;
 static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
 static int ht_suppress = 0;
+static int ht_lockdelay = 0;
 int pf_probefilter = 1;
 int mem_offline = 0;
 uint64_t trace_buf = 0;
@@ -1771,6 +1772,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
         {"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
         {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
+        {"ht.lockdelay",    &parse_int,    &ht_lockdelay},    /* HREQ_CTRL lock_delay setting 0-7 */
         {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter is disabled */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
@@ -2056,7 +2058,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
      * We can do this now since we've disabled HT Locking on non-split transactions, even for high contention
      * cases (ref Errata #N28) */
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3<<24) | (7<<13))) | (3<<24) | (0<<13));
+    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3<<24) | (7<<13))) | (3<<24) | ((ht_lockdelay & 7)<<13));
 
     /* Since our microcode now supports remote owner state, we disable the
      * error responses on shared probes to GONE cache lines. */
