@@ -794,13 +794,10 @@ static void cht_print(int neigh, int link)
     }
 }
 
-static void probefilter_tokens(void)
+void probefilter_tokens(int nodes)
 {
-    int i, j, nodes = 1;
+    int i, j;
     uint32_t val;
-
-    if (!pf_probefilter)
-	return;
 
     /* Reprogram HT link buffering */
     for (i = 0; i < nodes; i++) {
@@ -823,6 +820,13 @@ static void probefilter_tokens(void)
 	    cht_write_conf(i, FUNC0_HT, 0x94 + j * 0x20, 1 << 16);
 	}
     }
+
+    printf("Asserting LDTSTOP# to optimise HT buffer allocation...");
+    val = pmio_readb(0x8a);
+    pmio_writeb(0x8a, 0xf0);
+    pmio_writeb(0x87, 1);
+    pmio_writeb(0x8a, val);
+    printf("done\n");
 }
 #endif /* __i386 */
 
@@ -897,8 +901,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	if ((val >> 24) != 0x11) {
 	    printf("<CPU width>");
 	    udelay(50);
-	    cht_write_conf(neigh, FUNC0_HT, 0x84 + link * 0x20,
-			     (val & 0x00ffffff) | 0x11000000);
+	    cht_write_conf(neigh, FUNC0_HT, 0x84 + link * 0x20, (val & 0x00ffffff) | 0x11000000);
 	    reboot = 1;
 	}
 	udelay(50);
@@ -926,8 +929,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         if (((val >> 8) & 0xf) != 0x5) {
             printf("<CPU freq>");
             udelay(50);
-            cht_write_conf(neigh, FUNC0_HT, 0x88 + link * 0x20,
-                             (val & ~0xf00) | 0x500);
+            cht_write_conf(neigh, FUNC0_HT, 0x88 + link * 0x20, (val & ~0xf00) | 0x500);
             reboot = 1;
         }
         udelay(50);
@@ -951,10 +953,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     if (ht_force_ganged == 2)
 	cht_mirror(neigh, link);
 
-    printf(".");
-    probefilter_tokens();
     printf("done\n");
-
 
     if (reboot) {
 	printf("Rebooting to make new link settings effective...\n");

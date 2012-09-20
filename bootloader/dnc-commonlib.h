@@ -104,6 +104,7 @@ void wait_key(void);
 int cpu_family(uint16_t scinode, uint8_t node);
 void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t start, uint64_t end, uint8_t dest);
 void del_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx);
+void probefilter_tokens(int nodes);
 void detect_southbridge(void);
 void disable_smi(void);
 void enable_smi(void);

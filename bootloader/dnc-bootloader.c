@@ -2553,6 +2553,9 @@ static int nc_start(void)
     if (dnc_master_ht_id < 0)
         return ERR_MASTER_HT_ID;
 
+    if (pf_probefilter && !force_probefilteroff)
+	probefilter_tokens(dnc_master_ht_id);
+
     info = get_node_config(uuid);
     if (!info)
         return ERR_NODE_CONFIG;
