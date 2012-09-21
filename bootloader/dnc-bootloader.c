@@ -2083,17 +2083,59 @@ static void update_mtrr(void)
     }
 }
 
-static void local_chipset_fixup(void)
+static void disable_iommu(void)
+{
+    uint32_t val, val2;
+
+    /* 0x60/64 is SR56x0 NBMISCIND port */
+    /* Enable access to device function 2 if needed */
+    dnc_write_conf(0xfff0, 0, 0, 0, 0x60, 0x75);
+    val = dnc_read_conf(0xfff0, 0, 0, 0, 0x64);
+    if ((val & 1) == 0) {
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x60, 0x75 | 0x80);
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x64, val | 1);
+    };
+
+    /* SR56x0 F2 0x44/48 is IOMMU config index/data port
+     * 0x18 is IOMMU_MMIO_CNTRL_0 */
+    dnc_write_conf(0xfff0, 0, 0, 2, 0x44, 0x18);
+    val2 = dnc_read_conf(0xfff0, 0, 0, 2, 0x48);
+    if (val2 & 1) {
+	printf("- disabling IOMMU (0x%x)\n", val2);
+	dnc_write_conf(0xfff0, 0, 0, 2, 0x44, 0x18);
+	dnc_write_conf(0xfff0, 0, 0, 2, 0x48, 0);
+    }
+
+    /* Hide device function 2 if previously hidden */
+    if ((val & 1) == 0) {
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x60, 0x75 | 0x80);
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x64, val);
+    }
+}
+
+static void local_chipset_fixup(bool master)
 {
     uint32_t val;
 
     printf("Scanning for known chipsets, local pass...\n");
+
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
     if (val == VENDEV_SP5100) {
 	printf("Adjusting local configuration of AMD SP5100...\n");
 	/* Disable config-space triggered SMI */
 	val = pmio_readb(0xa8);
 	pmio_writeb(0xa8, val & ~(3 << 4)); /* Clear bit4 and bit5 */
+    }
+
+    val = dnc_read_conf(0xfff0, 0, 0, 0, 0);
+    if (val == VENDEV_SR5690 || val == VENDEV_SR5670 || val == VENDEV_SR5650) {
+	if (!remote_io && !master) {
+	    printf("- disabling IOAPIC\n");
+	    /* SR56x0 F0 0xf8/fc is IOAPIC config index/data port
+	     * Write 0 to IOAPIC config register 0 to disable */
+	    dnc_write_conf(0xfff0, 0, 0, 2, 0xf8, 0);
+	    dnc_write_conf(0xfff0, 0, 0, 2, 0xfc, 0);
+	}
     }
 
     /* Only needed to workaround rev A/B issue */
@@ -2583,7 +2625,7 @@ static int nc_start(void)
     }
 
     /* Must run after SCI is operational */
-    local_chipset_fixup();
+    local_chipset_fixup(part->master == info->sciid);
 
     if (info->sync_only) {
 	udelay(5000);
