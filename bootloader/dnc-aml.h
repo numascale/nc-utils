@@ -18,7 +18,9 @@
 #ifndef __DNC_AML
 #define __DNC_AML
 
-void acpi_update_ssdt(void);
+#include "dnc-acpi.h"
+
+void remote_aml(const acpi_sdt_p ssdt);
 
 #endif
 

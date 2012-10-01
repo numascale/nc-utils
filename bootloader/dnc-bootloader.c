@@ -368,7 +368,7 @@ static void update_e820_map(void)
     }
 
     e820[*len].base   = DNC_MCFG_BASE;
-    e820[*len].length = DNC_MCFG_LIM - DNC_MCFG_BASE + 1;
+    e820[*len].length = (256ULL << 20) * dnc_node_count;
     e820[*len].type   = 2;
     (*len)++;
     
@@ -490,6 +490,7 @@ static void update_acpi_tables(void)
     acpi_sdt_p slit = (void *)tables_relocated + 128 * 1024;
     acpi_sdt_p apic = (void *)tables_relocated + 256 * 1024;
     acpi_sdt_p mcfg = (void *)tables_relocated + 512 * 1024;
+    acpi_sdt_p ssdt = (void *)tables_relocated + 768 * 1024;
     uint8_t *dist;
 
     unsigned int i, j, apicid, pnum;
@@ -591,7 +592,7 @@ static void update_acpi_tables(void)
     /* Make SLIT info from scratch (ie replace existing table if any) */
     memcpy(slit->sig.s, "SLIT", 4);
     slit->len = 0;
-    slit->revision = 1;
+    slit->revision = ACPI_REV;
     memcpy(slit->oemid, "NUMASC", 6);
     memcpy(slit->oemtableid, "N313NUMA", 8);
     slit->oemrev = 1;
@@ -733,7 +734,7 @@ static void update_acpi_tables(void)
     memset(mcfg, 0, sizeof(*mcfg) + 8);
     memcpy(mcfg->sig.s, "MCFG", 4);
     mcfg->len = 44;
-    mcfg->revision = 1;
+    mcfg->revision = ACPI_REV;
     memcpy(mcfg->oemid, "NUMASC", 6);
     memcpy(mcfg->oemtableid, "N313NUMA", 8);
     mcfg->oemrev = 0;
@@ -753,10 +754,14 @@ static void update_acpi_tables(void)
         mcfg->len += sizeof(mcfg_allocation);
     }
 
-    mcfg->checksum -= checksum(mcfg, mcfg->len);
-    
+    mcfg->checksum = -checksum(mcfg, mcfg->len);
+
     if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
     if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
+
+    remote_aml(ssdt);
+    if (rsdt) add_child(ssdt, rsdt, 4);
+    if (xsdt) add_child(ssdt, xsdt, 8);
 
     enable_fixed_mtrrs();
 }
@@ -2655,10 +2660,8 @@ static int nc_start(void)
 	(void)dnc_check_mctr_status(1);
         
 	update_e820_map();
-	if (remote_io) {
+	if (remote_io)
 	    setup_mmio_late();
-	    acpi_update_ssdt();
-	}
 
 	if (verbose)
 	    selftest_late();

@@ -17,6 +17,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
+
 #include "dnc-acpi.h"
 
 static struct acpi_rsdp *rptr = NULL;
@@ -228,6 +230,39 @@ int replace_child(const char *sig, acpi_sdt_p new,
     parent->len += ptrsize;
     parent->checksum -= checksum(parent, parent->len);
     return 1;
+}
+
+void add_child(acpi_sdt_p new, acpi_sdt_p parent, int ptrsize)
+{
+    uint64_t newp, childp;
+    acpi_sdt_p table;
+
+    assert(slack(parent) > ptrsize);
+    assert(checksum_ok(new, new->len));
+
+    newp = 0;
+    memcpy(&newp, &new, sizeof(new));
+
+    int i;
+    for (i = 0; i + sizeof(*parent) < parent->len; i += ptrsize) {
+	childp = 0;
+	memcpy(&childp, &parent->data[i], ptrsize);
+	if (childp > 0xffffffffULL) {
+	    printf("Error: Child pointer at %d (%p) outside 32-bit range (0x%llx)",
+		   i, &parent->data[i], childp);
+	    continue;
+	}
+	memcpy(&table, &childp, sizeof(table));
+	if (!checksum_ok(table, table->len)) {
+	    printf("Error: Bad table %p checksum %.4s\n", table, table->sig.s);
+	    continue;
+	}
+    }
+
+    /* Append entry to end of table */
+    memcpy(&parent->data[i], &newp, ptrsize);
+    parent->len += ptrsize;
+    parent->checksum -= checksum(parent, parent->len);
 }
 
 acpi_sdt_p find_root(const char *sig)

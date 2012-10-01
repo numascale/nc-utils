@@ -19,7 +19,7 @@ all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-masternode test-slavenode
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig test-masternode test-slavenode test-routing dnc-version.h
+	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig test-masternode test-slavenode test-routing test-aml dnc-version.h
 
 .PHONY: realclean
 realclean: clean
@@ -122,6 +122,12 @@ test-slavenode: test-slavenode.o dnc-test-commonlib.o dnc-test-fabric.o \
 
 test-routing: test-routing.o dnc-test-access.o
 	$(CC) $(COPT) $^ -o $@
+
+test-aml: test-aml.o dnc-aml.c
+	$(CC) $(COPT) $^ -o $@
+
+test-aml.o: test-aml.c dnc-aml.c
+	$(CC) $(COPT) -c $< -o $@
 
 test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
 	dnc-masterlib.h dnc-mmio.h dnc-fabric.h dnc-regs.h dnc-access.h \
