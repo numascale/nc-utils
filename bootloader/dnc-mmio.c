@@ -25,6 +25,9 @@
 #include "dnc-bootloader.h"
 #include "dnc-mmio.h"
 
+/* Should be 8+12, but it hangs */
+#define MMIO_RANGES (family < 0x15 ? (8 + 2) : 12)
+
 #define _base(range)  ((range < 8 ? 0x080 : (0x1a0 - 0x40)) + range * 8)
 #define _limit(range) ((range < 8 ? 0x084 : (0x1a4 - 0x40)) + range * 8)
 #define _high(range)  ((range < 8 ? 0x180 : (0x1c0 - 0x20)) + range * 4)
@@ -52,7 +55,7 @@ static void mmio_range_read_fam10(uint16_t sci, int range, uint64_t *base, uint6
 
 static void mmio_range_read(uint16_t sci, int range, uint64_t *base, uint64_t *limit, int *flags)
 {
-    assert(family < 0x15 ? (range < (8 + 16)) : (range < 12));
+    assert(range < MMIO_RANGES);
 
     if (family < 0x15 && range > 7) {
 	mmio_range_read_fam10(sci, range, base, limit, flags);
@@ -78,7 +81,7 @@ static void mmio_range_read(uint16_t sci, int range, uint64_t *base, uint64_t *l
 
 void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, int ht, int link, int sublink)
 {
-    assert(family < 0x15 ? (range < (8 + 16)) : (range < 12));
+    assert(range < MMIO_RANGES);
 
     if (verbose)
 	printf("SCI%03x: adding MMIO range %d @ 0x%016" PRIx64 "-0x%016" PRIx64 " -> HT %d:%d.%d\n",
@@ -105,9 +108,8 @@ void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, in
 void mmio_show(uint16_t sci)
 {
     int i;
-    int regs = family < 0x15 ? (8 + 2) : 12; /* Should be 8+12, but it hangs */
 
-    for (i = 0; i < regs; i++) {
+    for (i = 0; i < MMIO_RANGES; i++) {
 	uint64_t base, limit;
 	int flags;
 	mmio_range_read(sci, i, &base, &limit, &flags);
@@ -155,9 +157,8 @@ void io_show(uint16_t sci)
 static int mmio_range_add(uint16_t sci, uint64_t base_new, uint64_t limit_new, int ht, int link, int sublink)
 {
     int i;
-    int regs = family >= 0x15 ? 12 : 8;
     
-    for (i = 0; i < regs; i++) {
+    for (i = 0; i < MMIO_RANGES; i++) {
 	uint64_t base, limit;
 	int flags;
 	mmio_range_read(sci, i, &base, &limit, &flags);
@@ -168,7 +169,7 @@ static int mmio_range_add(uint16_t sci, uint64_t base_new, uint64_t limit_new, i
 	break;
     }
 
-    if (i == 12)
+    if (i == MMIO_RANGES)
     	return 0;
     return 1;
 }
@@ -214,7 +215,7 @@ void tally_remote_node_mmio(uint16_t node)
     nc_node[node].mmio_end = nc_node[node].mmio_base;
 
     /* Check number of configured I/O bridges */
-    for (i = 0; i < 12; i++) {
+    for (i = 0; i < MMIO_RANGES; i++) {
 	mmio_range_read(sci, i, &base, &limit, &flags);
 	if (!base && !limit) /* Skip empty entries */
 	    continue;
@@ -438,7 +439,6 @@ void setup_mmio_late(void)
 	    }
 	}
     }
-
     critical_leave();
 }
 
