@@ -1784,7 +1784,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
         {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
         {"ht.lockdelay",    &parse_int,    &ht_lockdelay},    /* HREQ_CTRL lock_delay setting 0-7 */
-        {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter is disabled */
+        {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter if disabled */
         {"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
