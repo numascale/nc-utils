@@ -2627,10 +2627,8 @@ static int nc_start(void)
     /* Must run after SCI is operational */
     local_chipset_fixup(part->master == info->sciid);
 
-    if (info->sync_only) {
-	udelay(5000);
+    if (info->sync_only)
 	start_user_os();
-    }
 
     if (dnc_init_caches() < 0)
 	return ERR_INIT_CACHES;
