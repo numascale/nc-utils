@@ -57,6 +57,7 @@ static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
 static int ht_suppress = 0;
 static int ht_lockdelay = 0;
+bool handover_acpi;
 int pf_probefilter = 1;
 int mem_offline = 0;
 uint64_t trace_buf = 0;
@@ -1698,6 +1699,17 @@ static int parse_string(const char *val, void *stringp)
     return 1;
 }
 
+static int parse_bool(const char *val, void *voidp)
+{
+    bool *boolp = (bool *)voidp;
+
+    if (val[0] != '\0')
+	*boolp = atoi(val);
+    else
+	*boolp = true;
+    return 1;
+}
+
 static int parse_int(const char *val, void *intp)
 {
     int *int32 = (int *)intp;
@@ -1773,6 +1785,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
         {"ht.lockdelay",    &parse_int,    &ht_lockdelay},    /* HREQ_CTRL lock_delay setting 0-7 */
         {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter is disabled */
+        {"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
         {"renumber-bsp",    &parse_int,    &renumber_bsp},

@@ -139,6 +139,7 @@ extern int nc_neigh, nc_neigh_link;
 extern int pf_probefilter;
 extern int forwarding_mode;
 extern int force_probefilteroff;
+extern bool handover_acpi;
 extern int remote_io;
 extern bool boot_wait;
 extern int family;

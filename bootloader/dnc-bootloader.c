@@ -2673,6 +2673,11 @@ static int nc_start(void)
 	update_e820_map();
 	if (verbose)
 	    selftest_late();
+
+	/* If Linux can't handover ACPI, we can */
+	if (handover_acpi)
+	    stop_acpi();
+
 	start_user_os();
     } else {
 	/* Slave */

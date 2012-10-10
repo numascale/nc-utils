@@ -281,7 +281,7 @@ static void stop_ahci(int bus, int dev, int fn)
     printf("legacy handoff timed out\n");
 }
 
-static void stop_acpi(void)
+void stop_acpi(void)
 {
     printf("ACPI handoff: ");
 
