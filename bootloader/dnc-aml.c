@@ -228,6 +228,10 @@ static ptrlen aml_pci(uint16_t node) {
     aml_name(&block, "_HID");
     aml_eisaid(&block, 0x0a08);
 
+    /* Name (_HID, EisaId("PNP0A03")) */
+    aml_name(&block, "_CID");
+    aml_eisaid(&block, 0x0a03);
+
     /* Name (_ADR, 0x00000000) */
     aml_name(&block, "_ADR");
     aml_constant(&block, 0);
