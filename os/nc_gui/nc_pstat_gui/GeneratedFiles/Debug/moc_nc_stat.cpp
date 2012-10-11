@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'nc_stat.hpp'
 **
-** Created: Mon 3. Sep 21:30:29 2012
+** Created: Thu 11. Oct 16:54:31 2012
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -472,6 +472,67 @@ void *TransactionHist::qt_metacast(const char *_clname)
 }
 
 int TransactionHist::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
+{
+    _id = PerfHistGraph::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    return _id;
+}
+static const uint qt_meta_data_PAPIHist[] = {
+
+ // content:
+       6,       // revision
+       0,       // classname
+       0,    0, // classinfo
+       0,    0, // methods
+       0,    0, // properties
+       0,    0, // enums/sets
+       0,    0, // constructors
+       0,       // flags
+       0,       // signalCount
+
+       0        // eod
+};
+
+static const char qt_meta_stringdata_PAPIHist[] = {
+    "PAPIHist\0"
+};
+
+void PAPIHist::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
+{
+    Q_UNUSED(_o);
+    Q_UNUSED(_id);
+    Q_UNUSED(_c);
+    Q_UNUSED(_a);
+}
+
+const QMetaObjectExtraData PAPIHist::staticMetaObjectExtraData = {
+    0,  qt_static_metacall 
+};
+
+const QMetaObject PAPIHist::staticMetaObject = {
+    { &PerfHistGraph::staticMetaObject, qt_meta_stringdata_PAPIHist,
+      qt_meta_data_PAPIHist, &staticMetaObjectExtraData }
+};
+
+#ifdef Q_NO_DATA_RELOCATION
+const QMetaObject &PAPIHist::getStaticMetaObject() { return staticMetaObject; }
+#endif //Q_NO_DATA_RELOCATION
+
+const QMetaObject *PAPIHist::metaObject() const
+{
+    return QObject::d_ptr->metaObject ? QObject::d_ptr->metaObject : &staticMetaObject;
+}
+
+void *PAPIHist::qt_metacast(const char *_clname)
+{
+    if (!_clname) return 0;
+    if (!strcmp(_clname, qt_meta_stringdata_PAPIHist))
+        return static_cast<void*>(const_cast< PAPIHist*>(this));
+    return PerfHistGraph::qt_metacast(_clname);
+}
+
+int PAPIHist::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
     _id = PerfHistGraph::qt_metacall(_c, _id, _a);
     if (_id < 0)

@@ -51,7 +51,7 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt; color:#000000;&quot;&gt;This GUI monitors performance characteristics for the all the NumaChips in the NumaConnect Single Image System. Hold the mouse over each tab for more information.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="currentIndex">
-         <number>4</number>
+         <number>5</number>
         </property>
         <property name="movable">
          <bool>true</bool>
@@ -118,6 +118,16 @@
          <layout class="QVBoxLayout" name="verticalLayout_15">
           <item>
            <layout class="QVBoxLayout" name="probeLayout"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab_3">
+         <attribute name="title">
+          <string>CPU Counter Event</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout_8">
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_3"/>
           </item>
          </layout>
         </widget>
