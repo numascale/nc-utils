@@ -55,43 +55,53 @@
 #define SubDecode	1
 #define PosDecode	0
 
-#define ADDR_BITS	48
+#define AML_ADDR_BITS	48
 #define NAME_MAX	16
-#define BLOCK_MAX	(1 << (64 - ADDR_BITS))
-#define PTR(x)		((aml *)((ptrlen)x & ((1ULL << ADDR_BITS) - 1)))
-#define LEN(x)		((ptrlen)x >> ADDR_BITS)
-#define DIST(x, y)	((uint64_t)y - (uint64_t)x)
+#define BLOCK_MAX	(1ULL << (64 - AML_ADDR_BITS))
 
 #define emit(p, x) do { \
-    *(typeof(x) *)p = x; \
-    p += sizeof(x); \
+    *(typeof(x) *)(p) = (x); \
+    (p) += sizeof(x); \
   } while (0)
 
 #define N16(x) (uint16_t)( \
-    ((x & 0xff00) >> 8) | \
-    ((x & 0x00ff) << 8))
+    (((x) & 0xff00) >> 8) | \
+    (((x) & 0x00ff) << 8))
 #define N32(x) (uint32_t)( \
-    ((x & 0xff000000) >> 24) | \
-    ((x & 0x00ff0000) >> 8) | \
-    ((x & 0x0000ff00) << 8) | \
-    ((x & 0x000000ff) << 24))
+    (((x) & 0xff000000) >> 24) | \
+    (((x) & 0x00ff0000) >> 8) | \
+    (((x) & 0x0000ff00) << 8) | \
+    ((x) & 0x000000ff) << 24))
 #define N64(x) (uint64_t)( \
-    ((x & 0x00000000000000ffULL) << 56) | \
-    ((x & 0x000000000000ff00ULL) << 40) | \
-    ((x & 0x0000000000ff0000ULL) << 24) | \
-    ((x & 0x00000000ff000000ULL) <<  8) | \
-    ((x & 0x000000ff00000000ULL) >>  8) | \
-    ((x & 0x0000ff0000000000ULL) >> 24) | \
-    ((x & 0x00ff000000000000ULL) >> 40) | \
-    ((x & 0xff00000000000000ULL) >> 56))
+    (((x) & 0x00000000000000ffULL) << 56) | \
+    (((x) & 0x000000000000ff00ULL) << 40) | \
+    (((x) & 0x0000000000ff0000ULL) << 24) | \
+    (((x) & 0x00000000ff000000ULL) <<  8) | \
+    (((x) & 0x000000ff00000000ULL) >>  8) | \
+    (((x) & 0x0000ff0000000000ULL) >> 24) | \
+    (((x) & 0x00ff000000000000ULL) >> 40) | \
+    (((x) & 0xff00000000000000ULL) >> 56))
 
-#define PTRLEN(ptr, len) ({ \
-    assert((uint64_t)ptr < (1ULL << ADDR_BITS)); \
-    (ptrlen)((uint64_t)ptr | ((uint64_t)len << ADDR_BITS)); })
-
-typedef uint64_t ptrlen;
+typedef uint64_t ptrlen_t;
 typedef unsigned char aml;
-typedef ptrlen (*aml_func)(ptrlen);
+typedef ptrlen_t (*aml_func)(ptrlen_t);
+
+static inline aml *PTR(ptrlen_t val)
+{
+	return (aml *)(uint32_t)(val & ((1ULL << AML_ADDR_BITS) - 1));
+}
+
+static inline int LEN(ptrlen_t val)
+{
+	return val >> AML_ADDR_BITS;
+}
+
+static inline uint64_t ptrlen(aml *start, aml *end)
+{
+	uint64_t mask = (uint32_t)start;
+	assert(mask < (1ULL << AML_ADDR_BITS));
+	return mask | (uint64_t)(end - start) << AML_ADDR_BITS;
+}
 
 static inline void aml_str(aml **block, const char *str)
 {
@@ -161,7 +171,7 @@ static void aml_return(aml **block, uint64_t val)
     aml_constant(block, val);
 }
 
-static ptrlen aml_cba(const uint64_t addr)
+static ptrlen_t aml_cba(const uint64_t addr)
 {
     aml *block_start = malloc(BLOCK_MAX);
     assert(block_start);
@@ -169,7 +179,7 @@ static ptrlen aml_cba(const uint64_t addr)
 
     aml_return(&block, addr);
 
-    return PTRLEN(block_start, DIST(block_start, block));
+    return ptrlen(block_start, block);
 }
 
 static void aml_resource(aml **block, uint8_t type, bool rusage, bool mintype, bool maxtype, bool decode,
@@ -202,7 +212,7 @@ static void aml_resource(aml **block, uint8_t type, bool rusage, bool mintype, b
     emit(*block, CHECKSUM);
 }
 
-static void aml_method(aml **outer, const char *name, ptrlen block)
+static void aml_method(aml **outer, const char *name, ptrlen_t block)
 {
     aml *inner = PTR(block);
     uint32_t len = LEN(block);
@@ -219,7 +229,7 @@ static void aml_method(aml **outer, const char *name, ptrlen block)
     free(inner);
 }
 
-static ptrlen aml_pci(uint16_t node) {
+static ptrlen_t aml_pci(uint16_t node) {
     aml *block_start = malloc(BLOCK_MAX);
     assert(block_start);
     aml *block = block_start;
@@ -259,10 +269,10 @@ static ptrlen aml_pci(uint16_t node) {
     uint64_t addr = 0x3f0000000000 | ((uint64_t)node << 32);
     aml_method(&block, "_CBA", aml_cba(addr));
 
-    return PTRLEN(block_start, DIST(block_start, block));
+    return ptrlen(block_start, block);
 }
 
-static void aml_device(aml **outer, ptrlen block, const char *format, ...)
+static void aml_device(aml **outer, ptrlen_t block, const char *format, ...)
 {
     emit(*outer, DEVICE);
     char name[16];
@@ -285,7 +295,7 @@ static void aml_device(aml **outer, ptrlen block, const char *format, ...)
     free(inner);
 }
 
-static ptrlen aml_systembus(void)
+static ptrlen_t aml_systembus(void)
 {
     aml *block_start = malloc(BLOCK_MAX);
     assert(block_start);
@@ -294,10 +304,10 @@ static ptrlen aml_systembus(void)
     for (uint16_t node = 1; node < dnc_node_count; node++)
 	aml_device(&block, aml_pci(node), "PCI%d", node);
 
-    return PTRLEN(block_start, DIST(block_start, block));
+    return ptrlen(block_start, block);
 }
 
-static ptrlen aml_scope(const char *name, ptrlen block)
+static ptrlen_t aml_scope(const char *name, ptrlen_t block)
 {
     aml *outer_start = malloc(BLOCK_MAX);
     assert(outer_start);
@@ -315,7 +325,7 @@ static ptrlen aml_scope(const char *name, ptrlen block)
     outer += len;
     free(inner);
 
-    return PTRLEN(outer_start, DIST(outer_start, outer));
+    return ptrlen(outer_start, outer);
 }
 
 void remote_aml(const acpi_sdt_p ssdt)
@@ -329,7 +339,7 @@ void remote_aml(const acpi_sdt_p ssdt)
     memcpy(ssdt->creatorid, "1B47", 4);
     ssdt->creatorrev = 1;
 
-    ptrlen block = aml_scope("\\_SB_", aml_systembus());
+    ptrlen_t block = aml_scope("\\_SB_", aml_systembus());
     memcpy(ssdt->data, PTR(block), LEN(block));
     free(PTR(block));
 
