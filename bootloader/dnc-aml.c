@@ -302,7 +302,7 @@ static ptrlen_t aml_systembus(void)
     aml *block = block_start;
 
     for (uint16_t node = 1; node < dnc_node_count; node++)
-	aml_device(&block, aml_pci(node), "PCI%d", node);
+	aml_device(&block, aml_pci(node), "P%03d", node);
 
     return ptrlen(block_start, block);
 }
