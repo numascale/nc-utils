@@ -368,10 +368,10 @@ static void update_e820_map(void)
     }
 
     e820[*len].base   = DNC_MCFG_BASE;
-    e820[*len].length = (256ULL << 20) * dnc_node_count;
+    e820[*len].length = DNC_MCFG_LIM - DNC_MCFG_BASE + 1;;
     e820[*len].type   = 2;
     (*len)++;
-    
+
     printf("Updated E820 map:\n");
     for (i = 0; i < *len; i++) {
 	printf(" %016llx - %016llx (%016llx) [%x]\n",
