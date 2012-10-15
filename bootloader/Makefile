@@ -2,7 +2,7 @@ IFACEPATH := ../interface
 IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS := $(IFACEPATH)/numachip-mseq.h
 CFLAGS    := -I$(IFACEPATH)
-COPT      := -g -Wall -Wextra -Wno-unused-parameter -O2 -std=gnu99
+COPT      := -g -Wall -Wextra -Wno-unused-parameter -O3 -std=gnu99
 
 syslinux_version := 4.06
 syslinux_dir     := syslinux-$(syslinux_version)
