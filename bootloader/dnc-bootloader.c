@@ -2664,7 +2664,7 @@ static int nc_start(void)
 	(void)dnc_check_mctr_status(1);
         
 	update_e820_map();
-	if (remote_io)
+	if (remote_io > 1)
 	    setup_mmio_late();
 
 	if (verbose)
