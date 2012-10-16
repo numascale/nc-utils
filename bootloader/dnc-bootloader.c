@@ -2704,6 +2704,7 @@ static int nc_start(void)
 
 	/* On non-root servers, prevent writing to unexpected locations */
 	handover_legacy();
+	disable_dma_all();
 	clear_bsp_flag();
 	disable_smi();
 
