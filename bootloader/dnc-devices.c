@@ -95,11 +95,8 @@ void disable_dma_all(void)
 		if (pci_cmd == 0xffffffff)
 		    continue;
 
-		if (!(pci_cmd & (1 << 2)))
-		    continue;
-
 		printf("Disabling device %02x:%02x.%x...\n", bus, dev, fn);
-		dnc_write_conf(0xfff0, bus, dev, fn, 0x4, pci_cmd & ~(1 << 2));
+		dnc_write_conf(0xfff0, bus, dev, fn, 0x4, 0);
 	    }
 }
 
