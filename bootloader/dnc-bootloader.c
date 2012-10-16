@@ -1410,12 +1410,16 @@ static void setup_remote_cores(uint16_t num)
     for (i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
-        for (j = 0xc0; j < 0xf0; j += 4) {
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, j, 0);
-        }
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xc4, 0x00fff000 | ht_id);
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xc0, 0x00000003);
-        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xe0, 0xff000003 | (ht_id << 4));
+        for (j = 0xc8; j <= 0xdc; j += 4)
+            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, j, 0);
+
+	if (!remote_io) {
+	    dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xe0, 0xff000003 | (ht_id << 4));
+	    for (j = 0xe4; j <= 0xec; j += 4)
+		dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, j, 0);
+	}
     }
 
     /* Set DRAM range on local NumaChip */
