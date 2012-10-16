@@ -17,8 +17,8 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
+#include "dnc-commonlib.h"
 #include "dnc-acpi.h"
 
 static struct acpi_rsdp *rptr = NULL;
@@ -106,7 +106,7 @@ static int slack(acpi_sdt_p parent)
     for (i = 0; i*4 + sizeof(*rsdt) < rsdt->len; i++) {
 	acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
 	if (!checksum_ok(table, table->len)) {
-	    printf(" Bad table checksum %.4s!\n", table->sig.s);
+	    printf(" Bad table checksum in '%.4s'\n", table->sig.s);
 	    continue;
 	}
 
@@ -119,7 +119,7 @@ static int slack(acpi_sdt_p parent)
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
+		printf(" Bad table checksum in '%.4s'\n", dsdt->sig.s);
 		continue;
 	    }
 
@@ -153,7 +153,7 @@ static int slack(acpi_sdt_p parent)
 	}
 	memcpy(&table, &childp, sizeof(table));
 	if (!checksum_ok(table, table->len)) {
-	    printf("Error: Bad table checksum %.4s\n", table->sig.s);
+	    printf("Error: Bad table checksum in '%.4s'\n", table->sig.s);
 	    continue;
 	}
 
@@ -166,7 +166,7 @@ static int slack(acpi_sdt_p parent)
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf("Error: Bad table checksum %.4s\n", dsdt->sig.s);
+		printf("Error: Bad table checksum in '%.4s'\n", dsdt->sig.s);
 		continue;
 	    }
 
@@ -234,32 +234,16 @@ int replace_child(const char *sig, acpi_sdt_p new,
 
 void add_child(acpi_sdt_p new, acpi_sdt_p parent, int ptrsize)
 {
-    uint64_t newp, childp;
-    acpi_sdt_p table;
-
-    assert(slack(parent) > ptrsize);
+    if (slack(parent) < ptrsize) {
+	printf("Error: Not enough space to add %.4s table to %.4s\n", new->sig.s, parent->sig.s);
+	return;
+    }
     assert(checksum_ok(new, new->len));
 
-    newp = 0;
+    uint64_t newp = 0;
     memcpy(&newp, &new, sizeof(new));
 
-    int i;
-    for (i = 0; i + sizeof(*parent) < parent->len; i += ptrsize) {
-	childp = 0;
-	memcpy(&childp, &parent->data[i], ptrsize);
-	if (childp > 0xffffffffULL) {
-	    printf("Error: Child pointer at %d (%p) outside 32-bit range (0x%llx)",
-		   i, &parent->data[i], childp);
-	    continue;
-	}
-	memcpy(&table, &childp, sizeof(table));
-	if (!checksum_ok(table, table->len)) {
-	    printf("Error: Bad table %p checksum %.4s\n", table, table->sig.s);
-	    continue;
-	}
-    }
-
-    /* Append entry to end of table */
+    int i = parent->len - sizeof(*parent);
     memcpy(&parent->data[i], &newp, ptrsize);
     parent->len += ptrsize;
     parent->checksum -= checksum(parent, parent->len);
@@ -441,7 +425,7 @@ void debug_acpi(void)
     for (i = 0; i*4 + sizeof(*rsdt) < rsdt->len; i++) {
 	acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
 	if (!checksum_ok(table, table->len)) {
-	    printf("Error: Bad table checksum %.4s\n", table->sig.s);
+	    printf("Error: Bad table checksum in '%.4s'", table->sig.s);
 	    continue;
 	}
 
@@ -460,7 +444,7 @@ void debug_acpi(void)
 	    acpi_sdt_p dsdt;
 	    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 	    if (!checksum_ok(dsdt, dsdt->len)) {
-		printf("Error: Bad table checksum %.4s\n", dsdt->sig.s);
+		printf("Error: Bad table checksum in '%.4s'\n", dsdt->sig.s);
 		continue;
 	    }
 	    
@@ -510,7 +494,7 @@ void debug_acpi(void)
 		acpi_sdt_p table;
 		memcpy(&table, &xsdt_entries[i], sizeof(table));
 		if (!checksum_ok(table, table->len)) {
-		    printf("Error: Bad table checksum %.4s\n", table->sig.s);
+		    printf("Error: Bad table checksum in '%.4s'\n", table->sig.s);
 		    continue;
 		}
 	
@@ -529,7 +513,7 @@ void debug_acpi(void)
 		    acpi_sdt_p dsdt;
 		    memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 		    if (!checksum_ok(dsdt, dsdt->len)) {
-			printf(" Bad table checksum %.4s!\n", dsdt->sig.s);
+			printf(" Bad table checksum in '%.4s'\n", dsdt->sig.s);
 			continue;
 		    }
 
