@@ -403,7 +403,7 @@ int tally_all_remote_nodes(void)
     /* MMIO is added after DRAM */
     dnc_top_of_dram = dnc_top_of_mem;
 
-    if (!remote_io)
+    if (remote_io < 2)
 	return ret;
 
     for (node = 0; node < dnc_node_count; node++)
