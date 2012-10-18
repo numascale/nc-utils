@@ -328,22 +328,10 @@ static ptrlen_t aml_scope(const char *name, ptrlen_t block)
     return ptrlen(outer_start, outer);
 }
 
-void remote_aml(const acpi_sdt_p ssdt)
+unsigned char *remote_aml(uint32_t *len)
 {
-    memset(ssdt, 0, sizeof(*ssdt));
-    memcpy(ssdt->sig.s, "SSDT", 4);
-    ssdt->revision = ACPI_REV;
-    memcpy(ssdt->oemid, "NUMASC", 6);
-    memcpy(ssdt->oemtableid, "N313NUMA", 8);
-    ssdt->oemrev = 1;
-    memcpy(ssdt->creatorid, "1B47", 4);
-    ssdt->creatorrev = 1;
-
     ptrlen_t block = aml_scope("\\_SB_", aml_systembus());
-    memcpy(ssdt->data, PTR(block), LEN(block));
-    free(PTR(block));
-
-    ssdt->len = LEN(block) + offsetof(struct acpi_sdt, data);
-    ssdt->checksum = -checksum(ssdt, ssdt->len);
+    *len = LEN(block);
+    return PTR(block);
 }
 

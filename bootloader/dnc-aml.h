@@ -20,7 +20,7 @@
 
 #include "dnc-acpi.h"
 
-void remote_aml(const acpi_sdt_p ssdt);
+unsigned char *remote_aml(uint32_t *len);
 
 #endif
 

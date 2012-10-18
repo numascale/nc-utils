@@ -490,7 +490,6 @@ static void update_acpi_tables(void)
     acpi_sdt_p slit = (void *)tables_relocated + 128 * 1024;
     acpi_sdt_p apic = (void *)tables_relocated + 256 * 1024;
     acpi_sdt_p mcfg = (void *)tables_relocated + 512 * 1024;
-    acpi_sdt_p ssdt = (void *)tables_relocated + 768 * 1024;
     uint8_t *dist;
 
     unsigned int i, j, apicid, pnum;
@@ -759,9 +758,12 @@ static void update_acpi_tables(void)
     if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
     if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
 
-    remote_aml(ssdt);
-    if (rsdt) add_child(ssdt, rsdt, 4);
-    if (xsdt) add_child(ssdt, xsdt, 8);
+    uint32_t extra_len;
+    unsigned char *extra = remote_aml(&extra_len);
+    if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
+	if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len))
+	    printf("Warning: failed to append to DSDT or SSDT; remote I/O will be unavailable\n");
+    free(extra);
 
     enable_fixed_mtrrs();
 }

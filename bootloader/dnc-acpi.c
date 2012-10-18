@@ -93,7 +93,7 @@ static acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
 }
 
 /* Return the number of bytes after an ACPI table before the next */
-static int slack(acpi_sdt_p parent)
+static uint32_t slack(acpi_sdt_p parent)
 {
     acpi_sdt_p next_table = (void *)0xffffffff;
     acpi_sdt_p rsdt = (acpi_sdt_p)rptr->rsdt_addr;
@@ -184,9 +184,7 @@ out:
     return (uint32_t)next_table - (uint32_t)parent - parent->len;
 }
 
-int replace_child(const char *sig, acpi_sdt_p new,
-		  acpi_sdt_p parent,
-		  int ptrsize)
+int replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 {
     uint64_t newp, childp;
     acpi_sdt_p table;
@@ -232,7 +230,7 @@ int replace_child(const char *sig, acpi_sdt_p new,
     return 1;
 }
 
-void add_child(acpi_sdt_p new, acpi_sdt_p parent, int ptrsize)
+void add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 {
     if (slack(parent) < ptrsize) {
 	printf("Error: Not enough space to add %.4s table to %.4s\n", new->sig.s, parent->sig.s);
@@ -385,6 +383,42 @@ static void debug_acpi_apic(acpi_sdt_p apic)
     }
 }
 #endif
+
+static void acpi_dump(acpi_sdt_p table)
+{
+    int i;
+    unsigned char *data =(unsigned char *)table;
+
+    printf("Dumping %.4s:\n", table->sig.s);
+
+    while (data < ((unsigned char *)table + table->len)) {
+	for (i = 0; i < 8; i++) {
+	    uint32_t val = *(uint32_t *)data;
+	    printf(" 0x%08x,", val);
+	    data += sizeof(val);
+	}
+	printf("\n");
+    }
+    printf("\n");
+}
+
+bool acpi_append(acpi_sdt_p parent, int ptrsize, const char *sig, const unsigned char *extra, uint32_t extra_len)
+{
+    /* Check if enough space to append to SSDT */
+    acpi_sdt_p table = find_child(sig, parent, ptrsize);
+
+    if (!table || slack(table) < extra_len)
+	return false;
+
+    memcpy((unsigned char *)table + table->len, extra, extra_len);
+    table->len += extra_len;
+    table->checksum -= checksum(table, table->len);
+
+    if (verbose > 1)
+	acpi_dump(table);
+
+    return true;
+}
 
 void debug_acpi(void)
 {
