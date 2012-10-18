@@ -17,6 +17,10 @@
 uint16_t dnc_node_count = 3;
 int verbose = 2;
 
+/* Insert SSDT dumped from booting with verbose=2 into array */
+static uint32_t table[] = {
+};
+
 void wait_key(void)
 {
 }
@@ -39,18 +43,32 @@ int main(void)
 	return 1;
     }
 
-    acpi_sdt_p ssdt = malloc(16384);
-    assert(ssdt);
+    if (sizeof(table)) {
+	assert(write(fd, table, sizeof(table)) == sizeof(table));
+	printf("wrote " FNAME " (%zd bytes)\n", sizeof(table));
+    } else {
+	struct acpi_sdt ssdt;
+	uint32_t len;
+	unsigned char *data = remote_aml(&len);
 
-    remote_aml(ssdt);
+	memcpy(&ssdt.sig.s, "SSDT", 4);
+	ssdt.len = len + sizeof(ssdt);
+	ssdt.revision = ACPI_REV;
+	memcpy(&ssdt.oemid, "NUMASC", 6);
+	memcpy(&ssdt.oemtableid, "N313NUMA", 8);
+	ssdt.oemrev = 0;
+	memcpy(&ssdt.creatorid, "1B47", 4);
+	ssdt.creatorrev = 1;
 
-    assert(write(fd, ssdt, ssdt->len) == (ssize_t)ssdt->len);
-    assert(close(fd) == 0);
+	assert(write(fd, &ssdt, sizeof(ssdt)) == sizeof(ssdt));
+	assert(write(fd, data, len) == len);
+	printf("wrote " FNAME " (%d bytes)\n", ssdt.len);
+	free(data);
+    }
 
-    printf("wrote " FNAME " (%d bytes)\n", ssdt->len);
     printf("use 'iasl -d " FNAME "' to extract\n");
 
-    free(ssdt);
+    assert(close(fd) == 0);
     return 0;
 }
 
