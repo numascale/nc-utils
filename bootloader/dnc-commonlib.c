@@ -28,7 +28,6 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "hw-config.h"
-#include "auto-dnc-gitlog.h"
 
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
@@ -1789,19 +1788,6 @@ static int parse_uint64_t(const char *val, void *intp)
     return 1;
 }
 
-static int print_git_log(const char *val __attribute__((unused)),
-			 void *data __attribute__((unused)))
-{
-    printf("Git HEAD: %s\n", gitlog_dnc_bootloader_sha);
-    if (strlen(gitlog_dnc_bootloader_diff) > 0) {
-	printf("-----\n%s-----\n", gitlog_dnc_bootloader_diff);
-    }
-    else {
-	printf("(unmodified)\n");
-    }
-    return 1;
-}
-
 static int parse_cmdline(const char *cmdline) 
 {
     static struct optargs options[] = {
@@ -1836,7 +1822,6 @@ static int parse_cmdline(const char *cmdline)
         {"verbose",         &parse_int,    &verbose},
         {"remote-io",       &parse_int,    &remote_io},
         {"boot-wait",       &parse_int,    &boot_wait},
-        {"print-git-log",   &print_git_log, NULL},
     };
     char arg[256];
     int lstart, lend, aend, i;

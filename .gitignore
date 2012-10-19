@@ -5,7 +5,7 @@
 *.so
 *.elf
 *.o.d
-bootloader/auto-dnc-gitlog.c
+dnc-version.h
 bootloader/json-*
 bootloader/mjson-*
 bootloader/syslinux-*

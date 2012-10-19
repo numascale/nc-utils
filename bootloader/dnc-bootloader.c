@@ -35,7 +35,7 @@
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 #include "dnc-devices.h"
-#include "auto-dnc-gitlog.h"
+#include "dnc-version.h"
 
 #include "hw-config.h"
 
@@ -2744,9 +2744,7 @@ int main(void)
 {
     int ret;
     openconsole(&dev_rawcon_r, &dev_stdcon_w);
-    printf("*** NumaConnect system unification module starting, rev %.7s%s ***\n",
-	   gitlog_dnc_bootloader_sha, 
-	   (strlen(gitlog_dnc_bootloader_diff) > 0) ? " (modified)" : "");
+    printf("*** NumaConnect system unification module " VER " ***\n");
 
     /* Disable 32-bit address wrapping to allow 64-bit access in 32-bit code */
     set_wrap32_disable();

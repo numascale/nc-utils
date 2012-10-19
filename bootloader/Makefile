@@ -3,7 +3,6 @@ IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS := $(IFACEPATH)/numachip-mseq.h
 CFLAGS    := -I$(IFACEPATH)
 COPT      := -g -Wall -Wextra -Wno-unused-parameter -O2 -std=gnu99
-GITLOG    := $(shell ./gen-gitlog.sh auto-dnc-gitlog.c gitlog_dnc_bootloader)
 
 syslinux_version := 4.05
 syslinux_dir     := syslinux-$(syslinux_version)
@@ -20,7 +19,7 @@ all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-masternode test-slavenode
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig test-masternode test-slavenode test-routing
+	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig test-masternode test-slavenode test-routing dnc-version.h
 
 .PHONY: realclean
 realclean: clean
@@ -75,13 +74,15 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 
 $(mjson_dir)/src/json.o: $(mjson_dir)/src/json.c
 
+dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-route.h dnc-acpi.h dnc-config.h dnc-fabric.h dnc-monitor.h dnc-trace.h hw-config.h dnc-bootloader.h dnc-defs.h dnc-masterlib.h dnc-regs.h dnc-access.c dnc-commonlib.c dnc-fabric.c dnc-monitor.c dnc-trace.c sysreset.c test-slavenode.c dnc-acpi.c dnc-config.c dnc-masterlib.c dnc-route.c gen-ucode.c test-masternode.c dnc-bootloader.c dnc-devices.c dnc-mmio.c dnc-test-access.c remreset.c test-routing.c
+	@echo \#define VER \"`git describe --always`\" >dnc-version.h
+
 dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-devices.o dnc-monitor.o dnc-trace.o dnc-masterlib.o dnc-mmio.o \
 	dnc-fabric.o dnc-access.o dnc-route.o dnc-acpi.o dnc-config.o \
-	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS) \
-	auto-dnc-gitlog.o
+	dnc-e820-handler.o $(mjson_dir)/src/json.o $(COM32DEPS)
 
 dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-regs.h \
-	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h \
+	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-config.h dnc-version.h \
 	dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h dnc-masterlib.h dnc-mmio.h hw-config.h
 
 dnc-e820-handler.o: hw-config.h dnc-defs.h
@@ -104,19 +105,15 @@ dnc-route.o: dnc-route.c dnc-route.h
 
 dnc-acpi.o: dnc-acpi.c dnc-acpi.h
 
-auto-dnc-gitlog.c:
-
 remreset.elf: remreset.o dnc-access.o $(COM32DEPS)
 
 test-masternode: test-masternode.o dnc-test-commonlib.o dnc-test-masterlib.o dnc-test-mmio.o \
 	dnc-test-fabric.o dnc-test-access.o dnc-test-route.o dnc-test-config.o \
-	test-json.o \
-	auto-dnc-test-gitlog.o
+	test-json.o
 	$(CC) $(COPT) $^ -o $@
 
 test-slavenode: test-slavenode.o dnc-test-commonlib.o dnc-test-fabric.o \
-	dnc-test-access.o dnc-test-route.o dnc-test-config.o test-json.o \
-	auto-dnc-test-gitlog.o
+	dnc-test-access.o dnc-test-route.o dnc-test-config.o test-json.o
 	$(CC) $(COPT) $^ -o $@
 
 test-routing: test-routing.o dnc-test-access.o
@@ -124,12 +121,12 @@ test-routing: test-routing.o dnc-test-access.o
 
 test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
 	dnc-masterlib.h dnc-mmio.h dnc-fabric.h dnc-regs.h dnc-access.h \
-	dnc-route.h  dnc-config.h
+	dnc-route.h dnc-config.h
 	$(CC) $(COPT) -c $< -o $@
 
 test-slavenode.o: test-slavenode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
 	dnc-fabric.h dnc-regs.h dnc-access.h \
-	dnc-route.h  dnc-config.h
+	dnc-route.h dnc-config.h
 	$(CC) $(COPT) -c $< -o $@
 
 test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
@@ -158,9 +155,6 @@ dnc-test-route.o: dnc-route.c dnc-access.h
 	$(CC) $(COPT) -c $< -o $@
 
 dnc-test-config.o: dnc-config.c dnc-config.h
-	$(CC) $(COPT) -c $< -o $@
-
-auto-dnc-test-gitlog.o: auto-dnc-gitlog.c
 	$(CC) $(COPT) -c $< -o $@
 
 $(IFACEDEPS):
