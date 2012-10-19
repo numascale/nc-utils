@@ -1678,6 +1678,7 @@ static int read_file(const char *filename, void *buf, int bufsz)
     return len;
 }
 
+#ifdef UNUSED
 static int convert_buf_uint32_t(char *src, uint32_t *dst, int max_offset)
 {
     char *b;
@@ -1799,6 +1800,7 @@ static void read_microcode_update(void)
 
     printf("Using updated microcode (xor = %u, %u)\n", ucode_xor, table_xor);
 }
+#endif
 
 int read_config_file(char *file_name)
 {
@@ -2654,7 +2656,9 @@ static int nc_start(void)
 	    nodedata[cfg_nodelist[i].sciid] = 0x80;
 	}
 
+#ifdef UNUSED
 	read_microcode_update();
+#endif
 
 	load_orig_e820_map();
 	if (!install_e820_handler())
