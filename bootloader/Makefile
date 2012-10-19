@@ -1,6 +1,6 @@
 IFACEPATH := ../interface
 IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
-UCODEDEPS := $(IFACEPATH)/numachip-mseq-ucode.h $(IFACEPATH)/numachip-mseq-table.h
+UCODEDEPS := $(IFACEPATH)/numachip-mseq.h
 CFLAGS    := -I$(IFACEPATH)
 COPT      := -g -Wall -Wextra -Wno-unused-parameter -O2 -std=gnu99
 GITLOG    := $(shell ./gen-gitlog.sh auto-dnc-gitlog.c gitlog_dnc_bootloader)

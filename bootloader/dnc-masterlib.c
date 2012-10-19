@@ -31,28 +31,35 @@
 
 #include "hw-config.h"
 
-#include "../interface/numachip-mseq-ucode.h"
-#include "../interface/numachip-mseq-table.h"
-
-uint32_t *mseq_ucode = numachip_mseq_ucode;
-uint16_t *mseq_table = numachip_mseq_table;
-int mseq_ucode_length = (sizeof(numachip_mseq_ucode)/sizeof(numachip_mseq_ucode[0]));
-int mseq_table_length = (sizeof(numachip_mseq_table)/sizeof(numachip_mseq_table[0]));
-
-#define NUMACHIP_MSEQ_UCODE_LEN (mseq_ucode_length)
-#define NUMACHIP_MSEQ_TABLE_LEN (mseq_table_length)
+#include "../interface/numachip-mseq.h"
 
 void load_scc_microcode(uint16_t node)
 {
     uint32_t val;
     uint16_t i;
+    const uint32_t *mseq_ucode;
+    const uint16_t *mseq_table;
+    int mseq_ucode_length, mseq_table_length;
+
+    if (dnc_asic_mode ? dnc_chip_rev == 3 : (dnc_chip_rev >> 16) == 6490) {
+	mseq_ucode = numachip_mseq_ucode_revc;
+	mseq_table = numachip_mseq_table_revc;
+	mseq_ucode_length = sizeof(numachip_mseq_ucode_revc) / sizeof(numachip_mseq_ucode_revc[0]);
+	mseq_table_length = sizeof(numachip_mseq_table_revc) / sizeof(numachip_mseq_table_revc[0]);
+    } else if (dnc_asic_mode && dnc_chip_rev == 2) {
+	mseq_ucode = numachip_mseq_ucode_revb;
+	mseq_table = numachip_mseq_table_revb;
+	mseq_ucode_length = sizeof(numachip_mseq_ucode_revb) / sizeof(numachip_mseq_ucode_revb[0]);
+	mseq_table_length = sizeof(numachip_mseq_table_revb) / sizeof(numachip_mseq_table_revb[0]);
+    } else
+	fatal("Error: no microcode for NumaChip version %d\n", dnc_chip_rev);
 
     dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
-    for (i = 0; i < NUMACHIP_MSEQ_UCODE_LEN; i++)
+    for (i = 0; i < mseq_ucode_length; i++)
         dnc_write_csr(node, H2S_CSR_G0_WCS_ENTRY, mseq_ucode[i]);
 
     dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
-    for (i = 0; i < NUMACHIP_MSEQ_TABLE_LEN; i++)
+    for (i = 0; i < mseq_table_length; i++)
         dnc_write_csr(node, H2S_CSR_G0_JUMP_ENTRY, mseq_table[i]);
 
     /* Start the microsequencer */
