@@ -129,6 +129,9 @@ test-aml: test-aml.o dnc-aml.c
 test-aml.o: test-aml.c dnc-aml.c
 	$(CC) $(COPT) -c $< -o $@
 
+gen-ucode: gen-ucode.c
+	$(CC) $(COPT) $^ -o $@
+
 test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-trace.h \
 	dnc-masterlib.h dnc-mmio.h dnc-fabric.h dnc-regs.h dnc-access.h \
 	dnc-route.h dnc-config.h
