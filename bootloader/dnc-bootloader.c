@@ -36,6 +36,7 @@
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 #include "dnc-devices.h"
+#include "dnc-mmio.h"
 #include "dnc-version.h"
 
 #include "hw-config.h"

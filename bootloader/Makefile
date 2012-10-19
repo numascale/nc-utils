@@ -107,8 +107,6 @@ dnc-acpi.o: dnc-acpi.c dnc-acpi.h
 
 dnc-aml.o: dnc-aml.c dnc-aml.h
 
-auto-dnc-gitlog.c:
-
 remreset.elf: remreset.o dnc-access.o $(COM32DEPS)
 
 test-masternode: test-masternode.o dnc-test-commonlib.o dnc-test-masterlib.o dnc-test-mmio.o \
