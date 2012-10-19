@@ -47,7 +47,6 @@ extern uint64_t dnc_csr_lim;
 extern int lirq_nest;
 #define cli() if (lirq_nest++ == 0) { asm volatile("cli"); }
 #define sti() if (--lirq_nest == 0) { asm volatile("sti"); }
-#define cpu_relax() asm volatile("pause" ::: "memory")
 
 extern int cht_config_use_extd_addressing;
 extern int ht_testmode;
