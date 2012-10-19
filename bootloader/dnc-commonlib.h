@@ -23,22 +23,24 @@
 
 #include "dnc-config.h"
 
+#define cpu_relax() asm volatile("pause" ::: "memory")
+
 #define assert(cond) do { if (!(cond)) {				\
 	printf("Error: assertion '%s' failed in %s at %s:%d\n",		\
 	    #cond, __FUNCTION__, __FILE__, __LINE__);			\
-	wait_key();							\
+	while (1) cpu_relax();						\
     } } while (0)
 
 #define assertf(cond, format, ...) do { if (!(cond)) {			\
 	printf("Error: ");						\
 	printf(format, __VA_ARGS__);					\
-	wait_key();							\
+	while (1) cpu_relax();						\
     } } while(0)
 
 #define fatal(format, ...) do {						\
 	printf("Error: ");						\
 	printf(format, __VA_ARGS__);					\
-	wait_key();							\
+	while (1) cpu_relax();						\
    } while (0)
 
 #ifdef __i386__
