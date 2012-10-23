@@ -2696,6 +2696,8 @@ static int nc_start(void)
 	/* Slave */
 	uint32_t val;
 
+	cleanup_stack();
+
 	/* Get the original e820 map for reference */
 	load_orig_e820_map();
 	
@@ -2720,7 +2722,6 @@ static int nc_start(void)
 	/* On non-root servers, prevent writing to unexpected locations */
 	handover_legacy();
 	clear_bsp_flag();
-	cleanup_stack();
 	disable_smi();
 
         /* Disable legacy PIC interrupts and cache */
