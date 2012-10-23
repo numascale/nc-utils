@@ -1267,6 +1267,13 @@ static void setup_remote_cores(uint16_t num)
     val = dnc_read_csr(node, H2S_CSR_G3_HREQ_CTRL);
     dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, val | (1<<12));
 
+    /* Check additional IO range registers */
+    for (i = 0; i < 2; i++) {
+	uint64_t qval = dnc_rdmsr(MSR_IORR_PHYS_MASK0 + i * 2);
+	if (qval & (1 << 11))
+	    printf("Warning: IO range 0x%llx is enabled\n", dnc_rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
+    }
+
     /* Insert coverall MMIO maps */
     tom = dnc_rdmsr(MSR_TOPMEM) >> 8;
     printf("Inserting coverall MMIO maps on SCI%03x\n", node);
