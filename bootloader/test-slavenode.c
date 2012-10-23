@@ -196,16 +196,8 @@ int main(int argc, char **argv)
     if (!part)
 	return -1;
 
-    if (sync_mode >= 1) {
-	wait_for_master(info, part);
-	udelay(5000);
-    }
-    else {
-	printf("Only doing out-of-band sync rev 01 hardware and later...\n"); 
-
-	if (dnc_setup_fabric(info) < 0)
-	    return -1;
-    }
+    wait_for_master(info, part);
+    udelay(5000);
 
     if (dnc_init_caches() < 0)
         return -1;

@@ -2623,20 +2623,10 @@ static int nc_start(void)
     /* Copy this into NC ram so its available remotely */
     load_existing_apic_map();
 
-    if (sync_mode >= 1) {
-	if (part->builder == info->sciid) {
-	    wait_for_slaves(info, part);
-	}
-	else {
-	    wait_for_master(info, part);
-	}
-    }
-    else {
-	printf("Sync mode disabled...\n"); 
-
-	if (dnc_setup_fabric(info) < 0)
-            return ERR_DNC_SETUP_FABRIC;
-    }
+    if (part->builder == info->sciid)
+	wait_for_slaves(info, part);
+    else
+	wait_for_master(info, part);
 
     /* Must run after SCI is operational */
     local_chipset_fixup(part->master == info->sciid);

@@ -35,7 +35,6 @@ IMPORT_RELOCATED(init_dispatch);
 static char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
 char *microcode_path = "";
-int sync_mode = 1;
 static int init_only = 0;
 static int route_only = 0;
 static int enable_nbmce = -1;
@@ -1794,7 +1793,6 @@ static int parse_cmdline(const char *cmdline)
         {"config",	    &parse_string, &config_file_name},/* Config (JSON) file to use */
         {"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
         {"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */
-        {"sync-mode",	    &parse_int,    &sync_mode},       /* Use network supported syncronization */
         {"init-only",	    &parse_int,    &init_only},       /* Only initialize chip, but then load <nest-label> without setting up a full system */
         {"route-only",	    &parse_int,    &route_only},
         {"disable-nc",	    &parse_int,    &disable_nc},      /* Disable the HT link to NumaChip */
