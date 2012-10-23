@@ -2704,14 +2704,14 @@ static int nc_start(void)
 	/* Set G3x02c FAB_CONTROL bit 30 */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);
  
-	printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
+	printf("Numascale NumaChip awaiting fabric set-up by master node...");
 	while (1) {
 	    (void)dnc_check_mctr_status(0);
 	    (void)dnc_check_mctr_status(1);
             
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 	    if ((val & (1<<31))) {
-		printf("*** Go-ahead seen, joining system to master node ***\n");
+		printf("ready\n");
 		break;
 	    }
 
@@ -2728,6 +2728,9 @@ static int nc_start(void)
 	disable_xtpic();
 	disable_cache();
 	
+	printf("\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'\n",
+	    cfg_nodelist[info->sciid].desc, cfg_nodes, cfg_nodelist[part->master].desc);
+
 	/* Let master know we're ready for remapping/integration */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1<<31));
 	/* We're done with our 64-bit accesses, enable 32-bit address wrapping again */
