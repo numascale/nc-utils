@@ -43,44 +43,24 @@ static void pci_search(const struct devspec *list)
 	    }
 }
 
-static void disable_dma(int bus, int dev, int fn)
+static void disable_device(int bus, int dev, int fn)
 {
-    uint32_t pci_cmd;
+    int i;
 
-    printf("Disabling DMA on device %02x:%02x.%x...\n", bus, dev, fn);
-    pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
-    dnc_write_conf(0xfff0, bus, dev, fn, 0x4, pci_cmd & ~(1 << 2));
-}
+    /* Disable I/O, memory, DMA and interrupts */
+    dnc_write_conf(0xfff0, bus, dev, fn, 0x4, 0);
 
-static void enable_dma(int bus, int dev, int fn)
-{
-    uint32_t pci_cmd;
+    /* Clear BARs */
+    for (i = 0x10; i <= 0x24; i += 4)
+	dnc_write_conf(0xfff0, bus, dev, fn, i, 0);
 
-    printf("Enabling DMA on device %02x:%02x.%x...\n", bus, dev, fn);
-    pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
-    dnc_write_conf(0xfff0, bus, dev, fn, 0x4, pci_cmd | (1 << 2));
-}
+    /* Clear expansion ROM base address */
+    dnc_write_conf(0xfff0, bus, dev, fn, 0x30, 0);
 
-void disable_vga(void)
-{
-    const struct devspec devices[] = {
-	{PCI_CLASS_DISPLAY_VGA, 3, disable_dma},
-	{PCI_CLASS_DISPLAY_CONTROLLER, 3, disable_dma},
-	{0, 0, 0},
-    };
+    /* Set Interrupt Line register to 0 (unallocated) */
+    dnc_write_conf(0xfff0, bus, dev, fn, 0x3c, 0);
 
-    pci_search(devices);
-}
-
-void enable_vga(void)
-{
-    const struct devspec devices[] = {
-	{PCI_CLASS_DISPLAY_VGA, 3, enable_dma},
-	{PCI_CLASS_DISPLAY_CONTROLLER, 3, enable_dma},
-	{0, 0, 0},
-    };
-
-    pci_search(devices);
+    printf("disabled\n");
 }
 
 void disable_dma_all(void)
@@ -90,13 +70,24 @@ void disable_dma_all(void)
     for (bus = 0; bus < 256; bus++)
 	for (dev = 0; dev < (bus == 0 ? 24 : 32); dev++)
 	    for (fn = 0; fn < 8; fn++) {
-		uint32_t pci_cmd = dnc_read_conf(0xfff0, bus, dev, fn, 0x4);
+		uint32_t type = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
 		/* PCI device functions are not necessarily contiguous */
-		if (pci_cmd == 0xffffffff)
+		if (type == 0xffffffff)
 		    continue;
 
-		printf("Disabling device %02x:%02x.%x...\n", bus, dev, fn);
-		dnc_write_conf(0xfff0, bus, dev, fn, 0x4, 0);
+		switch ((type >> 16) & 0x7f) {
+		case 0:
+		    printf("device at %02x:%02x.%x: ", bus, dev, fn);
+		    disable_device(bus, dev, fn);
+		    break;
+		case 1:
+		    printf("bridge at %02x:%02x.%x\n", bus, dev, fn);
+		    break;
+		}
+
+		/* If not multi-function, break out of function loop */
+		if (!fn && !(type & 0x800000))
+		    break;
 	    }
 }
 
