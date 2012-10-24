@@ -511,13 +511,17 @@ int dnc_init_caches(void) {
 	    printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
 	}
     } else {
-	/* ASIC; initialize SRAM if disable_sram is unset */
-	if(!disable_sram) {
-	    if((ret=dnc_initialize_sram())<0)
-		return ret;
+	if (dnc_chip_rev < 2) {
+	    /* ASIC; initialize SRAM if disable_sram is unset */
+	    if(!disable_sram) {
+		if((ret=dnc_initialize_sram())<0)
+		    return ret;
+	    } else {
+		printf("No SRAM will be initialized\n");
+		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
+	    }
 	} else {
-	    printf("No SRAM will be initialized\n");
-	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
+	    printf("ASIC revision %d detected, no FTag SRAM\n", dnc_chip_rev);
 	}
     }
 
@@ -2150,8 +2154,8 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 	     * which have bad side-effects with NumaChip in certain scenarios */
 	    val = cht_read_conf(i, FUNC2_DRAM, 0x11c);
 	    cht_write_conf(i, FUNC2_DRAM, 0x11c, val | (0x1f<<2));
-
 	}
+
 	/* ERRATA #N27: Disable Coherent Prefetch Probes (Query probes), as NumaChip don't handle them correctly and they are required to be disabled for Probe Filter */
 	val = cht_read_conf(i, FUNC2_DRAM, 0x1b0);
 	cht_write_conf(i, FUNC2_DRAM, 0x1b0, val & ~(7<<8)); /* CohPrefPrbLimit=000b */
@@ -2239,8 +2243,10 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
     if (info->osc < 3)
         osc_setting = info->osc;
 
-    if (adjust_oscillator(type, osc_setting) < 0)
-        return -1;
+    if (asic_mode && (chip_rev < 2)) {
+	if (adjust_oscillator(type, osc_setting) < 0)
+	    return -1;
+    }
 
     /* Read the SPD info from our DIMMs to see if they are supported */
     for (i = 0; i < 2; i++) {
@@ -2561,7 +2567,7 @@ static enum node_state enter_reset(struct node_info *info)
     uint32_t val;
     printf("Entering reset\n");
 
-    if (dnc_asic_mode && dnc_chip_rev >= 1) {
+    if (dnc_asic_mode && dnc_chip_rev < 2) {
 	/* Reset already held?  Toggle reset logic to ensure reset
 	 * reverts to know state */
 	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
@@ -2590,6 +2596,11 @@ static enum node_state enter_reset(struct node_info *info)
 		return enter_reset(info);
 	}
     } else {
+	if ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
+	    printf("HSSXA_STAT_1 is zero, PLL not locked ???...\n");
+	    return RSP_PHY_NOT_TRAINED;
+	}
+
 	/* No external reset control, simply reset all phys to start training sequence */
         dnc_reset_phy(0); dnc_reset_phy(1);
         dnc_reset_phy(2); dnc_reset_phy(3);
@@ -2637,7 +2648,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
     int pending, i;
     printf("Releasing reset\n");
 
-    if (dnc_asic_mode && dnc_chip_rev >= 1) {
+    if (dnc_asic_mode && dnc_chip_rev < 2) {
 	/* Release reset */
 	_pic_reset_ctrl(2);
 	udelay(200);
@@ -2646,6 +2657,12 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
 	    if (i++ > 20)
 		return RSP_PHY_NOT_TRAINED;
 	    udelay(200);
+	}
+    } else {
+	/* FPGA and ASIC Rev2 */
+	if ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
+	    printf("HSSXA_STAT_1 is zero, PLL not locked ???...\n");
+	    return RSP_PHY_NOT_TRAINED;
 	}
     }
 
