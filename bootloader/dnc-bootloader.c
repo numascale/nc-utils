@@ -840,7 +840,8 @@ static void setup_apic_atts(void)
 	for (j = 0; j < 64; j++) {
 	    dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j*4, nc_node[0].sci_id);
 	}
-		    
+
+	printf("Adding APIC entry on SCI%03x:", nc_node[i].sci_id);
 	for (dnode = 0; dnode < dnc_node_count; dnode++) {
 	    uint16_t cur, min, max;
 	    min = ~0;
@@ -857,10 +858,11 @@ static void setup_apic_atts(void)
 	    min = min >> apic_shift;
 	    max = (max - 1) >> apic_shift;
 	    for (j = min; j <= max; j++) {
-		printf("Adding APIC entry on SCI%03x: %02x -> %03x\n", nc_node[i].sci_id, j*4, nc_node[dnode].sci_id);
+		printf(" %02x->%03x", j*4, nc_node[dnode].sci_id);
 		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j*4, nc_node[dnode].sci_id);
 	    }
 	}
+	printf("\n");
     }
 }
     
