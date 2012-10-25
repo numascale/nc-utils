@@ -89,7 +89,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="GeneratedFiles\Release\moc_nc_stat.cpp" />
+    <ClCompile Include="GeneratedFiles\Debug\moc_nc_stat.cpp" />
     <ClCompile Include="log2scale.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="nc_stat.cpp" />

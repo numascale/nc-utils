@@ -131,14 +131,21 @@ private:
 
     struct cachestats_t *m_cstat;
     struct papi_stats_t *m_papistat;
+    struct cmd_packet {
+        unsigned int num_devices;
+        unsigned int num_cores;
+        char PAPI_EVENT_0[20];
+        char PAPI_EVENT_1[20];
+    } m_devices; 
     bool init;
 
     void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
     void showConnectionStatus();
     void getcache();
     
-
     private slots:
+        void combochanged(int index);
+        void combochanged2(int index);
         void getinfo();
         void handleDeselectButton();
         void handleButton();
@@ -249,7 +256,7 @@ public:
     PAPIHist(QWidget* parent = 0);
     void set_num_cores(int cores, int nodes);
     void deselectAllLegends(bool turn_off);
-    void showstat2(const struct papi_stats_t* papimsg );        
+    void showstat2(const struct papi_stats_t* papimsg, char *label1, char *label2);
     void addCurves();    
     void showstat(const struct cachestats_t* statmsg){};
 private:

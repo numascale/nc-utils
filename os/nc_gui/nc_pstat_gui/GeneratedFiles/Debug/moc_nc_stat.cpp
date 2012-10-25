@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'nc_stat.hpp'
 **
-** Created: Thu 11. Oct 16:54:31 2012
+** Created: Thu 25. Oct 12:17:38 2012
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -23,7 +23,7 @@ static const uint qt_meta_data_NumaChipStats[] = {
        6,       // revision
        0,       // classname
        0,    0, // classinfo
-       5,   14, // methods
+       7,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -31,17 +31,20 @@ static const uint qt_meta_data_NumaChipStats[] = {
        0,       // signalCount
 
  // slots: signature, parameters, type, tag, flags
-      15,   14,   14,   14, 0x08,
-      25,   14,   14,   14, 0x08,
-      48,   14,   14,   14, 0x08,
-      72,   63,   14,   14, 0x08,
-      87,   63,   14,   14, 0x08,
+      21,   15,   14,   14, 0x08,
+      39,   15,   14,   14, 0x08,
+      58,   14,   14,   14, 0x08,
+      68,   14,   14,   14, 0x08,
+      91,   14,   14,   14, 0x08,
+     115,  106,   14,   14, 0x08,
+     130,  106,   14,   14, 0x08,
 
        0        // eod
 };
 
 static const char qt_meta_stringdata_NumaChipStats[] = {
-    "NumaChipStats\0\0getinfo()\0"
+    "NumaChipStats\0\0index\0combochanged(int)\0"
+    "combochanged2(int)\0getinfo()\0"
     "handleDeselectButton()\0handleButton()\0"
     "newvalue\0handleBox(int)\0handleBox2(int)\0"
 };
@@ -52,11 +55,13 @@ void NumaChipStats::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
         Q_ASSERT(staticMetaObject.cast(_o));
         NumaChipStats *_t = static_cast<NumaChipStats *>(_o);
         switch (_id) {
-        case 0: _t->getinfo(); break;
-        case 1: _t->handleDeselectButton(); break;
-        case 2: _t->handleButton(); break;
-        case 3: _t->handleBox((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 4: _t->handleBox2((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 0: _t->combochanged((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 1: _t->combochanged2((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 2: _t->getinfo(); break;
+        case 3: _t->handleDeselectButton(); break;
+        case 4: _t->handleButton(); break;
+        case 5: _t->handleBox((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 6: _t->handleBox2((*reinterpret_cast< int(*)>(_a[1]))); break;
         default: ;
         }
     }
@@ -94,9 +99,9 @@ int NumaChipStats::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 5)
+        if (_id < 7)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 5;
+        _id -= 7;
     }
     return _id;
 }
