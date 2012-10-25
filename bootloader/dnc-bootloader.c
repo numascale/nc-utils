@@ -980,7 +980,7 @@ static void disable_smm_handler(uint64_t smm_base)
 static void setup_other_cores(void)
 {
     uint16_t node = nc_node[0].sci_id;
-    uint32_t ht, apicid, oldid, i, j;
+    uint32_t ht, apicid, oldid, i;
     volatile uint32_t *icr;
     volatile uint32_t *apic;
     uint32_t val;
@@ -1018,7 +1018,8 @@ static void setup_other_cores(void)
 	msr = msr | (1ULL << 27);
     dnc_wrmsr(MSR_CU_CFG2, msr);
     *REL64(new_cucfg2_msr) = msr;
-   
+
+    printf("APICs:");
     critical_enter();
 
     /* Start all local cores (not BSP) and let them run our init_trampoline */
@@ -1039,50 +1040,31 @@ static void setup_other_cores(void)
 	    *REL64(rem_smm_base_msr) = ~0ULL;
 
 	    apic[0x310/4] = oldid << 24;
-
-	    printf("APIC %d (was %d) ", apicid, oldid);
-
 	    *icr = 0x00004500;
-	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (!(*icr & 0x1000))
-		    break;
-		udelay(10);
-	    }
-	    if (*icr & 0x1000)
-		printf("init IPI not delivered\n");
+
+	    while (*icr & 0x1000)
+		cpu_relax();
 
 	    apic[0x310/4] = apicid << 24;
 	    assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
 	    *icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
 
-	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (!(*icr & 0x1000))
-		    break;
-		udelay(10);
-	    }
-	    if (*icr & 0x1000)
-		printf("startup IPI not delivered\n");
+	    while (*icr & 0x1000)
+		cpu_relax();
 	    
-	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (*REL32(cpu_status) == 0)
-		    break;
-		udelay(10);
-	    }
-	    if (*REL32(cpu_status) == 0) {
-		printf("reported done\n");
-		if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
-		    printf("Adjusted topmem from 0x%llx to 0x%llx\n",
-			   *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
-		msr = *REL64(rem_smm_base_msr);
-		disable_smm_handler(msr);
-	    }
-	    else {
-		printf("did not toggle init flag (status %08x)\n", *REL32(cpu_status));
-	    }
+	    while (*REL32(cpu_status) != 0)
+		cpu_relax();
+
+	    printf(" %d", apicid);
+	    if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
+		printf(" (topmem 0x%llx->0x%llx)", *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
+	    msr = *REL64(rem_smm_base_msr);
+	    disable_smm_handler(msr);
 	}
     }
 
     critical_leave();
+    printf("\n");
 }
 
 static void renumber_remote_bsp(uint16_t num)
@@ -1188,7 +1170,7 @@ static void renumber_remote_bsp(uint16_t num)
     dnc_write_conf(node, 0, 24+maxnode+1, 0, H2S_CSR_F0_CHTX_NODE_ID,
 		   (maxnode << 24) | (maxnode << 16) | (maxnode << 8) | 0);
     val = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID);
-    printf("Moving NC to HT#%d on SCI%03x...\n", val, node);
+    printf("Moving NC to HT#%d on SCI%03x...", val, node);
 
     for (i = 1; i <= maxnode; i++) {
 	/* Decrease NodeCnt */
@@ -1208,7 +1190,7 @@ static void renumber_remote_bsp(uint16_t num)
     }
 
     val = dnc_read_conf(node, 0, 24+0, 0, H2S_CSR_F0_CHTX_NODE_ID);
-    printf("Done\n");
+    printf("done\n");
 
     memcpy(&nc_node[num].ht[maxnode], &nc_node[num].ht[0], sizeof(ht_node_info_t));
     nc_node[num].ht[0].cpuid = 0;
@@ -1451,6 +1433,8 @@ static void setup_remote_cores(uint16_t num)
     
     *REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)node << 28ULL) | 0x21ULL;
 
+    printf("APICs:");
+
     /* Start all remote cores and let them run our init_trampoline */
     for (ht = 0; ht < 8; ht++) {
 	for (i = 0; i < cur_node->ht[ht].cores; i++) {
@@ -1470,25 +1454,18 @@ static void setup_remote_cores(uint16_t num)
 	    assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
 			  0xff002600 | (oldid << 16) | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff));
-	    for (j = 0; j < BOOTSTRAP_DELAY; j++) {
-		if (*REL32(cpu_status) == 0)
-		    break;
-		udelay(10);
-	    }
 
-	    if (*REL32(cpu_status) == 0) {
-		printf("APIC %d (was %d) reported done\n", apicid, oldid);
-		if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
-		    printf("Adjusted topmem value from 0x016%llx to 0x016%llx\n",
-			   *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
-		qval = *REL64(rem_smm_base_msr);
-		disable_smm_handler(qval);
-	    }
-	    else {
-		printf("APIC %d did not toggle init flag (status %d)\n", apicid, *REL32(cpu_status));
-	    }
+	    while (*REL32(cpu_status) != 0)
+		cpu_relax();
+
+	    printf(" %d", apicid);
+	    if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
+		printf(" (topmem 0x016%llx->0x016%llx)\n", *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
+	    qval = *REL64(rem_smm_base_msr);
+	    disable_smm_handler(qval);
 	}
     }
+    printf("\n");
 }
 
 static void setup_local_mmio_maps(void)
