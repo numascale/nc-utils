@@ -17,7 +17,10 @@
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_grid.h>
 #include <qwt_scale_engine.h>
-
+#define DEBUG_STATEMENT_SOCKET(x)
+#ifdef WIN32
+#define snprintf _snprintf
+#endif
 const int msgsize = sizeof(uint32_t) + sizeof(struct msgstats_t);
 const int maxnodes = 200;
 char* getLastErrorMessage(char* buffer, DWORD size, DWORD errorcode);
@@ -34,6 +37,7 @@ NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simu
     , m_freeze(true)
     , m_deselected(false)
     , m_num_chips(0)
+    , m_num_cores(0)
     , m_spinbox(0)
     , m_spinbox2(0)
     , init(true)
@@ -44,25 +48,34 @@ NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simu
     graph2 = new TransactionHist(ui.tab1);
     graph5 = new CacheGraph(ui.tab1);
     graph4 = new ProbeHist(ui.tab_2);
+    graph6 = new PAPIHist(ui.tab1);
     graph3 = new TransGraph(ui.tab);
     ui.tab1layout->addWidget(graph1->plot);
     ui.tablayout->addWidget(graph3->plot);
     ui.tab2layout->addWidget(graph2->plot);
     ui.tab5layout->addWidget(graph5->plot);
+    ui.verticalLayout_3->addWidget(graph6->plot);
     ui.probeLayout->addWidget(graph4->plot);
     ui.pushButton->setToolTip("Stop the communication with the Numascale master node daemon temporarily.");
     ui.pushButton_2->setToolTip("Deselect all the legends. Then it might be easier to select the graph you want?");
     ui.tabWidget->setCurrentIndex(1);
+    ui.comboBoxPapi1->clear();
+    ui.comboBoxPapi2->clear();
     resize(800, 480);
     if( !cacheAddr.empty() ) {
         srvconnect(cacheAddr, cacheSocket, cacheConnected);
     }
-    
+    m_devices.num_devices=0;
+    m_devices.num_cores=0;
+    snprintf(m_devices.PAPI_EVENT_0,12,"PAPI_L2_DCM");
+    snprintf(m_devices.PAPI_EVENT_1,12,"PAPI_L2_DCA");
     connect(&timer, SIGNAL(timeout()), this, SLOT(getinfo()));	
     connect(ui.pushButton, SIGNAL(released()), this, SLOT(handleButton()));
     connect(ui.pushButton_2, SIGNAL(released()), this, SLOT(handleDeselectButton()));
     connect(ui.spinBox, SIGNAL(valueChanged(int)), this, SLOT(handleBox(int)));
     connect(ui.spinBox_2, SIGNAL(valueChanged(int)), this, SLOT(handleBox2(int)));
+    connect(ui.comboBoxPapi1, SIGNAL(currentIndexChanged(int)), this, SLOT(combochanged(int)));
+    connect(ui.comboBoxPapi2, SIGNAL(currentIndexChanged(int)), this, SLOT(combochanged2(int)));
     timer.setInterval(1000);
     timer.start();
 }
@@ -73,6 +86,7 @@ NumaChipStats::~NumaChipStats()
     WSACleanup();
 #endif
 }
+
 void NumaChipStats::getinfo() {
 
     if (m_freeze) {
@@ -111,10 +125,16 @@ void NumaChipStats::handleDeselectButton() {
     }
     
 }
-
-void NumaChipStats::handleBox(int newvalue) {	
+void NumaChipStats::combochanged(int index)
+{
+    snprintf(m_devices.PAPI_EVENT_0,13,"%s\n", ui.comboBoxPapi1->currentText().toStdString().c_str());
+}
+void NumaChipStats::combochanged2(int index)
+{
+    snprintf(m_devices.PAPI_EVENT_1,13,"%s\n", ui.comboBoxPapi2->currentText().toStdString().c_str());
+}
+void NumaChipStats::handleBox(int newvalue) {
     if (m_spinbox!=newvalue) {
-        printf("handleBox:Current value is %d was %d\n", newvalue, m_spinbox);
         m_spinbox=newvalue;
         ui.spinBox_2->setMinimum(m_spinbox);
         
@@ -129,11 +149,13 @@ void NumaChipStats::handleBox(int newvalue) {
         graph2->set_range(m_spinbox,m_spinbox2);
         graph4->set_range(m_spinbox,m_spinbox2);
         graph5->set_range(m_spinbox,m_spinbox2);
+        graph6->set_range(m_spinbox,m_spinbox2);
         graph1->addCurves();
         graph2->addCurves();
         graph3->addCurves();
         graph4->addCurves();
         graph5->addCurves();
+        graph6->addCurves();
         m_deselected=true;
         handleDeselectButton();
     }
@@ -141,7 +163,6 @@ void NumaChipStats::handleBox(int newvalue) {
 
 void NumaChipStats::handleBox2(int newvalue) {	
     if (m_spinbox2!=newvalue) {
-        printf("handleBox2: Current value is %d was %d\n", newvalue, m_spinbox2);
         if (maxnodes<m_num_chips) {
             if(m_spinbox2>newvalue) {
                 //New minimum?
@@ -165,11 +186,13 @@ void NumaChipStats::handleBox2(int newvalue) {
         graph3->set_range(m_spinbox,m_spinbox2);
         graph4->set_range(m_spinbox,m_spinbox2);
         graph5->set_range(m_spinbox,m_spinbox2);
+        graph6->set_range(m_spinbox,m_spinbox2);
         graph1->addCurves();
         graph2->addCurves();
         graph3->addCurves();
         graph4->addCurves();
         graph5->addCurves();
+        graph6->addCurves();
         m_deselected=true;
         handleDeselectButton();
     }
@@ -509,9 +532,9 @@ void CacheHistGraph::addCurves() {
     QwtPlotHistogram* curve;
     curves.clear();    
     plot->detachItems();
-    QColor blue = Qt::blue, red = Qt::red;
-    red.setAlpha(75);
-    blue.setAlpha(75);
+    QColor blue(0,0,255), red(0,255,0);
+    red.setAlpha(150);
+    blue.setAlpha(150);
     int max=2*(p_range_max +1) - p_range_min;
     for (int i=p_range_min; i<max; i++) {
 
@@ -602,6 +625,125 @@ void CacheHistGraph::showstat(const struct cachestats_t* statmsg) {
     m_hitrate.clear();
     m_transactions.clear();
 } 
+PAPIHist::PAPIHist(QWidget* parent) {
+      m_cores_pr_node=0;
+      plot->setAxisScale(QwtPlot::yLeft, 0, 12);
+      plot->setAxisAutoScale( QwtPlot::yLeft, true );
+      QwtText xtitle("NumaChip #n");	
+      plot->setAxisTitle(QwtPlot::xBottom, xtitle);
+      plot->setAxisAutoScale( QwtPlot::xBottom, true );
+      
+      QwtText ytitle("Number of PAPI Events");
+      plot->setAxisTitle(QwtPlot::yLeft, ytitle);
+      QwtText title("AMD Cores Number of PAPI (Hardware CPU counter) events");
+      plot->setTitle(title);      
+}
+void PAPIHist::addCurves() {
+    char str[80];
+    int range_min=p_range_min*m_cores_pr_node;
+    int range_max=p_range_max*m_cores_pr_node;
+    int num_cores=p_num_chips*m_cores_pr_node;
+    QwtPlotHistogram* curve;
+    curves.clear();
+    plot->detachItems();
+    int max=2*(range_max +  m_cores_pr_node) - range_min;
+
+    for (int i=range_min; i<max; i++) {
+            
+        QColor blue = Qt::blue, red = Qt::red;
+
+        red.setAlpha(150);
+        blue.setAlpha(150);
+
+        if (i<((range_max + m_cores_pr_node))) {
+                sprintf(str, "Core DCM #%d ", i); // s now contains the value 52300         
+                //printf("%s\n", str);
+                curve = new QwtPlotHistogram(str);
+                curve->setBrush(blue);
+                curve->setPen(blue);
+                curve->attach(plot);
+                curves.push_back(curve);
+                showCurve(curve, true);			      
+
+        } else {
+
+            sprintf(str, "Core #%d DCA ", i-num_cores); // s now contains the value 52300         
+            //printf("%s\n", str);
+            curve = new QwtPlotHistogram(str);
+            curve->setBrush(red);
+            curve->setPen(red);
+            curve->attach(plot);
+            curves.push_back(curve);
+            showCurve(curve, true);		
+
+        }
+    }
+}
+void PAPIHist::deselectAllLegends(bool turn_off) {
+    int max=2*m_cores_pr_node*(p_range_max +1) - p_range_min*m_cores_pr_node;
+    printf("TransactionHist::deselectAllLegends max = %d p_range_min %d p_range_max %d\n",  max,p_range_min*m_cores_pr_node, p_range_max*m_cores_pr_node);
+    for (int i=p_range_min; i<max; i++) {
+        printf("TransactionHist::deselectAllLegends i = %d p_range_min %d p_range_max %d\n",  i,p_range_min*m_cores_pr_node, p_range_max*m_cores_pr_node);
+        showCurve(curves[i-p_num_chips*m_cores_pr_node], !turn_off);
+    }
+}
+void PAPIHist::set_num_cores(int cores, int nodes) {
+    if (nodes==0) {
+        m_cores_pr_node=0;
+        return;
+    }
+    m_cores_pr_node=cores/nodes;
+};
+void PAPIHist::showstat2(const struct papi_stats_t* papimsg, char *label1, char *label2) {
+    int range_min=p_range_min*m_cores_pr_node;
+    int range_max=p_range_max*m_cores_pr_node;
+    int num_cores=p_num_chips*m_cores_pr_node;
+
+    plot->setAxisScale(QwtPlot::xBottom,range_min-0.5, (range_max + m_cores_pr_node - 0.5));
+    plot->setAxisMaxMajor(QwtPlot::xBottom, range_max + m_cores_pr_node - 1);
+    plot->plotLayout()->setCanvasMargin(20, QwtPlot::yLeft);
+
+    char s[80];
+    QString title;
+    QVector<QwtIntervalSample> samples(1); 
+
+    int j=0;
+    //printf("%d\n", num_cores);
+    for (int i=0; i<(2*(range_max + m_cores_pr_node)); i++) {
+
+        if (i<(range_max + m_cores_pr_node)) {
+            m_transactions.push_back(papimsg[i].papi_event_0);
+            //printf("i=%d m_transactions papi_event_0 %lld\n", i, m_transactions[i]);
+            sprintf(s, "Core #%d %s", i, label1); 
+            
+            if ((i>=range_min) && i<=(range_max + m_cores_pr_node)) {  
+                samples[0]=QwtIntervalSample(m_transactions[i], i-0.2,i+0.2);
+                curves[j]->setSamples(samples);
+                title.append(QString(s));		
+                curves[j]->setTitle(title);
+                title.clear();
+                j++;
+            }
+        } else {
+            int newi=i-(range_max + m_cores_pr_node);
+            m_transactions2.push_back(papimsg[newi].papi_event_1);
+            //printf("i=%d m_transactions papi_event_1 %lld (index i-num_cores) =%d\n", i, m_transactions2[newi], newi);
+            sprintf(s, "Core #%d %s",newi, label2); 
+            samples[0]=QwtIntervalSample(m_transactions2[newi],(newi)-0.2,(newi)+0.2);
+            if (((newi)>=range_min) && (newi)<=(range_max+ m_cores_pr_node )) {            
+                samples[0]=QwtIntervalSample(m_transactions2[newi],(newi)-0.2,(newi)+0.2);
+                curves[j]->setSamples(samples);
+                title.append(QString(s));		
+                curves[j]->setTitle(title);
+                title.clear();
+                j++;
+            }
+        }
+    }
+    plot->replot();    
+    m_transactions.clear();
+    m_transactions2.clear();
+} 
 ProbeHist::ProbeHist(QWidget* parent) {
       //Double is 64 bit: 
 
@@ -629,8 +771,8 @@ void ProbeHist::addCurves() {
             
         QColor blue = Qt::blue, red = Qt::red;
         //printf("TransactionHist:addCurves  %d\n", i);
-        red.setAlpha(75);
-        blue.setAlpha(75);
+        red.setAlpha(150);
+        blue.setAlpha(150);
         
         if (i<(p_range_max+1)) {
     
@@ -731,8 +873,8 @@ void TransactionHist::addCurves() {
     for (int i=p_range_min; i<max; i++) {
             
         QColor blue = Qt::blue, red = Qt::red;
-        red.setAlpha(75);
-        blue.setAlpha(75);
+        red.setAlpha(150);
+        blue.setAlpha(150);
         
         if (i<(p_range_max+1)) {
 
@@ -911,6 +1053,7 @@ void NumaChipStats::showConnectionStatus() {
 }
 
 void NumaChipStats::getcache() {
+
     if (m_simulate) {
         static int j=0;
 
@@ -925,6 +1068,7 @@ void NumaChipStats::getcache() {
             graph3->set_num_chips(m_num_chips);
             graph4->set_num_chips(m_num_chips);
             graph5->set_num_chips(m_num_chips);
+            graph6->set_num_chips(m_num_chips);
 
             ui.spinBox->setValue(0); 
             if (maxnodes<m_num_chips) {
@@ -962,6 +1106,7 @@ void NumaChipStats::getcache() {
          }
          j++;
     } else {
+
         if( !cacheConnected ) {
             cacheConnected = false;
             showConnectionStatus();
@@ -971,33 +1116,91 @@ void NumaChipStats::getcache() {
         //We need to get information from client on how many numachips there are in the system
         //After getting this information, then we know how many graphs to create. 
         //We need a function returning the number of numachips in the system
-        int num_chips = 0;
-
-        //send request
-        if( ::send(cacheSocket, (char*)&num_chips, sizeof(int), 0) == SOCKET_ERROR ){
+         DEBUG_STATEMENT_SOCKET(printf("m_devices.num_devices %d\n", m_devices.num_devices);
+         printf("m_devices.num_cores %d\n", m_devices.num_cores);
+         printf("m_devices.PAPI_EVENT_0 %s\n", m_devices.PAPI_EVENT_0);
+         printf("m_devices.PAPI_EVENT_1 %s\n", m_devices.PAPI_EVENT_1);
+         printf(" send sizeof(struct cmd_packet) %d\n", sizeof(struct cmd_packet)));
+         //send request
+        snprintf(m_devices.PAPI_EVENT_0,20,"%s", ui.comboBoxPapi1->currentText().toStdString().c_str());
+        snprintf(m_devices.PAPI_EVENT_1,20,"%s", ui.comboBoxPapi2->currentText().toStdString().c_str()); 
+        if( ::send(cacheSocket, (char*)&(m_devices), sizeof(struct cmd_packet), 0) == SOCKET_ERROR ){
             cacheConnected = false;
             showConnectionStatus();
             return;
         }
-
+         DEBUG_STATEMENT_SOCKET(printf("m_devices.num_devices %d\n", m_devices.num_devices);
+         printf("m_devices.num_cores %d\n", m_devices.num_cores);
+         printf("m_devices.PAPI_EVENT_0 %s\n", m_devices.PAPI_EVENT_0);
+         printf("m_devices.PAPI_EVENT_1 %s\n", m_devices.PAPI_EVENT_1);
+         printf(" recv sizeof(struct cmd_packet) %d\n", sizeof(struct cmd_packet)));
         //receive response    
-        int rc = ::recv(cacheSocket, (char*)&num_chips, sizeof(num_chips), 0);    
+        int rc = ::recv(cacheSocket, (char*)&m_devices, sizeof(struct cmd_packet), 0);    
         if( (rc == SOCKET_ERROR) || (rc <= 0) ) {    
             cacheConnected = false;
             showConnectionStatus();
             return;
         }
-    
-        if (m_num_chips!=num_chips) {
+        snprintf(m_devices.PAPI_EVENT_0,20,"%s", ui.comboBoxPapi1->currentText().toStdString().c_str());
+        snprintf(m_devices.PAPI_EVENT_1,20,"%s", ui.comboBoxPapi2->currentText().toStdString().c_str()); 
+        
+        /*
+         * It is possible to communicate with the masternode what type of PAPI signals that are available. 
+         * Add the signals you want to a Combobox, or two. 
+         * Choose what signals that you want and monitor these, starting when you choose.
+         */
+         DEBUG_STATEMENT_SOCKET(printf("m_devices.num_devices %d\n", m_devices.num_devices);
+         printf("m_devices.num_cores %d\n", m_devices.num_cores);
+         printf("m_devices.PAPI_EVENT_0 %s\n", m_devices.PAPI_EVENT_0);
+         printf("m_devices.PAPI_EVENT_1 %s\n", m_devices.PAPI_EVENT_1));
+
+        if (ui.comboBoxPapi1->count()==0) {
+            ui.comboBoxPapi1->insertItems(0, QStringList()
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L1_DCA", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L2_DCA", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L1_ICA", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L2_ICA", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L1_ICR", 0, QApplication::UnicodeUTF8)
+            //<< QApplication::translate("NumaChipStatsClass", "PAPI_L1_TCA", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L2_TCA", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_TOT_INS", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_FP_INS", 0, QApplication::UnicodeUTF8));
+        }
+
+        if (ui.comboBoxPapi2->count()==0) {
+            ui.comboBoxPapi2->insertItems(0, QStringList()            
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L1_DCM", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L1_ICM", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L2_DCM", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L2_ICM", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L1_TCM", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_L2_TCM", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_HW_INT", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_RES_STL", 0, QApplication::UnicodeUTF8)
+            << QApplication::translate("NumaChipStatsClass", "PAPI_TOT_CYC", 0, QApplication::UnicodeUTF8));
+        }
+
+        if (m_num_cores!=m_devices.num_cores) {
+            if (m_num_cores>0) delete m_papistat;
+            m_num_cores=m_devices.num_cores;
+            m_papistat=new papi_stats_t[m_num_cores];
+            if (m_num_chips==m_devices.num_devices) {
+                graph6->set_num_cores(m_num_cores, m_num_chips);
+                graph6->addCurves();
+            }
+        }
+
+        if (m_num_chips!=m_devices.num_devices) {
             if (m_num_chips>0) delete m_cstat;
 
-            m_num_chips=num_chips;
+            m_num_chips=m_devices.num_devices;
             graph1->set_num_chips(m_num_chips);
             graph2->set_num_chips(m_num_chips);
             graph3->set_num_chips(m_num_chips);
             graph4->set_num_chips(m_num_chips);
             graph5->set_num_chips(m_num_chips);
-
+            graph6->set_num_chips(m_num_chips);
+            graph6->set_num_cores(m_num_cores, m_num_chips);
             ui.spinBox->setValue(0); 
             if (maxnodes<m_num_chips) {
                 ui.spinBox_2->setValue(maxnodes-1); 
@@ -1013,24 +1216,44 @@ void NumaChipStats::getcache() {
             if (maxnodes<m_num_chips) handleBox2(maxnodes-1);
             else handleBox2(m_num_chips-1);
             //printf("Master node in the numaconnect single image system reports %d numchips.\n", m_num_chips);
-
             m_cstat = new cachestats_t[m_num_chips];
         }
-
-
-        //receive response
+        DEBUG_STATEMENT_SOCKET(printf("m_devices.num_devices %d\n", m_devices.num_devices);
+        printf("m_devices.num_cores %d\n", m_devices.num_cores);
+        printf("m_devices.PAPI_EVENT_0 %s\n", m_devices.PAPI_EVENT_0);
+        printf("m_devices.PAPI_EVENT_1 %s\n", m_devices.PAPI_EVENT_1);
+        printf(" recv sizeof(struct cachestats_t) %d\n", m_num_chips*sizeof(struct cachestats_t)));
         rc = ::recv(cacheSocket, (char*)m_cstat, m_num_chips*sizeof(struct cachestats_t), 0);
         if( (rc == SOCKET_ERROR) || (rc <= 0) ) {
             cacheConnected = false;
             showConnectionStatus();
             return;
         }
+
+        //receive response
+        if (m_devices.num_cores>0) {
+            DEBUG_STATEMENT_SOCKET(printf("m_devices.num_devices %d\n", m_devices.num_devices);
+            printf("m_devices.num_cores %d\n", m_devices.num_cores);
+            printf("m_devices.PAPI_EVENT_0 %s\n", m_devices.PAPI_EVENT_0);
+            printf("m_devices.PAPI_EVENT_1 %s\n", m_devices.PAPI_EVENT_1);
+            printf(" recv sizeof(struct m_papistat) %d\n", m_num_cores*sizeof(struct papi_stats_t)));
+            rc = ::recv(cacheSocket, (char*)m_papistat,m_num_cores*sizeof(struct papi_stats_t), 0);
+            if( (rc == SOCKET_ERROR) || (rc <= 0) ) {
+                cacheConnected = false;
+                showConnectionStatus();
+                return;
+            }   
+        } 
+        
+
     }
     graph5->showstat(m_cstat);
     graph4->showstat(m_cstat);
     graph3->showstat(m_cstat);
     graph1->showstat(m_cstat);
     graph2->showstat(m_cstat);
+    graph6->showstat2(m_papistat,m_devices.PAPI_EVENT_0,m_devices.PAPI_EVENT_1);
+    
 
 }
 #ifdef WIN32

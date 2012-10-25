@@ -53,6 +53,7 @@ class CacheGraph;
 class TransactionHist;
 class TransGraph;
 class ProbeHist;
+class PAPIHist;
 
 typedef int int32_t;
 typedef unsigned int uint32_t;
@@ -72,6 +73,11 @@ struct cachestats_t {
     uint64_t tot_cave_out; //counter_5 - Select = 7, cHT-Cave value 4 - Outgoing non-posted HT-Request
     uint64_t tot_probe_in; //counter_6 - Select = 7, cHT-Cave value 3 - Incoming probe HT-Request
     uint64_t tot_probe_out; //counter_7 - Select = 7, cHT-Cave value 7 - Outgoing probe HT-Request
+};
+
+struct papi_stats_t {
+    uint64_t papi_event_0; //PAPI_L1_DCA
+    uint64_t papi_event_1; //PAPI_L1_DCM
 };
 
 struct msgstats_t {
@@ -105,7 +111,7 @@ private:
     Ui::NumaChipStatsClass ui;
     const string cacheAddr;
     SOCKET cacheSocket;
-    int m_num_chips;
+    int m_num_chips, m_num_cores;
     bool cacheConnected;
     bool m_freeze;
     bool m_deselected;
@@ -120,17 +126,26 @@ private:
     CacheGraph* graph5;
     TransGraph* graph3;
     ProbeHist* graph4;
+    PAPIHist* graph6;
     QTimer timer;
 
     struct cachestats_t *m_cstat;
+    struct papi_stats_t *m_papistat;
+    struct cmd_packet {
+        unsigned int num_devices;
+        unsigned int num_cores;
+        char PAPI_EVENT_0[20];
+        char PAPI_EVENT_1[20];
+    } m_devices; 
     bool init;
 
     void srvconnect(const string& addr, SOCKET& toServer, bool& connected);
     void showConnectionStatus();
     void getcache();
     
-
     private slots:
+        void combochanged(int index);
+        void combochanged2(int index);
         void getinfo();
         void handleDeselectButton();
         void handleButton();
@@ -195,6 +210,7 @@ private:
     unsigned int m_counter;
     
 };
+
 class PerfHistGraph : public PerfGraph {
     Q_OBJECT   
 public:
@@ -234,6 +250,21 @@ private:
     vector <uint64_t> m_transactions;
     vector <uint64_t> m_transactions2;
 };
+class PAPIHist : public PerfHistGraph {
+    Q_OBJECT   
+public:
+    PAPIHist(QWidget* parent = 0);
+    void set_num_cores(int cores, int nodes);
+    void deselectAllLegends(bool turn_off);
+    void showstat2(const struct papi_stats_t* papimsg, char *label1, char *label2);
+    void addCurves();    
+    void showstat(const struct cachestats_t* statmsg){};
+private:
+    int m_cores_pr_node;
+    vector <uint64_t> m_transactions;
+    vector <uint64_t> m_transactions2;
+};
+
 class ProbeHist : public PerfHistGraph {
     Q_OBJECT   
 public:
@@ -246,4 +277,6 @@ private:
     vector <uint64_t> m_transactions;
     vector <uint64_t> m_transactions2;
 };
+
+
 #endif // NumaChipStats_H
