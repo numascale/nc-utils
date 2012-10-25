@@ -224,6 +224,12 @@ static int tally_remote_node(uint16_t node)
     uint16_t last = 0;
     uint16_t cur_apic;
     nc_node_info_t *cur_node;
+    uint32_t mem_limit = max_mem_per_node;
+
+    if (pf_maxmem) {
+	printf("Limiting per-server memory to %dGB\n", pf_maxmem);
+	mem_limit = min(max_mem_per_node, pf_maxmem << (30 - DRAM_MAP_SHIFT));
+    }
 
     if (dnc_raw_read_csr(node, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
         printf("Can't find node %04x!\n", node);
@@ -305,10 +311,10 @@ static int tally_remote_node(uint16_t node)
 	    cur_node->ht[i].base = dnc_top_of_mem;
 	    cur_node->ht[i].size = limit - base + 1;
             cur_node->node_mem += cur_node->ht[i].size;
-	    if (cur_node->node_mem > max_mem_per_node) {
+	    if (cur_node->node_mem > mem_limit) {
 		printf("Node exceeds cachable memory range; clamping...\n");
-		cur_node->ht[i].size -= cur_node->node_mem - max_mem_per_node;
-		cur_node->node_mem = max_mem_per_node;
+		cur_node->ht[i].size -= cur_node->node_mem - mem_limit;
+		cur_node->node_mem = mem_limit;
 	    }
 
 	    dnc_top_of_mem += cur_node->ht[i].size;

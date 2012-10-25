@@ -123,7 +123,6 @@ void wait_for_master(struct node_info *info, struct part_info *part);
 
 extern int dnc_asic_mode;
 extern int dnc_chip_rev;
-extern uint32_t max_mem_per_node;
 
 extern char *next_label;
 extern char *microcode_path;
@@ -142,6 +141,8 @@ extern int remote_io;
 extern bool boot_wait;
 extern int family;
 extern uint32_t tsc_mhz;
+extern uint32_t pf_maxmem;
+extern uint32_t max_mem_per_node;
 
 extern const char* node_state_name[];
 

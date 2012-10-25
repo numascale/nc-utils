@@ -62,6 +62,8 @@ uint32_t trace_buf_size = 0;
 int verbose = 0;
 int family = 0;
 uint32_t tsc_mhz = 0;
+uint32_t pf_maxmem = 0;
+uint32_t max_mem_per_node;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 
@@ -75,7 +77,6 @@ struct dimm_config {
     int mem_size; /* Size of DIMM in GByte powers of 2 */
 };
 
-uint32_t max_mem_per_node;
 
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -455,7 +456,7 @@ int dnc_init_caches(void) {
 	    }
 
 	    if (!cdata) {
-		max_mem_per_node = (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size));
+		max_mem_per_node = (1U << (5 + dimms[0].mem_size)) - ( 1U << (2 + dimms[1].mem_size));
 		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
 		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
 		max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
@@ -473,7 +474,7 @@ int dnc_init_caches(void) {
             }
 
 	    if (!cdata) {
-		max_mem_per_node = (16U<<dimms[0].mem_size);
+		max_mem_per_node = 16U << dimms[0].mem_size;
 		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
 		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
 		max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
@@ -1385,6 +1386,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	ht_suppress = -1;
 
     if (ht_suppress) {
+	printf("Settng HT features...");
 	for (i = 0; i <= nodes; i++) {
 	    val = cht_read_conf(i, FUNC3_MISC, 0x44);
 	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error disable */
@@ -1423,6 +1425,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	    if (ht_suppress & 0x2000) val &= ~(1 << 22);
 	    cht_write_conf(i, FUNC3_MISC, 0x180, val);
 	}
+	printf("done\n");
     }
 
     /* HT looping testmode useful after link is up at 16-bit 800MHz */
@@ -1448,6 +1451,8 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     if (family >= 0x15)
 	disable_atmmode(nodes);
     
+    printf("Adjusting HT fabric...");
+
     critical_enter();
 
     for (i = nodes; i >= 0; i--) {
@@ -1472,9 +1477,9 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     }
 
     critical_leave();
-    /* reorganize_mmio(nc); */
+    printf("done\n");
 
-    printf("Done\n");
+    /* reorganize_mmio(nc); */
 
     return nc;
 #endif
@@ -1809,6 +1814,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht.force-pf-on",  &parse_int,    &force_probefilteron},  /* Enable probe filter if disabled */
         {"ht.force-pf-off", &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
         {"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
+	{"pf.maxmem",       &parse_int,    &pf_maxmem},       /* Memory in GB per server */
         {"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
