@@ -5,7 +5,7 @@ PAPIINC = $(PAPIDIR)
 #CC = gcc
 CFLAGS += -I$(PAPIINC)
 #OS = $(shell uname)
-LDFLAGS_PTHREAD =  /net/numastore/storage/home/av/papi/papi-5.0.0/src/libpapi.a -lpthread
+LDFLAGS_PTHREAD =  /net/numastore/storage/home/av/papi/papi-5.0.0/src/libpapi.a -lpthread 
 
 .PHONY: all
 all: $(TARGETS)
