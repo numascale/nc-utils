@@ -2757,7 +2757,7 @@ static void phy_print_error(int mask)
 static enum node_state release_reset(struct node_info *info __attribute__((unused)))
 {
     int pending, i;
-    printf("Releasing reset\n");
+    printf("Releasing reset...");
 
     if (dnc_asic_mode && dnc_chip_rev < 2) {
 	/* Release reset */
@@ -2794,7 +2794,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
 	    pending |= phy_check_status(5);
 	}
 	if (!pending) {
-	    printf("Done\n");
+	    printf("done\n");
 	    return RSP_PHY_TRAINED;
 	}
 	if (i++ > 10) {

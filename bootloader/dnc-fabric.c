@@ -228,7 +228,7 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
     uint32_t error_count1, error_count2;
     uint16_t chunk, offs;
 
-    printf("Initializing LC3%s...\n", linkname);
+    printf("Initializing LC3%s...", linkname);
 
     if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count1) != 0)
         return -1;
