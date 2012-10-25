@@ -1462,7 +1462,7 @@ static void setup_remote_cores(uint16_t num)
 
 	    printf(" %d", apicid);
 	    if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
-		printf(" (topmem 0x016%llx->0x016%llx)\n", *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
+		printf(" (topmem 0x016%llx->0x016%llx)", *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
 	    qval = *REL64(rem_smm_base_msr);
 	    disable_smm_handler(qval);
 	}
@@ -2384,14 +2384,15 @@ static int unify_all_nodes(void)
 	}
     }
 
+    printf("Loading SCC microcode:");
     for (i = 0; i < dnc_node_count; i++) {
         node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-        printf("Loading SCC microcode on SCI%03x\n", nc_node[i].sci_id);
+        printf(" SCI%03x", nc_node[i].sci_id);
         load_scc_microcode(node);
     }
+    printf("\n");
 
     scc_started = 1;
-    printf("SCC microcode loaded\n");
 
     update_mtrr();
 
