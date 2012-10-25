@@ -1358,7 +1358,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     }
 
     /* RevB ASIC requires syncflood to be disabled */
-    if (*p_asic_mode && *p_chip_rev < 3)
+    if (*p_asic_mode && *p_chip_rev < 2)
 	ht_suppress = -1;
 
     if (ht_suppress) {
@@ -2081,17 +2081,24 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL);
     dnc_write_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL, val | (1<<1)); /* disableErrorResponse=1 */
     
-    if (asic_mode && (chip_rev < 2)) {
-	/* Unknown ERRATA: Disable the Early CData read. It causes data corruption */
+    if (asic_mode) {
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3<<6)) | (3<<6));
-	/* Unknown ERRATA: Disable CTag cache */
-	val = dnc_read_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR);
-	dnc_write_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<2));
-	/* Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations */
-	val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
-	dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf<<4)) | (1<<4));
-    } else { /* ASIC Rev2 and FPGA */
+	/* Unknown ERRATA: Disable the Early CData read. It causes data corruption */
+	val = (val & ~(3<<6)) | (3<<6);
+	if (chip_rev < 2) {
+	    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val);
+	    /* Unknown ERRATA: Disable CTag cache */
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR);
+	    dnc_write_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR, val & ~(1<<2));
+	    /* Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations */
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
+	    dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf<<4)) | (1<<4));
+	} else { /* ASIC RevC */
+	    /* Enable WeakOrdering */
+	    val = val | (1<<19);
+	    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val);
+	}
+    } else { /* FPGA */
         val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
         dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1<<19)); /* Enable WeakOrdering */
     }
@@ -2166,11 +2173,14 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 	cht_write_conf(i, FUNC0_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
 
 	/* Fix for IBS setup on certain BIOSes and Linux; set IBS to use LVT offset 1 */
+	/* XXX: Not our job really, disable now to avoid messing up something */
+#ifdef BROKEN
 	val = cht_read_conf(i, FUNC3_MISC, 0x1cc);
 	if ((val & (1<<8)) && ((val & 0xf) == 0)) {
 	    printf("Enable IBS LVT offset workaround on HT#%d\n", i);
 	    cht_write_conf(i, FUNC3_MISC, 0x1cc, (1<<8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
 	}
+#endif
 
 	/* On Fam15h disable the Accelerated Transiton to Modified protocol
 	   and the core prefetch hits as NumaChip doesn't support these states */
