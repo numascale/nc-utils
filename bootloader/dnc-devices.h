@@ -93,7 +93,7 @@ struct devspec {
 
 void disable_vga(void);
 void enable_vga(void);
-void stop_usb(void);
+void stop_acpi(void);
 void disable_dma_all(void);
 void handover_legacy(void);
 

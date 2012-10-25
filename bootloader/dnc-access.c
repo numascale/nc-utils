@@ -21,6 +21,7 @@
 #include "dnc-regs.h"
 #include "dnc-defs.h"
 #include "dnc-bootloader.h"
+#include "dnc-commonlib.h"
 #include "dnc-access.h"
 
 #define PCI_CONF_SEL 0xcf8
@@ -117,6 +118,26 @@ void pmio_clearl(uint16_t offset, uint32_t mask)
 {
     uint32_t val = pmio_readb(offset) & ~mask;
     pmio_writel(offset, val);
+}
+
+uint32_t ioh_ind_read(uint16_t node, uint16_t reg) {
+    uint16_t base = reg >> 8;
+
+    dnc_write_conf(node, 0, 0, 0, base, reg & 0xff);
+    return dnc_read_conf(node, 0, 0, 0, base + 4);
+}
+
+void ioh_ind_write(uint16_t node, uint16_t reg, uint32_t val) {
+    uint16_t base = reg >> 8;
+
+    dnc_write_conf(node, 0, 0, 0, base, (reg & 0xff) | 0x100);
+    dnc_write_conf(node, 0, 0, 0, base + 4, val);
+
+    if (verbose) {
+	uint32_t val2 = dnc_read_conf(node, 0, 0, 0, base + 4);
+	if (val2 != val)
+	    printf("Warning: value read back from IOH (0x%x) differs than value written (0x%x)\n", val2, val);
+    }
 }
 
 static inline void watchdog_run(unsigned int counter)

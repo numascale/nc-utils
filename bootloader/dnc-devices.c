@@ -281,7 +281,7 @@ static void stop_ahci(int bus, int dev, int fn)
     printf("legacy handoff timed out\n");
 }
 
-static void stop_acpi(void)
+void stop_acpi(void)
 {
     printf("ACPI handoff: ");
 
@@ -323,6 +323,9 @@ void handover_legacy(void)
     if (disable_smm)
 	return;
 
+    /* Stop ACPI first, as Linux requests ownership of this before other subsystems */
+    stop_acpi();
+
     const struct devspec devices[] = {
 	{PCI_CLASS_SERIAL_USB_OHCI, 3, stop_ohci},
 	{PCI_CLASS_SERIAL_USB_EHCI, 3, stop_ehci},
@@ -333,6 +336,5 @@ void handover_legacy(void)
     };
 
     pci_search(devices);
-    stop_acpi();
 }
 

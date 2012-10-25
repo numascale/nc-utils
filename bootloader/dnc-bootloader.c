@@ -310,7 +310,7 @@ static void update_e820_map(void)
 	e820[max].length -= trace_buf_size;
 	trace_buf = e820[max].base + e820[max].length;
 	printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
-	    nc_node[0].sci_id, 0, trace_buf, trace_buf + trace_buf_size - (1 << 24));
+	    nc_node[0].sci_id, 0, trace_buf, trace_buf + trace_buf_size);
     }
 
     /* Add remote nodes */
@@ -332,7 +332,7 @@ static void update_e820_map(void)
 		if ((trace_buf_size > 0) && (e820[*len].length > trace_buf_size)) {
 		    e820[*len].length -= trace_buf_size;
 		    printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
-			nc_node[i].sci_id, j, e820[*len].base + e820[*len].length, e820[*len].base + e820[*len].length + trace_buf_size - (1 << 24));
+			nc_node[i].sci_id, j, e820[*len].base + e820[*len].length, e820[*len].base + e820[*len].length + trace_buf_size);
 		}
 	    }
 	    prev_end = e820[*len].base + e820[*len].length;
@@ -2083,17 +2083,59 @@ static void update_mtrr(void)
     }
 }
 
-static void local_chipset_fixup(void)
+static void disable_iommu(void)
+{
+    uint32_t val, val2;
+
+    /* 0x60/64 is SR56x0 NBMISCIND port */
+    /* Enable access to device function 2 if needed */
+    dnc_write_conf(0xfff0, 0, 0, 0, 0x60, 0x75);
+    val = dnc_read_conf(0xfff0, 0, 0, 0, 0x64);
+    if ((val & 1) == 0) {
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x60, 0x75 | 0x80);
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x64, val | 1);
+    };
+
+    /* SR56x0 F2 0x44/48 is IOMMU config index/data port
+     * 0x18 is IOMMU_MMIO_CNTRL_0 */
+    dnc_write_conf(0xfff0, 0, 0, 2, 0x44, 0x18);
+    val2 = dnc_read_conf(0xfff0, 0, 0, 2, 0x48);
+    if (val2 & 1) {
+	printf("- disabling IOMMU (0x%x)\n", val2);
+	dnc_write_conf(0xfff0, 0, 0, 2, 0x44, 0x18);
+	dnc_write_conf(0xfff0, 0, 0, 2, 0x48, 0);
+    }
+
+    /* Hide device function 2 if previously hidden */
+    if ((val & 1) == 0) {
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x60, 0x75 | 0x80);
+	dnc_write_conf(0xfff0, 0, 0, 0, 0x64, val);
+    }
+}
+
+static void local_chipset_fixup(bool master)
 {
     uint32_t val;
 
     printf("Scanning for known chipsets, local pass...\n");
+
     val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
-    if (val == 0x43851002) {
+    if (val == VENDEV_SP5100) {
 	printf("Adjusting local configuration of AMD SP5100...\n");
 	/* Disable config-space triggered SMI */
 	val = pmio_readb(0xa8);
 	pmio_writeb(0xa8, val & ~(3 << 4)); /* Clear bit4 and bit5 */
+    }
+
+    val = dnc_read_conf(0xfff0, 0, 0, 0, 0);
+    if (val == VENDEV_SR5690 || val == VENDEV_SR5670 || val == VENDEV_SR5650) {
+	if (!remote_io && !master) {
+	    printf("- disabling IOAPIC\n");
+	    /* SR56x0 F0 0xf8/fc is IOAPIC config index/data port
+	     * Write 0 to IOAPIC config register 0 to disable */
+	    dnc_write_conf(0xfff0, 0, 0, 2, 0xf8, 0);
+	    dnc_write_conf(0xfff0, 0, 0, 2, 0xfc, 0);
+	}
     }
 
     /* Only needed to workaround rev A/B issue */
@@ -2149,19 +2191,19 @@ static void global_chipset_fixup(void)
     for (i = 0; i < dnc_node_count; i++) {
 	node = nc_node[i].sci_id;
 	val = dnc_read_conf(node, 0, 0, 0, 0);
-	if ((val == 0x5a101002) || (val == 0x5a121002) || (val == 0x5a131002)) {
+	if ((val == VENDEV_SR5690) || (val == VENDEV_SR5670) || (val == VENDEV_SR5650)) {
 	    printf("Adjusting configuration of AMD SR56x0 on SCI%03x...\n",
 		   node);
-	    /* NBHTIU_INDEX is 0x94
-	     * Set TOM2; HTIU 0x30/0x31 are TOM2 lo/hi */
-	    dnc_write_conf(node, 0, 0, 0, 0x94, 0x30|0x100);
-	    dnc_write_conf(node, 0, 0, 0, 0x98, 
-			   ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
-	    dnc_write_conf(node, 0, 0, 0, 0x94, 0x31|0x100);
-	    dnc_write_conf(node, 0, 0, 0, 0x98,
-			   dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
+	    ioh_ind_write(node, SR56X0_HTIU_TOM2LO, ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
+	    ioh_ind_write(node, SR56X0_HTIU_TOM2HI, dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
+	    ioh_ind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) & 0x3fffffff) | (1 << 31));
+
+	    /* 0xf8/fc IOAPIC config space access
+	     * write 0 to register 0 to disable IOAPIC */
+	    dnc_write_conf(node, 0, 0, 2, 0xf8, 0);
+	    dnc_write_conf(node, 0, 0, 2, 0xfc, 0);
 	}
-	if ((val == 0x036910de)) {
+	if ((val == VENDEV_MCP55)) {
             uint32_t val = dnc_read_conf(node, 0, 0, 0, 0x90);
 	    printf("Adjusting configuration of nVidia MCP55 on SCI%03x...\n",
 		   node);
@@ -2553,6 +2595,9 @@ static int nc_start(void)
     if (dnc_master_ht_id < 0)
         return ERR_MASTER_HT_ID;
 
+    if (pf_probefilter && !force_probefilteroff)
+	probefilter_tokens(dnc_master_ht_id);
+
     info = get_node_config(uuid);
     if (!info)
         return ERR_NODE_CONFIG;
@@ -2580,12 +2625,10 @@ static int nc_start(void)
     }
 
     /* Must run after SCI is operational */
-    local_chipset_fixup();
+    local_chipset_fixup(part->master == info->sciid);
 
-    if (info->sync_only) {
-	udelay(5000);
+    if (info->sync_only)
 	start_user_os();
-    }
 
     if (dnc_init_caches() < 0)
 	return ERR_INIT_CACHES;
@@ -2630,6 +2673,11 @@ static int nc_start(void)
 	update_e820_map();
 	if (verbose)
 	    selftest_late();
+
+	/* If Linux can't handover ACPI, we can */
+	if (handover_acpi)
+	    stop_acpi();
+
 	start_user_os();
     } else {
 	/* Slave */

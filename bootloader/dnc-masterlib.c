@@ -299,7 +299,7 @@ static int tally_remote_node(uint16_t node)
 	    cur_node->ht[i].size = limit - base + 1;
             cur_node->node_mem += cur_node->ht[i].size;
 	    if (cur_node->node_mem > max_mem_per_node) {
-		printf("Error: Node exceeds cachable memory range; clamping...\n");
+		printf("Node exceeds cachable memory range; clamping...\n");
 		cur_node->ht[i].size -= cur_node->node_mem - max_mem_per_node;
 		cur_node->node_mem = max_mem_per_node;
 	    }

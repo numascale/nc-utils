@@ -18,6 +18,12 @@
 #ifndef __DNC_DEFS
 #define __DNC_DEFS 1
 
+#define VENDEV_SP5100	0x43851002
+#define VENDEV_SR5690	0x5a101002
+#define VENDEV_SR5670	0x5a121002
+#define VENDEV_SR5650	0x5a131002
+#define VENDEV_MCP55	0x036910de
+
 #define FUNC0_HT    0
 #define FUNC1_MAPS  1
 #define FUNC2_DRAM  2

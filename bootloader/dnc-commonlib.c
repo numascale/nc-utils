@@ -56,6 +56,8 @@ static int singleton = 0;
 static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
 static int ht_suppress = 0;
+static int ht_lockdelay = 0;
+bool handover_acpi;
 int pf_probefilter = 1;
 int mem_offline = 0;
 uint64_t trace_buf = 0;
@@ -793,13 +795,10 @@ static void cht_print(int neigh, int link)
     }
 }
 
-static void probefilter_tokens(void)
+void probefilter_tokens(int nodes)
 {
-    int i, j, nodes = 1;
+    int i, j;
     uint32_t val;
-
-    if (!pf_probefilter)
-	return;
 
     /* Reprogram HT link buffering */
     for (i = 0; i < nodes; i++) {
@@ -822,6 +821,13 @@ static void probefilter_tokens(void)
 	    cht_write_conf(i, FUNC0_HT, 0x94 + j * 0x20, 1 << 16);
 	}
     }
+
+    printf("Asserting LDTSTOP# to optimise HT buffer allocation...");
+    val = pmio_readb(0x8a);
+    pmio_writeb(0x8a, 0xf0);
+    pmio_writeb(0x87, 1);
+    pmio_writeb(0x8a, val);
+    printf("done\n");
 }
 #endif /* __i386 */
 
@@ -896,8 +902,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	if ((val >> 24) != 0x11) {
 	    printf("<CPU width>");
 	    udelay(50);
-	    cht_write_conf(neigh, FUNC0_HT, 0x84 + link * 0x20,
-			     (val & 0x00ffffff) | 0x11000000);
+	    cht_write_conf(neigh, FUNC0_HT, 0x84 + link * 0x20, (val & 0x00ffffff) | 0x11000000);
 	    reboot = 1;
 	}
 	udelay(50);
@@ -925,8 +930,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         if (((val >> 8) & 0xf) != 0x5) {
             printf("<CPU freq>");
             udelay(50);
-            cht_write_conf(neigh, FUNC0_HT, 0x88 + link * 0x20,
-                             (val & ~0xf00) | 0x500);
+            cht_write_conf(neigh, FUNC0_HT, 0x88 + link * 0x20, (val & ~0xf00) | 0x500);
             reboot = 1;
         }
         udelay(50);
@@ -950,10 +954,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     if (ht_force_ganged == 2)
 	cht_mirror(neigh, link);
 
-    printf(".");
-    probefilter_tokens();
     printf("done\n");
-
 
     if (reboot) {
 	printf("Rebooting to make new link settings effective...\n");
@@ -1698,6 +1699,17 @@ static int parse_string(const char *val, void *stringp)
     return 1;
 }
 
+static int parse_bool(const char *val, void *voidp)
+{
+    bool *boolp = (bool *)voidp;
+
+    if (val[0] != '\0')
+	*boolp = atoi(val);
+    else
+	*boolp = true;
+    return 1;
+}
+
 static int parse_int(const char *val, void *intp)
 {
     int *int32 = (int *)intp;
@@ -1771,7 +1783,9 @@ static int parse_cmdline(const char *cmdline)
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
         {"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
         {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
-        {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter is disabled */
+        {"ht.lockdelay",    &parse_int,    &ht_lockdelay},    /* HREQ_CTRL lock_delay setting 0-7 */
+        {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter if disabled */
+        {"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
@@ -2056,7 +2070,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
      * We can do this now since we've disabled HT Locking on non-split transactions, even for high contention
      * cases (ref Errata #N28) */
     val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3<<24) | (7<<13))) | (3<<24) | (0<<13));
+    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3<<24) | (7<<13))) | (3<<24) | ((ht_lockdelay & 7)<<13));
 
     /* Since our microcode now supports remote owner state, we disable the
      * error responses on shared probes to GONE cache lines. */

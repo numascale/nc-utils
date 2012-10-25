@@ -36,6 +36,7 @@
 
 com32sys_t inreg, outreg;
 uint32_t dnc_ht_node = 2;
+int verbose = 0;
 
 unsigned char msleep(unsigned int msec)
 {

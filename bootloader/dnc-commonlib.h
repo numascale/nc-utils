@@ -24,8 +24,8 @@
 #include "dnc-config.h"
 
 #define assert(cond) do { if (!(cond)) {				\
-	printf("Error: assertion '%s' failed at %s:%d\n",		\
-	    #cond, __FUNCTION__, __LINE__);				\
+	printf("Error: assertion '%s' failed in %s at %s:%d\n",		\
+	    #cond, __FUNCTION__, __FILE__, __LINE__);			\
 	wait_key();							\
     } } while (0)
 
@@ -104,6 +104,7 @@ void wait_key(void);
 int cpu_family(uint16_t scinode, uint8_t node);
 void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t start, uint64_t end, uint8_t dest);
 void del_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx);
+void probefilter_tokens(int nodes);
 void detect_southbridge(void);
 void disable_smi(void);
 void enable_smi(void);
@@ -138,6 +139,7 @@ extern int nc_neigh, nc_neigh_link;
 extern int pf_probefilter;
 extern int forwarding_mode;
 extern int force_probefilteroff;
+extern bool handover_acpi;
 extern int remote_io;
 extern bool boot_wait;
 extern int family;
