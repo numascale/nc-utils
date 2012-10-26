@@ -968,6 +968,80 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 }
 
 #ifdef __i386
+static void disable_atmmode(const int nodes)
+{
+    uint32_t val;
+    uint32_t scrub[8];
+    int i;
+
+    val = cht_read_conf(0, FUNC0_HT, 0x68);
+    if (!(val & (1<<12))) {
+	if (verbose) printf("ATMModeEn already disabled\n");
+	return;
+    }
+
+    printf("Disabling ATMMode ...");
+
+    /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
+       - F3x58[L3Scrub]=00h
+       - F3x58[DramScrub]=00h
+       - F3x5C[ScrubRedirEn]=0 */
+    for (i = 0; i <= nodes; i++) {
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
+	scrub[i] = cht_read_conf(i, FUNC3_MISC, 0x58);
+	cht_write_conf(i, FUNC3_MISC, 0x58, scrub[i] & ~0x1f00001f);
+	val = cht_read_conf(i, FUNC3_MISC, 0x5c);
+	cht_write_conf(i, FUNC3_MISC, 0x5c, val & ~1);
+    }
+
+    /* 2.  Wait 40us for outstanding scrub requests to complete */
+    udelay(40);
+
+    /* 3.  Disable all cache activity in the system by setting
+       CR0.CD for all active cores in the system */
+    /* 4.  Issue WBINVD on all active cores in the system */
+    disable_cache();
+
+    /* 5.  Set F3x1C4[L3TagInit]=1 */
+    for (i = 0; i <= nodes; i++) {
+	val = cht_read_conf(i, FUNC3_MISC, 0x1c4);
+	cht_write_conf(i, FUNC3_MISC, 0x1c4, val | (1 << 31));
+    }
+
+    /* 6.  Wait for F3x1C4[L3TagInit]=0 */
+    for (i = 0; i <= nodes; i++)
+	while (cht_read_conf(i, FUNC3_MISC, 0x1c4) & (1 << 31))
+	    cpu_relax();
+
+    /* 7.  Set F0x68[ATMModeEn]=0
+               F3x1B8[L3ATMModeEn]=0. */
+    for (i = 0; i <= nodes; i++) {
+	val = cht_read_conf(0, FUNC0_HT, 0x68);
+	cht_write_conf(i, FUNC0_HT, 0x68, val & ~(1<<12));
+	val = cht_read_conf(i, FUNC3_MISC, 0x1b8);
+	cht_write_conf(i, FUNC3_MISC, 0x1b8, val & ~(1<<27));
+    }
+
+    /* 8.  Enable all cache activity in the system by clearing
+       CR0.CD for all active cores in the system */
+    enable_cache();
+
+    /* 9. Restore L3 and DRAM scrubber register values */
+    for (i = 0; i <= nodes; i++) {
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
+	cht_write_conf(i, FUNC3_MISC, 0x58, scrub[i]);
+	val = cht_read_conf(i, FUNC3_MISC, 0x5c);
+	cht_write_conf(i, FUNC3_MISC, 0x5c, val | 1);
+    }
+    printf("done\n");
+}
+
 static void disable_probefilter(const int nodes)
 {
     uint32_t val;
@@ -1414,6 +1488,11 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	disable_probefilter(nodes);
     }
 
+    /* On Fam15h disable the Accelerated Transiton to Modified protocol */
+    if (family >= 0x15) {
+	disable_atmmode(nodes);
+    }
+    
     critical_enter();
 
     for (i = nodes; i >= 0; i--) {
@@ -2181,18 +2260,8 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 	    cht_write_conf(i, FUNC3_MISC, 0x1cc, (1<<8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
 	}
 #endif
-
-	/* On Fam15h disable the Accelerated Transiton to Modified protocol
-	   and the core prefetch hits as NumaChip doesn't support these states */
+	/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
 	if (family >= 0x15) {
-	    val = cht_read_conf(i, FUNC0_HT, 0x68);
-	    if (val & (1<<12)) {
-		if (verbose > 0)
-		    printf("Clearing ATMModeEn for node %d\n", i);
-		cht_write_conf(i, FUNC0_HT, 0x68, val & ~(1<<12));
-		val = cht_read_conf(i, FUNC3_MISC, 0x1b8);
-		cht_write_conf(i, FUNC3_MISC, 0x1b8, val & ~(1<<27));
-	    }
 	    val = cht_read_conf(i, 5, 0x88);
 	    if (!(val & (1<<9))) {
 		if (verbose > 0)
@@ -2201,7 +2270,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 	    }
 	}
     }
-    
+
     /* ====================== END ERRATA WORKAROUNDS ====================== */
     
     uuid = identify_eeprom(0xfff0, type, &osc_setting);
