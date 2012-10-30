@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'nc_stat.hpp'
 **
-** Created: Thu 25. Oct 12:17:38 2012
+** Created: Tue 30. Oct 15:13:08 2012
 **      by: The Qt Meta Object Compiler version 63 (Qt 4.8.1)
 **
 ** WARNING! All changes made in this file will be lost!
