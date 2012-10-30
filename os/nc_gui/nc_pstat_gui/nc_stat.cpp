@@ -67,6 +67,7 @@ NumaChipStats::NumaChipStats(const string& strCacheAddr, bool simulate, int simu
     }
     m_devices.num_devices=0;
     m_devices.num_cores=0;
+
     snprintf(m_devices.PAPI_EVENT_0,12,"PAPI_L2_DCM");
     snprintf(m_devices.PAPI_EVENT_1,12,"PAPI_L2_DCA");
     connect(&timer, SIGNAL(timeout()), this, SLOT(getinfo()));	
@@ -532,7 +533,7 @@ void CacheHistGraph::addCurves() {
     QwtPlotHistogram* curve;
     curves.clear();    
     plot->detachItems();
-    QColor blue(0,0,255), red(0,255,0);
+    QColor blue(0,0,255), red(255,0,0);
     red.setAlpha(150);
     blue.setAlpha(150);
     int max=2*(p_range_max +1) - p_range_min;
@@ -547,7 +548,6 @@ void CacheHistGraph::addCurves() {
             curve->attach(plot);
             curves.push_back(curve);
             showCurve(curve, true);
-        
         }
         else {
             sprintf(str, "Average Remote Cache #%d", i-max);
@@ -557,7 +557,6 @@ void CacheHistGraph::addCurves() {
             curve->attach(plot);
             curves.push_back(curve);
             showCurve(curve, true);
-
         }
     }
 }
