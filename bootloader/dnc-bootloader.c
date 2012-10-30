@@ -1217,17 +1217,17 @@ static void setup_remote_cores(uint16_t num)
     /* Toggle go-ahead flag to remote node */
     printf("Checking if SCI%03x is ready\n", node);
     do {
-        val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
         udelay(200);
+        val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
     } while (!(val & 0x40000000UL));
 
     val |= 0x80000000UL;
     dnc_write_csr(node, H2S_CSR_G3_FAB_CONTROL, val);
     printf("Waiting for SCI%03x to acknowledge\n", node);
-    while (val & 0x80000000UL) {
-        val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
+    do {
         udelay(200);
-    }
+        val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
+    } while (val & 0x80000000UL);
 
     /* Map MMIO 0x00000000 - 0xffffffff to master node */
     for (j = 0; j < 0x1000; j++) {
@@ -2682,19 +2682,15 @@ static int nc_start(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);
  
 	printf("Numascale NumaChip awaiting fabric set-up by master node...");
-	while (1) {
-	    (void)dnc_check_mctr_status(0);
-	    (void)dnc_check_mctr_status(1);
-            
-	    val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
-	    if ((val & (1<<31))) {
-		printf("ready\n");
-		break;
-	    }
-
+	do {
+	    dnc_check_mctr_status(0);
+	    dnc_check_mctr_status(1);
 	    dnc_check_fabric(info);
 	    udelay(1000);
-	}
+
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
+	} while (!(val & (1 << 31)));
+	printf("ready\n");
 
 	/* On non-root servers, prevent writing to unexpected locations */
 	handover_legacy();
