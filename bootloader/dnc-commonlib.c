@@ -2380,10 +2380,9 @@ static void save_scc_routing(uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[
     uint16_t chunk, offs;
     uint16_t maxchunk = dnc_asic_mode ? 16 : 1;
 
-    printf("Setting routing table on SCC...\n");
+    printf("Setting routing table on SCC...");
     
     for (chunk = 0; chunk < maxchunk; chunk++) {
-	printf(".");
         dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
         for (offs = 0; offs < 16; offs++) {
             /* SCC */
