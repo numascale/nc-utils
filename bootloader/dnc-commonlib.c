@@ -2689,9 +2689,8 @@ static enum node_state enter_reset(struct node_info *info)
 	}
 
 	/* No external reset control, simply reset all phys to start training sequence */
-        dnc_reset_phy(0); dnc_reset_phy(1);
-        dnc_reset_phy(2); dnc_reset_phy(3);
-        dnc_reset_phy(4); dnc_reset_phy(5);
+	for (int i = 0; i < 6; i++)
+	    dnc_reset_phy(i);
     }
     
     printf("In reset\n");
