@@ -138,14 +138,10 @@ void dnc_reset_lc3(int lc)
 int dnc_check_phy(int phy)
 {
     const char *phyname = _get_linkname(phy);
-    uint32_t stat, elog, ctrl, tries;
+    uint32_t stat, elog, tries;
 
     tries = 0;
 again:    
-    /* Enable the dynamic frequency drift control (only FPGA has this so far) */
-    ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy);
-    dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * (phy-1), ctrl | (1<<13) | (1<<12));
-
     stat = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
     if (!(stat & (1<<8)) || (stat & 0xff)) {
 	if (dnc_asic_mode && dnc_chip_rev < 2) {
@@ -159,8 +155,22 @@ again:
 	    udelay(2000);
 	    goto again;
 	} else {
-	    printf("HSS%s STAT_1 is 0x%x; NEED HSS RESET!\n", phyname, stat);
-	    return -1;
+	    if (tries++ > 4)
+		return -1;
+	    printf("HSS%s STAT_1 is 0x%x; issuing HSS reset\n", phyname, stat);
+	    stat = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy);
+	    printf("HSS%s CTR_7 is 0x%x!\n", phyname, stat);
+	    stat = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy);
+	    printf("HSS%s CTR_8 is 0x%x!\n", phyname, stat);
+
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x00f0);
+	    udelay(500);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x0000);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00f0);
+	    udelay(500);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x0000);
+	    udelay(2000);
+	    goto again;
 	}
     }
     
