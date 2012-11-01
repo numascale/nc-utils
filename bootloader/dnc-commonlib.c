@@ -810,11 +810,8 @@ void probefilter_tokens(int nodes)
 
 	    val = cht_read_conf(i, FUNC0_HT, 0x170 + i * 4);
 
-	    /* Link ganged? */
-	    if (val & 1)
-		val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
-	    else
-		val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
+	    /* Same buffer counts for ganged and unganged */
+	    val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
 
 	    cht_write_conf(i, FUNC0_HT, 0x90 + j * 0x20, val | (1 << 31));
 	    cht_write_conf(i, FUNC0_HT, 0x94 + j * 0x20, 1 << 16);
@@ -2656,11 +2653,11 @@ int dnc_check_fabric(struct node_info *info)
 
 static enum node_state enter_reset(struct node_info *info)
 {
-    int tries = 0;
-    uint32_t val;
     printf("Entering reset\n");
 
     if (dnc_asic_mode && dnc_chip_rev < 2) {
+	int tries = 0;
+
 	/* Reset already held?  Toggle reset logic to ensure reset
 	 * reverts to know state */
 	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
@@ -2679,15 +2676,12 @@ static enum node_state enter_reset(struct node_info *info)
 
 	/* Hold reset */
 	_pic_reset_ctrl(2);
-	udelay(200);
 	tries = 0;
-	while (((val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1)) & (1<<8)) != 0) {
-	    /* printf("Waiting for HSSXA_STAT_1 to go to zero (%08x) (try %d)...\n",
-	       val, tries); */
-	    udelay(200);
+	do {
 	    if (tries++ > 16)
 		return enter_reset(info);
-	}
+	    udelay(200);
+	} while (dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8));
     } else {
 	if ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
 	    printf("HSSXA_STAT_1 is zero, PLL not locked ???...\n");
