@@ -1502,12 +1502,9 @@ static void setup_local_mmio_maps(void)
 
     /* Apply default maps so we can bail without losing all hope */
     for (i = 0; i < 8; i++) {
-	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
     }
 
     for (i = 0; i < 8; i++) {
@@ -1600,12 +1597,9 @@ static void setup_local_mmio_maps(void)
     if (verbose > 0)
 	for (i = 0; i < 8; i++) {
 	    printf("NC MMIO region #%d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
-	    cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-				H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	    cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-				H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-	    cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-				H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+	    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+	    cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 	}
 }
 
@@ -2328,14 +2322,11 @@ static int unify_all_nodes(void)
 
     /* Set up local mapping registers etc from 0 - master node max */
     for (i = 0; i < dnc_master_ht_id; i++) {
-	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
-			    ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
-	cht_write_conf_nc(dnc_master_ht_id, 1, nc_neigh, nc_neigh_link,
-			    H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
-			    (nc_node[0].ht[i].base << 8) | 3);
+	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
+	    ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
+	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
+	    (nc_node[0].ht[i].base << 8) | 3);
     }
 
     /* DRAM map on local CPUs to redirect all accesses outside our local range to NC

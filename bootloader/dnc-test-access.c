@@ -117,16 +117,6 @@ void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
     _write_config(0, node + 24, func, reg, val);
 }
 
-uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int link, uint16_t reg)
-{
-    return cht_read_conf(node, func, reg);
-}
-
-void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int link, uint16_t reg, uint32_t val)
-{
-    cht_write_conf(node, func, reg, val);
-}
-
 #if !defined(PAGE_LEN)
 #define PAGE_LEN 0x1000ULL
 #endif

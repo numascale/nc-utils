@@ -906,15 +906,12 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	}
 	udelay(50);
 	printf(".");
-	val = cht_read_conf_nc(nc, 0, neigh, link,
-                                 H2S_CSR_F0_LINK_CONTROL_REGISTER);
+	val = cht_read_conf(nc, 0, H2S_CSR_F0_LINK_CONTROL_REGISTER);
 	printf(".");
 	if ((val >> 24) != 0x11) {
 	    printf("<NC width>");
 	    udelay(50);
-	    cht_write_conf_nc(nc, 0, neigh, link,
-                                H2S_CSR_F0_LINK_CONTROL_REGISTER,
-                                (val & 0x00ffffff) | 0x11000000);
+	    cht_write_conf(nc, 0, H2S_CSR_F0_LINK_CONTROL_REGISTER, (val & 0x00ffffff) | 0x11000000);
 	    reboot = 1;
 	}
 	printf(".");
@@ -934,15 +931,12 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
         }
         udelay(50);
         printf(".");
-        val = cht_read_conf_nc(nc, 0, neigh, link,
-                                 H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER);
+        val = cht_read_conf(nc, 0, H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER);
         printf(".");
         if (((val >> 8) & 0xf) != 0x5) {
             printf("<NC freq>");
             udelay(50);
-            cht_write_conf_nc(nc, 0, neigh, link,
-                                H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER,
-                                (val & ~0xf00) | 0x500);
+            cht_write_conf(nc, 0, H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER, (val & ~0xf00) | 0x500);
             reboot = 1;
         }
     }
@@ -1356,8 +1350,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     if (ht_testmode & HT_TESTMODE_TEST)
 	cht_test(nc, neigh, link);
 
-    val = cht_read_conf_nc(nc, 0, neigh, link,
-                             H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
+    val = cht_read_conf(nc, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
     if (val != 0x06011b47) {
 	printf("Unrouted coherent device found is not NumaChip: %08x.\n", val);
         return -1;
@@ -1366,10 +1359,9 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     printf("NumaChip found (%08x)\n", val);
 
     /* Ramp up link speed and width before adding NC to coherent fabric */
-    val = cht_read_conf_nc(nc, 0, neigh, link, 0xec);
+    val = cht_read_conf(nc, 0, 0xec);
     if (val == 0) {
-        val = cht_read_conf_nc(nc, 0, neigh, link,
-                                 H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
+        val = cht_read_conf(nc, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
         printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
         ht_optimize_link(nc, val & 0xffff, 1);
         *p_asic_mode = 1;
@@ -1501,16 +1493,14 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
     printf("Node #0 F0x60: %x\n", val);
     dnc_ht_id = (val >> 4) & 7;
 
-    val = cht_read_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                             H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
+    val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
     if (val == 0x06011b47) {
         printf("NumaChip already present on HT node %d\n", dnc_ht_id);
 
         /* Chip already found; make sure the desired width/frequency is set */
-        val = cht_read_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link, 0xec);
+        val = cht_read_conf(dnc_ht_id, 0, 0xec);
         if (val == 0) {
-            val = cht_read_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                                     H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
+            val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
             printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
             ht_optimize_link(dnc_ht_id, val & 0xffff, 1);
             *p_asic_mode = 1;
@@ -1532,12 +1522,11 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
         }
         printf("NumaChip incorporated as HT node %d\n", dnc_ht_id);
     }   
-    val = cht_read_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                             H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
+    val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
     printf("Node #%d F0x00: %x\n", dnc_ht_id, val);
 
     val = cht_read_conf(0, FUNC0_HT, 0x60);
-    cht_write_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+    cht_write_conf(dnc_ht_id, 0,
                         H2S_CSR_F0_CHTX_NODE_ID,
                         (((val >> 12) & 7) << 24) | /* LkNode */
                         (((val >> 8)  & 7) << 16) | /* SbNode */
@@ -1561,21 +1550,19 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
     }
 
     /* Check if BIOS has assigned a BAR0, if so clear it */
-    val = cht_read_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                             H2S_CSR_F0_STATUS_COMMAND_REGISTER);
+    val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER);
     printf("Command/Status: %08x\n", val);
     if (val & (1 << 1)) {
-        cht_write_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+        cht_write_conf(dnc_ht_id, 0,
                             H2S_CSR_F0_STATUS_COMMAND_REGISTER, val & ~(1 << 1));
-        cht_write_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+        cht_write_conf(dnc_ht_id, 0,
                             H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0);
-        cht_write_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+        cht_write_conf(dnc_ht_id, 0,
                             H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
     }
 
     /* Check the expansion rom base address register if this has already been done */
-    val = cht_read_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                             H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
+    val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
     if (val != 0 && !(val & 1)) {
         if ((val & 0xffff0000) != (DNC_CSR_BASE >> 16)) {
             printf("Mismatching CSR space hi addresses %04x and %04x; warm-reset needed .\n",
@@ -1594,7 +1581,7 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
         printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
         mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1<<15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
                       uint32_tbswap(DNC_CSR_BASE >> 32));
-        cht_write_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
+        cht_write_conf(dnc_ht_id, 0,
                             H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS,
                             (DNC_CSR_BASE >> 16)); /* Put DNC_CSR_BASE[47:32] in the rom address register offset[31:16] */
 #else
@@ -1617,10 +1604,8 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
         dnc_write_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
     }
     
-    cht_write_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                        H2S_CSR_F0_CHTX_LINK_INITIALIZATION_CONTROL, 0);
-    cht_write_conf_nc(dnc_ht_id, 0, nc_neigh, nc_neigh_link,
-                        H2S_CSR_F0_CHTX_ADDITIONAL_LINK_TRANSACTION_CONTROL, 6);
+    cht_write_conf(dnc_ht_id, 0, H2S_CSR_F0_CHTX_LINK_INITIALIZATION_CONTROL, 0);
+    cht_write_conf(dnc_ht_id, 0, H2S_CSR_F0_CHTX_ADDITIONAL_LINK_TRANSACTION_CONTROL, 6);
 
     return dnc_ht_id;
 }

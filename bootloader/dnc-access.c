@@ -283,6 +283,7 @@ void cht_test(uint8_t node, int neigh, int neigh_link)
     printf("%d errors\n", errors);
 }
 
+#ifdef UNUSED
 uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg)
 {
     uint32_t ret;
@@ -334,6 +335,7 @@ void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, ui
 	reset_cf9(0xa, neigh);
     }
 }
+#endif
 
 /* Since we use FS to access these areas, the address needs to be in canonical form (sign extended from bit47) */
 #define canonicalize(a) (((a) & (1ULL<<47)) ? ((a) | (0xffffULL<<48)) : (a))
