@@ -1899,7 +1899,8 @@ static int perform_selftest(int asic_mode)
     uint32_t val;
 
     res = 0;
-    printf("Performing self test: ");
+
+    printf("Performing internal RAM self test: ");
 
     for (pass=0; pass<10 && res==0; pass++) {
         const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
@@ -2000,6 +2001,82 @@ static int perform_selftest(int asic_mode)
 
         printf("-PASS%d ", pass);
     }
+ 
+    if (asic_mode && res == 0) {
+	printf("\nPerforming High Speed Serdes self test: ");
+    
+	printf("HSS");
+	for (int phy = 0; phy < 6; phy++) {
+	    /* 1. Check that the HSS PLL has locked */
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+	    if (!(val & (1<<8))) {
+		res = -1;
+		break;
+	    }
+	    printf("T");
+	    /* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
+	    /* 3. Allow 6500 bit times (2ns per bit = 13us, use 100 to be safe) */
+	    udelay(100);
+	    /* 4. Pulse TXLBRESETx to clear TXLBERRORx (bit[7:4] of HSSxx_CTR_8) */
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00ff);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
+	    /* 5. Wait 8 bit times */
+	    udelay(10);
+	    /* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+	    if (val & 0xf0) {
+		res = -1;
+		break;
+	    }
+	    /* Run test for 100msec */
+	    udelay(100000);
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+	    if (val & 0xf0) {
+		res = -1;
+		break;
+	    }
+
+	    printf("R");
+	    /* 3. Activate FDDATAWRAPx (bit[3:0] of HSSxx_CTR_1) */
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val | 0xf);
+	    /* 2. Activate RXLBENABLEx (bit[3:0] of HSSxx_CTR_7) */
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x000f);
+	    /* 3. Allow 6500 bit times (2ns per bit = 13us, use 100 to be safe) */
+	    udelay(100);
+	    /* 4. Pulse RXLBRESETx to clear RXLBERRORx (bit[7:4] of HSSxx_CTR_7) */
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x00ff);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x000f);
+	    /* 5. Wait 8 bit times */
+	    udelay(10);
+	    /* 6. Monitor the RXLBERRORx flag (bit[3:0] of HSSxx_STAT_1) */
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+	    if (val & 0xff) {
+		res = -1;
+		break;
+	    }
+	    /* Run test for 100msec */
+	    udelay(100000);
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+	    if (val & 0xff) {
+		res = -1;
+		break;
+	    }
+	    /* Stop BIST test*/
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x00f0);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x0000);
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val & ~(0xf));
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00f0);
+	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x0000);
+	    printf(_get_linkname(phy));
+	}
+	/* Trigger a HSS PLL reset */
+	_pic_reset_ctrl(1);
+	udelay(500);
+    }
+
     printf("\nSelftest %s\n", (res == 0) ? "passed" : "failed");
 
     return res;
@@ -2653,10 +2730,10 @@ static enum node_state enter_reset(struct node_info *info)
 static int phy_check_status(int phy)
 {
     uint32_t val;
-    udelay(200);
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
-    udelay(200);
     if (val & 0xf0) {
+	if (verbose)
+	    printf("PHY%s_ELOG = %x, issuing PHY reset!!\n", _get_linkname(phy) , val);
 	/* Clock compensation error, try forced retraining */
 	dnc_reset_phy(phy);
 	return 1 << phy;
@@ -2666,6 +2743,8 @@ static int phy_check_status(int phy)
 	return 1 << phy;
 
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
+    if (verbose)
+	printf("PHY%s_LINK_STAT = %x\n", _get_linkname(phy) , val);
     return  (val != 0x1fff) << phy;
 }
 
@@ -2729,7 +2808,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
 	    phy_print_error(pending);
 	    return RSP_PHY_NOT_TRAINED;
 	}
-	udelay(200);
+	udelay(500);
     }
 }			
 
