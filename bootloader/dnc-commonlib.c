@@ -43,7 +43,6 @@ static int enable_nbmce = -1;
 static int enable_nbwdt = 0;
 static int disable_sram = 0;
 int enable_vga_redir = 0;
-static int enable_selftest = 1;
 static int force_probefilteroff = 0;
 static int force_probefilteron = 0;
 static int ht_force_ganged = 0;
@@ -424,8 +423,7 @@ int dnc_init_caches(void) {
             printf("Initialization of Denali controller done\n");
         }
 
-	if ((dnc_asic_mode && dnc_chip_rev >= 2) ||
-	    (!dnc_asic_mode && ((dnc_chip_rev>>16) >= 6254))) {
+	if ((dnc_asic_mode && dnc_chip_rev >= 2) || !dnc_asic_mode) {
 	    int tmp = mem_size;
 
 	    /* New Rev2 MCTag setting for supporting larger local memory */
@@ -504,24 +502,15 @@ int dnc_init_caches(void) {
 
     /* Initialize SRAM */
     if (!dnc_asic_mode) { /* Special FPGA considerations for Ftag SRAM */
-	if ((dnc_chip_rev>>16) < 6233) {
-	    printf("Disabling FTag SRAM\n");
-	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
-	} else {
-	    printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
-	}
+	printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev>>16, dnc_chip_rev&0xffff);
     } else {
-	if (dnc_chip_rev < 2) {
-	    /* ASIC; initialize SRAM if disable_sram is unset */
-	    if(!disable_sram) {
-		if((ret=dnc_initialize_sram())<0)
-		    return ret;
-	    } else {
-		printf("No SRAM will be initialized\n");
-		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
-	    }
+	/* ASIC; initialize SRAM if disable_sram is unset */
+	if(!disable_sram) {
+	    if((ret=dnc_initialize_sram())<0)
+		return ret;
 	} else {
-	    printf("ASIC revision %d detected, no FTag SRAM\n", dnc_chip_rev);
+	    printf("No SRAM will be initialized\n");
+	    dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
 	}
     }
 
@@ -893,11 +882,11 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
     }
 
     /* For ASIC revision 2 and later, optimize width (16b) */
-    /* For FPGA revision 6453 and later, optimize width (16b) */
+    /* For FPGA, optimize width (16b) */
     printf(".");
     val = cht_read_conf(neigh, FUNC0_HT, 0x84 + link * 0x20);
     if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11) &&
-        ((asic_mode && rev >= 2) || (!asic_mode && (rev >> 16) >= 6453)))))
+        ((asic_mode && rev >= 2) || !asic_mode))))
     {
 	printf("*");
 	udelay(50);
@@ -1820,7 +1809,6 @@ static int parse_cmdline(const char *cmdline)
         {"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enbale northbridge WDT */
         {"disable-sram",    &parse_int,    &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
         {"enable-vga",	    &parse_int,    &enable_vga_redir},/* Enable redirect of VGA to master, known issue with this on HP DL165 (default disable) */
-        {"self-test",       &parse_int,    &enable_selftest},
         {"ht.testmode",	    &parse_int,    &ht_testmode},
         {"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
@@ -2313,11 +2301,15 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
     uuid = identify_eeprom(0xfff0, type, &osc_setting);
     printf("UUID: %06d, TYPE: %s\n", uuid, type);
 
-    if (enable_selftest > 0) {
-        if (perform_selftest(asic_mode) < 0)
+    /* Read the SPD info from our DIMMs to see if they are supported */
+    for (i = 0; i < 2; i++) {
+        if (read_spd_info(i, &dimms[i]) < 0)
             return -1;
     }
-     
+
+    if (perform_selftest(asic_mode) < 0)
+	return -1;
+
     /* If init-only parameter is given, stop here and return */
     if (init_only > 0)
         return -2;
@@ -2362,18 +2354,6 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
     if (asic_mode && (chip_rev < 2)) {
 	if (adjust_oscillator(type, osc_setting) < 0)
 	    return -1;
-    }
-
-    /* Read the SPD info from our DIMMs to see if they are supported */
-    for (i = 0; i < 2; i++) {
-        if (read_spd_info(i, &dimms[i]) < 0)
-            return -1;
-    }
-
-    if (!asic_mode && ((chip_rev>>16) < 6251)) {
-	/* On earlier FPGA cards we only have 1GB MCTag and 2GB CData */
-	dimms[0].mem_size = 0;
-	dimms[1].mem_size = 1;
     }
 
     *p_asic_mode = asic_mode;
