@@ -2699,7 +2699,7 @@ static int phy_check_status(int phy)
     if (val & 0xf0) {
 	/* Clock compensation error, try forced retraining */
 	dnc_reset_phy(phy);
-	return 1;
+	return 1 << phy;
     }
     /* Other errors */
     if (val > 0)
