@@ -44,7 +44,8 @@ static int enable_nbwdt = 0;
 static int disable_sram = 0;
 int enable_vga_redir = 0;
 static int enable_selftest = 1;
-int force_probefilteroff = 0;
+static int force_probefilteroff = 0;
+static int force_probefilteron = 0;
 static int ht_force_ganged = 0;
 int disable_smm = 0;
 int disable_c1e = 0;
@@ -58,7 +59,6 @@ static int ht_8bit_only = 0;
 static int ht_suppress = 0;
 static int ht_lockdelay = 0;
 bool handover_acpi;
-int pf_probefilter = 1;
 int mem_offline = 0;
 uint64_t trace_buf = 0;
 uint32_t trace_buf_size = 0;
@@ -1075,7 +1075,9 @@ static void disable_probefilter(const int nodes)
 
     /* 2.  Wait 40us for outstanding scrub requests to complete */
     udelay(40);
-
+ 
+    critical_enter();
+   
     /* 3.  Disable all cache activity in the system by setting
        CR0.CD for all active cores in the system */
     /* 4.  Issue WBINVD on all active cores in the system */
@@ -1106,6 +1108,8 @@ static void disable_probefilter(const int nodes)
        CR0.CD for all active cores in the system */
     enable_cache();
 
+    critical_leave();
+    
     /* 9. Restore L3 and DRAM scrubber register values */
     for (i = 0; i <= nodes; i++) {
 	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
@@ -1120,6 +1124,7 @@ static void disable_probefilter(const int nodes)
     printf("done\n");
 }
 
+#ifdef BROKEN
 static void wake_local_cores(const int vector)
 {
     uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
@@ -1164,10 +1169,12 @@ static void wake_local_cores(const int vector)
     }
 }
 
-void enable_probefilter(void)
+static void enable_probefilter(const int nodes)
 {
     uint32_t val;
+    uint32_t scrub[8];
     uint64_t val6;
+    int i;
 
     val = cht_read_conf(0, FUNC3_MISC, 0x1d4);
     /* Probe filter already active? */
@@ -1178,29 +1185,20 @@ void enable_probefilter(void)
 
     printf("Enabling probe filter...");
 
-    uint32_t *scrub = malloc(dnc_node_count * 8 * sizeof(uint32_t));
-    assert(scrub);
-
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
        - F3x58[L3Scrub]=00h
        - F3x58[DramScrub]=00h
        - F3x5C[ScrubRedirEn]=0 */
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[n].sci_id;
-
-	    /* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-		Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-		See erratum 505 */
-	    if (family >= 0x15)
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x10c, 0);
-	    scrub[n * dnc_node_count + ht] = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x58);
-	    dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x58, scrub[n * dnc_node_count + ht] & ~0x1f00001f);
-	    val = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x5c);
-	    dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x5c, val & ~1);
-	}
+    for (i = 0; i <= nodes; i++) {
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
+	scrub[i] = cht_read_conf(i, FUNC3_MISC, 0x58);
+	cht_write_conf(i, FUNC3_MISC, 0x58, scrub[i] & ~0x1f00001f);
+	val = cht_read_conf(i, FUNC3_MISC, 0x5c);
+	cht_write_conf(i, FUNC3_MISC, 0x5c, val & ~1);
     }
 
     /* 2. Wait 40us for outstanding scrub requests to complete */
@@ -1214,9 +1212,10 @@ void enable_probefilter(void)
 	dnc_wrmsr(MSR_CU_CFG3, val6 | (1ULL << 49));
     }
 
+    /* 4.  Issue WBINVD on all active cores in the system */
     disable_cache();
 
-    /* 3. Enable Probe Filter support */
+    /* 5. Enable Probe Filter support */
     val6 = dnc_rdmsr(MSR_CU_CFG2);
     dnc_wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
 
@@ -1225,69 +1224,32 @@ void enable_probefilter(void)
     else
 	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f10);
 
-    /* 4. Disable coherent prefetch probes */
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[n].sci_id;
-
-	    val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x1b0);
-	    dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x1b0, val &~ (7 << 8));
-	}
+    /* 6. Set F3x1C4[L3TagInit]=1 */
+    for (i = 0; i <= nodes; i++) {
+	val = cht_read_conf(i, FUNC3_MISC, 0x1c4);
+	cht_write_conf(i, FUNC3_MISC, 0x1c4, val | (1 << 31));
     }
 
-    /* 4. Set F3x1C4[L3TagInit]=1 */
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[n].sci_id;
+    /* 7. Wait for F3x1C4[L3TagInit]=0 */
+    for (i = 0; i <= nodes; i++)
+	while (cht_read_conf(i, FUNC3_MISC, 0x1c4) & (1 << 31))
+	    cpu_relax();
 
-	    val = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x1c4);
-	    dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x1c4, val | (1 << 31));
-	}
-    }
+    /* 8. Set PF flags depending on cache size */
+    for (i = 0; i <= nodes; i++) {
+	uint32_t pfctrl = (2 << 2) | (0xf << 12) | (1 << 17) | (1 << 29);
 
-    /* 4. Wait for F3x1C4[L3TagInit]=0 */
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[n].sci_id;
-
-	    while (dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x1c4) & (1 << 31))
-		cpu_relax();
-	}
-    }
-
-    /* 4. Set PF flags depending on cache size */
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[n].sci_id;
-	    uint32_t pfctrl = (2 << 2) | (0xf << 12) | (1 << 17) | (1 << 29);
-
-	    if ((dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x1c4) & 0xffff) == 0xcccc)
-		pfctrl |= 3 | (1 << 4) | (1 << 6) | (1 << 8) | (1 << 10) | (2 << 20);
-	    else
-		pfctrl |= 2;
-
-	    dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x1d4, pfctrl);
-	}
+	if ((cht_read_conf(i, FUNC3_MISC, 0x1c4) & 0xffff) == 0xcccc)
+	    pfctrl |= 3 | (1 << 4) | (1 << 6) | (1 << 8) | (1 << 10) | (2 << 20);
+	else
+	    pfctrl |= 2;
+	cht_write_conf(i, FUNC3_MISC, 0x1d4, pfctrl);
     }
 
     /* 6. Wait for F3x1D4[PFInitDone]=1 */
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[n].sci_id;
-
-	    while ((dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x1d4) & (1 << 19)) == 0)
-		cpu_relax();
-	}
+    for (i = 0; i <= nodes; i++) {
+	while ((cht_read_conf(i, FUNC3_MISC, 0x1d4) & (1 << 19)) == 0)
+	    cpu_relax();
     }
 
     /* 8.  Enable all cache activity in the system by clearing
@@ -1298,26 +1260,19 @@ void enable_probefilter(void)
     critical_leave();
 
     /* 9. Restore L3 and DRAM scrubber register values */
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[n].sci_id;
-
-	    /* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-		Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-		See erratum 505 */
-	    if (family >= 0x15)
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x10c, 0);
-	    dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x58, scrub[n * dnc_node_count + ht]);
-	    val = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x5c);
-	    dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x5c, val | 1);
-	}
+    for (i = 0; i <= nodes; i++) {
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
+	cht_write_conf(i, FUNC3_MISC, 0x58, scrub[i]);
+	val = cht_read_conf(i, FUNC3_MISC, 0x5c);
+	cht_write_conf(i, FUNC3_MISC, 0x5c, val | 1);
     }
-
-    free(scrub);
     printf("done\n");
 }
+#endif
 
 static void disable_link(int node, int link)
 {
@@ -1342,7 +1297,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     printf("(Only doing HT discovery and reconfig in 32-bit mode)\n");
     return -1;
 #else
-    int nodes, neigh, link, rt, use, nc, i;
+    int nodes, neigh, link = 0, rt, use, nc, i;
     uint32_t val;
 
     val = cht_read_conf(0, FUNC0_HT, 0x60);
@@ -1484,14 +1439,20 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     if (route_only)
 	return nc;
 
-    if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff) {
+    /* On ASIC revB we need to make sure probefilter is disabled */
+    if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff)
 	disable_probefilter(nodes);
-    }
 
-    /* On Fam15h disable the Accelerated Transiton to Modified protocol */
-    if (family >= 0x15) {
-	disable_atmmode(nodes);
+#ifdef BROKEN
+    if (force_probefilteron && !force_probefilteroff) {
+	enable_probefilter(nodes);
+	probefilter_tokens(nodes);
     }
+#endif
+    
+    /* On Fam15h disable the Accelerated Transiton to Modified protocol */
+    if (family >= 0x15)
+	disable_atmmode(nodes);
     
     critical_enter();
 
@@ -1860,14 +1821,15 @@ static int parse_cmdline(const char *cmdline)
         {"disable-sram",    &parse_int,    &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
         {"enable-vga",	    &parse_int,    &enable_vga_redir},/* Enable redirect of VGA to master, known issue with this on HP DL165 (default disable) */
         {"self-test",       &parse_int,    &enable_selftest},
-        {"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter (HT Assist) */
         {"ht.testmode",	    &parse_int,    &ht_testmode},
         {"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
         {"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
         {"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
         {"ht.lockdelay",    &parse_int,    &ht_lockdelay},    /* HREQ_CTRL lock_delay setting 0-7 */
-        {"pf.probefilter",  &parse_int,    &pf_probefilter},  /* Enable probe filter if disabled */
+        {"ht.force-pf-on",  &parse_int,    &force_probefilteron},  /* Enable probe filter if disabled */
+        {"ht.force-pf-off", &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
+        {"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
         {"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
@@ -2252,14 +2214,12 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 	cht_write_conf(i, FUNC0_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
 
 	/* Fix for IBS setup on certain BIOSes and Linux; set IBS to use LVT offset 1 */
-	/* XXX: Not our job really, disable now to avoid messing up something */
-#ifdef BROKEN
 	val = cht_read_conf(i, FUNC3_MISC, 0x1cc);
 	if ((val & (1<<8)) && ((val & 0xf) == 0)) {
 	    printf("Enable IBS LVT offset workaround on HT#%d\n", i);
 	    cht_write_conf(i, FUNC3_MISC, 0x1cc, (1<<8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
 	}
-#endif
+
 	/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
 	if (family >= 0x15) {
 	    val = cht_read_conf(i, 5, 0x88);

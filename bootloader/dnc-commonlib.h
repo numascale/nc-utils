@@ -118,7 +118,6 @@ int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
 		   struct node_info *info, struct part_info *part);
 void wait_for_master(struct node_info *info, struct part_info *part);
-void enable_probefilter(void);
 
 extern int dnc_asic_mode;
 extern int dnc_chip_rev;
@@ -136,9 +135,7 @@ extern uint64_t trace_buf;
 extern uint32_t trace_buf_size;
 extern int verbose;
 extern int nc_neigh, nc_neigh_link;
-extern int pf_probefilter;
 extern int forwarding_mode;
-extern int force_probefilteroff;
 extern bool handover_acpi;
 extern int remote_io;
 extern bool boot_wait;
