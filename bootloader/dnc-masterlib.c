@@ -176,7 +176,7 @@ void tally_local_node(int enforce_alignment)
 
     printf("ht_next_apic: %d\n", ht_next_apic);
 
-    printf("%2d CPU cores and %2d GBytes of memory and I/O maps found in SCI%03x\n",
+    printf("%2d CPU cores and %dGB of memory and I/O maps found in SCI%03x\n",
            tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 
     dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
@@ -184,10 +184,15 @@ void tally_local_node(int enforce_alignment)
 
     rest = dnc_top_of_mem & (SCC_ATT_GRAN-1);
     if (rest && enforce_alignment) {
-	printf("Deducting 0x%x from node %d to accommodate granularity requirements\n",
-	       rest, last);
+	printf("Deducting %dMB from SCI%03x#%x to accommodate granularity requirements\n",
+	       rest << (DRAM_MAP_SHIFT - 20), nc_node[0].sci_id, last);
 	asm volatile("wbinvd" ::: "memory");
 	nc_node[0].ht[last].size -= rest;
+
+	/* Ensure there is some resulting memory */
+	assertf(nc_node[0].ht[last].size > SCC_ATT_GRAN, "Insufficient memory in SCI%03x - need a minimum of %lluMB more\n",
+	    nc_node[0].sci_id, (SCC_ATT_GRAN - rest) << (DRAM_MAP_SHIFT - 20));
+
 	dnc_top_of_mem -= rest;
 	for (i = 0; i <= max_ht_node; i++) {
 	    if (i == dnc_master_ht_id)
