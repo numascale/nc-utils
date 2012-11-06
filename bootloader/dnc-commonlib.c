@@ -1562,7 +1562,7 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
     val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
     if (val != 0 && !(val & 1)) {
         if ((val & 0xffff0000) != (DNC_CSR_BASE >> 16)) {
-            printf("Mismatching CSR space hi addresses %04x and %04x; warm-reset needed .\n",
+            printf("Mismatching CSR space hi addresses %04x and %04x; warm-reset needed\n",
                    (uint32_t)(val >> 16), (uint32_t)(DNC_CSR_BASE >> 32));
             return -1;
         }
