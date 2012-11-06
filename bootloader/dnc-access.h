@@ -54,7 +54,7 @@ extern int ht_testmode;
 static inline uint64_t rdtscll(void)
 {
     uint64_t val;
-    asm volatile ("rdtsc" : "=A" (val));
+    asm volatile ("rdtscp" : "=A" (val));
     return val;
 }
 
