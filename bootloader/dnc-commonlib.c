@@ -296,6 +296,7 @@ uint32_t dnc_check_mctr_status(int cdata)
         return 0;
     
     val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_STATUS_ADDR<<2));
+#ifdef BROKEN    
     if (val & 0x001) {
         printf("Error: %s single access outside the defined Physical memory space detected\n", me);
         ack |= 0x001;
@@ -304,6 +305,7 @@ uint32_t dnc_check_mctr_status(int cdata)
         printf("Error: %s multiple access outside the defined Physical memory space detected\n", me);
         ack |= 0x002;
     }
+#endif
     if (val & 0x004) {
         printf("Error: %s single correctable ECC event detected\n", me);
         ack |= 0x004;
@@ -405,11 +407,11 @@ int dnc_init_caches(void) {
                 val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_ACK_ADDR<<2));
                 dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_ACK_ADDR<<2), val | 0x40);
                 
-                /* Mask DRAM initialization complete interrupt */
-                /* Mask the out-of-bounds interrupts on CData since they happen all the time */
+                /* Mask DRAM initialization complete interrupt (bit6) */
+                /* Mask the out-of-bounds interrupts since they happen all the time (bit0+1) */
                 val = dnc_read_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_MASK_ADDR<<2));
                 dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00)+(INT_MASK_ADDR<<2),
-                              val | ((cdata ? 0x43 : 0x40)<<INT_MASK_OFFSET));
+                              val | (0x43<<INT_MASK_OFFSET));
                 
                 val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR);
                 if (!(val & 0x20)) {
@@ -449,6 +451,9 @@ int dnc_init_caches(void) {
 			   (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
 		    return -1;
 		}
+	    } else {
+		/* Set CData to 16GB, always. This will cause address wrap-around interrupts, but we mask them away */
+		tmp = 4;
 	    }
 
 	    if (!cdata) {
