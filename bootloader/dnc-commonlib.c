@@ -451,11 +451,12 @@ int dnc_init_caches(void) {
 		}
 	    }
 
-	    max_mem_per_node = (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size));
-	    printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
-		   (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
-	    max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
-
+	    if (!cdata) {
+		max_mem_per_node = (1U<<(5+dimms[0].mem_size)) - (1U<<(2+dimms[1].mem_size));
+		printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
+		       (1<<dimms[0].mem_size), (1<<dimms[1].mem_size), max_mem_per_node);
+		max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
+	    }
 	    val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 	    dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
 			  (val & ~7) | (1<<12) | ((tmp & 7)<<4)); /* DRAM_AVAILABLE, MEMSIZE[2:0] */
@@ -481,6 +482,7 @@ int dnc_init_caches(void) {
 
         /* Initialize DRAM */
         printf("Initializing %dGB %s\n", 1 << mem_size, cdata ? "CData" : "MCTag");
+        dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
         val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
         dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1<<4));
         do {
