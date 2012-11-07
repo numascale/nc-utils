@@ -54,7 +54,8 @@ extern int ht_testmode;
 static inline uint64_t rdtscll(void)
 {
     uint64_t val;
-    asm volatile ("rdtscp" : "=A" (val));
+    /* rdtscp doesn't work on Fam10h, so use mfence to serialise */
+    asm volatile ("mfence; rdtsc" : "=A" (val));
     return val;
 }
 
