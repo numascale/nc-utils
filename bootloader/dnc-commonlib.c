@@ -1994,14 +1994,18 @@ static int perform_selftest(int asic_mode)
  
     if (asic_mode && res == 0) {
 	printf("\nPerforming High Speed Serdes self test: ");
-    
+
+	/* Trigger a HSS PLL reset */
+	_pic_reset_ctrl(1);
+	udelay(2000000);
+
 	printf("HSS");
 	for (int phy = 0; phy < 6; phy++) {
 	    /* 1. Check that the HSS PLL has locked */
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
 	    if (!(val & (1<<8))) {
 		res = -1;
-		break;
+		goto pll_err_out;
 	    }
 	    printf("T");
 	    /* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
@@ -2064,10 +2068,23 @@ static int perform_selftest(int asic_mode)
 	}
 	/* Trigger a HSS PLL reset */
 	_pic_reset_ctrl(1);
-	udelay(500);
+	udelay(2000000);
     }
 
     printf("\nSelftest %s\n", (res == 0) ? "passed" : "failed");
+
+    return res;
+
+pll_err_out:
+    printf("\n");
+    for (pass=0; pass<3; pass++) {
+	for (int phy = 0; phy < 6; phy++) {
+	    val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+	    printf("HSS%s_STAT_1 = %x\n", _get_linkname(phy), val);
+	}
+	udelay(1000000);
+    }
+    
 
     return res;
 }
