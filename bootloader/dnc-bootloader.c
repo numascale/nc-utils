@@ -2218,42 +2218,35 @@ static void setup_c1e_osvw(void)
 {
     uint64_t msr;
 
-    /* Set defaults for other cores */
-    *REL64(new_hwcr_msr) = dnc_rdmsr(MSR_HWCR);
-    *REL64(new_int_halt_msr) = dnc_rdmsr(MSR_INT_HALT);
-    *REL64(new_osvw_id_len_msr) = dnc_rdmsr(MSR_OSVW_ID_LEN);
-    *REL64(new_osvw_status_msr) = dnc_rdmsr(MSR_OSVW_STATUS);
-    
-    if (disable_c1e) {
-	/* Disable C1E in MSRs */
-	msr = *REL64(new_hwcr_msr) & ~(1 << 12);
-	dnc_wrmsr(MSR_HWCR, msr);
-	*REL64(new_hwcr_msr) = msr;
+    /* Disable C1E in MSRs */
+    msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
+    dnc_wrmsr(MSR_HWCR, msr);
+    *REL64(new_hwcr_msr) = msr;
 
-	msr = 0;
-	dnc_wrmsr(MSR_INT_HALT, msr);
-	*REL64(new_int_halt_msr) = msr;
+    msr = 0;
+    dnc_wrmsr(MSR_INT_HALT, msr);
+    *REL64(new_int_halt_msr) = msr;
 
-	/* Disable OS Vendor Workaround bit for errata #400, as C1E is disabled */
-	msr = *REL64(new_osvw_id_len_msr);
-	if (msr < 2) {
-	    /* Extend ID length to cover errata 400 status bit */
-	    dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
-	    *REL64(new_osvw_id_len_msr) = 2;
-	    msr = *REL64(new_osvw_status_msr) & ~2;
+    /* Disable OS Vendor Workaround bit for errata #400, as C1E is disabled */
+    msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
+    if (msr < 2) {
+	/* Extend ID length to cover errata 400 status bit */
+	dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
+	*REL64(new_osvw_id_len_msr) = 2;
+	msr = dnc_rdmsr(MSR_OSVW_STATUS) & ~2;
+	dnc_wrmsr(MSR_OSVW_STATUS, msr);
+	*REL64(new_osvw_status_msr) = msr;
+	printf("Enabled OSVW errata #400 workaround status, as C1E disabled\n");
+    } else {
+	*REL64(new_osvw_id_len_msr) = msr;
+	msr = dnc_rdmsr(MSR_OSVW_STATUS);
+	if (msr & 2) {
+	    msr &= ~2;
 	    dnc_wrmsr(MSR_OSVW_STATUS, msr);
-	    *REL64(new_osvw_status_msr) = msr;
-	    printf("Enabled OSVW errata #400 workaround status, as C1E disabled\n");
-	} else {
-	    *REL64(new_osvw_id_len_msr) = msr;
-	    msr = *REL64(new_osvw_status_msr);
-	    if (msr & 2) {
-		msr &= ~2;
-		dnc_wrmsr(MSR_OSVW_STATUS, msr);
-		printf("Cleared OSVW errata #400 bit status, as C1E disabled\n");
-	    }
-	    *REL64(new_osvw_status_msr) = msr;
+	    printf("Cleared OSVW errata #400 bit status, as C1E disabled\n");
 	}
+
+	*REL64(new_osvw_status_msr) = msr;
     }
 }
 
@@ -2399,7 +2392,8 @@ static int unify_all_nodes(void)
     *REL64(new_topmem_msr) = dnc_rdmsr(MSR_TOPMEM);
 
     /* Update OS visible workaround MSRs */
-    setup_c1e_osvw();
+    if (disable_c1e)
+	setup_c1e_osvw();
 
     if (verbose > 0)
 	debug_acpi();
