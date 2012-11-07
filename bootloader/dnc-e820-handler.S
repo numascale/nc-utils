@@ -140,6 +140,7 @@ init_trampoline:
 	mov	$MSR_SYSCFG, %ecx
 	wrmsr
 
+#ifdef BROKEN
 	/* Set OSVW_ID_LEN MSR */
 	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr), %eax
 	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr+4), %edx
@@ -163,6 +164,7 @@ init_trampoline:
 	mov	%cs:SYM_OFFSET(new_int_halt_msr+4), %edx
 	mov	$MSR_HWCR, %ecx
 	wrmsr
+#endif
 
         /* Set LSCFG MSR */
 	mov	%cs:SYM_OFFSET(new_lscfg_msr), %eax
@@ -350,6 +352,7 @@ EXPORT(rem_topmem_msr)
 	.long 0, 0
 EXPORT(rem_smm_base_msr)
 	.long 0, 0
+#ifdef BROKEN
 EXPORT(new_osvw_id_len_msr)
 	.long 0, 0
 EXPORT(new_osvw_status_msr)
@@ -358,6 +361,7 @@ EXPORT(new_hwcr_msr)
 	.long 0, 0
 EXPORT(new_int_halt_msr)
 	.long 0, 0
+#endif
 EXPORT(new_lscfg_msr)
 	.long 0, 0
 EXPORT(new_cucfg2_msr)

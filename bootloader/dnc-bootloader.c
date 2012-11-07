@@ -89,10 +89,12 @@ IMPORT_RELOCATED(new_mtrr_var_mask);
 IMPORT_RELOCATED(new_syscfg_msr);
 IMPORT_RELOCATED(rem_topmem_msr);
 IMPORT_RELOCATED(rem_smm_base_msr);
+#ifdef BROKEN
 IMPORT_RELOCATED(new_osvw_id_len_msr);
 IMPORT_RELOCATED(new_osvw_status_msr);
 IMPORT_RELOCATED(new_hwcr_msr);
 IMPORT_RELOCATED(new_int_halt_msr);
+#endif
 IMPORT_RELOCATED(new_lscfg_msr);
 IMPORT_RELOCATED(new_cucfg2_msr);
 
@@ -2214,6 +2216,7 @@ static void global_chipset_fixup(void)
     printf("Chipset-specific setup done\n");
 }
 
+#ifdef BROKEN
 static void setup_c1e_osvw(void)
 {
     uint64_t msr;
@@ -2249,6 +2252,7 @@ static void setup_c1e_osvw(void)
 	*REL64(new_osvw_status_msr) = msr;
     }
 }
+#endif
 
 static int unify_all_nodes(void)
 {
@@ -2391,9 +2395,11 @@ static int unify_all_nodes(void)
     /* Harmonize TOPMEM */
     *REL64(new_topmem_msr) = dnc_rdmsr(MSR_TOPMEM);
 
+#ifdef BROKEN
     /* Update OS visible workaround MSRs */
     if (disable_c1e)
 	setup_c1e_osvw();
+#endif
 
     if (verbose > 0)
 	debug_acpi();
