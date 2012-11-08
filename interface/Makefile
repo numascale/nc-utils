@@ -1,8 +1,6 @@
 TEXSRC     := ../../specifications/design\ specifications/DNC_CSR/DNC_CSR.tex
 TEXPARSE   := ./parse_texcsr.pl
-MCODEPARSE := ./parse_mcode.pl
-UCODEDIR   := ../../behave/scc/microcode
-TARGETS    := numachip-defines.h numachip-autodefs.h numachip-mseq.h
+TARGETS    := numachip-defines.h numachip-autodefs.h
 
 .PHONY: all
 all: $(TARGETS)

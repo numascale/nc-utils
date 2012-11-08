@@ -41,12 +41,14 @@ void load_scc_microcode(uint16_t node)
     const uint16_t *mseq_table;
     int mseq_ucode_length, mseq_table_length;
 
-    if (dnc_asic_mode ? dnc_chip_rev == 3 : (dnc_chip_rev >> 16) == 6490) {
+    if (!dnc_asic_mode || (dnc_chip_rev == 2)) {
+	/* Use this microcode for FPGA and RevC asic */
 	mseq_ucode = numachip_mseq_ucode_revc;
 	mseq_table = numachip_mseq_table_revc;
 	mseq_ucode_length = sizeof(numachip_mseq_ucode_revc) / sizeof(numachip_mseq_ucode_revc[0]);
 	mseq_table_length = sizeof(numachip_mseq_table_revc) / sizeof(numachip_mseq_table_revc[0]);
-    } else if (dnc_asic_mode && dnc_chip_rev == 2) {
+    } else if (dnc_asic_mode && dnc_chip_rev < 2) {
+	/* Use this microcode for RevA and RevB asic */
 	mseq_ucode = numachip_mseq_ucode_revb;
 	mseq_table = numachip_mseq_table_revb;
 	mseq_ucode_length = sizeof(numachip_mseq_ucode_revb) / sizeof(numachip_mseq_ucode_revb[0]);
