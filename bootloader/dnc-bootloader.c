@@ -927,7 +927,7 @@ static void disable_smm_handler(uint64_t smm_base)
     uint8_t *cur;
 
     if (verbose)
-	printf("SMM base is 0x%" PRIx64 "\n", smm_base);
+	printf(" (SMM @ 0x%" PRIx64")", smm_base);
 
     if (!disable_smm)
 	return;
