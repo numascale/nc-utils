@@ -104,6 +104,24 @@ extern uint8_t smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
+static void set_wrap32_disable(void)
+{
+    uint64_t val = dnc_rdmsr(MSR_HWCR);
+    dnc_wrmsr(MSR_HWCR, val | (1ULL << 17));
+}
+
+static void set_wrap32_enable(void)
+{
+    uint64_t val = dnc_rdmsr(MSR_HWCR);
+    dnc_wrmsr(MSR_HWCR, val & ~(1ULL << 17));
+}
+
+static void clear_bsp_flag(void)
+{
+    uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
+    dnc_wrmsr(MSR_APIC_BAR, val &= ~(1ULL << 8));
+}
+
 static void disable_xtpic(void)
 {
     inb(PIC_MASTER_IMR);
@@ -2455,9 +2473,8 @@ static void start_user_os(void)
 {
     static com32sys_t rm;
 
-    /* Release resources to reduce allocator fragmentation */
-    free(cfg_nodelist);
-    free(cfg_partlist);
+    /* We're done with our 64-bit accesses, enable 32-bit address wrapping again */
+    set_wrap32_enable();
 
     strcpy(__com32.cs_bounce, next_label);
     rm.eax.w[0] = 0x0003;
@@ -2479,18 +2496,6 @@ static void cleanup_stack(void)
     printf("Unloading bootloader stack...");
     __intcall(0x22, &rm, NULL);
     printf("done\n");
-}
-
-static void set_wrap32_disable(void)
-{
-    uint64_t val = dnc_rdmsr(MSR_HWCR);
-    dnc_wrmsr(MSR_HWCR, val | (1ULL << 17));
-}
-
-static void clear_bsp_flag(void)
-{
-    uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
-    dnc_wrmsr(MSR_APIC_BAR, val &= ~(1ULL << 8));
 }
 
 static void get_hostname(void)
@@ -2589,9 +2594,6 @@ static int nc_start(void)
     constants();
     get_hostname();
 
-    /* Only in effect on core 0, but only required for 32-bit code */
-    set_wrap32_disable();
-
     dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
 					   __com32.cs_cmdline);
 
@@ -2630,8 +2632,12 @@ static int nc_start(void)
     /* Must run after SCI is operational */
     local_chipset_fixup(part->master == info->sciid);
 
-    if (info->sync_only)
+    if (info->sync_only) {
+	/* Release resources to reduce allocator fragmentation */
+	free(cfg_nodelist);
+	free(cfg_partlist);
 	start_user_os();
+    }
 
     if (dnc_init_caches() < 0)
 	return ERR_INIT_CACHES;
@@ -2677,6 +2683,10 @@ static int nc_start(void)
 	if (handover_acpi)
 	    stop_acpi();
 
+	/* Release resources to reduce allocator fragmentation */
+	free(cfg_nodelist);
+	free(cfg_partlist);
+
 	start_user_os();
     } else {
 	/* Slave */
@@ -2715,6 +2725,8 @@ static int nc_start(void)
 	
 	/* Let master know we're ready for remapping/integration */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1<<31));
+	/* We're done with our 64-bit accesses, enable 32-bit address wrapping again */
+	set_wrap32_enable();
 	while (1) {
 	    cli();
 	    asm volatile("hlt" ::: "memory");
@@ -2732,10 +2744,17 @@ int main(void)
 	   gitlog_dnc_bootloader_sha, 
 	   (strlen(gitlog_dnc_bootloader_diff) > 0) ? " (modified)" : "");
 
+    /* Disable 32-bit address wrapping to allow 64-bit access in 32-bit code */
+    set_wrap32_disable();
+
     ret = nc_start();
     if (ret < 0) {
 	printf("Error: nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
 	wait_key();
     }
+
+    /* We're done with our 64-bit accesses, enable 32-bit address wrapping again */
+    set_wrap32_enable();
+    
     return ret;
 }
