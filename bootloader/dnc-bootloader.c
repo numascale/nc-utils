@@ -119,7 +119,7 @@ static void set_wrap32_enable(void)
 static void clear_bsp_flag(void)
 {
     uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
-    dnc_wrmsr(MSR_APIC_BAR, val &= ~(1ULL << 8));
+    dnc_wrmsr(MSR_APIC_BAR, val & ~(1ULL << 8));
 }
 
 static void disable_xtpic(void)
