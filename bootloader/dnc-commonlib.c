@@ -1477,14 +1477,8 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
 {
     uint32_t val;
-    uint64_t rval;
     uint8_t node;
     int dnc_ht_id;
-
-    /* Set EnableCf8ExtCfg */
-    rval = dnc_rdmsr(MSR_NB_CFG);
-    rval = rval | (1ULL << 46);
-    dnc_wrmsr(MSR_NB_CFG, rval);
 
     val = cht_read_conf(0, FUNC0_HT, 0x60);
     printf("Node #0 F0x60: %x\n", val);

@@ -104,6 +104,12 @@ extern uint8_t smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
+static void set_cf8extcfg_enable(void)
+{
+    uint64_t val = dnc_rdmsr(MSR_NB_CFG);
+    dnc_wrmsr(MSR_NB_CFG, val | (1ULL << 46));
+}
+
 static void set_wrap32_disable(void)
 {
     uint64_t val = dnc_rdmsr(MSR_HWCR);
@@ -2085,6 +2091,7 @@ static void update_mtrr(void)
     }
 }
 
+#ifdef UNUSED
 static void disable_iommu(void)
 {
     uint32_t val, val2;
@@ -2114,6 +2121,7 @@ static void disable_iommu(void)
 	dnc_write_conf(0xfff0, 0, 0, 0, 0x64, val);
     }
 }
+#endif
 
 static void local_chipset_fixup(bool master)
 {
@@ -2532,15 +2540,13 @@ static void constants(void)
     family = cpu_family(0xfff0, 0) >> 16;
     if (family >= 0x15) {
 	uint32_t val = cht_read_conf(0, FUNC5_EXTD, 0x160);
-	tsc_mhz = 200 * (((val >> 1) & 0x1f) + 4) / (1 + ((val >> 8) & 1));
+	tsc_mhz = 200 * (((val >> 1) & 0x1f) + 4) / (1 + ((val >> 7) & 1));
     } else {
 	uint32_t val = cht_read_conf(0, FUNC3_MISC, 0xd4);
 	uint64_t val6 = dnc_rdmsr(0xc0010071);
 	tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
     }
-
-    if (verbose)
-	printf("NB/TSC frequency is %dMHz\n", tsc_mhz);
+    printf("NB/TSC frequency is %dMHz\n", tsc_mhz);
 }
 
 static void selftest_late(void)
@@ -2713,6 +2719,9 @@ int main(void)
     int ret;
     openconsole(&dev_rawcon_r, &dev_stdcon_w);
     printf("*** NumaConnect system unification module " VER " ***\n");
+
+    /* Enable extended PCI config space access via CF8 */
+    set_cf8extcfg_enable();
 
     /* Disable 32-bit address wrapping to allow 64-bit access in 32-bit code */
     set_wrap32_disable();
