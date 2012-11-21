@@ -1653,8 +1653,18 @@ static uint32_t identify_eeprom(uint16_t node, char type[16], uint8_t *osc_setti
 static void _pic_reset_ctrl(int val)
 {
     dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, val);
-    udelay(500);
+    udelay(10000);
     (void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC */
+    udelay(2000000);
+}
+
+static void print_oscillator(void)
+{
+    uint32_t val;
+    dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
+    udelay(10000);
+    val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+    printf("Current oscillator setting : %d (raw=%08x)\n", (val>>24) & 3, val);
 }
 
 static int adjust_oscillator(char *type, uint8_t osc_setting)
@@ -1675,7 +1685,7 @@ static int adjust_oscillator(char *type, uint8_t osc_setting)
             return 0;
         }
         dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
-        udelay(500);
+        udelay(10000);
         val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 	
         /* On the RevC cards the micro controller isn't quite fast enough
@@ -1689,17 +1699,17 @@ static int adjust_oscillator(char *type, uint8_t osc_setting)
             dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
             
 	    /* Wait for the new frequency to settle */
-            udelay(500);
+            udelay(10000);
             
 	    /* Read back value, to verify */
 	    dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
-	    udelay(500);
+	    udelay(10000);
 	    val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 	    printf("New current set oscillator setting: %d (raw=%08x)\n", (val>>24) & 3, val);
 	    
 	    /* Trigger a HSS PLL reset */
             _pic_reset_ctrl(1);
-            udelay(500);
+            udelay(10000);
         }
     } else {
 	printf("Oscillator not set, card is of type %s and doesn't support this\n", type);
@@ -1973,7 +1983,6 @@ static int perform_selftest(int asic_mode)
 
 	/* Trigger a HSS PLL reset */
 	_pic_reset_ctrl(1);
-	udelay(2000000);
 
 	printf("HSS");
 	for (int phy = 0; phy < 6; phy++) {
@@ -2044,7 +2053,6 @@ static int perform_selftest(int asic_mode)
 	}
 	/* Trigger a HSS PLL reset */
 	_pic_reset_ctrl(1);
-	udelay(2000000);
     }
 
     printf("\nSelftest %s\n", (res == 0) ? "passed" : "failed");
@@ -2296,6 +2304,8 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
     }
 
     /* ====================== END ERRATA WORKAROUNDS ====================== */
+
+    print_oscillator();
     
     uuid = identify_eeprom(0xfff0, type, &osc_setting);
     printf("UUID: %06d, TYPE: %s\n", uuid, type);
@@ -2306,9 +2316,13 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
             return -1;
     }
 
+    print_oscillator();
+    
     if (perform_selftest(asic_mode) < 0)
 	return -1;
 
+    print_oscillator();
+    
     /* If init-only parameter is given, stop here and return */
     if (init_only > 0)
         return -2;
@@ -2346,15 +2360,19 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
                cfg_nodelist[i].partition,
                cfg_nodelist[i].osc);
     }
+
+    print_oscillator();
     
     if (info->osc < 3)
         osc_setting = info->osc;
 
-    if (asic_mode && (chip_rev < 2)) {
+    if (asic_mode) {
 	if (adjust_oscillator(type, osc_setting) < 0)
 	    return -1;
     }
 
+    print_oscillator();
+    
     *p_asic_mode = asic_mode;
     *p_chip_rev = chip_rev;
     *p_uuid = uuid;
@@ -2659,7 +2677,7 @@ static enum node_state enter_reset(struct node_info *info)
 {
     printf("Entering reset\n");
 
-    if (dnc_asic_mode && dnc_chip_rev < 2) {
+    if (dnc_asic_mode) {
 	int tries = 0;
 
 	/* Reset already held?  Toggle reset logic to ensure reset
@@ -2740,7 +2758,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
     int pending, i;
     printf("Releasing reset...");
 
-    if (dnc_asic_mode && dnc_chip_rev < 2) {
+    if (dnc_asic_mode) {
 	/* Release reset */
 	_pic_reset_ctrl(2);
 	udelay(200);
