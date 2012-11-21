@@ -2044,7 +2044,7 @@ static int perform_selftest(int asic_mode)
 	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val & ~(0xf));
 	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00f0);
 	    dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x0000);
-	    printf(_get_linkname(phy));
+	    puts(_get_linkname(phy));
 	}
 	/* Trigger a HSS PLL reset */
 	_pic_reset_ctrl(1);
