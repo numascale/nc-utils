@@ -759,12 +759,14 @@ static void update_acpi_tables(void)
     if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
     if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
 
-    uint32_t extra_len;
-    unsigned char *extra = remote_aml(&extra_len);
-    if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
-	if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len))
-	    printf("Warning: failed to append to DSDT or SSDT; remote I/O will be unavailable\n");
-    free(extra);
+    if (remote_io) {
+	uint32_t extra_len;
+	unsigned char *extra = remote_aml(&extra_len);
+	if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
+	    if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len))
+		printf("Warning: failed to append to DSDT or SSDT; remote I/O will be unavailable\n");
+	free(extra);
+    }
 
     enable_fixed_mtrrs();
 }
