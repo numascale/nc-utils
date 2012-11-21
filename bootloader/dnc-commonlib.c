@@ -40,7 +40,6 @@ static int route_only = 0;
 static int enable_nbmce = -1;
 static int enable_nbwdt = 0;
 static int disable_sram = 0;
-int enable_vga_redir = 0;
 static int force_probefilteroff = 0;
 static int force_probefilteron = 0;
 static int ht_force_ganged = 0;
@@ -63,6 +62,7 @@ int verbose = 0;
 int family = 0;
 uint32_t tsc_mhz = 0;
 uint32_t pf_maxmem = 0;
+bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
 
 const char* node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
@@ -1791,7 +1791,6 @@ static int parse_cmdline(const char *cmdline)
         {"enablenbmce",	    &parse_int,    &enable_nbmce},    /* Enable northbridge MCE */
         {"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enbale northbridge WDT */
         {"disable-sram",    &parse_int,    &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
-        {"enable-vga",	    &parse_int,    &enable_vga_redir},/* Enable redirect of VGA to master, known issue with this on HP DL165 (default disable) */
         {"ht.testmode",	    &parse_int,    &ht_testmode},
         {"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
         {"ht.8bit-only",    &parse_int,    &ht_8bit_only},
@@ -1801,6 +1800,7 @@ static int parse_cmdline(const char *cmdline)
         {"ht.force-pf-on",  &parse_int,    &force_probefilteron},  /* Enable probe filter if disabled */
         {"ht.force-pf-off", &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
         {"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
+        {"pf.vga-local",    &parse_bool,   &pf_vga_local},    /* Let legacy VGA access route locally */
 	{"pf.maxmem",       &parse_int,    &pf_maxmem},       /* Memory in GB per server */
         {"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
         {"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */

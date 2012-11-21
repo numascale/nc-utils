@@ -126,7 +126,6 @@ extern int dnc_chip_rev;
 
 extern char *next_label;
 extern char *microcode_path;
-extern int enable_vga_redir;
 extern int disable_smm;
 extern int disable_c1e;
 extern int renumber_bsp;
@@ -142,6 +141,7 @@ extern bool boot_wait;
 extern int family;
 extern uint32_t tsc_mhz;
 extern uint32_t pf_maxmem;
+extern bool pf_vga_local;
 extern uint32_t max_mem_per_node;
 
 extern const char* node_state_name[];
