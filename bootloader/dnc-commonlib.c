@@ -2197,6 +2197,10 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 	} else { /* ASIC RevC */
 	    /* Enable WeakOrdering */
 	    val = val | (1<<19);
+	    /* Disable Fast CTag lookup (conflicts with HReq buffer#31) */
+	    val = val | (1<<5);
+	    /* Enable CData writeback on RdBlkMod,ChgToDirty and ValBlk */
+	    val = val | (7<<8);
 	    dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val);
 	}
     } else { /* FPGA */
