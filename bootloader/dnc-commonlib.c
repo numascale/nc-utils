@@ -2239,18 +2239,6 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 	    val = (val & ~(1 << 8)) | (!enable_nbwdt << 8);
         cht_write_conf(i, FUNC3_MISC, 0x44, val);
 
-	/* XXX: Disable DRAM sequential scrubbing. Optimally we should se the DramScrubAddrLo/Hi register correctly */
-	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-	   See erratum 505 */
-	if (family >= 0x15)
-	    cht_write_conf(i, FUNC1_MAPS, 0x10C, 0);
-	val = cht_read_conf(i, FUNC3_MISC, 0x58);
-	if (val & 0x1f) {
-	    printf("Disabling DRAM sequential scrubbing on HT#%d\n", i);
-	    cht_write_conf(i, FUNC3_MISC, 0x58, val & ~0x1f);
-	}
-
 	if (disable_c1e) {
 	    /* Disable C1E sleep mode in northbridge */
 	    val = cht_read_conf(i, FUNC3_MISC, 0xd4);

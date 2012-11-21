@@ -1225,6 +1225,7 @@ static void setup_remote_cores(uint16_t num)
     uint32_t val;
     uint64_t tom;
     uint64_t qval;
+    uint32_t scrub[8];
 
     printf("Setting up cores on node #%d (SCI%03x), %d HT nodes\n",
            num, node, ht_id);
@@ -1305,6 +1306,23 @@ static void setup_remote_cores(uint16_t num)
             dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xf4, 0x0);
         }
     }
+
+    printf("Disabling DRAM scrubbers...");
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
+
+	scrub[i] = dnc_read_conf(node, 0, 24+i, FUNC3_MISC, 0x58);
+	dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x58, scrub[i] & ~0x1f);
+    }
+    /* Allow outstanding scrub requests to finish */
+    udelay(40);
+    printf("done\n");
 
     /* Now, reset all DRAM maps */
     printf("Resetting DRAM maps on SCI%03x\n", node);
@@ -1401,6 +1419,23 @@ static void setup_remote_cores(uint16_t num)
 	    }
 	}
     }
+
+    printf("Enabling DRAM scrubbers..."); /* With new DRAM base address */
+    for (i = 0; i < 8; i++) {
+	if (!cur_node->ht[i].cpuid)
+	    continue;
+	uint64_t base = (uint64_t)cur_node->ht[i].base << DRAM_MAP_SHIFT;
+	bool redir = dnc_read_conf(node, 0, 24+i, FUNC3_MISC, 0x5c) & 1;
+	dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x5c, base | redir);
+	dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x60, base >> 32);
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+	    cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
+	dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x58, scrub[i]);
+    }
+    printf("done\n");
 
     printf("SCI%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
     dnc_write_csr(node, H2S_CSR_G3_PCI_SEG0, nc_node[0].sci_id << 16);
