@@ -1,8 +1,12 @@
-TARGETS   = libnumachip_user.so 
+CC	:= opencc
 
-CFLAGS    = -O2 -D_GNU_SOURCE -Wall -g
+TARGETS	:= libnumachip_user.so libnumachip_memops.so
 
-LIBSRC    = init.c device.c pcounter.c pcounter_test.c sysfs.c memops.c parse_json.c ../../bootloader/json-1.4/src/json.c
+CFLAGS	:= -O2 -D_GNU_SOURCE -Wall -g
+
+USERSRC	:= init.c device.c pcounter.c pcounter_test.c sysfs.c parse_json.c ../../bootloader/json-1.5/src/json.c
+
+MEMSRC	:= memops.c
 
 .PHONY: all
 all: $(TARGETS)
@@ -11,6 +15,9 @@ all: $(TARGETS)
 clean:
 	rm -f $(TARGETS) *~ *.o
 
-libnumachip_user.so: $(LIBSRC) numachip_lib.h numachip_user.h
-	$(CC) $(CFLAGS) -I ../../bootloader/ -I ../../bootloader/json-1.4 -fPIC -shared -o $@ $(LIBSRC) 
+libnumachip_user.so: $(USERSRC) numachip_lib.h numachip_user.h
+	$(CC) $(CFLAGS) -I ../../bootloader/ -I ../../bootloader/json-1.5/src -fPIC -shared -o $@ $(USERSRC) 
+
+libnumachip_memops.so: $(MEMSRC) numachip_memops.h
+	$(CC) $(CFLAGS) -fPIC -shared -o $@ $(MEMSRC) 
 
