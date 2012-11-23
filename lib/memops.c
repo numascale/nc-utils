@@ -2,17 +2,17 @@
 // This source code including any derived information including but
 // not limited by net-lists, fpga bit-streams, and object files is the
 // confidential and proprietary property of
-// 
+//
 // Numascale AS
 // Enebakkveien 302A
 // NO-1188 Oslo
 // Norway
-// 
+//
 // Any unauthorized use, reproduction or transfer of the information
 // provided herein is strictly prohibited.
-// 
+//
 // Copyright © 2008-2012
-// Numascale AS Oslo, Norway. 
+// Numascale AS Oslo, Norway.
 // All Rights Reserved.
 //
 
@@ -22,12 +22,54 @@
 
 #include "numachip_memops.h"
 
-static int _have_avx = 0;
+/* Branch prediction macros */
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
 
 static void _memops_lib_constructor(void) __attribute__((constructor));
 
+#define ALIGN_DEST(align)					\
+    do {							\
+	i = ((~(unsigned long)to+1) & ((align)-1)) >> 2;	\
+	for (; i>0 && n>0; i--) {				\
+	    asm volatile (					\
+		"movl (%0), %%eax\n\t"				\
+		"movnti %%eax, (%1)\n\t"			\
+		: : "r" (from), "r" (to) : "eax", "memory");	\
+	    from+=4;						\
+	    to+=4;						\
+	    n-=4;						\
+	}							\
+    } while (0)
+
+#define COPY_TAIL()						\
+    do {							\
+	i = n >> 3;						\
+	n &= 7;							\
+	for (; i>0; i--) {					\
+	    asm volatile (					\
+		"movq (%0), %%rax\n\t"				\
+		"movnti %%rax, (%1)\n\t"			\
+		: : "r" (from), "r" (to) : "rax", "memory");	\
+	    from+=8;						\
+	    to+=8;						\
+	}							\
+								\
+	i = n >> 2;						\
+	n &= 3;							\
+	if (n) i++;						\
+	for (; i>0; i--) {					\
+	    asm volatile (					\
+		"movl (%0), %%eax\n\t"				\
+		"movnti %%eax, (%1)\n\t"			\
+		: : "r" (from), "r" (to) : "eax", "memory");	\
+	    from+=4;						\
+	    to+=4;						\
+	}							\
+    } while(0)
+
 /**
- * _block_xmm_copy - Block copy function using SSE4.1 (128bit) non-temporal stores.
+ * _block_xmm_copy - Block copy function using SSE2 (128bit) non-temporal stores.
  * @to: mandatory. Provides the destination pointer.
  * @from: mandatory. Provides the source pointer.
  * @n: mandatory. Provides the number of bytes to copy.
@@ -35,70 +77,72 @@ static void _memops_lib_constructor(void) __attribute__((constructor));
 static void _block_xmm_copy(void *to, const void *from, size_t n)
 {
     int32_t i;
-    
-    /* Align to 64 bytes with movnti */
-    i = ((~(unsigned long)to+1) & 0x3f) >> 2;
-    for (; i>0 && n>0; i--) {
-	asm volatile (
-	    "movl (%0), %%eax\n"
-	    "movnti %%eax, (%1)\n"
-	    : : "r" (from), "r" (to) : "eax", "memory");
-	from+=4;
-	to+=4;
-	n-=4;
-    }
 
+    /* Align destination to 16 bytes */
+    ALIGN_DEST(16);
+
+    /* Copy blocks, 64 bytes per loop with prefetching using 128bit XMM instructions */
     i = n >> 6;
     n &= 63;
-    for (; i>0; i--) {
-	asm volatile (
-	    "prefetchnta 320(%0)\n"
-	    "movdqu   (%0), %%xmm0\n"
-	    "movdqu 16(%0), %%xmm1\n"
-	    "movntdq %%xmm0,   (%1)\n"
-	    "movntdq %%xmm1, 16(%1)\n"
-	    "movdqu 32(%0), %%xmm0\n"
-	    "movdqu 48(%0), %%xmm1\n"
-	    "movntdq %%xmm0, 32(%1)\n"
-	    "movntdq %%xmm1, 48(%1)\n"
-	    : : "r" (from), "r" (to) : "memory");
-	from+=64;
-	to+=64;
+    if (likely(!((unsigned long)from & 15))) {
+	/* Source aligned */
+	for (; i>0; i--) {
+	    asm volatile (
+		"prefetchnta 320(%0)\n\t"
+		"movdqa   (%0), %%xmm0\n\t"
+		"movdqa 16(%0), %%xmm1\n\t"
+		"movntdq %%xmm0,   (%1)\n\t"
+		"movntdq %%xmm1, 16(%1)\n\t"
+		"movdqa 32(%0), %%xmm0\n\t"
+		"movdqa 48(%0), %%xmm1\n\t"
+		"movntdq %%xmm0, 32(%1)\n\t"
+		"movntdq %%xmm1, 48(%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=64;
+	    to+=64;
+	}
+
+	i = n >> 4;
+	n &= 15;
+	for (; i>0; i--) {
+	    asm volatile (
+		"movdqa (%0), %%xmm0\n\t"
+		"movntdq %%xmm0, (%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=16;
+	    to+=16;
+	}
+    } else {
+	/* Source unaligned */
+	for (; i>0; i--) {
+	    asm volatile (
+		"prefetchnta 320(%0)\n\t"
+		"movdqu   (%0), %%xmm0\n\t"
+		"movdqu 16(%0), %%xmm1\n\t"
+		"movntdq %%xmm0,   (%1)\n\t"
+		"movntdq %%xmm1, 16(%1)\n\t"
+		"movdqu 32(%0), %%xmm0\n\t"
+		"movdqu 48(%0), %%xmm1\n\t"
+		"movntdq %%xmm0, 32(%1)\n\t"
+		"movntdq %%xmm1, 48(%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=64;
+	    to+=64;
+	}
+
+	i = n >> 4;
+	n &= 15;
+	for (; i>0; i--) {
+	    asm volatile (
+		"movdqu (%0), %%xmm0\n\t"
+		"movntdq %%xmm0, (%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=16;
+	    to+=16;
+	}
     }
 
-    i = n >> 4;
-    n &= 15;
-    for (; i>0; i--) {
-	asm volatile (
-	    "movdqu (%0), %%xmm0\n"
-	    "movntdq %%xmm0, (%1)\n"
-	    : : "r" (from), "r" (to) : "memory");
-	from+=16;
-	to+=16;
-    }
-
-    i = n >> 3;
-    n &= 7;
-    for (; i>0; i--) {
-	asm volatile (
-	    "movq (%0), %%rax\n"
-	    "movnti %%rax, (%1)\n"
-	    : : "r" (from), "r" (to) : "rax", "memory");
-	from+=8;
-	to+=8;
-    }
-
-    i = n >> 2;
-    n &= 3;
-    if (n) i++;
-    for (; i>0; i--) {
-	asm volatile (
-	    "movl (%0), %%eax\n"
-	    "movnti %%eax, (%1)\n"
-	    : : "r" (from), "r" (to) : "eax", "memory");
-	from+=4;
-	to+=4;
-    }
+    COPY_TAIL();
 }
 
 /**
@@ -110,86 +154,78 @@ static void _block_xmm_copy(void *to, const void *from, size_t n)
 static void _block_avx_copy(void *to, const void *from, size_t n)
 {
     int32_t i;
-    
-    /* Align to 64 bytes with movnti */
-    i = ((~(unsigned long)to+1) & 0x3f) >> 2;
-    for (; i>0 && n>0; i--) {
-	asm volatile (
-	    "movl (%0), %%eax\n"
-	    "movnti %%eax, (%1)\n"
-	    : : "r" (from), "r" (to) : "eax", "memory");
-	from+=4;
-	to+=4;
-	n-=4;
-    }
 
+    /* Align destination to 32 bytes with movnti */
+    ALIGN_DEST(32);
+
+    /* Copy blocks, 128 bytes per loop with prefetching using 256bit AVX instructions */
     i = n >> 7;
     n &= 127;
-    for (; i>0; i--) {
-	asm volatile (
-	    "prefetchnta 320(%0)\n"
-	    "prefetchnta 384(%0)\n"
-	    "vmovdqu   (%0), %%ymm0\n"
-	    "vmovdqu 32(%0), %%ymm1\n"
-	    "vmovntdq %%ymm0,   (%1)\n"
-	    "vmovntdq %%ymm1, 32(%1)\n"
-	    "vmovdqu 64(%0), %%ymm0\n"
-	    "vmovdqu 96(%0), %%ymm1\n"
-	    "vmovntdq %%ymm0, 64(%1)\n"
-	    "vmovntdq %%ymm1, 96(%1)\n"
-	    : : "r" (from), "r" (to) : "memory");
-	from+=128;
-	to+=128;
+    if (likely(!((unsigned long)from & 32))) {
+	/* Source aligned */
+	for (; i>0; i--) {
+	    asm volatile (
+		"prefetchnta 320(%0)\n\t"
+		"prefetchnta 384(%0)\n\t"
+		"vmovdqa   (%0), %%ymm0\n\t"
+		"vmovdqa 32(%0), %%ymm1\n\t"
+		"vmovntdq %%ymm0,   (%1)\n\t"
+		"vmovntdq %%ymm1, 32(%1)\n\t"
+		"vmovdqa 64(%0), %%ymm0\n\t"
+		"vmovdqa 96(%0), %%ymm1\n\t"
+		"vmovntdq %%ymm0, 64(%1)\n\t"
+		"vmovntdq %%ymm1, 96(%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=128;
+	    to+=128;
+	}
+
+	i = n >> 5;
+	n &= 31;
+	for (; i>0; i--) {
+	    asm volatile (
+		"vmovdqa (%0), %%ymm0\n\t"
+		"vmovntdq %%ymm0, (%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=32;
+	    to+=32;
+	}
+    } else {
+	/* Source unaligned */
+	for (; i>0; i--) {
+	    asm volatile (
+		"prefetchnta 320(%0)\n\t"
+		"prefetchnta 384(%0)\n\t"
+		"vmovdqu   (%0), %%ymm0\n\t"
+		"vmovdqu 32(%0), %%ymm1\n\t"
+		"vmovntdq %%ymm0,   (%1)\n\t"
+		"vmovntdq %%ymm1, 32(%1)\n\t"
+		"vmovdqu 64(%0), %%ymm0\n\t"
+		"vmovdqu 96(%0), %%ymm1\n\t"
+		"vmovntdq %%ymm0, 64(%1)\n\t"
+		"vmovntdq %%ymm1, 96(%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=128;
+	    to+=128;
+	}
+
+	i = n >> 5;
+	n &= 31;
+	for (; i>0; i--) {
+	    asm volatile (
+		"vmovdqu (%0), %%ymm0\n\t"
+		"vmovntdq %%ymm0, (%1)\n\t"
+		: : "r" (from), "r" (to) : "memory");
+	    from+=32;
+	    to+=32;
+	}
     }
 
-    i = n >> 5;
-    n &= 31;
-    for (; i>0; i--) {
-	asm volatile (
-	    "vmovdqu (%0), %%ymm0\n"
-	    "vmovntdq %%ymm0, (%1)\n"
-	    : : "r" (from), "r" (to) : "memory");
-	from+=32;
-	to+=32;
-    }
-
-    i = n >> 4;
-    n &= 15;
-    for (; i>0; i--) {
-	asm volatile (
-	    "movdqu (%0), %%xmm0\n"
-	    "movntdq %%xmm0, (%1)\n"
-	    : : "r" (from), "r" (to) : "memory");
-	from+=16;
-	to+=16;
-    }
-
-    i = n >> 3;
-    n &= 7;
-    for (; i>0; i--) {
-	asm volatile (
-	    "movq (%0), %%rax\n"
-	    "movnti %%rax, (%1)\n"
-	    : : "r" (from), "r" (to) : "rax", "memory");
-	from+=8;
-	to+=8;
-    }
-
-    i = n >> 2;
-    n &= 3;
-    if (n) i++;
-    for (; i>0; i--) {
-	asm volatile (
-	    "movl (%0), %%eax\n"
-	    "movnti %%eax, (%1)\n"
-	    : : "r" (from), "r" (to) : "eax", "memory");
-	from+=4;
-	to+=4;
-    }
+    COPY_TAIL();
 }
 
 /**
- * _numachip_sge_copy_xmm - Platform optimized ScatterGather copy function using SSE4.1
+ * _numachip_sge_copy_xmm - Platform optimized ScatterGather copy function using SSE2
  * @sg_list: mandatory. Provides a pointer to the scatter-gather list.
  * @num_sge: mandatory. Provides the number of scatter-gather entries in the list.
  */
@@ -200,29 +236,29 @@ static void _numachip_sge_copy_xmm(struct numachip_sge *sg_list, size_t num_sge)
 
     /* Save XMM registers */
     asm volatile (
-	"movdqa %%xmm0,(%0)\n"
-	"movdqa %%xmm1,16(%0)\n"
+	"movdqa %%xmm0,(%0)\n\t"
+	"movdqa %%xmm1,16(%0)\n\t"
 	: : "r" (xmm_save) : "memory");
 
     for (i=0; i<num_sge; i++) {
 	asm volatile (
-	    "1: prefetchnta (%0)\n"
-	    "   prefetchnta 64(%0)\n"
-	    "   prefetchnta 128(%0)\n"
-	    "   prefetchnta 192(%0)\n"
-	    "   prefetchnta 256(%0)\n"
+	    "prefetchnta (%0)\n\t"
+	    "prefetchnta 64(%0)\n\t"
+	    "prefetchnta 128(%0)\n\t"
+	    "prefetchnta 192(%0)\n\t"
+	    "prefetchnta 256(%0)\n\t"
 	    : : "r" ((void*)sg_list[i].from) );
 
 	assert(!(((unsigned long)sg_list[i].to) & 0x3));
-	
+
 	_block_xmm_copy((void*)sg_list[i].to, (void*)sg_list[i].from, (size_t)sg_list[i].length);
     }
 
     /* Fence & Restore XMM registers */
     asm volatile (
-	"mfence \n"
-	"movdqa (%0),%%xmm0\n"
-	"movdqa 16(%0),%%xmm1\n"
+	"mfence\n\t"
+	"movdqa (%0),%%xmm0\n\t"
+	"movdqa 16(%0),%%xmm1\n\t"
 	: : "r" (xmm_save) : "memory");
 }
 
@@ -233,36 +269,35 @@ static void _numachip_sge_copy_xmm(struct numachip_sge *sg_list, size_t num_sge)
  */
 static void _numachip_sge_copy_avx(struct numachip_sge *sg_list, size_t num_sge)
 {
-    struct { unsigned long a,b,c,d; } avx_save[3] __attribute__((aligned(16)));
-    unsigned long save_ptr = ((unsigned long)avx_save & 0x1f) ? (unsigned long)(&avx_save[0].c) : (unsigned long)avx_save;
+    struct { unsigned long a,b,c,d; } avx_save[2] __attribute__((aligned(32)));
     int32_t i = 0;
 
     /* Save AVX registers */
-    asm volatile (
-	"vmovdqa %%ymm0,(%0)\n"
-	"vmovdqa %%ymm1,32(%0)\n"
-	: : "r" (save_ptr) : "memory");
+    asm volatile (""
+	"vmovdqa %%ymm0,(%0)\n\t"
+	"vmovdqa %%ymm1,32(%0)\n\t"
+	: : "r" (avx_save) : "memory");
 
     for (i=0; i<num_sge; i++) {
 	asm volatile (
-	    "1: prefetchnta (%0)\n"
-	    "   prefetchnta 64(%0)\n"
-	    "   prefetchnta 128(%0)\n"
-	    "   prefetchnta 192(%0)\n"
-	    "   prefetchnta 256(%0)\n"
+	    "prefetchnta (%0)\n\t"
+	    "prefetchnta 64(%0)\n\t"
+	    "prefetchnta 128(%0)\n\t"
+	    "prefetchnta 192(%0)\n\t"
+	    "prefetchnta 256(%0)\n\t"
 	    : : "r" ((void*)sg_list[i].from) );
 
 	assert(!(((unsigned long)sg_list[i].to) & 0x3));
-	
+
 	_block_avx_copy((void*)sg_list[i].to, (void*)sg_list[i].from, (size_t)sg_list[i].length);
     }
 
     /* Fence & Restore AVX registers */
     asm volatile (
-	"mfence \n"
-	"vmovdqa (%0),%%ymm0\n"
-	"vmovdqa 32(%0),%%ymm1\n"
-	: : "r" (save_ptr) : "memory");
+	"mfence\n\t"
+	"vmovdqa (%0),%%ymm0\n\t"
+	"vmovdqa 32(%0),%%ymm1\n\t"
+	: : "r" (avx_save) : "memory");
 }
 
 /**
@@ -319,14 +354,23 @@ static inline uint64_t xgetbv(uint32_t index)
 {
     uint32_t eax, edx;
 
-    asm volatile(".byte 0x0f,0x01,0xd0" /* xgetbv */
+    asm volatile("xgetbv\n\t"
 		 : "=a" (eax), "=d" (edx)
 		 : "c" (index));
     return eax + ((uint64_t)edx << 32);
 }
 
+#define SSE2_FLAGS                (1<<26)
 #define AVX_FLAGS                 ((1<<27)|(1<<28))
 #define XCR_XFEATURE_ENABLED_MASK 0x00000000
+
+static inline int have_sse2(void)
+{
+    if ((cpuid_edx(0x00000001) & SSE2_FLAGS) != SSE2_FLAGS)
+	return 0;
+
+    return 1;
+}
 
 static inline int have_avx(void)
 {
@@ -342,8 +386,12 @@ static inline int have_avx(void)
 static void _memops_lib_constructor(void)
 {
     numachip_sge_copy = _numachip_sge_copy_xmm;
-    _have_avx = have_avx();
-    if (_have_avx && !getenv("MEMOPS_NO_AVX")) {
+
+    /* We need a minimum of SSE2 support */
+    assert(have_sse2());
+
+    /* AVX is optional */
+    if (have_avx() && !getenv("MEMOPS_NO_AVX")) {
 	printf("We have AVX!!\n");
 	numachip_sge_copy = _numachip_sge_copy_avx;
     }
