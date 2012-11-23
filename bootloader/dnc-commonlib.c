@@ -1855,6 +1855,14 @@ static int parse_cmdline(const char *cmdline)
                     break;
                 }
             }
+
+	    /* Check if option isn't recognised */
+	    if (i == (int)(sizeof(options)/sizeof(options[0]))) {
+		/* Terminate current arg */
+		*strchr(&cmdline[lstart], ' ') = '\0';
+		printf("\nError: invalid option '%s'\n", &cmdline[lstart]);
+		wait_key();
+	    }
         }
 
         lstart = aend;
