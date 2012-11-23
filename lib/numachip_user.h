@@ -63,12 +63,6 @@ typedef enum {
 struct numachip_device;
 struct numachip_context;
 
-struct numachip_sge {
-    uint64_t from;
-    uint64_t to;
-    uint32_t length;
-} __attribute__((aligned(16)));
-
 
 //const char *numachip_device_str(numachip_device_type_t str);
 
@@ -260,11 +254,6 @@ void numachip_all_start_pcounter(struct numachip_context **cntxt,
 
 char *numachip_strerror(nc_error_t errorcode);
     
-/**
- * numachip_sge_copy - Optimized SG Copy
- */
-void numachip_sge_copy(struct numachip_sge *sg_list, int32_t num_sge);
-
 END_C_DECLS
 
 #endif
