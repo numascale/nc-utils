@@ -69,6 +69,49 @@ static void _memops_lib_constructor(void) __attribute__((constructor));
     } while(0)
 
 /**
+ * _block_nt_copy - Block copy function using SSE2 (64bit) non-temporal stores.
+ * @to: mandatory. Provides the destination pointer.
+ * @from: mandatory. Provides the source pointer.
+ * @n: mandatory. Provides the number of bytes to copy.
+ */
+static void _block_nt_copy(void *to, const void *from, size_t n)
+{
+    int32_t i;
+
+    /* Align destination to 8 bytes */
+    ALIGN_DEST(8);
+
+    /* Copy blocks, 64 bytes per loop with prefetching using 64bit instructions */
+    i = n >> 6;
+    n &= 63;
+    for (; i>0; i--) {
+	asm volatile (
+	    "prefetchnta 320(%0)\n\t"
+	    "movq   (%0), %%rax\n\t"
+	    "movq  8(%0), %%r14\n\t"
+	    "movnti %%rax,   (%1)\n\t"
+	    "movnti %%r14,  8(%1)\n\t"
+	    "movq 16(%0), %%rax\n\t"
+	    "movq 24(%0), %%r14\n\t"
+	    "movnti %%rax, 16(%1)\n\t"
+	    "movnti %%r14, 24(%1)\n\t"
+	    "movq 32(%0), %%rax\n\t"
+	    "movq 40(%0), %%r14\n\t"
+	    "movnti %%rax, 32(%1)\n\t"
+	    "movnti %%r14, 40(%1)\n\t"
+	    "movq 48(%0), %%rax\n\t"
+	    "movq 56(%0), %%r14\n\t"
+	    "movnti %%rax, 48(%1)\n\t"
+	    "movnti %%r14, 56(%1)\n\t"
+	    : : "r" (from), "r" (to) : "rax", "r14", "memory");	\
+	from+=64;
+	to+=64;
+    }
+
+    COPY_TAIL();
+}
+
+/**
  * _block_xmm_copy - Block copy function using SSE2 (128bit) non-temporal stores.
  * @to: mandatory. Provides the destination pointer.
  * @from: mandatory. Provides the source pointer.
@@ -225,7 +268,35 @@ static void _block_avx_copy(void *to, const void *from, size_t n)
 }
 
 /**
- * _numachip_sge_copy_xmm - Platform optimized ScatterGather copy function using SSE2
+ * _numachip_sge_copy_nt - Platform optimized ScatterGather copy function using SSE2
+ * @sg_list: mandatory. Provides a pointer to the scatter-gather list.
+ * @num_sge: mandatory. Provides the number of scatter-gather entries in the list.
+ */
+static void _numachip_sge_copy_nt(struct numachip_sge *sg_list, size_t num_sge)
+{
+    int32_t i = 0;
+
+    for (i=0; i<num_sge; i++) {
+	asm volatile (
+	    "prefetchnta (%0)\n\t"
+	    "prefetchnta 64(%0)\n\t"
+	    "prefetchnta 128(%0)\n\t"
+	    "prefetchnta 192(%0)\n\t"
+	    "prefetchnta 256(%0)\n\t"
+	    : : "r" ((void*)sg_list[i].from) );
+	assert(!(((unsigned long)sg_list[i].to) & 0x3));
+
+	_block_nt_copy((void*)sg_list[i].to, (void*)sg_list[i].from, (size_t)sg_list[i].length);
+    }
+
+    /* Fence */
+    asm volatile (
+	"mfence\n\t"
+	::: "memory");
+}
+
+/**
+ * _numachip_sge_copy_xmm - Platform optimized ScatterGather copy function using SSE2 XMM instructions.
  * @sg_list: mandatory. Provides a pointer to the scatter-gather list.
  * @num_sge: mandatory. Provides the number of scatter-gather entries in the list.
  */
@@ -263,7 +334,7 @@ static void _numachip_sge_copy_xmm(struct numachip_sge *sg_list, size_t num_sge)
 }
 
 /**
- * _numachip_sge_copy_avx - Platform optimized ScatterGather copy function using AVX
+ * _numachip_sge_copy_avx - Platform optimized ScatterGather copy function using AVX instructions.
  * @sg_list: mandatory. Provides a pointer to the scatter-gather list.
  * @num_sge: mandatory. Provides the number of scatter-gather entries in the list.
  */
@@ -310,13 +381,14 @@ static inline void cpuid(uint32_t op,
     *eax = op;
     *ecx = 0;
     /* ecx is often an input as well as an output. */
-    asm volatile("cpuid"
-		 : "=a" (*eax),
-		   "=b" (*ebx),
-		   "=c" (*ecx),
-		   "=d" (*edx)
-		 : "0" (*eax), "2" (*ecx)
-		 : "memory");
+    asm volatile(
+	"cpuid\n\t"
+	: "=a" (*eax),
+	  "=b" (*ebx),
+	  "=c" (*ecx),
+	  "=d" (*edx)
+	: "0" (*eax), "2" (*ecx)
+	: "memory");
 }
 
 /**
@@ -354,9 +426,10 @@ static inline uint64_t xgetbv(uint32_t index)
 {
     uint32_t eax, edx;
 
-    asm volatile("xgetbv\n\t"
-		 : "=a" (eax), "=d" (edx)
-		 : "c" (index));
+    asm volatile(
+	"xgetbv\n\t"
+	: "=a" (eax), "=d" (edx)
+	: "c" (index));
     return eax + ((uint64_t)edx << 32);
 }
 
@@ -385,15 +458,15 @@ static inline int have_avx(void)
 
 static void _memops_lib_constructor(void)
 {
-    numachip_sge_copy = _numachip_sge_copy_xmm;
+    numachip_sge_copy = _numachip_sge_copy_nt;
 
     /* We need a minimum of SSE2 support */
     assert(have_sse2());
 
-    /* AVX is optional */
-    if (have_avx() && !getenv("MEMOPS_NO_AVX")) {
-	printf("We have AVX!!\n");
+    /* XMM and AVX is optional */
+    if (have_avx() && getenv("MEMOPS_USE_AVX"))
 	numachip_sge_copy = _numachip_sge_copy_avx;
-    }
+    else if (getenv("MEMOPS_USE_XMM"))
+	numachip_sge_copy = _numachip_sge_copy_xmm;
 }
 
