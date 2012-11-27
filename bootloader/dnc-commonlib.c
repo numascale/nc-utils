@@ -966,7 +966,7 @@ static void disable_atmmode(const int nodes)
 	return;
     }
 
-    printf("Disabling ATMMode ...");
+    printf("Disabling ATMMode...");
 
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
        - F3x58[L3Scrub]=00h
