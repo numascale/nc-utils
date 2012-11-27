@@ -763,8 +763,10 @@ static void update_acpi_tables(void)
 	uint32_t extra_len;
 	unsigned char *extra = remote_aml(&extra_len);
 	if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
-	    if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len))
+	    if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len)) {
 		printf("Warning: failed to append to DSDT or SSDT; remote I/O will be unavailable\n");
+		remote_io = 0;
+	    }
 	free(extra);
     }
 
