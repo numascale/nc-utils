@@ -1229,7 +1229,6 @@ static void setup_remote_cores(uint16_t num)
     uint32_t val;
     uint64_t tom;
     uint64_t qval;
-    uint32_t scrub[8];
 
     printf("Setting up cores on node #%d (SCI%03x), %d HT nodes\n",
            num, node, ht_id);
@@ -1310,23 +1309,6 @@ static void setup_remote_cores(uint16_t num)
 		printf("Warning: Legacy VGA access is locked to local server; some video card BIOSs may cause any X servers to fail to complete initialisation\n");
 	}
     }
-
-    printf("Disabling DRAM scrubbers...");
-    for (i = 0; i < 8; i++) {
-	if (!cur_node->ht[i].cpuid)
-	    continue;
-	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-	   See erratum 505 */
-	if (family >= 0x15)
-	    cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
-
-	scrub[i] = dnc_read_conf(node, 0, 24+i, FUNC3_MISC, 0x58);
-	dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x58, scrub[i] & ~0x1f);
-    }
-    /* Allow outstanding scrub requests to finish */
-    udelay(40);
-    printf("done\n");
 
     /* Now, reset all DRAM maps */
     printf("Resetting DRAM maps on SCI%03x\n", node);
@@ -1422,26 +1404,6 @@ static void setup_remote_cores(uint16_t num)
 		       dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x44 + j*8));
 	    }
 	}
-    }
-
-    /* Required by fam15h BKDG; see D18F2xC0 b0 */
-    if (!trace_buf_size) {
-	printf("Enabling DRAM scrubbers..."); /* With new DRAM base address */
-	for (i = 0; i < 8; i++) {
-	    if (!cur_node->ht[i].cpuid)
-		continue;
-	    uint64_t base = (uint64_t)cur_node->ht[i].base << DRAM_MAP_SHIFT;
-	    bool redir = dnc_read_conf(node, 0, 24+i, FUNC3_MISC, 0x5c) & 1;
-	    dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x5c, base | redir);
-	    dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x60, base >> 32);
-	    /* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-	       Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-	       See erratum 505 */
-	    if (family >= 0x15)
-		cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
-	    dnc_write_conf(node, 0, 24+i, FUNC3_MISC, 0x58, scrub[i]);
-	}
-	printf("done\n");
     }
 
     printf("SCI%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
@@ -2319,15 +2281,13 @@ static void setup_c1e_osvw(void)
 
 static int unify_all_nodes(void)
 {
-    uint64_t val;
     uint16_t i;
     uint16_t node;
     uint8_t abort = 0;
     int model, model_first = 0;
     volatile uint32_t *apic;
 
-    val = dnc_rdmsr(MSR_APIC_BAR);
-    apic = (void *)((uint32_t)val & ~0xfff);
+    apic = (void *)((uint32_t)dnc_rdmsr(MSR_APIC_BAR) & ~0xfff);
 
     dnc_node_count = 0;
     ht_pdom_count  = 0;
@@ -2342,7 +2302,7 @@ static int unify_all_nodes(void)
 	return 0;
     }
 
-    for (node = 0; node < dnc_node_count; node++)
+    for (node = 0; node < dnc_node_count; node++) {
 	for (i = 0; i < 8; i++) {
 	    if (!nc_node[node].ht[i].cpuid)
 		continue;
@@ -2357,7 +2317,7 @@ static int unify_all_nodes(void)
 	    }
 
 	    if ((model >> 16) >= 0x15) {
-		val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, FUNC2_DRAM, 0x118);
+		uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24+i, FUNC2_DRAM, 0x118);
 		if (val & (1<<19)) {
 		    printf("Error: DRAM configuration is locked on SCI%03x#%d; please disable CState C6 in BIOS\n",
 			   nc_node[node].sci_id, i);
@@ -2365,6 +2325,7 @@ static int unify_all_nodes(void)
 		}
 	    }
 	}
+    }
 
     if (abort)
 	return -1;
@@ -2376,7 +2337,7 @@ static int unify_all_nodes(void)
 		if (!nc_node[node].ht[i].cpuid)
 		    continue;
 		printf("SCI%03x/HT#%d: %012llx - %012llx\n",
-		       node, i,
+		       nc_node[node].sci_id, i,
 		       (uint64_t)nc_node[node].ht[i].base << DRAM_MAP_SHIFT,
 		       (uint64_t)(nc_node[node].ht[i].base + nc_node[node].ht[i].size) << DRAM_MAP_SHIFT);
 	    }
@@ -2486,6 +2447,30 @@ static int unify_all_nodes(void)
 
     for (i = 1; i < dnc_node_count; i++)
         setup_remote_cores(i);
+
+    /* Re-enable DRAM scrubbers with our new memory map, required by fam15h BKDG; see D18F2xC0 b0 */
+    if (!trace_buf_size) {
+	for (node = 0; node < dnc_node_count; node++) {
+	    uint16_t sciid = (node == 0) ? 0xfff0 : nc_node[node].sci_id;
+	    for (i = 0; i < 8; i++) {
+		if (!nc_node[0].ht[i].cpuid)
+		    continue;
+		if (nc_node[node].ht[i].scrub & 0x1f) {
+		    uint64_t base = (uint64_t)nc_node[node].ht[i].base << DRAM_MAP_SHIFT;
+		    uint32_t redir = dnc_read_conf(sciid, 0, 24+i, FUNC3_MISC, 0x5c) & 1;
+		    printf("Enabling DRAM scrubber on SCI%03x HT#%x...\n", nc_node[node].sci_id, i);
+		    dnc_write_conf(sciid, 0, 24+i, FUNC3_MISC, 0x5c, base | redir);
+		    dnc_write_conf(sciid, 0, 24+i, FUNC3_MISC, 0x60, base >> 32);
+		    /* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+		       Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+		       See erratum 505 */
+		    if (family >= 0x15)
+			dnc_write_conf(sciid, 0, 24+i, FUNC1_MAPS, 0x10c, 0);
+		    dnc_write_conf(sciid, 0, 24+i, FUNC3_MISC, 0x58, nc_node[node].ht[i].scrub);
+		}
+	    }
+	}
+    }
 
     printf("\n");
     return 1;
