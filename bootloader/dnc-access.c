@@ -135,7 +135,7 @@ void ioh_ind_write(uint16_t node, uint16_t reg, uint32_t val) {
 
     if (verbose) {
 	uint32_t val2 = dnc_read_conf(node, 0, 0, 0, base + 4);
-	if (val2 != val)
+	if (verbose && val2 != val)
 	    printf("Warning: value read back from IOH (0x%x) differs than value written (0x%x)\n", val2, val);
     }
 }
