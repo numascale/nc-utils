@@ -2743,7 +2743,7 @@ static int nc_start(void)
 	disable_cache();
 	
 	printf("\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'\n",
-	    cfg_nodelist[info->sciid].desc, cfg_nodes, cfg_nodelist[part->master].desc);
+	       info->desc, cfg_nodes, get_master_name(part->master));
 
 	/* Let master know we're ready for remapping/integration */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1<<31));

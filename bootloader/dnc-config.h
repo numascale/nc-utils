@@ -54,6 +54,7 @@ int parse_config_file(char *data);
 void make_singleton_config(uint32_t uuid);
 struct node_info* get_node_config(uint32_t uuid);
 struct part_info* get_partition_config(int idx);
+char *get_master_name(uint32_t sciid);
 extern char *hostname;
 
 static inline int config_local(struct node_info *info, uint32_t uuid)

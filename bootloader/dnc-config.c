@@ -212,11 +212,11 @@ static int parse_json(json_t *root)
     return 1;
 
 out3:
-	free(cfg_nodelist);
+    free(cfg_nodelist);
 out2:
-	free(cfg_partlist);
+    free(cfg_partlist);
 out1:
-	return 0;
+    return 0;
 }
 
 int parse_config_file(char *data)
@@ -300,4 +300,14 @@ struct part_info* get_partition_config(int idx)
         return &cfg_partlist[idx];
     else
         return NULL;
+}
+
+char *get_master_name(uint32_t sciid)
+{
+    int i;
+    
+    for (i = 0; i < cfg_nodes; i++)
+	if (cfg_nodelist[i].sciid == sciid)
+	    return cfg_nodelist[i].desc;
+    return "<not found>";
 }
