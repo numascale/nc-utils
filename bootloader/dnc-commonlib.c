@@ -991,6 +991,7 @@ static void disable_atmmode(const int nodes)
     /* 4.  Issue WBINVD on all active cores in the system */
     disable_cache();
 
+#ifdef BROKEN
     /* 5.  Set F3x1C4[L3TagInit]=1 */
     for (i = 0; i <= nodes; i++) {
 	val = cht_read_conf(i, FUNC3_MISC, 0x1c4);
@@ -1001,6 +1002,7 @@ static void disable_atmmode(const int nodes)
     for (i = 0; i <= nodes; i++)
 	while (cht_read_conf(i, FUNC3_MISC, 0x1c4) & (1 << 31))
 	    cpu_relax();
+#endif
 
     /* 7.  Set F0x68[ATMModeEn]=0
                F3x1B8[L3ATMModeEn]=0. */
