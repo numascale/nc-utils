@@ -1743,7 +1743,7 @@ static int parse_int(const char *val, void *intp)
     int *int32 = (int *)intp;
 
     if (val[0] != '\0')
-	*int32 = atoi(val);
+	*int32 = (int)strtol(val, NULL, 0);
     else
 	*int32 = 1;
     return 1;
