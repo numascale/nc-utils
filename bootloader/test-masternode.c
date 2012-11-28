@@ -58,7 +58,7 @@ int udp_read_state(int handle, void *buf, int len) {
 
 int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nc_node[0].nc_ht_id */
 int dnc_asic_mode;
-int dnc_chip_rev;
+uint32_t dnc_chip_rev;
 uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
 uint16_t ht_pdom_count = 0;
@@ -176,6 +176,7 @@ int main(int argc, char **argv)
     int cpu_fam  = -1;
     cpu_set_t cset;
     uint32_t uuid;
+    char type[16];
     struct node_info *info;
     struct part_info *part;
     int i;
@@ -203,7 +204,7 @@ int main(int argc, char **argv)
     // Since our memory is allocated dynamically, we need to zero out this
     memset(nodedata, 0, sizeof(nodedata));
 
-    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
+    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_chip_rev, type, &dnc_asic_mode,
 					   argc > 1 ? argv[1] : NULL);
     if (dnc_master_ht_id < 0)
         return -1;

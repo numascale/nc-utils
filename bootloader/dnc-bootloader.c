@@ -53,7 +53,7 @@
 
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
 int dnc_asic_mode;
-int dnc_chip_rev;
+uint32_t dnc_chip_rev;
 uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
 uint16_t ht_pdom_count = 0;
@@ -2610,9 +2610,10 @@ static void selftest_late(void)
 static int nc_start(void)
 {
     uint32_t uuid;
+    char type[16];
     struct node_info *info;
     struct part_info *part;
-    int wait;
+    int i, wait;
     
     if (check_api_version() < 0)
         return ERR_API_VERSION;
@@ -2620,7 +2621,7 @@ static int nc_start(void)
     constants();
     get_hostname();
 
-    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev,
+    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_chip_rev, type, &dnc_asic_mode,
 					   __com32.cs_cmdline);
 
     if (dnc_master_ht_id == -2)
@@ -2629,13 +2630,43 @@ static int nc_start(void)
     if (dnc_master_ht_id < 0)
         return ERR_MASTER_HT_ID;
 
+    if (singleton) {
+	make_singleton_config(uuid);
+    }
+    else {
+	if (read_config_file(config_file_name) < 0)
+	    return ERR_NODE_CONFIG;
+    }
+
     info = get_node_config(uuid);
     if (!info)
         return ERR_NODE_CONFIG;
 
+    printf("Node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
+           info->desc, info->uuid, info->sciid, info->partition, info->osc);
+
     part = get_partition_config(info->partition);
     if (!part)
         return ERR_PARTITION_CONFIG;
+
+    printf("Partition master: 0x%03x; builder: 0x%03x\n", part->master, part->builder);
+    printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
+           cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
+
+    for (i = 0; i < cfg_nodes; i++) {
+	if (config_local(&cfg_nodelist[i], uuid))
+	    continue;
+
+        printf("Remote node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
+               cfg_nodelist[i].desc,
+               cfg_nodelist[i].uuid,
+               cfg_nodelist[i].sciid,
+               cfg_nodelist[i].partition,
+               cfg_nodelist[i].osc);
+    }
+
+    if (adjust_oscillator(type, info->osc) < 0)
+	return -1;
 
     /* Copy this into NC ram so its available remotely */
     load_existing_apic_map();

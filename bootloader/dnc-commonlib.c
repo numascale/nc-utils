@@ -32,7 +32,7 @@
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
 
-static char *config_file_name = "nc-config/fabric.json";
+char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
 char *microcode_path = "";
 static int init_only = 0;
@@ -49,7 +49,7 @@ int renumber_bsp = 0;
 int remote_io = 0;
 bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
-static int singleton = 0;
+int singleton = 0;
 static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
 static int ht_suppress = 0;
@@ -1609,40 +1609,37 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
 #define SPI_INSTR_RDSR  0x05
 #define SPI_INSTR_WREN  0x06
 
-static void set_eeprom_instruction(uint16_t node, uint32_t instr)
+static void set_eeprom_instruction(uint32_t instr)
 {
     uint32_t reg;
 
-    dnc_write_csr(node, H2S_CSR_G3_SPI_INSTRUCTION_AND_STATUS, instr);
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SPI_INSTRUCTION_AND_STATUS, instr);
     reg = 0x100;
     while (reg & 0x100) {
-        reg = dnc_read_csr(node, H2S_CSR_G3_SPI_INSTRUCTION_AND_STATUS);
+        reg = dnc_read_csr(0xfff0, H2S_CSR_G3_SPI_INSTRUCTION_AND_STATUS);
         if (reg & 0x100) udelay(100);
     }
 }
 
-static uint32_t read_eeprom_dword(uint16_t node, uint32_t addr) {
-    set_eeprom_instruction(node, SPI_INSTR_WRDI);
+static uint32_t read_eeprom_dword(uint32_t addr) {
+    set_eeprom_instruction(SPI_INSTR_WRDI);
     udelay(100);
-    set_eeprom_instruction(node, (addr << 16) | SPI_INSTR_READ);
-    return dnc_read_csr(node, H2S_CSR_G3_SPI_READ_WRITE_DATA);
+    set_eeprom_instruction((addr << 16) | SPI_INSTR_READ);
+    return dnc_read_csr(0xfff0, H2S_CSR_G3_SPI_READ_WRITE_DATA);
 }
 
-static uint32_t identify_eeprom(uint16_t node, char type[16], uint8_t *osc_setting)
+static uint32_t identify_eeprom(char p_type[16])
 {
     uint32_t reg;
     int i;
 
     for (i = 0; i < 4; i++) {
-        reg = read_eeprom_dword(node, 0xffc0 + i*4);
-        memcpy(&type[i*4], &reg, 4);
+        reg = read_eeprom_dword(0xffc0 + i*4);
+        memcpy(&p_type[i*4], &reg, 4);
     }
-    type[15] = '\0';
+    p_type[15] = '\0';
 
-    reg = read_eeprom_dword(node, 0xffbc);
-    *osc_setting = (reg >> 24) & 0x3;
-    
-    return read_eeprom_dword(node, 0xfffc);
+    return read_eeprom_dword(0xfffc);
 }
 
 static void _pic_reset_ctrl(int val)
@@ -1653,30 +1650,21 @@ static void _pic_reset_ctrl(int val)
     udelay(2000000);
 }
 
-static void print_oscillator(void)
+int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 {
     uint32_t val;
-    dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
-    udelay(10000);
-    val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
-    printf("Current oscillator setting : %d (raw=%08x)\n", (val>>24) & 3, val);
-}
 
-static int adjust_oscillator(char *type, uint8_t osc_setting)
-{
-    uint32_t val;
-    
     /* Check if adjusting the frequency is possible */
-    if ((strncmp("313001", type, 6) == 0) ||
-	(strncmp("N313001", type, 7) == 0) ||
-	(strncmp("N313002", type, 7) == 0) ||
-	(strncmp("N313025", type, 7) == 0) ||
-	(strncmp("N323011", type, 7) == 0) ||
-	(strncmp("N323023", type, 7) == 0) ||
-	(strncmp("N323024", type, 7) == 0))
+    if ((strncmp("313001", p_type, 6) == 0) ||
+	(strncmp("N313001", p_type, 7) == 0) ||
+	(strncmp("N313002", p_type, 7) == 0) ||
+	(strncmp("N313025", p_type, 7) == 0) ||
+	(strncmp("N323011", p_type, 7) == 0) ||
+	(strncmp("N323023", p_type, 7) == 0) ||
+	(strncmp("N323024", p_type, 7) == 0))
     {
         if (osc_setting > 2) {
-            printf("Invalid Oscillator setting %d read from EEPROM; skipping\n", osc_setting);
+            printf("Invalid Oscillator setting %d; skipping\n", osc_setting);
             return 0;
         }
         dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
@@ -1707,10 +1695,9 @@ static int adjust_oscillator(char *type, uint8_t osc_setting)
             udelay(10000);
         }
     } else {
-	printf("Oscillator not set, card is of type %s and doesn't support this\n", type);
+	printf("Oscillator not set, card is of type %s and doesn't support this\n", p_type);
     }
-	
-        
+
     return 0;
 }
 
@@ -2131,15 +2118,11 @@ static void dump_northbridge_regs(int ht_id)
     }
 }
 
-int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline)
+int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], int *p_asic_mode, const char *cmdline)
 {
     uint32_t uuid, val, chip_rev;
-    uint8_t osc_setting;
-    char type[16];
-    int ht_id = -1;
-    struct node_info *info;
-    struct part_info *part;
     int i, asic_mode;
+    int ht_id = -1;
     
     if (parse_cmdline(cmdline) < 0)
         return -1;
@@ -2296,10 +2279,8 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
 
     /* ====================== END ERRATA WORKAROUNDS ====================== */
 
-    print_oscillator();
-    
-    uuid = identify_eeprom(0xfff0, type, &osc_setting);
-    printf("UUID: %06d, TYPE: %s\n", uuid, type);
+    uuid = identify_eeprom(p_type);
+    printf("UUID: %06d, TYPE: %s\n", uuid, p_type);
 
     /* Read the SPD info from our DIMMs to see if they are supported */
     for (i = 0; i < 2; i++) {
@@ -2307,63 +2288,13 @@ int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, con
             return -1;
     }
 
-    print_oscillator();
-    
     if (perform_selftest(asic_mode) < 0)
 	return -1;
 
-    print_oscillator();
-    
     /* If init-only parameter is given, stop here and return */
     if (init_only > 0)
         return -2;
 
-    if (singleton) {
-	make_singleton_config(uuid);
-    }
-    else {
-	if (read_config_file(config_file_name) < 0)
-	    return -1;
-    }
-
-    info = get_node_config(uuid);
-    if (!info)
-        return -1;
-
-    printf("Node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
-           info->desc, info->uuid, info->sciid, info->partition, info->osc);
-    part = get_partition_config(info->partition);
-    if (!part)
-        return -1;
-
-    printf("Partition master: 0x%03x; builder: 0x%03x\n", part->master, part->builder);
-    printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
-           cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
-
-    for (i = 0; i < cfg_nodes; i++) {
-	if (config_local(&cfg_nodelist[i], uuid))
-	    continue;
-
-        printf("Remote node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
-               cfg_nodelist[i].desc,
-               cfg_nodelist[i].uuid,
-               cfg_nodelist[i].sciid,
-               cfg_nodelist[i].partition,
-               cfg_nodelist[i].osc);
-    }
-
-    print_oscillator();
-    
-    if (info->osc < 3)
-        osc_setting = info->osc;
-
-    if (asic_mode) {
-	if (adjust_oscillator(type, osc_setting) < 0)
-	    return -1;
-    }
-
-    print_oscillator();
-    
     *p_asic_mode = asic_mode;
     *p_chip_rev = chip_rev;
     *p_uuid = uuid;

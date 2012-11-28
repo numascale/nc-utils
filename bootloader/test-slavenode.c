@@ -152,13 +152,14 @@ static char * _concat_argv(int argc, char **argv)
 }
 
 int dnc_asic_mode;
-int dnc_chip_rev;
+uint32_t dnc_chip_rev;
 
 int main(int argc, char **argv)
 {
     int cpu_fam  = -1;
     cpu_set_t cset;
     uint32_t val, uuid = 40;
+    char type[16];
     struct node_info *info;
     struct part_info *part;
     char *cmdline = NULL;
@@ -185,7 +186,7 @@ int main(int argc, char **argv)
 
     cmdline = _concat_argv(argc, argv);
 
-    if (dnc_init_bootloader(&uuid, &dnc_asic_mode, &dnc_chip_rev, cmdline) < 0)
+    if (dnc_init_bootloader(&uuid, &dnc_chip_rev, type, &dnc_asic_mode, cmdline) < 0)
         return -1;
 
     info = get_node_config(uuid);

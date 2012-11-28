@@ -112,7 +112,8 @@ void disable_smi(void);
 void enable_smi(void);
 void critical_enter(void);
 void critical_leave(void);
-int dnc_init_bootloader(uint32_t *p_uuid, int *p_asic_mode, int *p_chip_rev, const char *cmdline);
+int adjust_oscillator(char p_type[16], uint32_t osc_setting);
+int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], int *p_asic_mode, const char *cmdline);
 int dnc_setup_fabric(struct node_info *info);
 int dnc_check_fabric(struct node_info *info);
 uint32_t dnc_check_mctr_status(int cdata);
@@ -122,8 +123,9 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 void wait_for_master(struct node_info *info, struct part_info *part);
 
 extern int dnc_asic_mode;
-extern int dnc_chip_rev;
+extern uint32_t dnc_chip_rev;
 
+extern char *config_file_name;
 extern char *next_label;
 extern char *microcode_path;
 extern int disable_smm;
@@ -135,6 +137,7 @@ extern uint32_t trace_buf_size;
 extern int verbose;
 extern int nc_neigh, nc_neigh_link;
 extern int forwarding_mode;
+extern int singleton;
 extern bool handover_acpi;
 extern int remote_io;
 extern bool boot_wait;
