@@ -1377,7 +1377,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	ht_suppress = -1;
 
     if (ht_suppress) {
-	printf("Settng HT features...");
+	printf("Settng HT features (%x)...", ht_suppress);
 	for (i = 0; i <= nodes; i++) {
 	    val = cht_read_conf(i, FUNC3_MISC, 0x44);
 	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
