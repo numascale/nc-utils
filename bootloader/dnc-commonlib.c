@@ -1378,9 +1378,8 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	printf("Settng HT features...");
 	for (i = 0; i <= nodes; i++) {
 	    val = cht_read_conf(i, FUNC3_MISC, 0x44);
-	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error disable */
-	    if (!(ht_suppress & 0x1)) val &= ~(1 << 2);
-	    else                      val |=  (1 << 2);
+	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
+	    if (ht_suppress & 0x1) val &= ~(1 << 2);
 	    /* SyncPktGenDis: sync packet generation disable */
 	    if (!(ht_suppress & 0x2)) val &= ~(1 << 3);
 	    else                      val |=  (1 << 3);
