@@ -450,9 +450,6 @@ int dnc_init_caches(void) {
 			   (1<<dimms[0].mem_size), (1<<dimms[1].mem_size));
 		    return -1;
 		}
-	    } else {
-		/* Set CData to 16GB, always. This will cause address wrap-around interrupts, but we mask them away */
-		tmp = 4;
 	    }
 
 	    if (!cdata) {
@@ -2657,8 +2654,8 @@ static int phy_check_status(int phy)
 	return 1 << phy;
 
     val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
-    if (verbose)
-	printf("PHY%s_LINK_STAT = %x\n", _get_linkname(phy) , val);
+    if (verbose & (val != 0x1fff))
+	printf("\nPHY%s_LINK_STAT = %x\n", _get_linkname(phy) , val);
     return  (val != 0x1fff) << phy;
 }
 
