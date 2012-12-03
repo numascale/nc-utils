@@ -13,7 +13,7 @@ mjson_dir        := json-$(mjson_version)
 COM32DEPS := $(syslinux_dir)/com32/libutil/libutil_com.a $(syslinux_dir)/com32/lib/libcom32.a
 
 .PHONY: all
-all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-masternode test-slavenode test-routing
+all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-masternode test-slavenode test-routing test-aml
 
 .PRECIOUS: %.bz2 %.tar.gz
 
