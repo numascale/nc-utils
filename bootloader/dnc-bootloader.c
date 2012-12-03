@@ -764,8 +764,31 @@ static void update_acpi_tables(void)
 	unsigned char *extra = remote_aml(&extra_len);
 	if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
 	    if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len)) {
-		printf("Warning: failed to append to DSDT or SSDT; remote I/O will be unavailable\n");
-		remote_io = 0;
+		/* Appending to existing DSDT or SSDT failed; construct new SSDT */
+		acpi_sdt_p ssdt = (void *)tables_relocated + 768 * 1024;
+
+		memset(ssdt, 0, sizeof(*ssdt) + 8);
+		memcpy(ssdt->sig.s, "SSDT", 4);
+		ssdt->len = 44;
+		ssdt->revision = ACPI_REV;
+		memcpy(ssdt->oemid, "NUMASC", 6);
+		memcpy(ssdt->oemtableid, "N313NUMA", 8);
+		ssdt->oemrev = 0;
+		memcpy(ssdt->creatorid, "1B47", 4);
+		ssdt->creatorrev = 1;
+
+		memcpy(&ssdt->data, &extra, extra_len);
+		ssdt->len += extra_len;
+		ssdt->checksum = -checksum(ssdt, ssdt->len);
+
+		bool failed = 0;
+		if (rsdt) failed |= add_child(ssdt, rsdt, 4);
+		if (xsdt) failed |= add_child(ssdt, xsdt, 8);
+
+		if (failed) {
+		    printf("Warning: failed to inject AML; remote I/O will be unavailable\n");
+		    remote_io = 0;
+		}
 	    }
 	free(extra);
     }
