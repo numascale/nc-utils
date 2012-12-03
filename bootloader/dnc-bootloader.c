@@ -777,7 +777,7 @@ static void update_acpi_tables(void)
 		memcpy(ssdt->creatorid, "1B47", 4);
 		ssdt->creatorrev = 1;
 
-		memcpy(&ssdt->data, &extra, extra_len);
+		memcpy(ssdt->data, extra, extra_len);
 		ssdt->len += extra_len;
 		ssdt->checksum = -checksum(ssdt, ssdt->len);
 
