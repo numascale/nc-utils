@@ -1374,7 +1374,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	ht_suppress = -1;
 
     if (ht_suppress) {
-	printf("Settng HT features (%x)...", ht_suppress);
+	printf("Setting HT features (%x)...", ht_suppress);
 	for (i = 0; i <= nodes; i++) {
 	    val = cht_read_conf(i, FUNC3_MISC, 0x44);
 	    /* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
@@ -2157,6 +2157,10 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
     } else if (asic_mode && (chip_rev == 1)) {
         /* ERRATA #N20: Disable buffer 0-15 to ensure that HPrb and HReq have different
          * transIDs (HPrb: 0-15, HReq: 16-30) */
+        val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
+        dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1<<4));
+    } else if (asic_mode && (chip_rev == 2)) {
+	/* Unknown ERRATA: Disable buffer 0-15 to ease some preassure */
         val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
         dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1<<4));
     }
