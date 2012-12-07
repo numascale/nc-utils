@@ -13,13 +13,13 @@ mjson_dir        := json-$(mjson_version)
 COM32DEPS := $(syslinux_dir)/com32/libutil/libutil_com.a $(syslinux_dir)/com32/lib/libcom32.a
 
 .PHONY: all
-all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-masternode test-slavenode test-routing test-aml
+all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-routing test-aml gen-ucode
 
 .PRECIOUS: %.bz2 %.tar.gz
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig test-masternode test-slavenode test-routing test-aml dnc-version.h
+	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig test-masternode test-slavenode test-routing test-aml gen-ucode dnc-version.h
 
 .PHONY: realclean
 realclean: clean
