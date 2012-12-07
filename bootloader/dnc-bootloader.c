@@ -2592,7 +2592,7 @@ static void get_hostname(void)
 #define ERR_MASTER_HT_ID           -2
 #define ERR_NODE_CONFIG            -3
 #define ERR_PARTITION_CONFIG       -4
-#define ERR_DNC_SETUP_FABRIC       -5
+#define ERR_SETUP_FABRIC           -5
 #define ERR_INIT_CACHES            -6
 #define ERR_INSTALL_E820_HANDLER   -7
 #define ERR_UNIFY_ALL_NODES        -8 

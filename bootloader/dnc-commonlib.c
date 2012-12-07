@@ -2469,7 +2469,7 @@ static int shortest(uint8_t dim, uint16_t src, uint16_t dst) {
 }
 #endif
 
-int dnc_setup_fabric(struct node_info *info)
+static enum node_state setup_fabric(struct node_info *info)
 {
     int i;
     uint8_t lc;
@@ -2535,34 +2535,69 @@ int dnc_setup_fabric(struct node_info *info)
     save_scc_routing(shadow_rtbll[0], shadow_rtblm[0], shadow_rtblh[0]);
     
     /* Make sure all necessary links are up and working */
+    int res = 1;
     if (cfg_fabric.x_size > 0) {
         if (_check_dim(0) != 0)
-	    return -1;
-        dnc_init_lc3(info->sciid, 0, dnc_asic_mode ? 16 : 1,
-                     shadow_rtbll[1], shadow_rtblm[1], shadow_rtblh[1], shadow_ltbl[1]);
-        dnc_init_lc3(info->sciid, 1, dnc_asic_mode ? 16 : 1,
-                     shadow_rtbll[2], shadow_rtblm[2], shadow_rtblh[2], shadow_ltbl[2]);
+           return RSP_FABRIC_NOT_READY;
+	res = (0 == dnc_init_lc3(info->sciid, 0, dnc_asic_mode ? 16 : 1,
+				 shadow_rtbll[1], shadow_rtblm[1],
+				 shadow_rtblh[1], shadow_ltbl[1])) && res;
+	res = (0 == dnc_init_lc3(info->sciid, 1, dnc_asic_mode ? 16 : 1,
+				 shadow_rtbll[2], shadow_rtblm[2],
+				 shadow_rtblh[2], shadow_ltbl[2])) && res;
     }
     if (cfg_fabric.y_size > 0) {
         if (_check_dim(1) != 0)
-	    return -1;
-        dnc_init_lc3(info->sciid, 2, dnc_asic_mode ? 16 : 1,
-                     shadow_rtbll[3], shadow_rtblm[3], shadow_rtblh[3], shadow_ltbl[3]);
-        dnc_init_lc3(info->sciid, 3, dnc_asic_mode ? 16 : 1,
-                     shadow_rtbll[4], shadow_rtblm[4], shadow_rtblh[4], shadow_ltbl[4]);
+           return RSP_FABRIC_NOT_READY;
+        res = (0 == dnc_init_lc3(info->sciid, 2, dnc_asic_mode ? 16 : 1,
+				 shadow_rtbll[3], shadow_rtblm[3],
+				 shadow_rtblh[3], shadow_ltbl[3])) && res;
+        res = (0 == dnc_init_lc3(info->sciid, 3, dnc_asic_mode ? 16 : 1,
+				 shadow_rtbll[4], shadow_rtblm[4],
+				 shadow_rtblh[4], shadow_ltbl[4])) && res;
     }
     if (cfg_fabric.z_size > 0) {
         if (_check_dim(2) != 0)
-	    return -1;
-        dnc_init_lc3(info->sciid, 4, dnc_asic_mode ? 16 : 1,
-                     shadow_rtbll[5], shadow_rtblm[5], shadow_rtblh[5], shadow_ltbl[5]);
-        dnc_init_lc3(info->sciid, 5, dnc_asic_mode ? 16 : 1,
-                     shadow_rtbll[6], shadow_rtblm[6], shadow_rtblh[6], shadow_ltbl[6]);
+           return RSP_FABRIC_NOT_READY;
+        res = (0 == dnc_init_lc3(info->sciid, 4, dnc_asic_mode ? 16 : 1,
+				 shadow_rtbll[5], shadow_rtblm[5],
+				 shadow_rtblh[5], shadow_ltbl[5])) && res;
+        res = (0 == dnc_init_lc3(info->sciid, 5, dnc_asic_mode ? 16 : 1,
+				 shadow_rtbll[6], shadow_rtblm[6],
+				 shadow_rtblh[6], shadow_ltbl[6])) && res;
     }
 
     printf("Done with fabric setup\n");
 
-    return 0;
+    return (res) ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
+}
+
+static enum node_state validate_fabric(struct node_info *info, struct part_info *part)
+{
+    int res = 1;
+    
+    if (!dnc_check_fabric(info))
+	return RSP_FABRIC_NOT_OK;
+
+    /* Builder is checking that it can access all other nodes via CSR */
+    if (part->builder == info->sciid) {
+	printf("Validating fabric ");
+	for (int iter = 0; iter < 10; iter++) {
+	    printf(".");
+	    for (int i = 1; i < cfg_nodes; i++) {
+		uint16_t node = cfg_nodelist[i].sciid;
+		res = (0 == dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020)) && res; /* Select APIC ATT */
+		for (int j = 0; res && j < 16; j++) {
+		    uint32_t val;
+		    res = (0 == dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j*4, &val)) && res;
+		}
+	    }
+	    udelay(1000);
+	}
+	printf("done\n");
+    }
+
+    return (res) ? RSP_FABRIC_OK : RSP_FABRIC_NOT_OK;
 }
 
 int dnc_check_fabric(struct node_info *info)
@@ -2788,7 +2823,7 @@ static enum node_state validate_rings(struct node_info *info)
 
 int handle_command(enum node_state cstate, enum node_state *rstate, 
 		   struct node_info *info,
-		   struct part_info *part __attribute__((unused)))
+		   struct part_info *part)
 {
     switch (cstate) {
 	case CMD_ENTER_RESET:
@@ -2802,13 +2837,11 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	    *rstate = validate_rings(info);
 	    return 1;
 	case CMD_SETUP_FABRIC:
-	    *rstate = (dnc_setup_fabric(info) == 0) ?
-		      RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
+	    *rstate = setup_fabric(info);
 	    udelay(2000);
 	    return 1;
 	case CMD_VALIDATE_FABRIC:
-	    *rstate = dnc_check_fabric(info) ?
-		      RSP_FABRIC_OK : RSP_FABRIC_NOT_OK;
+	    *rstate = validate_fabric(info, part);
 	    return 1;
 	default:
 	    return 0;
