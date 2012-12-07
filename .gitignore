@@ -12,5 +12,7 @@ bootloader/syslinux-*
 bootloader/test-masternode
 bootloader/test-routing
 bootloader/test-slavenode
+bootloader/test-aml
+bootloader/gen-ucode
 bootloader/dnc-debug.h
 bootloader/ht-trace.h
