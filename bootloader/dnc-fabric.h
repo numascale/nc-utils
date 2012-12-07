@@ -23,6 +23,8 @@
 
 int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val);
 int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val);
+int dnc_raw_write_csr(uint32_t node, uint16_t csr, uint32_t val);
+int dnc_raw_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val);
 
 void dnc_reset_phy(int phy);
 void dnc_reset_lc3(int lc);

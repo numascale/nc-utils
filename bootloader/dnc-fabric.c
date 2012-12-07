@@ -45,11 +45,62 @@ static inline uint64_t _getrawentry(uint32_t index)
     return (uint64_t)lo << 32 | hi;
 }
 
+static int _raw_write(uint32_t dest, int geo, uint32_t addr, uint32_t val)
+{
+    uint32_t ownnodeid;
+    uint32_t ctrl;
+    uint32_t cmd;
+    int ret = 0;
+
+    cmd = (addr & 0xc) | 0x13; // writesb
+
+    ownnodeid = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
+
+    dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
+
+    udelay(100);
+    
+    _setrawentry(0, (0x1fULL << 48) | (((uint64_t)dest & 0xffffULL) << 32) | ((uint64_t)cmd << 16) | ownnodeid);
+    if (geo) {
+        _setrawentry(1, (0x1fULL << 48) | (0xffffeULL << 28) | (addr & 0x7ffc)); /* Bits 14:11 contains bxbarid */
+    }
+    else {
+        _setrawentry(1, (0x1fULL << 48) | (0xfffffULL << 28) | (addr & 0x0ffc));
+    }
+    _setrawentry(2, ((uint64_t)val << 32) | val);
+    _setrawentry(3, ((uint64_t)val << 32) | val);
+
+    dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x4); /* Start RAW access */
+
+    udelay(100);
+
+    ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
+    if ((ctrl & 0xc00) != 0) {
+        printf("RAW packet timeout : %08x\n", ctrl);
+	ret = -1;
+    }
+    else {
+        if (((ctrl >> 5) & 0xf) != 2) {
+            printf("Wrong response packet size : %08x\n", ctrl);
+            printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
+            printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
+            printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
+            printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
+	    ret = -1;
+        }
+    }
+
+    dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
+
+    return ret;
+}
+
 static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
 {
     uint16_t ownnodeid;
     uint32_t ctrl;
     uint32_t cmd;
+    int ret = 0;
 
     cmd = (addr & 0xc) | 0x3; /* readsb */
 
@@ -57,6 +108,8 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
 
     dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
 
+    udelay(100);
+    
     _setrawentry(0, (0x1fULL << 48) | (((uint64_t)dest & 0xffffULL) << 32) | ((uint64_t)cmd << 16) | ownnodeid);
     if (geo) {
         _setrawentry(1, (0x1fULL << 48) | (0xffffeULL << 28) | (addr & 0x7ffc)); /* Bits 14:11 contains bxbarid */
@@ -73,7 +126,7 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
     if ((ctrl & 0xc00) != 0) {
         printf("RAW packet timeout : %08x\n", ctrl);
         *val = 0xffffffff;
-        return -1;
+        ret = -1;
     }
     else {
         if (((ctrl >> 5) & 0xf) != 4) {
@@ -83,7 +136,7 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
             printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
             printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
             *val = 0xffffffff;
-            return -1;
+            ret = -1;
         } else {
             switch (addr & 0xc) {
                 case 0x0: *val = _getrawentry(2) >> 32; break;
@@ -96,7 +149,7 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
 
     dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
     
-    return 0;
+    return ret;
 }
 
 int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val)
@@ -107,7 +160,7 @@ int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val)
 int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val)
 {
     if (csr >= 0x800) {
-	printf("*** dnc_write_csr_geo: read from unsupported range: "
+	printf("*** dnc_raw_read_csr_geo: read from unsupported range: "
 	       "%04x#%d @%x\n",
 	       node, bid, csr);
         *val = 0xffffffff;
@@ -115,6 +168,23 @@ int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val
     }
 
     return _raw_read(node, 1, (bid << 11) | csr, val);
+}
+
+int dnc_raw_write_csr(uint32_t node, uint16_t csr, uint32_t val)
+{
+    return _raw_write(node, 0, csr, val);
+}
+
+int dnc_raw_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val)
+{
+    if (csr >= 0x800) {
+	printf("*** dnc_raw_write_csr_geo: read from unsupported range: "
+	       "%04x#%d @%x\n",
+	       node, bid, csr);
+        return -1;
+    }
+
+    return _raw_write(node, 1, (bid << 11) | csr, val);
 }
 
 /* Fabric routines */
