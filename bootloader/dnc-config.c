@@ -70,7 +70,7 @@ static int parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt
         *val = strtol(item->child->text, &end, 10);
     }
     else if (item->child->type == JSON_STRING) {
-        *val = strtol(item->child->text, &end, 0);
+        *val = strtol(item->child->text, &end, 16);
     }
     else {
         printf("Warning: Label <%s> has bad type %d in fabric configuration file\n",
@@ -244,7 +244,7 @@ int parse_config_file(char *data)
 	cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
 
     for (i = 0; i < cfg_nodes; i++)
-	printf("Node %d: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
+	printf("Node %d: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
 	    i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
 	    cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
 	    cfg_nodelist[i].osc, cfg_nodelist[i].sync_only);
