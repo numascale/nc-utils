@@ -1635,6 +1635,33 @@ static void set_eeprom_instruction(uint32_t instr)
     }
 }
 
+#ifdef UNUSED
+static int write_eeprom_dword(uint32_t addr, uint32_t val) {
+    uint32_t status;
+    int i;
+
+    set_eeprom_instruction(SPI_INSTR_WREN);
+    udelay(100);
+
+    dnc_write_csr(0xfff0, H2S_CSR_G3_SPI_READ_WRITE_DATA, val);
+    set_eeprom_instruction((addr << 16) | SPI_INSTR_WRITE);
+    status = 1;
+    i = 0;
+    while (status & 1) {
+	if (i++ > 1000) {
+	    if (verbose)
+		printf("EEPROM WRITE instruction did not complete: %08x\n", status);
+	    return -1;
+	}
+	set_eeprom_instruction(SPI_INSTR_RDSR);
+	status = dnc_read_csr(0xfff0, H2S_CSR_G3_SPI_READ_WRITE_DATA);
+    }
+
+    set_eeprom_instruction(SPI_INSTR_WRDI);
+    return 0;
+}
+#endif
+
 static uint32_t read_eeprom_dword(uint32_t addr) {
     set_eeprom_instruction(SPI_INSTR_WRDI);
     udelay(100);
@@ -1647,12 +1674,14 @@ static uint32_t identify_eeprom(char p_type[16])
     uint32_t reg;
     int i;
 
+    // Read print type
     for (i = 0; i < 4; i++) {
         reg = read_eeprom_dword(0xffc0 + i*4);
         memcpy(&p_type[i*4], &reg, 4);
     }
     p_type[15] = '\0';
 
+    // Read UUID
     return read_eeprom_dword(0xfffc);
 }
 
@@ -1879,7 +1908,7 @@ static int parse_cmdline(const char *cmdline)
     return 1;
 }
 
-static int perform_selftest(int asic_mode)
+static int perform_selftest(int asic_mode, char p_type[16])
 {
     int pass, res;
     uint32_t val;
@@ -1988,7 +2017,7 @@ static int perform_selftest(int asic_mode)
         printf("-PASS%d ", pass);
     }
  
-    if (asic_mode && res == 0) {
+    if (asic_mode && res == 0 && _is_pic_present(p_type)) {
 	printf("\nPerforming High Speed Serdes self test: ");
 
 	/* Trigger a HSS PLL reset */
@@ -2078,7 +2107,6 @@ pll_err_out:
 	}
 	udelay(1000000);
     }
-    
 
     return res;
 }
@@ -2304,7 +2332,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
     /* ====================== END ERRATA WORKAROUNDS ====================== */
 
     uuid = identify_eeprom(p_type);
-    printf("UUID: %06d, TYPE: %s\n", uuid, p_type);
+    printf("UUID: %08X, TYPE: %s\n", uuid, p_type);
 
     /* Read the SPD info from our DIMMs to see if they are supported */
     for (i = 0; i < 2; i++) {
@@ -2312,7 +2340,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
             return -1;
     }
 
-    if (perform_selftest(asic_mode) < 0)
+    if (perform_selftest(asic_mode, p_type) < 0)
 	return -1;
 
     /* If init-only parameter is given, stop here and return */
@@ -2874,7 +2902,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
     backoff = 1;
     while (!go_ahead) {
 	if (++count >= backoff) {
-	    printf("Broadcasting state: %s (sciid 0x%03x, uuid %d, tid %d)\n",
+	    printf("Broadcasting state: %s (sciid 0x%03x, uuid %08X, tid %d)\n",
                    node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
 	    udp_broadcast_state(handle, &rsp, sizeof(rsp));
 	    udelay(100 * backoff);
@@ -2893,7 +2921,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	    if (len != sizeof(cmd))
 		continue;
 
-            /* printf("Got cmd packet (state %d, sciid %03x, uuid %d, tid %d)\n",
+            /* printf("Got cmd packet (state %d, sciid %03x, uuid %08X, tid %d)\n",
              *       cmd.state, cmd.sciid, cmd.uuid, cmd.tid); */
 	    if (cmd.uuid == builduuid) {
 		if (cmd.tid == last_cmd) {

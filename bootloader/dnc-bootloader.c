@@ -2665,7 +2665,7 @@ static int nc_start(void)
     if (!info)
         return ERR_NODE_CONFIG;
 
-    printf("Node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
+    printf("Node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
            info->desc, info->uuid, info->sciid, info->partition, info->osc);
 
     part = get_partition_config(info->partition);
@@ -2680,7 +2680,7 @@ static int nc_start(void)
 	if (config_local(&cfg_nodelist[i], uuid))
 	    continue;
 
-        printf("Remote node: <%s> uuid: %d, sciid: 0x%03x, partition: %d, osc: %d\n",
+        printf("Remote node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
                cfg_nodelist[i].desc,
                cfg_nodelist[i].uuid,
                cfg_nodelist[i].sciid,
