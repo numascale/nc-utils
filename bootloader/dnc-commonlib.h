@@ -123,6 +123,7 @@ void wait_for_master(struct node_info *info, struct part_info *part);
 
 extern int dnc_asic_mode;
 extern uint32_t dnc_chip_rev;
+extern char dnc_card_type[16];
 
 extern char *config_file_name;
 extern char *next_label;

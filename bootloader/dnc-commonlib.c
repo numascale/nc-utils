@@ -1659,9 +1659,23 @@ static uint32_t identify_eeprom(char p_type[16])
 static void _pic_reset_ctrl(int val)
 {
     dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, val);
-    udelay(10000);
+    udelay(20000);
     (void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC */
     udelay(2000000);
+}
+
+static int _is_pic_present(char p_type[16])
+{
+    if ((strncmp("313001", p_type, 6) == 0) ||
+	(strncmp("N313001", p_type, 7) == 0) ||
+	(strncmp("N313002", p_type, 7) == 0) ||
+	(strncmp("N313025", p_type, 7) == 0) ||
+	(strncmp("N323011", p_type, 7) == 0) ||
+	(strncmp("N323023", p_type, 7) == 0) ||
+	(strncmp("N323024", p_type, 7) == 0)) {
+	return 1;
+    }
+    return 0;
 }
 
 int adjust_oscillator(char p_type[16], uint32_t osc_setting)
@@ -1669,14 +1683,7 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
     uint32_t val;
 
     /* Check if adjusting the frequency is possible */
-    if ((strncmp("313001", p_type, 6) == 0) ||
-	(strncmp("N313001", p_type, 7) == 0) ||
-	(strncmp("N313002", p_type, 7) == 0) ||
-	(strncmp("N313025", p_type, 7) == 0) ||
-	(strncmp("N323011", p_type, 7) == 0) ||
-	(strncmp("N323023", p_type, 7) == 0) ||
-	(strncmp("N323024", p_type, 7) == 0))
-    {
+    if (_is_pic_present(p_type)) {
         if (osc_setting > 2) {
             printf("Invalid Oscillator setting %d; skipping\n", osc_setting);
             return 0;
@@ -1706,7 +1713,6 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 	    
 	    /* Trigger a HSS PLL reset */
             _pic_reset_ctrl(1);
-            udelay(10000);
         }
     } else {
 	printf("Oscillator not set, card is of type %s and doesn't support this\n", p_type);
@@ -2648,11 +2654,11 @@ int dnc_check_fabric(struct node_info *info)
     return res;
 }        
 
-static enum node_state enter_reset(struct node_info *info)
+static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
 {
     printf("Entering reset\n");
 
-    if (dnc_asic_mode) {
+    if (_is_pic_present(dnc_card_type)) {
 	int tries = 0;
 
 	/* Reset already held?  Toggle reset logic to ensure reset
@@ -2661,30 +2667,27 @@ static enum node_state enter_reset(struct node_info *info)
 	    if (tries == 0) {
 		printf("HSSXA_STAT_1 is zero, toggling reset...\n");
 		_pic_reset_ctrl(2);
-		udelay(1000);
 	    }
-	    /* printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries); */
-	    udelay(200);
+	    printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries);
 	    if (tries++ > 16)
-		tries = 0;
+		return RSP_PHY_NOT_TRAINED;
+	    udelay(1000);
 	}
-
-	udelay(200);
 
 	/* Hold reset */
 	_pic_reset_ctrl(2);
 	tries = 0;
-	do {
+	while (dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) {
+	    if (tries == 8) {
+		printf("HSSXA_STAT_1 is still one, toggling reset...\n");
+		_pic_reset_ctrl(2);
+	    }
+	    printf("Waiting for HSSXA_STAT_1 to leave one (try %d)...\n", tries);
 	    if (tries++ > 16)
-		return enter_reset(info);
-	    udelay(200);
-	} while (dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8));
-    } else {
-	if ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
-	    printf("HSSXA_STAT_1 is zero, PLL not locked ???...\n");
-	    return RSP_PHY_NOT_TRAINED;
+		return RSP_PHY_NOT_TRAINED;
+	    udelay(10000);
 	}
-
+    } else {
 	/* No external reset control, simply reset all phys to start training sequence */
 	for (int i = 0; i < 6; i++)
 	    dnc_reset_phy(i);
@@ -2733,10 +2736,9 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
     int pending, i;
     printf("Releasing reset...");
 
-    if (dnc_asic_mode) {
+    if (_is_pic_present(dnc_card_type)) {
 	/* Release reset */
 	_pic_reset_ctrl(2);
-	udelay(200);
 	i = 0;
 	while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
 	    if (i++ > 20)
@@ -2744,7 +2746,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
 	    udelay(200);
 	}
     } else {
-	/* FPGA and ASIC Rev2 */
+	/* No external reset control, check that the PLL has locked */
 	if ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1<<8)) == 0) {
 	    printf("HSSXA_STAT_1 is zero, PLL not locked ???...\n");
 	    return RSP_PHY_NOT_TRAINED;

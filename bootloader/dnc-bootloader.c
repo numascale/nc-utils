@@ -54,6 +54,7 @@
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
 int dnc_asic_mode;
 uint32_t dnc_chip_rev;
+char dnc_card_type[16];
 uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
 uint16_t ht_pdom_count = 0;
@@ -2633,7 +2634,6 @@ static void selftest_late(void)
 static int nc_start(void)
 {
     uint32_t uuid;
-    char type[16];
     struct node_info *info;
     struct part_info *part;
     int i, wait;
@@ -2644,7 +2644,7 @@ static int nc_start(void)
     constants();
     get_hostname();
 
-    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_chip_rev, type, &dnc_asic_mode,
+    dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_chip_rev, dnc_card_type, &dnc_asic_mode,
 					   __com32.cs_cmdline);
 
     if (dnc_master_ht_id == -2)
@@ -2688,7 +2688,7 @@ static int nc_start(void)
                cfg_nodelist[i].osc);
     }
 
-    if (adjust_oscillator(type, info->osc) < 0)
+    if (adjust_oscillator(dnc_card_type, info->osc) < 0)
 	return -1;
 
     /* Copy this into NC ram so its available remotely */
