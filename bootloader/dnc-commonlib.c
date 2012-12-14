@@ -182,7 +182,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
     mdataw[4] = uint32_tbswap(dnc_read_csr(0xfff0, (1<<12) + (spd_addr<<8) + 88)); /* Read SPD location 88, 89, 90, 91 */
 
     mdata[19] = 0;
-    printf("%s is a %s module (x%d, %dMB)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1<<(addr_bits - 14));
+    printf("%s is a %s module (x%d, %dMB)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1<<(addr_bits - 17));
 
     switch (addr_bits) {
 	case 31: dimm->mem_size = 4; break; /* 16G */
@@ -191,7 +191,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	case 28: dimm->mem_size = 1; break; /*  2G */
 	case 27: dimm->mem_size = 0; break; /*  1G */
 	default: dimm->mem_size = 0; printf("Error: Unsupported %s DIMM size of %dMB\n",
-					    cdata ? "CData" : "MCTag", 1<<(addr_bits - 14)); return -1;
+					    cdata ? "CData" : "MCTag", 1<<(addr_bits - 17)); return -1;
     }
 
     return 0;
