@@ -303,6 +303,9 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
     if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count1) != 0)
         return -1;
 
+    /* Set sync-interval to max to save link-bandwidth */
+    dnc_write_csr(0xfff1 + lc, LC3_CSR_SYNC_INTERVAL, 0xff);
+    
     dnc_write_csr(0xfff1 + lc, LC3_CSR_NODE_IDS, expected_id << 16);
     dnc_write_csr(0xfff1 + lc, LC3_CSR_SAVE_ID, expected_id);
 /*    dnc_write_csr(0xfff1 + lc, LC3_CSR_CONFIG1,
