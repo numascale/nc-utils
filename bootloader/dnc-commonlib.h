@@ -120,6 +120,8 @@ int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
 		   struct node_info *info, struct part_info *part);
 void wait_for_master(struct node_info *info, struct part_info *part);
+void wake_local_cores(const int vector);
+void enable_probefilter(const int nodes);
 
 extern int dnc_asic_mode;
 extern uint32_t dnc_chip_rev;
@@ -146,6 +148,8 @@ extern uint32_t tsc_mhz;
 extern uint32_t pf_maxmem;
 extern bool pf_vga_local;
 extern uint32_t max_mem_per_node;
+extern int force_probefilteroff;
+extern int force_probefilteron;
 
 extern const char* node_state_name[];
 

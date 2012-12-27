@@ -40,8 +40,8 @@ static int route_only = 0;
 static int enable_nbmce = -1;
 static int enable_nbwdt = 0;
 static int disable_sram = 0;
-static int force_probefilteroff = 0;
-static int force_probefilteron = 0;
+int force_probefilteroff = 0;
+int force_probefilteron = 0;
 static int ht_force_ganged = 0;
 int disable_smm = 0;
 int disable_c1e = 0;
@@ -1126,52 +1126,37 @@ static void disable_probefilter(const int nodes)
     printf("done\n");
 }
 
-#ifdef BROKEN
-static void wake_local_cores(const int vector)
+void wake_local_cores(const int vector)
 {
     uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
     volatile uint32_t *const apic = (void *const)((uint32_t)val & ~0xfff);
     volatile uint32_t *const icr = &apic[0x300/4];
 
-    /* Ensure the table has been initialised */
-    assert(nc_node[0].ht[0].cores);
+    for (int core = 1; post_apic_mapping[core] != 255; core++) {
+	/* Deliver initialize IPI */
+	apic[0x310/4] = post_apic_mapping[core] << 24;
+	*icr = 0x00004500;
 
-    for (int n = 0; n < dnc_node_count; n++) {
-	for (int ht = 0; ht < 8; ht++) {
-	    if (!nc_node[n].ht[ht].cpuid)
-		continue;
+	while (*icr & (1 << 12))
+	    cpu_relax();
 
-	    for (int c = 0; c < nc_node[n].ht[ht].cores; c++) {
-		if ((n == 0) && (ht == 0) && (c == 0))
-		    continue; /* Skip BSP */
+	*REL32(cpu_status) = vector;
 
-		uint32_t oldid = nc_node[n].ht[ht].apic_base + c;
-		uint32_t apicid = nc_node[n].apic_offset + oldid;
+	/* Deliver startup IPI */
+	apic[0x310/4] = post_apic_mapping[core] << 24;
+	assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
+	*icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
 
-		/* Deliver initialize IPI */
-		apic[0x310/4] = apicid << 24;
-		*icr = 0x00004500;
-		while (*icr & (1 << 12))
-		    cpu_relax();
+	while (*icr & 0x1000)
+	    cpu_relax();
 
-		*REL32(cpu_status) = vector;
-
-		/* Deliver startup IPI */
-		apic[0x310/4] = apicid << 24;
-		assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
-		*icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
-		while (*icr & 0x1000)
-		    cpu_relax();
-
-		/* Wait until execution completed */
-		while (*REL32(cpu_status))
-		    cpu_relax();
-	    }
-	}
+	/* Wait until execution completed */
+	while (*REL32(cpu_status))
+	    cpu_relax();
     }
 }
 
-static void enable_probefilter(const int nodes)
+void enable_probefilter(const int nodes)
 {
     uint32_t val;
     uint32_t scrub[8];
@@ -1185,7 +1170,7 @@ static void enable_probefilter(const int nodes)
 	return;
     }
 
-    printf("Enabling probe filter...");
+    printf("Enabling probe filter...(%d)", nodes);
 
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
        - F3x58[L3Scrub]=00h
@@ -1274,7 +1259,6 @@ static void enable_probefilter(const int nodes)
     }
     printf("done\n");
 }
-#endif
 
 static void disable_link(int node, int link)
 {
@@ -1444,13 +1428,6 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
     if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff)
 	disable_probefilter(nodes);
 
-#ifdef BROKEN
-    if (force_probefilteron && !force_probefilteroff) {
-	enable_probefilter(nodes);
-	probefilter_tokens(nodes);
-    }
-#endif
-    
     /* On Fam15h disable the Accelerated Transiton to Modified protocol */
     if (family >= 0x15)
 	disable_atmmode(nodes);
