@@ -417,54 +417,15 @@ static void load_existing_apic_map(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i*4, apic_used[i]);
 }
 
-static int linear_hops(int src, int dst, int size) {
-    if (src == dst)
-	return 0;
-
-    int fw = ((size - src) + dst) % size;
-    int bw = ((src + (size - dst)) + size) % size;
-
-    return min(fw, bw);
-}
-
 static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
 {
-    const int socket_cost = 5;	/* Typically 2.2GHz HyperTransport link */
-    const int nc_cost = 90;	/* Fixed NC costs */
-    const int fabric_cost = 20;	/* Scaled variable NC costs: 2xSERDES latency + route lookup */
-    int total_cost = 10;	/* Memory-controller + SDRAM latency */
+    if (src_node != dst_node)
+	return 120;
 
-    int src_sci = cfg_nodelist[src_node].sciid;
-    int dst_sci = cfg_nodelist[dst_node].sciid;
-    int size = cfg_fabric.z_size << 8 | cfg_fabric.y_size << 4 | cfg_fabric.x_size;
-    int hops = 0;
+    if (src_ht != dst_ht)
+	return 16;
 
-    /* Sum hops per axis */
-    for (int dim = 0; dim < 3; dim++) {
-	if (cfg_fabric.strict)
-	    /* Compute shortest path */
-	    hops += linear_hops(src_sci & 0xf, dst_sci & 0xf, size & 0xf);
-	else
-	    /* Assume average of half ring length */
-	    hops += (src_sci == dst_sci) ? 0 : (size / 2);
-
-	src_sci >>= 4;
-	dst_sci >>= 4;
-	size >>= 4;
-    }
-
-    if (hops) {
-	/* Assume linear socket distance to NC */
-	int src_socket_offset = abs(src_ht - nc_node[src_node].nc_neigh);
-	int dst_socket_offset = abs(dst_ht - nc_node[dst_node].nc_neigh);
-
-	total_cost += (src_socket_offset + dst_socket_offset) * socket_cost;
-	total_cost += nc_cost; /* Fixed cost of NC */
-	total_cost += hops * fabric_cost; /* Variable cost of NC */
-    } else
-	total_cost += abs(dst_ht - src_ht) * socket_cost;
-
-    return total_cost;
+    return 10;
 }
 
 static void disable_fixed_mtrrs(void)
@@ -604,7 +565,7 @@ static void update_acpi_tables(void)
 
     int k,l, src_numa = 0, index = 0;
 
-    printf("Updating SLIT table: (%s path)\nnode ", cfg_fabric.strict ? "shortest" : "unoptimised");
+    printf("Updating SLIT table:\nnode ");
 
     for (i = 0; i < dnc_node_count; i++)
 	for (j = 0; j < 8; j++) {
