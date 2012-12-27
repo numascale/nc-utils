@@ -2673,6 +2673,15 @@ static int nc_start(void)
     if (dnc_init_caches() < 0)
 	return ERR_INIT_CACHES;
 
+    load_orig_e820_map();
+    if (!install_e820_handler())
+	return ERR_INSTALL_E820_HANDLER;
+
+    if (force_probefilteron && !force_probefilteroff) {
+	enable_probefilter(dnc_master_ht_id - 1);
+	probefilter_tokens(dnc_master_ht_id - 1);
+    }
+
     if (part->master == info->sciid) {
 	int i;
 	/* Master */
@@ -2688,10 +2697,6 @@ static int nc_start(void)
 #ifdef UNUSED
 	read_microcode_update();
 #endif
-
-	load_orig_e820_map();
-	if (!install_e820_handler())
-	    return ERR_INSTALL_E820_HANDLER;
 
 	wait = 100;
 	while ((i = unify_all_nodes()) == 0) {
@@ -2730,9 +2735,6 @@ static int nc_start(void)
 
 	cleanup_stack();
 
-	/* Get the original e820 map for reference */
-	load_orig_e820_map();
-	
 	/* Set G3x02c FAB_CONTROL bit 30 */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1<<30);
  
