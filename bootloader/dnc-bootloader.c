@@ -2435,7 +2435,7 @@ static int unify_all_nodes(void)
 
     /* Re-enable DRAM scrubbers with our new memory map, required by fam15h BKDG; see D18F2xC0 b0 */
     if (!trace_buf_size) {
-	printf("Enabling DRAM scrubbers: ");
+	printf("Enabling DRAM scrubbers:");
 	for (node = 0; node < dnc_node_count; node++) {
 	    uint16_t sciid = (node == 0) ? 0xfff0 : nc_node[node].sci_id;
 	    printf(" SCI%03x", nc_node[node].sci_id);
