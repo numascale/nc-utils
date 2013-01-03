@@ -345,27 +345,35 @@ static void update_e820_map(void)
     /* Add remote nodes */
     for (i = 0; i < dnc_node_count; i++) {
 	for (j = 0; j < 8; j++) {
+	    uint64_t base, length;
+
 	    if (!nc_node[i].ht[j].cpuid)
 		continue;
 	    if ((i == 0) && (j == 0))
 		continue; /* Skip BSP */
 
-            e820[*len].base   = ((uint64_t)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
-            e820[*len].length = ((uint64_t)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);
-            e820[*len].type   = 1;
+            base   = ((uint64_t)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
+            length = ((uint64_t)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);
 	    if (mem_offline && (i > 0)) {
-		if (e820[*len].length > MIN_NODE_MEM)
-		    e820[*len].length = MIN_NODE_MEM;
-	    }
-	    else {
-		if ((trace_buf_size > 0) && (e820[*len].length > trace_buf_size)) {
-		    e820[*len].length -= trace_buf_size;
+		if (length > MIN_NODE_MEM)
+		    length = MIN_NODE_MEM;
+	    } else {
+		if ((trace_buf_size > 0) && (length > trace_buf_size)) {
+		    length -= trace_buf_size;
 		    printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
-			nc_node[i].sci_id, j, e820[*len].base + e820[*len].length, e820[*len].base + e820[*len].length + trace_buf_size);
+			nc_node[i].sci_id, j, base + length, base + length + trace_buf_size);
 		}
 	    }
-	    prev_end = e820[*len].base + e820[*len].length;
-            (*len)++;
+
+	    /* Extend any previous adjacent segment */
+	    if ((e820[(*len)-1].base + e820[(*len)-1].length) == base)
+		e820[(*len)-1].length += length;
+	    else {
+		e820[*len].base = base;
+		e820[*len].length = length;
+		e820[*len].type = 1;
+		(*len)++;
+	    }
 	}
     }
 
