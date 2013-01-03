@@ -2435,15 +2435,16 @@ static int unify_all_nodes(void)
 
     /* Re-enable DRAM scrubbers with our new memory map, required by fam15h BKDG; see D18F2xC0 b0 */
     if (!trace_buf_size) {
+	printf("Enabling DRAM scrubbers: ");
 	for (node = 0; node < dnc_node_count; node++) {
 	    uint16_t sciid = (node == 0) ? 0xfff0 : nc_node[node].sci_id;
+	    printf(" SCI%03x", nc_node[node].sci_id);
 	    for (i = 0; i < 8; i++) {
 		if (!nc_node[0].ht[i].cpuid)
 		    continue;
 		if (nc_node[node].ht[i].scrub & 0x1f) {
 		    uint64_t base = (uint64_t)nc_node[node].ht[i].base << DRAM_MAP_SHIFT;
 		    uint32_t redir = dnc_read_conf(sciid, 0, 24+i, FUNC3_MISC, 0x5c) & 1;
-		    printf("Enabling DRAM scrubber on SCI%03x HT#%x...\n", nc_node[node].sci_id, i);
 		    dnc_write_conf(sciid, 0, 24+i, FUNC3_MISC, 0x5c, base | redir);
 		    dnc_write_conf(sciid, 0, 24+i, FUNC3_MISC, 0x60, base >> 32);
 		    /* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
@@ -2455,9 +2456,9 @@ static int unify_all_nodes(void)
 		}
 	    }
 	}
+	printf("\n");
     }
 
-    printf("\n");
     return 1;
 }
 
