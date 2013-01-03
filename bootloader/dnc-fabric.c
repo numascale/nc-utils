@@ -297,7 +297,7 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 {
     const char *linkname = _get_linkname(lc);
     uint16_t expected_id = (nodeid | ((lc+1) << 13));
-    uint32_t val, error_count1, error_count2;
+    uint32_t config2, error_count1, error_count2;
     uint16_t chunk, offs;
 
     printf("Initializing LC3%s...", linkname);
@@ -311,13 +311,24 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
     if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_SAVE_ID, expected_id) != 0)
 	return -1;
 
-    if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_CONFIG2, &val) != 0)
+    /* CONFIG2 is used for multiple things so store the initial value for later use */
+    if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_CONFIG2, &config2) != 0)
 	return -1;
 
-    /* Set forwarding mode (cut-through/store-n-forward) */
-    val = (val & ~(0xf0)) | (forwarding_mode << 6) | (forwarding_mode << 4);
+    if (((sync_interval & 0xff) > 0) || ((sync_interval & 0x1ff) > 0x100)) {
+	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_SYNC_INTERVAL, sync_interval & 0xff) != 0)
+	    return -1;
 
-    if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_CONFIG2, val) != 0)
+	/* If bit[8] is set in the sync_interval variable, disable the sync interval prescaler in CONFIG2 */
+	if (sync_interval & 0x100)
+	    config2 = config2 | (1<<9);
+    }
+
+    /* Set forwarding mode (cut-through/store-n-forward) */
+    config2 = (config2 & ~(0xf0)) | (forwarding_mode << 6) | (forwarding_mode << 4);
+
+    /* Save CONFIG2 settings (additions should be above this line to the config2 variable) */
+    if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_CONFIG2, config2) != 0)
 	return -1;
 
     /* 1. Disable table routing
