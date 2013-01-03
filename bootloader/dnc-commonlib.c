@@ -2593,7 +2593,7 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
     /* Builder is checking that it can access all other nodes via CSR */
     if (part->builder == info->sciid) {
 	printf("Validating fabric ");
-	for (int iter = 0; iter < 10; iter++) {
+	for (int iter = 0; res && iter < 10; iter++) {
 	    printf(".");
 	    for (int i = 1; i < cfg_nodes; i++) {
 		uint16_t node = cfg_nodelist[i].sciid;
@@ -2663,7 +2663,7 @@ static enum node_state enter_reset(struct node_info *info __attribute__((unused)
 {
     printf("Entering reset\n");
 
-    if (_is_pic_present(dnc_card_type)) {
+    if (0 && _is_pic_present(dnc_card_type)) {
 	int tries = 0;
 
 	/* Reset already held?  Toggle reset logic to ensure reset
@@ -2741,7 +2741,7 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
     int pending, i;
     printf("Releasing reset...");
 
-    if (_is_pic_present(dnc_card_type)) {
+    if (0 && _is_pic_present(dnc_card_type)) {
 	/* Release reset */
 	_pic_reset_ctrl(2);
 	i = 0;
