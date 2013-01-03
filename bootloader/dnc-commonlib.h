@@ -139,6 +139,7 @@ extern uint32_t trace_buf_size;
 extern int verbose;
 extern int nc_neigh, nc_neigh_link;
 extern int forwarding_mode;
+extern int sync_interval;
 extern int singleton;
 extern bool handover_acpi;
 extern int remote_io;

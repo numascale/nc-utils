@@ -49,6 +49,7 @@ int renumber_bsp = 0;
 int remote_io = 0;
 bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
+int sync_interval = 1; /* bit[8]=disable prescaler, bit[7:0] sync_interval value */
 int singleton = 0;
 static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
@@ -1820,6 +1821,7 @@ static int parse_cmdline(const char *cmdline)
         {"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
         {"renumber-bsp",    &parse_int,    &renumber_bsp},
         {"forwarding-mode", &parse_int,    &forwarding_mode}, 
+        {"sync-interval",   &parse_int,    &sync_interval}, 
         {"singleton",       &parse_int,    &singleton},       /* Loopback test with cables */
         {"mem-offline",     &parse_int,    &mem_offline},
         {"trace-buf",       &parse_uint64_t,    &trace_buf_size},
