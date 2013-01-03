@@ -76,7 +76,7 @@ static int _raw_write(uint32_t dest, int geo, uint32_t addr, uint32_t val)
 
     ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
     if ((ctrl & 0xc00) != 0) {
-        printf("RAW packet timeout : %08x\n", ctrl);
+        printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
 	ret = -1;
     }
     else {
@@ -124,7 +124,7 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
     
     ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
     if ((ctrl & 0xc00) != 0) {
-        printf("RAW packet timeout : %08x\n", ctrl);
+        printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
         *val = 0xffffffff;
         ret = -1;
     }
@@ -273,15 +273,17 @@ int dnc_check_lc3(int lc)
     }
     if (error_count != 0) {
         uint32_t elog0, elog1;
-        if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ELOG0, &elog0) != 0) {
+        if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ELOG0, &elog0) != 0)
             return -1;
-        }
-        if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ELOG1, &elog1) != 0) {
+        if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ELOG1, &elog1) != 0)
             return -1;
-        }
-        dnc_write_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, 0);
-        dnc_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0);
-        dnc_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0);
+        if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, 0) != 0)
+	    return -1;
+	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0) != 0)
+	    return -1;
+        if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0) != 0)
+	    return -1;
+	
         printf("LC3%s ERROR_COUNT %d, ELOG0 0x%04x, ELOG1 0x%04x\n", linkname, error_count, elog0, elog1);
         if ((elog0 & fatal_mask0) || (elog1 & fatal_mask1))
             return -1;
@@ -295,7 +297,7 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 {
     const char *linkname = _get_linkname(lc);
     uint16_t expected_id = (nodeid | ((lc+1) << 13));
-    uint32_t error_count1, error_count2;
+    uint32_t val, error_count1, error_count2;
     uint16_t chunk, offs;
 
     printf("Initializing LC3%s...", linkname);
@@ -303,39 +305,49 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
     if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count1) != 0)
         return -1;
 
-    /* Set sync-interval to max to save link-bandwidth */
-    dnc_write_csr(0xfff1 + lc, LC3_CSR_SYNC_INTERVAL, 0xff);
-    
-    dnc_write_csr(0xfff1 + lc, LC3_CSR_NODE_IDS, expected_id << 16);
-    dnc_write_csr(0xfff1 + lc, LC3_CSR_SAVE_ID, expected_id);
-/*    dnc_write_csr(0xfff1 + lc, LC3_CSR_CONFIG1,
-                  dnc_read_csr(0xfff0 + lc, LC3_CSR_CONFIG1)); */
-    dnc_write_csr(0xfff1 + lc, LC3_CSR_CONFIG2,
-                  (dnc_read_csr(0xfff1 + lc, LC3_CSR_CONFIG2) & ~(0xf0)) | (forwarding_mode << 6) | (forwarding_mode << 4));
-/*    dnc_write_csr(0xfff1 + lc, LC3_CSR_CONFIG3,
-                  dnc_read_csr(0xfff1 + lc, LC3_CSR_CONFIG3) | (1<<12));*/ /* Set fatal2dead */
+    if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_NODE_IDS, expected_id << 16) != 0)
+	return -1;
+
+    if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_SAVE_ID, expected_id) != 0)
+	return -1;
+
+    if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_CONFIG2, &val) != 0)
+	return -1;
+
+    /* Set forwarding mode (cut-through/store-n-forward) */
+    val = (val & ~(0xf0)) | (forwarding_mode << 6) | (forwarding_mode << 4);
+
+    if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_CONFIG2, val) != 0)
+	return -1;
 
     /* 1. Disable table routing
        2. Initialize routing table
        3. Enable table routing */
 
     /* 1. Disable table routing */
-    dnc_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 3 << 14); /* ROUT_CTRL.rtype = 2'b11 (all) */
+    if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 3 << 14) != 0) /* ROUT_CTRL.rtype = 2'b11 (all) */
+	return -1;
 
     /* 2. Initialize routing table */
     for (chunk = 0; chunk < maxchunk; chunk++) {
-        dnc_write_csr(0xfff1 + lc, LC3_CSR_SW_INFO3, chunk);
+        if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_SW_INFO3, chunk) != 0)
+	    return -1;
         for (offs = 0; offs < 16; offs++) {
-            dnc_write_csr(0xfff1 + lc, LC3_CSR_ROUT_LCTBL00  + (offs<<2), ltbl[(chunk<<4)+offs]);
-            dnc_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BXTBLL00 + (offs<<2), rtbll[(chunk<<4)+offs]);
-            dnc_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BLTBL00  + (offs<<2), rtblm[(chunk<<4)+offs]);
-            dnc_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BXTBLH00 + (offs<<2), rtblh[(chunk<<4)+offs]);
+            if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_LCTBL00  + (offs<<2), ltbl[(chunk<<4)+offs]) != 0)
+		return -1;
+            if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BXTBLL00 + (offs<<2), rtbll[(chunk<<4)+offs]) != 0)
+		return -1;
+            if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BLTBL00  + (offs<<2), rtblm[(chunk<<4)+offs]) != 0)
+		return -1;
+            if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BXTBLH00 + (offs<<2), rtblh[(chunk<<4)+offs]) != 0)
+		return -1;
         }
     }
     printf("done\n");
 
     /* 3. Enable table routing */
-    dnc_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 1 << 14); /* ROUT_CTRL.rtype = 2'b01 (table routing) */
+    if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 1 << 14) != 0) /* ROUT_CTRL.rtype = 2'b01 (table routing) */
+	return -1;
 
     if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count2) != 0)
         return -1;
