@@ -571,38 +571,21 @@ static void update_acpi_tables(void)
     memset(slit->data, 0, 8); /* Number of System Localities */
     dist = (void *)&(slit->data[8]);
 
-    int k,l, src_numa = 0, index = 0;
-
-    printf("Updating SLIT table:\nnode ");
+    int k, l, index = 0;
 
     for (i = 0; i < dnc_node_count; i++)
 	for (j = 0; j < 8; j++) {
 	    if (!nc_node[i].ht[j].cpuid)
 		break;
-
-	    printf("%3d ", src_numa++);
-	}
-
-    printf("\n");
-    src_numa = 0;
-
-    for (i = 0; i < dnc_node_count; i++)
-	for (j = 0; j < 8; j++) {
-	    if (!nc_node[i].ht[j].cpuid)
-		break;
-
-	    printf("%3d: ", src_numa++);
 
 	    for (k = 0; k < dnc_node_count; k++) {
 		for (l = 0; l < 8; l++) {
 		    if (!nc_node[k].ht[l].cpuid)
 			break;
 
-		    printf("%3d ", dist[index++] = min(254, dist_fn(i, j, k, l))); /* 255 is unreachable */
+		    dist[index++] = min(254, dist_fn(i, j, k, l)); /* 255 is unreachable */
 		}
 	    }
-
-	    printf("\n");
 	}
 
     memcpy(slit->data, &ht_pdom_count, sizeof(ht_pdom_count));
@@ -1242,12 +1225,10 @@ static void setup_remote_cores(uint16_t num)
     } while (val & 0x80000000UL);
 
     /* Map MMIO 0x00000000 - 0xffffffff to master node */
+    printf("Setting remote H2S MMIO32 ATT pages...\n");
     for (j = 0; j < 0x1000; j++) {
-        if ((j & 0xff) == 0) {
-	    if (verbose > 0)
-		printf("Setting remote H2S MMIO32 ATT page %d...\n", j >> 8);
+        if ((j & 0xff) == 0)
             dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
-        }
         dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4,
                       nc_node[0].sci_id);
     }
