@@ -2196,11 +2196,20 @@ static void global_chipset_fixup(void)
 	node = nc_node[i].sci_id;
 	val = dnc_read_conf(node, 0, 0, 0, 0);
 	if ((val == VENDEV_SR5690) || (val == VENDEV_SR5670) || (val == VENDEV_SR5650)) {
-	    printf("Adjusting configuration of AMD SR56x0 on SCI%03x...\n",
-		   node);
-	    ioh_ind_write(node, SR56X0_HTIU_TOM2LO, ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
-	    ioh_ind_write(node, SR56X0_HTIU_TOM2HI, dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
-	    ioh_ind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) & 0x3fffffff) | (1 << 31));
+	    printf("Adjusting configuration of AMD SR56x0 on SCI%03x...\n", node);
+
+	    /* Enable 52-bit PCIe address generation */
+	    val = dnc_read_conf(node, 0, 0, 0, 0xc8);
+	    dnc_write_conf(node, 0, 0, 0, 0xc8, val | (1 << 15));
+
+	    ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) & 0x3fffffff) | (1 << 31));
+	    ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
+	    ioh_htiu_write(node, SR56X0_HTIU_TOM2HI, dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
+
+	    printf("- TOM2LO=0x%08x TOM2HI=0x%08x TOM3=0x%08x\n",
+		ioh_htiu_read(node, SR56X0_HTIU_TOM2LO),
+		ioh_htiu_read(node, SR56X0_HTIU_TOM2HI),
+		ioh_nbmiscind_read(node, SR56X0_MISC_TOM3));
 
 	    /* 0xf8/fc IOAPIC config space access
 	     * write 0 to register 0 to disable IOAPIC */
@@ -2333,7 +2342,7 @@ static int unify_all_nodes(void)
     /* DRAM map on local CPUs to redirect all accesses outside our local range to NC
      * NB: Assuming that memory is assigned sequentially to SCI nodes and HT nodes */
     for (i = 0; i < dnc_master_ht_id; i++) {
-	/* TODO: Verify that this DRAM slot is actually unused */
+	assert(cht_read_conf(i, 1, 0x78) == 0);
 	cht_write_conf(i, 1, 0x7c, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
 	cht_write_conf(i, 1, 0x78, (nc_node[1].ht[0].base << 16) | 3);
     }

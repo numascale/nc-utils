@@ -120,18 +120,24 @@ void pmio_clearl(uint16_t offset, uint32_t mask)
     pmio_writel(offset, val);
 }
 
-uint32_t ioh_ind_read(uint16_t node, uint16_t reg) {
-    uint16_t base = reg >> 8;
-
-    dnc_write_conf(node, 0, 0, 0, base, reg & 0xff);
-    return dnc_read_conf(node, 0, 0, 0, base + 4);
+uint32_t ioh_nbmiscind_read(uint16_t node, uint8_t reg) {
+    dnc_write_conf(node, 0, 0, 0, 0x60, reg);
+    return dnc_read_conf(node, 0, 0, 0, 0x64);
 }
 
-void ioh_ind_write(uint16_t node, uint16_t reg, uint32_t val) {
-    uint16_t base = reg >> 8;
+void ioh_nbmiscind_write(uint16_t node, uint8_t reg, uint32_t val) {
+    dnc_write_conf(node, 0, 0, 0, 0x60, reg | 0x80);
+    dnc_write_conf(node, 0, 0, 0, 0x64, val);
+}
 
-    dnc_write_conf(node, 0, 0, 0, base, (reg & 0xff) | 0x100);
-    dnc_write_conf(node, 0, 0, 0, base + 4, val);
+uint32_t ioh_htiu_read(uint16_t node, uint8_t reg) {
+    dnc_write_conf(node, 0, 0, 0, 0x94, reg);
+    return dnc_read_conf(node, 0, 0, 0, 0x98);
+}
+
+void ioh_htiu_write(uint16_t node, uint8_t reg, uint32_t val) {
+    dnc_write_conf(node, 0, 0, 0, 0x94, reg | 0x100);
+    dnc_write_conf(node, 0, 0, 0, 0x98, val);
 }
 
 static inline void watchdog_run(unsigned int counter)
