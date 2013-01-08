@@ -382,6 +382,9 @@ static void update_e820_map(void)
     e820[*len].type   = 2;
     (*len)++;
 
+    /* We're guaranteed only one page, so ensure we don't exceed it */
+    assert((len - REL16(new_e820_len)) < 4096);
+
     printf("Updated E820 map:\n");
     for (i = 0; i < *len; i++) {
 	printf(" %016llx - %016llx (%016llx) [%x]\n",
