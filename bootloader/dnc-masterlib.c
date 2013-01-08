@@ -95,11 +95,10 @@ void tally_local_node(int enforce_alignment)
     
     nc_node[0].apic_offset = 0;
 
+    printf("Examining SCI%03x...\n", nc_node[0].sci_id);
     for (i = 0; i <= max_ht_node; i++) {
         if (i == dnc_master_ht_id)
             continue;
-
-        printf("Examining SCI%03x HT node %d...\n", nc_node[0].sci_id, i);
         
 	nc_node[0].ht[i].cores = 0;
 	nc_node[0].ht[i].base  = 0;
@@ -124,8 +123,8 @@ void tally_local_node(int enforce_alignment)
 	if (family >= 0x15)
 	    cht_write_conf(i, FUNC1_MAPS, 0x10C, 0);
 	nc_node[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
+	printf("Disabling DRAM scrubbers on SCI%03x...\n", nc_node[0].sci_id);
 	if (nc_node[0].ht[i].scrub & 0x1f) {
-	    printf("Disabling DRAM scrubber on SCI%03x HT#%x...\n", nc_node[0].sci_id, i);
 	    cht_write_conf(i, FUNC3_MISC, 0x58, nc_node[0].ht[i].scrub & ~0x1f);
 	    /* Allow outstanding scrub requests to finish */
 	    udelay(40);
@@ -293,13 +292,12 @@ static int tally_remote_node(uint16_t node)
     cur_node->apic_offset = ht_next_apic;
     cur_apic = 0;
 
+    printf("Examining SCI%03x...\n", node);
     for (i = 0; i <= max_ht_node; i++) {
         if (i == cur_node->nc_ht_id) {
 	    cur_node->ht[i].cpuid = 0;
             continue;
 	}
-
-        printf("Examining SCI%03x HT node %d...\n", node, i);
        
 	cur_node->ht[i].cores = 0;
 	cur_node->ht[i].base  = 0;
