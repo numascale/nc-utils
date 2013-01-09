@@ -1531,6 +1531,20 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
 	    cht_write_conf(node, FUNC0_HT, 0x68,
 			     val | (1<<25) | (1<<18) | (1<<17));
 	}
+
+	/* Enable Addr64BitEn on IO links */
+	for (int i = 0; i < 4; i++) {
+	    /* Skip coherent/disabled links */
+	    val = cht_read_conf(node, FUNC0_HT, 0x98 + i * 0x20);
+	    if (!(val & (1 << 2)))
+		continue;
+
+	    val = cht_read_conf(node, FUNC0_HT, 0x84 + i * 0x20);
+	    if (!(val & (1 << 15))) {
+		printf("Enabling 64bit addressing on %x#%x...\n", node, i);
+		cht_write_conf(node, FUNC0_HT, 0x84 + i * 0x20, val | (1 << 15));
+	    }
+	}
     }
 
     /* Check if BIOS has assigned a BAR0, if so clear it */
