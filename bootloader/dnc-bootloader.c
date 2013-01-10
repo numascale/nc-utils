@@ -377,6 +377,12 @@ static void update_e820_map(void)
 	}
     }
 
+    /* Reserve HT address range */
+    e820[*len].base   = 0xfd00000000;
+    e820[*len].length = 0x300000000;
+    e820[*len].type   = 2;
+    (*len)++;
+
     e820[*len].base   = DNC_MCFG_BASE;
     e820[*len].length = DNC_MCFG_LIM - DNC_MCFG_BASE + 1;
     e820[*len].type   = 2;
@@ -1131,11 +1137,23 @@ static void renumber_remote_bsp(uint16_t num)
 		dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x44 + 8 * j, val | maxnode);
 	}
 
+	int regs = family < 0x15 ? 8 : 12;
+
 	/* Update MMIO maps */
-	for (j = 0; j < 8; j++) {
+	for (j = 0; j < regs; j++) {
 	    val = dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x84 + 8 * j);
 	    if ((val & 7) == 0)
 		dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x84 + 8 * j, val | maxnode);
+	}
+
+	if (family == 0x10) {
+	    /* Fam10h Extended MMIO address maps */
+	    for (j = 0; j < 16; j++) {
+		dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x110, (2 << 28) | j);
+		val = dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x114);
+		if ((val & 7) == 0)
+		    dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x114, val | maxnode);
+	    }
 	}
 
 	/* Update IO maps */
@@ -1261,14 +1279,18 @@ static void setup_remote_cores(uint16_t num)
 	if (!cur_node->ht[i].cpuid)
 	    continue;
 
+	unsigned regs = family < 0x15 ? 8 : 12;
+
 	/* Clear all MMIO maps */
-        for (j = 0; j < 8; j++) {
+        for (j = 0; j < regs; j++) {
             dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x80 + j*8, 0x0);
             dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x84 + j*8, 0x0);
 	    /* Fam15h high register bits[47:40] */
 	    if (family >= 0x15)
 		dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x180 + j*8, 0);
         }
+
+	/* FIXME: Fam10h extended MMIO maps */
 
 	/* 1st MMIO map pair is set to point to the VGA segment a0000-e0000 */
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x84, 0x00000f00 | ht_id);
@@ -1303,12 +1325,12 @@ static void setup_remote_cores(uint16_t num)
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xf0,  0);
 	
         /* Re-direct everything below our first local address to NumaChip */
+        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x144, 0);
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x44,
                        ((cur_node->ht[0].base - 1) << 16) | ht_id);
+        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x140, 0);
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x40,
                        (nc_node[0].ht[0].base << 16) | 3);
-        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x140, 0);
-        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x144, 0);
     }
 
     /* Reprogram HT node "self" ranges */
@@ -1341,8 +1363,12 @@ static void setup_remote_cores(uint16_t num)
 	for (j = 0; j < 8; j++) {
 	    if (!cur_node->ht[j].cpuid)
 		continue;
+            dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x14c + map_index*8,
+                           (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (40 - DRAM_MAP_SHIFT));
             dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x4c + map_index*8,
                            ((cur_node->ht[i].base + cur_node->ht[i].size - 1) << 16) | i);
+            dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x148 + map_index*8,
+                           cur_node->ht[i].base >> (40 - DRAM_MAP_SHIFT));
             dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x48 + map_index*8,
                            (cur_node->ht[i].base << 16) | 3);
         }
@@ -1364,7 +1390,11 @@ static void setup_remote_cores(uint16_t num)
 	    if (!cur_node->ht[i].cpuid)
 		continue;
             dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x4c + map_index*8,
+                           (nc_node[dnc_node_count-1].addr_end - 1) >> (40 - DRAM_MAP_SHIFT));
+            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x4c + map_index*8,
                            ((nc_node[dnc_node_count-1].addr_end - 1) << 16) | ht_id);
+            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x148 + map_index*8,
+                           cur_node->addr_end >> (40 - DRAM_MAP_SHIFT));
             dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x48 + map_index*8,
                            (cur_node->addr_end << 16) | 3);
         }
@@ -1375,10 +1405,12 @@ static void setup_remote_cores(uint16_t num)
 	    if (!cur_node->ht[i].cpuid)
 		continue;
 	    for (j = 0; j < 8; j++) {
-		printf("SCI%03x#%d DRAM base/limit[%d] %08x/%08x\n",
+		printf("SCI%03x#%d DRAM map %d: baseL 0x%08x, baseH 0x%08x, limitL 0x%08x limitH 0x%08x\n",
 		       node, i, j,
 		       dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x40 + j*8),
-		       dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x44 + j*8));
+		       dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x140 + j*8),
+		       dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x44 + j*8),
+		       dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x144 + j*8));
 	    }
 	}
     }
@@ -2202,21 +2234,26 @@ static void global_chipset_fixup(void)
 	    val = dnc_read_conf(node, 0, 0, 0, 0xc8);
 	    dnc_write_conf(node, 0, 0, 0, 0xc8, val | (1 << 15));
 
-	    ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) & 0x3fffffff) | (1 << 31));
-	    ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, ((dnc_top_of_mem << DRAM_MAP_SHIFT) & 0xffffffff) | 1);
-	    ioh_htiu_write(node, SR56X0_HTIU_TOM2HI, dnc_top_of_mem >> (32 - DRAM_MAP_SHIFT));
+	    /* Limit TOM2 to HyperTransport address */
+	    uint64_t limit = min(0xfd00000000, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
+	    ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
+	    ioh_htiu_write(node, SR56X0_HTIU_TOM2HI, limit >> 32);
 
-	    printf("- TOM2LO=0x%08x TOM2HI=0x%08x TOM3=0x%08x\n",
-		ioh_htiu_read(node, SR56X0_HTIU_TOM2LO),
-		ioh_htiu_read(node, SR56X0_HTIU_TOM2HI),
-		ioh_nbmiscind_read(node, SR56X0_MISC_TOM3));
+	    if  (dnc_top_of_mem >= (1 << (40 - DRAM_MAP_SHIFT)))
+		ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) - 1) | (1 << 31));
+	    else
+		ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, 0);
+
+	    if (verbose)
+		printf("- TOM2LO 0x%08x, TOM2HI 0x%08x TOM3 0x%08x\n",
+		    ioh_htiu_read(node, SR56X0_HTIU_TOM2LO), ioh_htiu_read(node, SR56X0_HTIU_TOM2HI),
+		    ioh_nbmiscind_read(node, SR56X0_MISC_TOM3));
 
 	    /* 0xf8/fc IOAPIC config space access
 	     * write 0 to register 0 to disable IOAPIC */
 	    dnc_write_conf(node, 0, 0, 2, 0xf8, 0);
 	    dnc_write_conf(node, 0, 0, 2, 0xfc, 0);
-	}
-	if ((val == VENDEV_MCP55)) {
+	} else if ((val == VENDEV_MCP55)) {
             uint32_t val = dnc_read_conf(node, 0, 0, 0, 0x90);
 	    printf("Adjusting configuration of nVidia MCP55 on SCI%03x...\n",
 		   node);
@@ -2343,7 +2380,9 @@ static int unify_all_nodes(void)
      * NB: Assuming that memory is assigned sequentially to SCI nodes and HT nodes */
     for (i = 0; i < dnc_master_ht_id; i++) {
 	assert(cht_read_conf(i, 1, 0x78) == 0);
+	cht_write_conf(i, 1, 0x17c, (dnc_top_of_mem - 1) >> (40 - DRAM_MAP_SHIFT));
 	cht_write_conf(i, 1, 0x7c, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
+	cht_write_conf(i, 1, 0x178, nc_node[1].ht[0].base >> (40 - DRAM_MAP_SHIFT));
 	cht_write_conf(i, 1, 0x78, (nc_node[1].ht[0].base << 16) | 3);
     }
 
