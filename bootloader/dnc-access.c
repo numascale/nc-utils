@@ -42,7 +42,6 @@ int lirq_nest = 0;
 
 //#define DEBUG(...) printf(__VA_ARGS__)
 #define DEBUG(...) do { } while (0)
-
 #define WATCHDOG_BASE (uint32_t *)0xfec000f0 /* AMD recommended */
 
 static volatile uint32_t *watchdog_ctl = WATCHDOG_BASE;
@@ -54,24 +53,22 @@ int cht_config_use_extd_addressing = 0;
 uint64_t dnc_csr_base = DEF_DNC_CSR_BASE;
 uint64_t dnc_csr_lim = DEF_DNC_CSR_LIM;
 
-void pmio_writeb(uint16_t offset, uint8_t val)
-{
-    /* Write offset and value in single 16-bit write */
-    outw(offset | val << 8, PMIO_PORT);
-}
-
-void pmio_writel(uint16_t offset, uint32_t val)
-{
-    unsigned int i;
-
-    for (i = 0; i < sizeof(val); i++)
-	pmio_writeb(offset + i, val >> (i * 8));
-}
-
 uint8_t pmio_readb(uint16_t offset)
 {
     outb(offset, PMIO_PORT /* PMIO index */);
     return inb(PMIO_PORT + 1 /* PMIO data */);
+}
+
+void pmio_writeb(uint16_t offset, uint8_t val)
+{
+    /* Write offset and value in single 16-bit write */
+    outw(offset | val << 8, PMIO_PORT);
+
+    if (verbose > 2) {
+	uint8_t val2 = pmio_readb(offset);
+	if (val2 != val)
+	    printf("Warning: PMIO reg 0x%02x readback (0x%02x) differs from write (0x%02x)\n", offset, val2, val);
+    }
 }
 
 uint16_t pmio_reads(uint16_t offset)
@@ -94,6 +91,14 @@ uint32_t pmio_readl(uint16_t offset)
 	val |= pmio_readb(offset + i) << (i * 8);
 
     return val;
+}
+
+void pmio_writel(uint16_t offset, uint32_t val)
+{
+    unsigned int i;
+
+    for (i = 0; i < sizeof(val); i++)
+	pmio_writeb(offset + i, val >> (i * 8));
 }
 
 void pmio_setb(uint16_t offset, uint8_t mask)
@@ -128,6 +133,12 @@ uint32_t ioh_nbmiscind_read(uint16_t node, uint8_t reg) {
 void ioh_nbmiscind_write(uint16_t node, uint8_t reg, uint32_t val) {
     dnc_write_conf(node, 0, 0, 0, 0x60, reg | 0x80);
     dnc_write_conf(node, 0, 0, 0, 0x64, val);
+
+    if (verbose > 2) {
+	uint32_t val2 = ioh_nbmiscind_read(node, reg);
+	if (val2 != val)
+	    printf("Warning: IOH NBMISCIND reg 0x%02x readback (0x%08x) differs from write (0x%08x)\n", reg, val2, val);
+    }
 }
 
 uint32_t ioh_htiu_read(uint16_t node, uint8_t reg) {
@@ -138,18 +149,35 @@ uint32_t ioh_htiu_read(uint16_t node, uint8_t reg) {
 void ioh_htiu_write(uint16_t node, uint8_t reg, uint32_t val) {
     dnc_write_conf(node, 0, 0, 0, 0x94, reg | 0x100);
     dnc_write_conf(node, 0, 0, 0, 0x98, val);
+
+    if (verbose > 2) {
+	uint32_t val2 = ioh_htiu_read(node, reg);
+	if (val2 != val)
+	    printf("Warning: IOH HTIU reg 0x%02x readback (0x%08x) differs from write (0x%08x)\n", reg, val2, val);
+    }
 }
 
-static inline void watchdog_run(unsigned int counter)
+static void watchdog_write(uint32_t val)
 {
-    *watchdog_ctl = 0x81; /* WatchDogRunStopB | WatchDogTrigger */
+    *watchdog_ctl = val;
+
+    if (verbose > 2) {
+	uint32_t val2 = *watchdog_ctl;
+	if (val2 != val)
+	    printf("Warning: Watchdog control readback (0x%08x) differs from write (0x%08x)\n", val2, val);
+    }
+}
+
+static void watchdog_run(unsigned int counter)
+{
+    watchdog_write(0x81); /* WatchDogRunStopB | WatchDogTrigger */
     *watchdog_timer = counter; /* in centiseconds */
-    *watchdog_ctl = 0x81;
+    watchdog_write(0x81);
 }
 
-static inline void watchdog_stop(void)
+static void watchdog_stop(void)
 {
-    *watchdog_ctl = 0;
+    watchdog_write(0);
 }
 
 void watchdog_setup(void)
@@ -204,6 +232,12 @@ static void _write_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg, 
     outl(val, PCI_CONF_DATA);
     sti();
     DEBUG("\n");
+
+    if (verbose > 2) {
+	uint32_t val2 = _read_config(bus, dev, func, reg);
+	if (val2 != val)
+	    printf("Warning: Config %02x:%02x.%x reg 0x%x readback (0x%08x) differs from write (0x%08x)\n", bus, dev, func, reg, val2, val);
+    }
 }
 
 uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg)
@@ -228,6 +262,12 @@ void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
     outl(val, PCI_CONF_DATA);
     sti();
     DEBUG("\n");
+
+    if (verbose > 2) {
+	uint32_t val2 = cht_read_conf(node, func, reg);
+	if (val2 != val)
+	    printf("Warning: Coherent config #%xF%xx%X readback (0x%08x) differs from write (0x%08x)\n", node, func, reg, val2, val);
+    }
 }
 
 /* Check for link instability */
@@ -303,7 +343,7 @@ uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link,
     else {
 	reboot = cht_error(neigh, neigh_link);
 	if (!reboot && ret == 0xffffffff) {
-	    printf("Warning: undetected link error (HT%d F%dx%02x read 0xffffffff)\n",
+	    printf("Warning: Undetected link error (HT%d F%dx%02x read 0xffffffff)\n",
 		   node, func, reg);
 	    reboot = 1;
 	}
@@ -363,6 +403,12 @@ void mem64_write32(uint64_t addr, uint32_t val)
     setup_fs(addr);
     asm volatile("mov %0, %%fs:(0)" :: "a"(val));
     sti();
+
+    if (verbose > 2) {
+	uint32_t val2 = mem64_read32(addr);
+	if (val2 != val)
+	    printf("Warning: 32bit mem64 0x%016llx readback (0x%08x) differs from write (0x%08x)\n", addr, val2, val);
+    }
 }
 
 uint16_t mem64_read16(uint64_t addr)
@@ -381,6 +427,12 @@ void mem64_write16(uint64_t addr, uint16_t val)
     setup_fs(addr);
     asm volatile("movw %0, %%fs:(0)" :: "a"(val));
     sti();
+
+    if (verbose > 2) {
+	uint16_t val2 = mem64_read16(addr);
+	if (val2 != val)
+	    printf("Warning: 16bit mem64 0x%016llx readback (0x%04x) differs from write (0x%04x)\n", addr, val2, val);
+    }
 }
 
 uint8_t mem64_read8(uint64_t addr)
@@ -399,6 +451,12 @@ void mem64_write8(uint64_t addr, uint8_t val)
     setup_fs(addr);
     asm volatile("movb %0, %%fs:(0)" :: "a"(val));
     sti();
+
+    if (verbose > 2) {
+	uint8_t val2 = mem64_read8(addr);
+	if (val2 != val)
+	    printf("Warning: 8bit mem64 0x%016llx readback (0x%02x) differs from write (0x%02x)\n", addr, val2, val);
+    }
 }
 
 uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
@@ -415,8 +473,13 @@ void dnc_write_csr(uint32_t node, uint16_t csr, uint32_t val)
     DEBUG("SCI%03x:csr%04x <- %08x", node, csr, val);
     mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, uint32_tbswap(val));
     DEBUG("\n");
-}
 
+    if (verbose > 2) {
+	uint32_t val2 = dnc_read_csr(node, csr);
+	if (val2 != val)
+	    printf("Warning: SCI%04x CSR 0x%04x readback (0x%08x) differs from write (0x%08x)\n", node, csr, val2, val);
+    }
+}
 
 uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr)
 {
@@ -490,4 +553,10 @@ void dnc_wrmsr(uint32_t msr, uint64_t v)
     } val;
     val.qw = v;
     asm volatile("wrmsr" :: "d"(val.dw[1]), "a"(val.dw[0]), "c"(msr));
+
+    if (verbose > 2) {
+	uint64_t v2 = dnc_rdmsr(msr);
+	if (v2 != v)
+	    printf("Warning: MSR 0x%08x readback (0x%016llx) differs from write (0x%016llx)\n", msr, v2, v);
+    }
 }
