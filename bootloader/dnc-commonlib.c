@@ -1541,7 +1541,7 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
 
 	    val = cht_read_conf(node, FUNC0_HT, 0x84 + i * 0x20);
 	    if (!(val & (1 << 15))) {
-		printf("Enabling 64bit addressing on %x#%x...\n", node, i);
+		printf("Enabling 64bit I/O addressing on %x#%x...\n", node, i);
 		cht_write_conf(node, FUNC0_HT, 0x84 + i * 0x20, val | (1 << 15));
 	    }
 	}
@@ -1572,10 +1572,10 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
 #ifdef __i386
         /* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
          * and set this value in expansion rom base address register */
-        for (node = 0; node < dnc_ht_id; node++) {
-            printf("Setting default CSR maps for node %d\n", node);
+	printf("Setting default CSR maps...\n");
+	for (node = 0; node < dnc_ht_id; node++)
             add_extd_mmio_maps(0xfff0, node, 0, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
-        }
+
         printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
         mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1<<15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
                       uint32_tbswap(DNC_CSR_BASE >> 32));
@@ -1589,8 +1589,8 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
 #endif
     }
 
+    printf("Setting CSR and MCFG maps...\n");
     for (node = 0; node < dnc_ht_id; node++) {
-        printf("Setting CSR and MCFG maps for node %d\n", node);
         add_extd_mmio_maps(0xfff0, node, 0, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
         add_extd_mmio_maps(0xfff0, node, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
     }
