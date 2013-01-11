@@ -182,7 +182,7 @@ static ptrlen_t aml_cba(const uint64_t addr)
     return ptrlen(block_start, block);
 }
 
-static void aml_resource(aml **block, uint8_t type, bool rusage, bool mintype, bool maxtype, bool decode,
+static void aml_resource(aml **block, uint8_t type, bool mintype, bool maxtype, bool decode,
 	uint16_t gran, uint16_t min, uint16_t max, uint16_t trans, uint16_t len)
 {
     aml *pkg_start = *block;
@@ -263,7 +263,7 @@ static ptrlen_t aml_pci(uint16_t node) {
        ResourceProducer, MinFixed, MaxFixed, PosDecode,
          0x0000, 0x0000, 0x00FF, 0x0000, 0x0100)}) */
     aml_name(&block, "_CRS");
-    aml_resource(&block, TypeBus, ResourceProducer, Fixed, Fixed, PosDecode,
+    aml_resource(&block, TypeBus, Fixed, Fixed, PosDecode,
 	0x0000, 0x0000, 0x00ff, 0x0000, 0x0100);
 
     uint64_t addr = 0x3f0000000000 | ((uint64_t)node << 32);
