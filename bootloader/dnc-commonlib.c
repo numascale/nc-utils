@@ -31,6 +31,7 @@
 
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
+IMPORT_RELOCATED(msr_readback);
 
 char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
@@ -1127,34 +1128,38 @@ static void disable_probefilter(const int nodes)
     printf("done\n");
 }
 
-void wake_local_cores(const int vector)
+void wake_core(const int apicid, const int vector)
 {
     uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
     volatile uint32_t *const apic = (void *const)((uint32_t)val & ~0xfff);
     volatile uint32_t *const icr = &apic[0x300/4];
 
-    for (int core = 1; post_apic_mapping[core] != 255; core++) {
-	/* Deliver initialize IPI */
-	apic[0x310/4] = post_apic_mapping[core] << 24;
-	*icr = 0x00004500;
+    /* Deliver initialize IPI */
+    apic[0x310/4] = apicid << 24;
+    *icr = 0x00004500;
 
-	while (*icr & (1 << 12))
-	    cpu_relax();
+    while (*icr & (1 << 12))
+	cpu_relax();
 
-	*REL32(cpu_status) = vector;
+    *REL32(cpu_status) = vector;
 
-	/* Deliver startup IPI */
-	apic[0x310/4] = post_apic_mapping[core] << 24;
-	assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
-	*icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
+    /* Deliver startup IPI */
+    apic[0x310/4] = apicid << 24;
+    assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
+    *icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
 
-	while (*icr & 0x1000)
-	    cpu_relax();
+    while (*icr & 0x1000)
+	cpu_relax();
 
-	/* Wait until execution completed */
-	while (*REL32(cpu_status))
-	    cpu_relax();
-    }
+    /* Wait until execution completed */
+    while (*REL32(cpu_status))
+	cpu_relax();
+}
+
+static void wake_cores_early(const int vector)
+{
+    for (int i = 1; post_apic_mapping[i] != 255; i++)
+	wake_core(post_apic_mapping[i], vector);
 }
 
 void enable_probefilter(const int nodes)
@@ -1208,9 +1213,9 @@ void enable_probefilter(const int nodes)
     dnc_wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
 
     if (family >= 0x15)
-	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f15);
+	wake_cores_early(VECTOR_PROBEFILTER_EARLY_f15);
     else
-	wake_local_cores(VECTOR_PROBEFILTER_EARLY_f10);
+	wake_cores_early(VECTOR_PROBEFILTER_EARLY_f10);
 
     /* 6. Set F3x1C4[L3TagInit]=1 */
     for (i = 0; i <= nodes; i++) {
@@ -1243,7 +1248,7 @@ void enable_probefilter(const int nodes)
     /* 8.  Enable all cache activity in the system by clearing
        CR0.CD for all active cores in the system */
     enable_cache();
-    wake_local_cores(VECTOR_ENABLE_CACHE);
+    wake_cores_early(VECTOR_ENABLE_CACHE);
 
     critical_leave();
 
@@ -2104,31 +2109,60 @@ pll_err_out:
     return res;
 }
 
-struct msr_range {
-    uint32_t start, end;
+/* List of the documented MSRs in the fam10h BKDG */
+/* MSRs which cause hanging when read are commented with 'H' */
+static const uint32_t msrs_f10[] = {
+    0x00000000, 0x00000001, 0x00000010, 0x0000001b, 0x0000002a, 0x0000008b, /* H 0x000000e7, H 0x000000e8,*/
+    0x000000fe, 0x00000174, 0x00000175, 0x00000176, 0x00000179, 0x0000017a, 0x0000017b, 0x000001d9,
+    0x000001db, 0x000001dc, 0x000001dd, 0x000001de, 0x00000200, 0x00000201, 0x00000202, 0x00000203,
+    0x00000204, 0x00000205, 0x00000206, 0x00000207, 0x00000208, 0x00000209, 0x0000020a, 0x0000020b,
+    0x0000020c, 0x0000020d, 0x0000020e, 0x0000020f, 0x00000250, 0x00000258, 0x00000259, 0x00000268,
+    0x00000269, 0x0000026a, 0x0000026b, 0x0000026c, 0x0000026d, 0x0000026e, 0x0000026f, 0x00000277,
+    0x000002ff, 0x00000400, 0x00000401, 0x00000402, 0x00000403, 0x00000404, 0x00000405, 0x00000406,
+    0x00000407, 0x00000408, 0x00000409, 0x0000040a, 0x0000040b, 0x0000040c, 0x0000040d, 0x0000040e,
+    0x0000040f, 0x00000410, 0x00000411, 0x00000412, 0x00000413, 0x00000414, 0x00000415, 0x00000416,
+    0x00000417, 0xc0000080, 0xc0000081, 0xc0000082, 0xc0000083, 0xc0000084, 0xc0000100, 0xc0000101,
+    0xc0000102, 0xc0000103, 0xc0000408, 0xc0000409, 0xc000040a, 0xc000040b, 0xc000040c, 0xc000040d,
+    0xc000040e, 0xc000040f, 0xc0010000, 0xc0010001, 0xc0010002, 0xc0010003, 0xc0010004, 0xc0010005,
+    0xc0010006, 0xc0010007, 0xc0010010, 0xc0010015, 0xc0010016, 0xc0010017, 0xc0010018, 0xc0010019,
+    0xc001001a, 0xc001001d, 0xc001001f, /* H 0xc0010020,*/ 0xc0010022, 0xc0010030, 0xc0010031, 0xc0010032,
+    0xc0010033, 0xc0010034, 0xc0010035, 0xc001003e, 0xc0010044, 0xc0010045, 0xc0010046, 0xc0010047,
+    0xc0010048, 0xc0010049, 0xc0010050, 0xc0010051, 0xc0010052, 0xc0010053, 0xc0010054, 0xc0010055,
+    0xc0010056, 0xc0010058, 0xc0010059, 0xc001005a, 0xc001005b, 0xc001005c, 0xc001005d, 0xc0010060,
+    0xc0010061, 0xc0010062, 0xc0010063, 0xc0010064, 0xc0010065, 0xc0010066, 0xc0010067, 0xc0010068,
+    0xc0010070, 0xc0010071, /* H 0xc0010072, H 0xc0010073,*/ 0xc0010074, 0xc0010111, 0xc0010112, 0xc0010113,
+    0xc0010114, 0xc0010115, /* H 0xc0010116,*/ 0xc0010117, 0xc0010118, 0xc0010119, 0xc001011a, 0xc0010140,
+    0xc0010141, 0xc0011004, 0xc0011005, 0xc001100c, 0xc0011021, 0xc0011022, 0xc0011023, 0xc0011029,
+    0xc001102a, 0xc0011030, 0xc0011031, 0xc0011032, 0xc0011033, 0xc0011034, 0xc0011035, 0xc0011036,
+    0xc0011037, 0xc0011038, 0xc0011039, 0xc001103a,
 };
 
-static const struct msr_range msr_ranges[] = {
-    {0x00000174, 0x00000176}, {0x00000179, 0x0000017b}, {0x000001db, 0x000001de}, {0x00000200, 0x0000020f},
-    {0x0000026a, 0x0000026f}, {0x00000400, 0x00000417}, {0xc0000080, 0xc0000084}, {0xc0000100, 0xc0000103},
-    {0xc0000408, 0xc000040f}, {0xc0010000, 0xc0010007}, {0xc0010015, 0xc001001a}, {0xc0010030, 0xc0010035},
-    {0xc0010044, 0xc0010049}, {0xc0010050, 0xc0010056}, {0xc0010058, 0xc001005d}, {0xc0010060, 0xc0010068},
-    {0xc0010111, 0xc0010115}, {0xc0010117, 0xc001011a}, {0xc0011021, 0xc0011023}, {0xc0011030, 0xc001103a},
-    {0xffffffff, 0xffffffff},
+static const uint32_t msrs_f15[] = {
+    0x00000000,
 };
 
-static const uint32_t msrs[] = {
-    0x00000000, 0x00000001, 0x00000010, 0x0000001b, 0x0000002a, 0x0000008b, 0x000000fe, 0x000001d9,
-    0x00000250, 0x00000258, 0x00000259, 0x00000268, 0x00000269, 0x00000277, 0x000002ff, 0xc001001d,
-    0xc001001f, 0xc0010022, 0xc001003e, 0xc0010070, 0xc0010071, 0xc0010074, 0xc0010140, 0xc0010141,
-    0xc0011004, 0xc0011005, 0xc001100c, 0xc0011029, 0xc001102a, 0xffffffff,
-};
+static uint32_t get_msr(unsigned int index)
+{
+    const unsigned int f10_size = sizeof(msrs_f10) / sizeof(msrs_f10[0]);
 
-/* MSRs that cause hanging on fam10h: 0x000000e7 0x000000e8 0xc0010020 0xc0010072 0xc0010073 0xc001116 */
+    if (index < f10_size)
+	return msrs_f10[index];
+
+    if (family < 0x15)
+	return 0xffffffff;
+
+    const unsigned int f15_offset = index - f10_size;
+
+    if (f15_offset < (sizeof(msrs_f15) / sizeof(msrs_f15[0])))
+	return msrs_f15[f15_offset];
+
+    return 0xffffffff;
+}
 
 static void dump_northbridge_regs(int ht_id)
 {
-    int ht, func, offset;
+    int ht, func;
+    unsigned int offset;
 
     printf("Dumping AMD Northbridge registers...\n");
     for (ht = 0; ht < ht_id; ht++)
@@ -2144,18 +2178,49 @@ static void dump_northbridge_regs(int ht_id)
 	}
 
     printf("Dumping MSRs...\n");
-    for (offset = 0; msrs[offset] != 0xffffffff; offset++) {
-	printf("MSR 0x%08x: ", msrs[offset]);
-	printf("%016" PRIx64 "\n", dnc_rdmsr(msrs[offset]));
-    }
+    uint32_t msr;
+    for (offset = 0; (msr = get_msr(offset)) != 0xffffffff; offset++)
+	printf("MSR 0x%08x: %016" PRIx64 "\n", msr, dnc_rdmsr(msr));
+}
 
-    for (offset = 0; msr_ranges[offset].start != 0xffffffff; offset++) {
-	uint32_t cur;
+void selftest_late(void)
+{
+    unsigned int offset;
+    uint32_t msr;
 
-	for (cur = msr_ranges[offset].start; cur < msr_ranges[offset].end; cur++) {
-	    printf("MSR 0x%08x: ", cur);
-	    printf("%016" PRIx64 "\n", dnc_rdmsr(cur));
+    printf("Checking MSRs for consistency...\n");
+    for (offset = 0; (msr = get_msr(offset)) != 0xffffffff; offset++) {
+	bool printed = false;
+	uint64_t val0 = dnc_rdmsr(msr);
+
+	for (int node = 0; node < dnc_node_count; node++) {
+	    for (int ht = 0; ht < 8; ht++) {
+		for (int i = 0; i < nc_node[node].ht[ht].cores; i++) {
+		    if (!nc_node[node].ht[ht].cpuid)
+			continue;
+
+		    uint32_t oldid = nc_node[node].ht[ht].apic_base + i;
+		    if ((ht == 0) && (i == 0))
+			continue; /* Skip BSP */
+
+		    uint32_t apicid = nc_node[node].apic_offset + oldid;
+		    *REL32(msr_readback) = msr;
+		    wake_core(apicid, VECTOR_READBACK_MSR);
+
+		    if (*REL64(msr_readback) != val0) {
+			if (!printed) {
+			    printf("MSR 0x%08x should be %016llx:", msr, val0);
+			    printed = true;
+			}
+
+			printf(" %d:%016llx", apicid, *REL64(msr_readback));
+		    }
+		}
+	    }
 	}
+
+	if (printed)
+	    printf("\n");
     }
 }
 
