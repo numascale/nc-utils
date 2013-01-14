@@ -2615,24 +2615,6 @@ static void constants(void)
     printf("NB/TSC frequency is %dMHz\n", tsc_mhz);
 }
 
-static void selftest_late(void)
-{
-    /* Test disabled due to remote PCI access hanging */
-#ifdef BROKEN
-    int node, ht;
-
-    for (node = 0; node < dnc_node_count; node++) {
-	for (ht = 0; ht < 8; ht++) {
-	    if (!nc_node[node].ht[ht].cpuid)
-		continue;
-	    uint16_t sci = nc_node[node].sci_id;
-
-	    printf("SCI%03x PCI 1:0.0 ven/dev ID 0x%08x\n", sci, dnc_read_conf(sci, 1, 0, 0, 0));
-	}
-    }
-#endif
-}
-
 static int nc_start(void)
 {
     uint32_t uuid;
@@ -2758,9 +2740,6 @@ static int nc_start(void)
 	if (remote_io > 1)
 	    setup_mmio_late();
 
-	if (verbose)
-	    selftest_late();
-
 	/* If Linux can't handover ACPI, we can */
 	if (handover_acpi)
 	    stop_acpi();
@@ -2768,6 +2747,9 @@ static int nc_start(void)
 	/* Release resources to reduce allocator fragmentation */
 	free(cfg_nodelist);
 	free(cfg_partlist);
+
+	if (verbose)
+	    selftest_late();
 
 	start_user_os();
     } else {

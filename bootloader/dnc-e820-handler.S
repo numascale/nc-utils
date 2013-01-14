@@ -45,6 +45,8 @@ EXPORT(init_dispatch)
 	je	init_probefilter_early_f15
 	cmpl	$VECTOR_ENABLE_CACHE, %edx
 	je	init_enable_cache
+	cmpl	$VECTOR_READBACK_MSR, %edx
+	je	init_readback_msr
 1:
 	cli
 	hlt
@@ -312,6 +314,18 @@ init_enable_cache:
 	hlt
 	jmp	1b
 
+init_readback_msr:
+	mov	%cs:SYM_OFFSET(msr_readback), %ecx
+	rdmsr
+	mov	%eax, %cs:SYM_OFFSET(msr_readback)
+	mov	%edx, %cs:SYM_OFFSET(msr_readback+4)
+
+	STATUS(0)
+1:
+	cli
+	hlt
+	jmp	1b
+
 	.align 16
 EXPORT(cpu_status)
 	.long 0
@@ -362,6 +376,8 @@ EXPORT(new_hwcr_msr)
 EXPORT(new_int_halt_msr)
 	.long 0, 0
 #endif
+EXPORT(msr_readback)
+	.long 0, 0
 EXPORT(new_lscfg_msr)
 	.long 0, 0
 EXPORT(new_cucfg2_msr)
