@@ -1171,7 +1171,7 @@ void enable_probefilter(const int nodes)
 	return;
     }
 
-    printf("Enabling probe filter...(%d)", nodes);
+    printf("Enabling probe filter...");
 
     /* 1. Disable the L3 and DRAM scrubbers on all nodes in the system:
        - F3x58[L3Scrub]=00h
