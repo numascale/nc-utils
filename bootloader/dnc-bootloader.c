@@ -1398,13 +1398,14 @@ static void setup_remote_cores(uint16_t num)
 
 	    dram_range(node, i, map_index - 1, cur_node->addr_end, nc_node[dnc_node_count-1].addr_end - 1, ht_id, true);
         }
+	map_index++;
     }
 
     if (verbose > 0) {
 	for (i = 0; i < 8; i++) {
 	    if (!cur_node->ht[i].cpuid)
 		continue;
-	    for (j = 0; j < 8; j++) {
+	    for (j = 0; j < map_index; j++) {
 		printf("SCI%03x#%d DRAM map %d: baseL 0x%08x, baseH 0x%08x, limitL 0x%08x limitH 0x%08x\n",
 		       node, i, j,
 		       dnc_read_conf(node, 0, 24+i, FUNC1_MAPS, 0x40 + j*8),
