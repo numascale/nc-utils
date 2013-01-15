@@ -107,6 +107,12 @@ extern uint8_t smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
+static void set_cf8extcfg_disable(void)
+{
+    uint64_t val = dnc_rdmsr(MSR_NB_CFG);
+    dnc_wrmsr(MSR_NB_CFG, val & ~(1ULL << 46));
+}
+
 static void set_cf8extcfg_enable(void)
 {
     uint64_t val = dnc_rdmsr(MSR_NB_CFG);
@@ -2519,8 +2525,9 @@ static void start_user_os(void)
 {
     static com32sys_t rm;
 
-    /* We're done with our 64-bit accesses, enable 32-bit address wrapping again */
+    /* Restore 32-bit only access and non-extended PCI config access */
     set_wrap32_enable();
+    set_cf8extcfg_disable();
 
     strcpy(__com32.cs_bounce, next_label);
     rm.eax.w[0] = 0x0003;
@@ -2740,8 +2747,14 @@ static int nc_start(void)
 	free(cfg_nodelist);
 	free(cfg_partlist);
 
-	if (verbose)
+	if (verbose) {
+	    /* Do this ahead of the self-test to prevent false positives */
+	    /* Restore 32-bit only access and non-extended PCI config access */
+	    set_wrap32_enable();
+	    set_cf8extcfg_disable();
+
 	    selftest_late();
+	}
 
 	start_user_os();
     } else {
@@ -2779,8 +2792,11 @@ static int nc_start(void)
 
 	/* Let master know we're ready for remapping/integration */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1<<31));
-	/* We're done with our 64-bit accesses, enable 32-bit address wrapping again */
+
+	/* Restore 32-bit only access and non-extended PCI config access */
 	set_wrap32_enable();
+	set_cf8extcfg_disable();
+
 	while (1) {
 	    cli();
 	    asm volatile("hlt" ::: "memory");
@@ -2808,8 +2824,9 @@ int main(void)
 	wait_key();
     }
 
-    /* We're done with our 64-bit accesses, enable 32-bit address wrapping again */
+    /* Restore 32-bit only access and non-extended PCI config access */
     set_wrap32_enable();
+    set_cf8extcfg_disable();
     
     return ret;
 }
