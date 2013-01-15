@@ -1221,6 +1221,16 @@ static void renumber_remote_bsp(uint16_t num)
     nc_node[num].nc_ht_id = 0;
 }
 
+static void dram_range(uint16_t node, int ht, int range, uint64_t base, uint64_t limit, int dest, bool en)
+{
+	assert(range < 8);
+
+	dnc_write_conf(node, 0, 24+ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
+	dnc_write_conf(node, 0, 24+ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
+	dnc_write_conf(node, 0, 24+ht, FUNC1_MAPS, 0x140 + range * 8, base >> (40 - DRAM_MAP_SHIFT));
+	dnc_write_conf(node, 0, 24+ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | (en ? 3 : 0));
+}
+
 static void setup_remote_cores(uint16_t num)
 {
     uint8_t i, map_index;
@@ -1321,22 +1331,14 @@ static void setup_remote_cores(uint16_t num)
 	if (!cur_node->ht[i].cpuid)
 	    continue;
         /* Clear all entries */
-        for (j = 0; j < 8; j++) {
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x40 + j*8, 0);
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x44 + j*8, 0);
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x140 + j*8, 0);
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x144 + j*8, 0);
-        }
+        for (j = 0; j < 8; j++)
+	    dram_range(node, i, j, 0, 0, 0, false);
+
 	/* Clear DRAM Hole */
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0xf0,  0);
 	
         /* Re-direct everything below our first local address to NumaChip */
-        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x144, 0);
-        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x44,
-                       ((cur_node->ht[0].base - 1) << 16) | ht_id);
-        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x140, 0);
-        dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x40,
-                       (nc_node[0].ht[0].base << 16) | 3);
+	dram_range(node, i, 0, nc_node[0].ht[0].base, cur_node->ht[0].base - 1, ht_id, true);
     }
 
     /* Reprogram HT node "self" ranges */
@@ -1344,10 +1346,12 @@ static void setup_remote_cores(uint16_t num)
     for (i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
+
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x120,
                        cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
         dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x124,
                        (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT));
+
 	val = dnc_read_conf(node, 0, 24+i, FUNC2_DRAM, 0x110);
 	if (val & 1) {
 	    /* Reprogram DCT base/offset values */
@@ -1366,18 +1370,14 @@ static void setup_remote_cores(uint16_t num)
     for (map_index = 0, i = 0; i < 8; i++) {
 	if (!cur_node->ht[i].cpuid)
 	    continue;
+
 	for (j = 0; j < 8; j++) {
 	    if (!cur_node->ht[j].cpuid)
 		continue;
-            dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x14c + map_index*8,
-                           (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (40 - DRAM_MAP_SHIFT));
-            dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x4c + map_index*8,
-                           ((cur_node->ht[i].base + cur_node->ht[i].size - 1) << 16) | i);
-            dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x148 + map_index*8,
-                           cur_node->ht[i].base >> (40 - DRAM_MAP_SHIFT));
-            dnc_write_conf(node, 0, 24+j, FUNC1_MAPS, 0x48 + map_index*8,
-                           (cur_node->ht[i].base << 16) | 3);
+
+	    dram_range(node, j, map_index + 1, cur_node->ht[i].base, cur_node->ht[i].base + cur_node->ht[i].size - 1, i, true);
         }
+
         dnc_write_conf(node, 0, 24+ht_id, FUNC1_MAPS, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX,
                        map_index);
         dnc_write_conf(node, 0, 24+ht_id, FUNC1_MAPS, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
@@ -1395,14 +1395,8 @@ static void setup_remote_cores(uint16_t num)
 	for (i = 0; i < 8; i++) {
 	    if (!cur_node->ht[i].cpuid)
 		continue;
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x4c + map_index*8,
-                           (nc_node[dnc_node_count-1].addr_end - 1) >> (40 - DRAM_MAP_SHIFT));
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x4c + map_index*8,
-                           ((nc_node[dnc_node_count-1].addr_end - 1) << 16) | ht_id);
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x148 + map_index*8,
-                           cur_node->addr_end >> (40 - DRAM_MAP_SHIFT));
-            dnc_write_conf(node, 0, 24+i, FUNC1_MAPS, 0x48 + map_index*8,
-                           (cur_node->addr_end << 16) | 3);
+
+	    dram_range(node, i, map_index - 1, cur_node->addr_end, nc_node[dnc_node_count-1].addr_end - 1, ht_id, true);
         }
     }
 
