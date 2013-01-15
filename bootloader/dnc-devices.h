@@ -91,8 +91,6 @@ struct devspec {
     void (*handler)(int, int, int);
 };
 
-void disable_vga(void);
-void enable_vga(void);
 void stop_acpi(void);
 void disable_dma_all(void);
 void handover_legacy(void);
