@@ -174,7 +174,7 @@ init_trampoline:
 	mov	$MSR_LSCFG, %ecx
 	wrmsr
 
-        /* SET CUCFG2 MSR */
+        /* Set CUCFG2 MSR */
 	mov	%cs:SYM_OFFSET(new_cucfg2_msr), %eax
 	mov	%cs:SYM_OFFSET(new_cucfg2_msr+4), %edx
 	mov	$MSR_CU_CFG2, %ecx
