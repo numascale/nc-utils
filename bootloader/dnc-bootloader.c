@@ -1389,14 +1389,11 @@ static void setup_remote_cores(uint16_t num)
 
     /* Re-direct everything above our last local DRAM address (if any) to NumaChip */
     if (num != dnc_node_count-1) {
-	if (map_index > 6)
-	    printf("Error: Too many DRAM maps on SCI%03x, cannot fit last overflow map\n", node);
-
 	for (i = 0; i < 8; i++) {
 	    if (!cur_node->ht[i].cpuid)
 		continue;
 
-	    dram_range(node, i, map_index - 1, cur_node->addr_end, nc_node[dnc_node_count-1].addr_end - 1, ht_id, true);
+	    dram_range(node, i, map_index + 1, cur_node->addr_end, nc_node[dnc_node_count-1].addr_end - 1, ht_id, true);
         }
 	map_index++;
     }
