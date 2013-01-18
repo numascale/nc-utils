@@ -1202,11 +1202,11 @@ static void renumber_remote_bsp(uint16_t num)
 		dnc_write_conf(node, 0, 24 + i, FUNC0_HT, 0x68, (val & ~0x40f) | (1 << 15));
 	}
 
-	val = dnc_read_conf(node, 0, 24 + 0, 0, H2S_CSR_F0_CHTX_NODE_ID);
-	printf("done\n");
 	memcpy(&nc_node[num].ht[maxnode], &nc_node[num].ht[0], sizeof(ht_node_info_t));
 	nc_node[num].ht[0].cpuid = 0;
 	nc_node[num].nc_ht_id = 0;
+
+	printf("done\n");
 }
 
 static void dram_range(uint16_t node, int ht, int range, uint64_t base, uint64_t limit, int dest, bool en)
@@ -1440,6 +1440,17 @@ static void setup_remote_cores(uint16_t num)
 	printf("SCI%03x/NGCM1: %x\n", node, dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT));
 	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->addr_base);
 	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->addr_end);
+
+	/* Rewrite the correct Global CSR and MMCFG maps when the HT numbering has changed */
+	if (renumber_bsp) {
+		for (i = 0; i < 8; i++) {
+			if (!cur_node->ht[i].cpuid)
+				continue;
+			add_extd_mmio_maps(node, i, 0, DNC_CSR_BASE, DNC_CSR_LIM, ht_id);
+			add_extd_mmio_maps(node, i, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, ht_id);
+		}
+	}
+
 	/* "Wraparound" entry, lets APIC 0xff00 - 0xffff target 0x0 to 0xff on destination node */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x0000002f);
 	i = dnc_read_csr(0xfff0, H2S_CSR_G3_APIC_MAP_SHIFT) + 1;
