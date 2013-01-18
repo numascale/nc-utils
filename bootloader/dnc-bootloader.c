@@ -1148,17 +1148,6 @@ static void renumber_remote_bsp(uint16_t num)
 				dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x84 + 8 * j, val | maxnode);
 		}
 
-		if (family == 0x10) {
-			/* Fam10h Extended MMIO address maps */
-			for (j = 0; j < 16; j++) {
-				dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x110, (2 << 28) | j);
-				val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x114);
-
-				if ((val & 7) == 0)
-					dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x114, val | maxnode);
-			}
-		}
-
 		/* Update IO maps */
 		for (j = 0; j < 4; j++) {
 			val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xc4 + 8 * j);
