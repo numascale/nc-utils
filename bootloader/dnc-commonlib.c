@@ -488,7 +488,7 @@ int dnc_init_caches(void)
 
 			if (!cdata) {
 				max_mem_per_node = (1U << (5 + dimms[0].mem_size)) - (1U << (2 + dimms[1].mem_size));
-				printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
+				printf("%dGB MCTag, %dGB Remote Cache, %3dGB Max Coherent Local Memory\n",
 				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_node);
 				max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
 			}
@@ -2703,7 +2703,9 @@ static enum node_state setup_fabric(struct node_info *info)
 	memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
 	memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
 	memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
+#ifdef UNUSED
 	printf("Using %s path routing\n", cfg_fabric.strict ? "shortest" : "unoptimised");
+#endif
 
 	if (cfg_fabric.x_size > 0)
 		_add_route(info->sciid, 0, 1); /* Self route via LC3XA */
@@ -2734,16 +2736,16 @@ static enum node_state setup_fabric(struct node_info *info)
 
 		out = dim * 2 + 1;
 		out += ((src ^ dst) & 0x1); /* Load balance pairs */
-#ifdef UNUSED
 
+#ifdef UNUSED
 		if (cfg_fabric.strict)
 			/* SCI IDs correspond to position on the rings */
 			out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
 		else
 			/* SCI IDs may not correspond; load-balance route */
 			out += src & 1;
-
 #endif
+
 		printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
 		       info->sciid, cfg_nodelist[i].sciid, dim, out);
 		_add_route(cfg_nodelist[i].sciid, 0, out);
