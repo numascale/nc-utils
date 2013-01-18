@@ -34,9 +34,12 @@ The Numascale NumaConnect bootloader coding style requirements are:
 
 4. Where comments are not complete sentences, omit punctuation, using capitalised
 C-style annotation, eg:
-/*  */
+/* Blah */
 
-5. Comments should add something implicit, unobvious or side-effect and not
+and not:
+// blah
+
+5. Comments document implicit, unobvious or side-effect behaviour and not
 include what is printed or clear, eg:
 /* Disable cacheability to avoid race in HT fabric resizing */
 dnc_write_conf(...)
@@ -45,22 +48,20 @@ and not:
 /* Clear bit 1 in CacheDis */
 dnc_write_conf(...)
 
-or:
-// Clear bit 1 in CacheDis
-
 6. Use exactly one space between functions
 
 7. Use strict Linux kernel coding style
 
-8. Use 4-space indents and tabs for 8 spaces
+8. Use only tabs for indentation
 
 9. Use the assert() macro to code defensibly, catching conditions which are
    expected to never fail
 
-10. Use captilised error messages starting "Error: " to describe configuration
+10. Use capitalised error messages starting "Error: " to describe configuration
 or otherwise issues which may fail, eg:
 Error: Tag 'UUID' not found in fabric.json configuration file
 
 11. Perform a full rebuild and address all compiler warnings before committing
 code; the only exception is for work-in-progress which may leave unused
 parameter/function warnings
+
