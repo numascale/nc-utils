@@ -227,6 +227,20 @@ out1:
 	return 0;
 }
 
+static const char *json_errors[] = {
+	"Unknown",
+	"Success",
+	"Incomplete",
+	"Extra characters at end",
+	"Structural errors detected",
+	"Incorrect type detected",
+	"Out of memory",
+	"Unexpected character detected",
+	"Malformed tree structure",
+	"Maximum allowed size exceeded",
+	"Unclassified problem",
+};
+
 int parse_config_file(char *data)
 {
 	json_t *root = NULL;
@@ -237,11 +251,8 @@ int parse_config_file(char *data)
 		printf("Fabric configuration file:\n%s", data);
 
 	err = json_parse_document(&root, data);
-
-	if (err != JSON_OK) {
-		printf("Error: Failed to parse fabric configuration (reason %d)\n", err);
-		return 0;
-	}
+	if (err != JSON_OK)
+		fatal("%s when parsing fabric configuration\n", json_errors[err]);
 
 	if (!parse_json(root)) {
 		printf("Error: Parsing fabric configuration root failed\n");
