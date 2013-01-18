@@ -2315,7 +2315,8 @@ static int unify_all_nodes(void)
 			if (!model_first)
 				model_first = model;
 			else if (model != model_first) {
-				printf("Error: Processor model 0x%08x at SCI%03x#%d is different than SCI%03x#0 processor model 0x%08x; please install matching processors\n", model, nc_node[node].sci_id, i, nc_node[0].sci_id, model_first);
+				printf("Error: SCI%03x (%s) has varying processor models 0x%08x and 0x%08x\n",
+					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id), model_first, model);
 				abort = 1;
 			}
 
@@ -2323,8 +2324,8 @@ static int unify_all_nodes(void)
 				uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24 + i, FUNC2_DRAM, 0x118);
 
 				if (val & (1 << 19)) {
-					printf("Error: DRAM configuration is locked on SCI%03x#%d; please disable CState C6 in BIOS\n",
-					       nc_node[node].sci_id, i);
+					printf("Error: SCI%03x (%s) has CState C6 enabled in the BIOS\n",
+					       nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
 					abort = 1;
 				}
 			}
