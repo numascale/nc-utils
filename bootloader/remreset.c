@@ -40,79 +40,71 @@ int verbose = 0;
 
 unsigned char msleep(unsigned int msec)
 {
-    unsigned long micro = 1000*msec;
-
-    inreg.eax.b[1] = 0x86;
-    inreg.ecx.w[0] = (micro >> 16);
-    inreg.edx.w[0] = (micro & 0xFFFF);
-    __intcall(0x15, &inreg, &outreg);
-    return outreg.eax.b[1];
+	unsigned long micro = 1000 * msec;
+	inreg.eax.b[1] = 0x86;
+	inreg.ecx.w[0] = (micro >> 16);
+	inreg.edx.w[0] = (micro & 0xFFFF);
+	__intcall(0x15, &inreg, &outreg);
+	return outreg.eax.b[1];
 }
 
 void add_extd_mmio_maps(int node, int idx, uint64_t start, uint64_t end, int dest)
 {
-    uint32_t val;
-    uint64_t mask;
+	uint32_t val;
+	uint64_t mask;
+	mask = 0;
+	start = start >> 27;
+	end   = end >> 27;
 
-    mask = 0;
-    start = start >> 27;
-    end   = end >> 27;
-    while ((start | mask) != (end | mask))
-        mask = (mask << 1) | 1;
+	while ((start | mask) != (end | mask))
+		mask = (mask << 1) | 1;
 
-    /* CHtExtAddrEn */
-    val	= cht_read_conf(node, FUNC0_HT, 0x68);
-    cht_write_conf(node, FUNC0_HT, 0x68, val | (1<<25));
+	/* CHtExtAddrEn */
+	val	= cht_read_conf(node, FUNC0_HT, 0x68);
+	cht_write_conf(node, FUNC0_HT, 0x68, val | (1 << 25));
 
-    /* Set ExtMmioMapAddSel granularity to 128M */
-    val	= cht_read_conf(node,  FUNC0_HT, 0x168);
-    cht_write_conf(node, FUNC0_HT, 0x168, (val & ~0x300) | 0x200);
+	/* Set ExtMmioMapAddSel granularity to 128M */
+	val	= cht_read_conf(node,  FUNC0_HT, 0x168);
+	cht_write_conf(node, FUNC0_HT, 0x168, (val & ~0x300) | 0x200);
 
-    /* Direct FF00_0000_0000 - FFFF_FFFF_FFFF towards DNC node */
-    cht_write_conf(node, FUNC1_MAPS, 0x110, (2 << 28) | idx);
-    cht_write_conf(node, FUNC1_MAPS, 0x114, (start << 8) | dest);
-    cht_write_conf(node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
-    cht_write_conf(node, FUNC1_MAPS, 0x114, (mask << 8) | 1);
+	/* Direct FF00_0000_0000 - FFFF_FFFF_FFFF towards DNC node */
+	cht_write_conf(node, FUNC1_MAPS, 0x110, (2 << 28) | idx);
+	cht_write_conf(node, FUNC1_MAPS, 0x114, (start << 8) | dest);
+	cht_write_conf(node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
+	cht_write_conf(node, FUNC1_MAPS, 0x114, (mask << 8) | 1);
 }
 
 void reset_remote(uint32_t node)
 {
-    uint8_t portcf9;
+	uint8_t portcf9;
+	/* Direct 08fd_fc00_0000 to node 0x008 00fd_fc00_0000 for remote PCI I/O */
+	add_extd_mmio_maps(0, 1, 0x08fdfc000000ULL, 0x08fdfc000000ULL,
+	                   dnc_ht_node);
+	add_extd_mmio_maps(1, 1, 0x08fdfc000000ULL, 0x08fdfc000000ULL,
+	                   dnc_ht_node);
 
-    /* Direct 08fd_fc00_0000 to node 0x008 00fd_fc00_0000 for remote PCI I/O */
-    add_extd_mmio_maps(0, 1, 0x08fdfc000000ULL, 0x08fdfc000000ULL,
-		       dnc_ht_node);
-    add_extd_mmio_maps(1, 1, 0x08fdfc000000ULL, 0x08fdfc000000ULL,
-		       dnc_ht_node);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 0xa00008fd);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, 0x00000008);
 
-    dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 0xa00008fd);
-    dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, 0x00000008);
+	dnc_write_conf(node, 0, 24 + 2, 1, H2S_CSR_F1_RESOURCE_MAPPING_CAPABILITY_HEADER, 0x4c020008);
+	dnc_write_conf(node, 0, 24 + 2, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 7);
+	dnc_write_conf(node, 0, 24 + 2, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS, (0x08fdfc000000 >> 27 << 8) | 0xc0000000);
+	dnc_write_conf(node, 0, 24 + 2, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS, (0x000000ffffff >> 27 << 8) | 1);
 
-    dnc_write_conf(node, 0, 24+2, 1, H2S_CSR_F1_RESOURCE_MAPPING_CAPABILITY_HEADER,
-		   0x4c020008);
-    dnc_write_conf(node, 0, 24+2, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX,
-		   7);
-    dnc_write_conf(node, 0, 24+2, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS,
-		   (0x08fdfc000000 >> 27 << 8) | 0xc0000000);
-    dnc_write_conf(node, 0, 24+2, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS,
-		   (0x000000ffffff >> 27 << 8) | 1);     
+	printf("Resetting node %x in 5 seconds...\n", node);
+	msleep(5000);
 
-    printf("Resetting node %x in 5 seconds...\n", node);
-    msleep(5000);
-
-    portcf9 = mem64_read8(0x08fdfc000cf9);
-    printf("Node %x port cf9: %x\n", node, portcf9);
-    mem64_write8(0x08fdfc000cf9, 0xa);
-    mem64_write8(0x08fdfc000cf9, 0xe);
+	portcf9 = mem64_read8(0x08fdfc000cf9);
+	printf("Node %x port cf9: %x\n", node, portcf9);
+	mem64_write8(0x08fdfc000cf9, 0xa);
+	mem64_write8(0x08fdfc000cf9, 0xe);
 }
 
 int main(void)
 {
-    uint32_t val;
-    openconsole(&dev_rawcon_r, &dev_stdcon_w);
-
-    val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
-    reset_remote((val >> 16) ^ 0x000c);
-
-    return -1;
+	uint32_t val;
+	openconsole(&dev_rawcon_r, &dev_stdcon_w);
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
+	reset_remote((val >> 16) ^ 0x000c);
+	return -1;
 }

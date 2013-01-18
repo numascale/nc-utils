@@ -32,7 +32,7 @@ EXPORT(init_dispatch)
 	cli
 
 	mov	%cs, %ax
-	add	$SYM_OFFSET(stack_start)/16, %ax
+	add	$SYM_OFFSET(stack_start) / 16, %ax
 	mov	%ax, %ss
 	mov	$(stack_end - stack_start), %sp
 
@@ -74,7 +74,7 @@ init_trampoline:
 
 	/* Set default memory type */
 	mov	%cs:SYM_OFFSET(new_mtrr_default), %eax
-	mov	%cs:SYM_OFFSET(new_mtrr_default+4), %edx
+	mov	%cs:SYM_OFFSET(new_mtrr_default + 4), %edx
 	mov	$MSR_MTRR_DEFAULT, %ecx
 	wrmsr
 
@@ -125,58 +125,58 @@ init_trampoline:
 	mov	$MSR_TOPMEM, %ecx
 	rdmsr
 	mov	%eax, %cs:SYM_OFFSET(rem_topmem_msr)
-	mov	%edx, %cs:SYM_OFFSET(rem_topmem_msr+4)
+	mov	%edx, %cs:SYM_OFFSET(rem_topmem_msr + 4)
 	mov	%cs:SYM_OFFSET(new_topmem_msr), %eax
-	mov	%cs:SYM_OFFSET(new_topmem_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_topmem_msr + 4), %edx
 	wrmsr
 
 	/* Set TOP_MEM2 */
 	mov	%cs:SYM_OFFSET(new_topmem2_msr), %eax
-	mov	%cs:SYM_OFFSET(new_topmem2_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_topmem2_msr + 4), %edx
 	mov	$MSR_TOPMEM2, %ecx
 	wrmsr
 
 	/* Set SYSCFG MSR */
 	mov	%cs:SYM_OFFSET(new_syscfg_msr), %eax
-	mov	%cs:SYM_OFFSET(new_syscfg_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_syscfg_msr + 4), %edx
 	mov	$MSR_SYSCFG, %ecx
 	wrmsr
 
 #ifdef BROKEN
 	/* Set OSVW_ID_LEN MSR */
 	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr), %eax
-	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr + 4), %edx
 	mov	$MSR_OSVW_ID_LEN, %ecx
 	wrmsr
 
 	/* Set OSVW_STATUS MSR */
 	mov	%cs:SYM_OFFSET(new_osvw_status_msr), %eax
-	mov	%cs:SYM_OFFSET(new_osvw_status_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_osvw_status_msr + 4), %edx
 	mov	$MSR_OSVW_STATUS, %ecx
 	wrmsr
 
 	/* Set HWCR MSR */
 	mov	%cs:SYM_OFFSET(new_hwcr_msr), %eax
-	mov	%cs:SYM_OFFSET(new_hwcr_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_hwcr_msr + 4), %edx
 	mov	$MSR_HWCR, %ecx
 	wrmsr
 
 	/* Set Interrupt Pending and CMP-Halt Register MSR */
 	mov	%cs:SYM_OFFSET(new_int_halt_msr), %eax
-	mov	%cs:SYM_OFFSET(new_int_halt_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_int_halt_msr + 4), %edx
 	mov	$MSR_HWCR, %ecx
 	wrmsr
 #endif
 
-        /* Set LSCFG MSR */
+		/* Set LSCFG MSR */
 	mov	%cs:SYM_OFFSET(new_lscfg_msr), %eax
-	mov	%cs:SYM_OFFSET(new_lscfg_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_lscfg_msr + 4), %edx
 	mov	$MSR_LSCFG, %ecx
 	wrmsr
 
-        /* Set CUCFG2 MSR */
+		/* Set CUCFG2 MSR */
 	mov	%cs:SYM_OFFSET(new_cucfg2_msr), %eax
-	mov	%cs:SYM_OFFSET(new_cucfg2_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_cucfg2_msr + 4), %edx
 	mov	$MSR_CU_CFG2, %ecx
 	wrmsr
 
@@ -241,14 +241,14 @@ init_trampoline:
 
 	mov	$MSR_MCFG_BASE, %ecx
 	mov	%cs:SYM_OFFSET(new_mcfg_msr), %eax
-	mov	%cs:SYM_OFFSET(new_mcfg_msr+4), %edx
+	mov	%cs:SYM_OFFSET(new_mcfg_msr + 4), %edx
 	wrmsr
 
 	mov	$MSR_SMM_BASE, %ecx
 	rdmsr
 	mov	%eax, %cs:SYM_OFFSET(rem_smm_base_msr)
-	mov	%edx, %cs:SYM_OFFSET(rem_smm_base_msr+4)
-        
+	mov	%edx, %cs:SYM_OFFSET(rem_smm_base_msr + 4)
+		
 	mov	$SYM_OFFSET(cpu_done2), %si
 	call	print_strz
 
@@ -318,7 +318,7 @@ init_readback_msr:
 	mov	%cs:SYM_OFFSET(msr_readback), %ecx
 	rdmsr
 	mov	%eax, %cs:SYM_OFFSET(msr_readback)
-	mov	%edx, %cs:SYM_OFFSET(msr_readback+4)
+	mov	%edx, %cs:SYM_OFFSET(msr_readback + 4)
 
 	STATUS(0)
 1:
@@ -390,7 +390,7 @@ cpu_cr:
 cpu_done1:
 	.asciz	"\r\nCPU "
 cpu_done2:
-	.asciz  " done setting MTRRs.\r\n"
+	.asciz  " done setting MTRRs\r\n"
 
 /* Print asciiz string at by cs:si */
 print_strz:
@@ -423,7 +423,7 @@ print_hex32:
 	push	%esi
 	mov	%eax, %ebx
 	mov	$8, %ecx
-	mov	$SYM_OFFSET(hex32_buf)+8, %si
+	mov	$SYM_OFFSET(hex32_buf) + 8, %si
 	
 1:	
 	mov	%bl, %al

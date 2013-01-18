@@ -53,16 +53,16 @@ extern int ht_testmode;
 
 static inline uint64_t rdtscll(void)
 {
-    uint64_t val;
-    /* rdtscp doesn't work on Fam10h, so use mfence to serialise */
-    asm volatile ("mfence; rdtsc" : "=A" (val));
-    return val;
+	uint64_t val;
+	/* rdtscp doesn't work on Fam10h, so use mfence to serialise */
+	asm volatile("mfence; rdtsc" : "=A"(val));
+	return val;
 }
 
 static inline uint32_t uint32_tbswap(uint32_t val)
 {
-    asm volatile("bswap %0" : "+r"(val));
-    return val;
+	asm volatile("bswap %0" : "+r"(val));
+	return val;
 }
 
 void pmio_writeb(uint16_t offset, uint8_t val);

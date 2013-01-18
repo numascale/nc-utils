@@ -94,10 +94,10 @@
 enum node_state { NODE_SYNC_STATES(ENUM_DEF) };
 
 struct state_bcast {
-    enum node_state state;
-    uint32_t uuid;
-    uint32_t sciid;
-    uint32_t tid;
+	enum node_state state;
+	uint32_t uuid;
+	uint32_t sciid;
+	uint32_t tid;
 };
 
 const char *pr_size(uint64_t val);
@@ -118,7 +118,7 @@ int dnc_check_fabric(struct node_info *info);
 uint32_t dnc_check_mctr_status(int cdata);
 int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
-		   struct node_info *info, struct part_info *part);
+                   struct node_info *info, struct part_info *part);
 void wait_for_master(struct node_info *info, struct part_info *part);
 void wake_core(const int apicid, const int vector);
 void enable_probefilter(const int nodes);
@@ -153,6 +153,6 @@ extern uint32_t max_mem_per_node;
 extern int force_probefilteroff;
 extern int force_probefilteron;
 
-extern const char* node_state_name[];
+extern const char *node_state_name[];
 
 #endif

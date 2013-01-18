@@ -24,24 +24,24 @@
 /* #define DEBUG_CONFIG 1 */
 
 struct fabric_info {
-    uint32_t x_size;
-    uint32_t y_size;
-    uint32_t z_size;
-    uint32_t strict;
+	uint32_t x_size;
+	uint32_t y_size;
+	uint32_t z_size;
+	uint32_t strict;
 };
 
 struct node_info {
-    uint32_t uuid;
-    uint32_t sciid;
-    uint32_t partition;
-    uint32_t osc;
-    char desc[32];
-    uint32_t sync_only;
+	uint32_t uuid;
+	uint32_t sciid;
+	uint32_t partition;
+	uint32_t osc;
+	char desc[32];
+	uint32_t sync_only;
 };
 
 struct part_info {
-    uint32_t master;
-    uint32_t builder;
+	uint32_t master;
+	uint32_t builder;
 };
 
 extern struct fabric_info cfg_fabric;
@@ -52,17 +52,17 @@ extern int name_matching;
 
 int parse_config_file(char *data);
 void make_singleton_config(uint32_t uuid);
-struct node_info* get_node_config(uint32_t uuid);
-struct part_info* get_partition_config(int idx);
+struct node_info *get_node_config(uint32_t uuid);
+struct part_info *get_partition_config(int idx);
 char *get_master_name(uint32_t sciid);
 extern char *hostname;
 
 static inline int config_local(struct node_info *info, uint32_t uuid)
 {
-    if (name_matching && hostname) {
-	return strcmp(info->desc, hostname) == 0;
-    } else
-	return info->uuid == uuid;
+	if (name_matching && hostname) {
+		return strcmp(info->desc, hostname) == 0;
+	} else
+		return info->uuid == uuid;
 }
 
 #endif
