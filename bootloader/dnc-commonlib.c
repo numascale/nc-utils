@@ -719,7 +719,7 @@ void detect_southbridge(void)
 	southbridge_id = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
 
 	if (southbridge_id != 0x43851002)
-		printf("Warning: Unable to disable SMI due to unknown southbridge 0x%08x; this may cause issues\n", southbridge_id);
+		printf("Warning: Unable to disable SMI due to unknown southbridge 0x%08x; this may cause hangs\n", southbridge_id);
 }
 
 /* Mask southbridge SMI generation */
