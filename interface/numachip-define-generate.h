@@ -1,7 +1,7 @@
 #define HASH() HASH_I
 #define HASH_I #
 #define BACKSLASH_I \\
-
+ 
 #define BACKSLASH() BACKSLASH_I
 
 #define NC_OVERRIDE_PREAM
@@ -13,8 +13,10 @@
 #undef LC3_CSR
 
 HASH()define NUMACHIP_STR_DECLARE(cfg, csr, lc3) BACKSLASH()
-const char *cfg[2][256]; BACKSLASH()
-const char *csr[6][1024]; BACKSLASH()
+const char *cfg[2][256];
+BACKSLASH()
+const char *csr[6][1024];
+BACKSLASH()
 const char *lc3[256]
 
 #define NC_OVERRIDE_PREAM \
@@ -30,5 +32,5 @@ h2s_csr;
 HASH()include "numachip-autodefs.h"
 
 HASH()define NUMACHIP_STR_INIT(cfg, csr, lc3) \
-	NUMACHIP_STR_INIT_OVERRIDE(csr, lc3) NUMACHIP_STR_INIT_AUTO(cfg, csr)
+NUMACHIP_STR_INIT_OVERRIDE(csr, lc3) NUMACHIP_STR_INIT_AUTO(cfg, csr)
 

@@ -25,64 +25,64 @@
 #define REL64(sym) ((uint64_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 
 struct mp_config_table {
-    union {
-        char s[4];
-        uint32_t l;
-    } sig;
-    uint16_t len;
-    uint8_t revision;
-    uint8_t checksum;
-    unsigned char oemid[8];
-    unsigned char prodid[12];
-    uint8_t *oemtable;
-    uint16_t oemtablesz;
-    uint16_t entries;
-    uint32_t lapicaddr;
-    uint16_t extlen;
-    uint16_t extchksum;
-    char reserved;
-    unsigned char data[0];
+	union {
+		char s[4];
+		uint32_t l;
+	} sig;
+	uint16_t len;
+	uint8_t revision;
+	uint8_t checksum;
+	unsigned char oemid[8];
+	unsigned char prodid[12];
+	uint8_t *oemtable;
+	uint16_t oemtablesz;
+	uint16_t entries;
+	uint32_t lapicaddr;
+	uint16_t extlen;
+	uint16_t extchksum;
+	char reserved;
+	unsigned char data[0];
 } __attribute__((packed));
 
 struct mp_floating_pointer {
-    union {
-        char s[4];
-        uint32_t l;
-    } sig;
-    struct mp_config_table *mptable;
-    uint8_t len;
-    uint8_t revision;
-    uint8_t checksum;
-    unsigned char feature[5];
+	union {
+		char s[4];
+		uint32_t l;
+	} sig;
+	struct mp_config_table *mptable;
+	uint8_t len;
+	uint8_t revision;
+	uint8_t checksum;
+	unsigned char feature[5];
 } __attribute__((packed));
 
 struct e820entry {
-    uint64_t base;
-    uint64_t length;
-    uint32_t type;
+	uint64_t base;
+	uint64_t length;
+	uint32_t type;
 } __attribute__((packed));
 
 typedef struct ht_node_info {
-    uint32_t base;		/* Start of DRAM at individual HT nodes, in 16MB chunks */
-    uint32_t size;		/* Amount of DRAM at individual HT nodes, in 16MB chunks */
-    uint16_t pdom;		/* Proximity domain of individual HT nodes */
-    uint16_t cores;		/* Number of cores at individual HT nodes */
-    uint16_t apic_base;
-    uint32_t cpuid;
-    uint32_t scrub;
+	uint32_t base;		/* Start of DRAM at individual HT nodes, in 16MB chunks */
+	uint32_t size;		/* Amount of DRAM at individual HT nodes, in 16MB chunks */
+	uint16_t pdom;		/* Proximity domain of individual HT nodes */
+	uint16_t cores;		/* Number of cores at individual HT nodes */
+	uint16_t apic_base;
+	uint32_t cpuid;
+	uint32_t scrub;
 } ht_node_info_t;
 
 typedef struct nc_node_info {
-    uint32_t node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
-    uint32_t addr_base;
-    uint32_t addr_end;
-    uint32_t mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
-    uint32_t mmio_end;
-    ht_node_info_t ht[8];
-    uint16_t sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
-    uint16_t nc_ht_id;	/* HT id of dnc node dnc controller on local system */
-    uint16_t apic_offset;	/* Offset to shift APIC ids by when unifying */
-    uint8_t nc_neigh;	/* Our nearest neighbour HT node on local system */
+	uint32_t node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
+	uint32_t addr_base;
+	uint32_t addr_end;
+	uint32_t mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
+	uint32_t mmio_end;
+	ht_node_info_t ht[8];
+	uint16_t sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
+	uint16_t nc_ht_id;	/* HT id of dnc node dnc controller on local system */
+	uint16_t apic_offset;	/* Offset to shift APIC ids by when unifying */
+	uint8_t nc_neigh;	/* Our nearest neighbour HT node on local system */
 } nc_node_info_t;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */

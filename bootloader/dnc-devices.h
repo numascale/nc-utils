@@ -86,9 +86,9 @@
 #define PCI_CLASS_STORAGE_SATA          0x0106
 
 struct devspec {
-    uint32_t class;
-    uint8_t classlen;
-    void (*handler)(int, int, int);
+	uint32_t class;
+	uint8_t classlen;
+	void (*handler)(int, int, int);
 };
 
 void stop_acpi(void);

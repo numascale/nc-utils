@@ -35,15 +35,22 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 
 static inline const char *_get_linkname(int linkno)
 {
-    switch (linkno) {
-        case 0: return "XA";
-        case 1: return "XB";
-        case 2: return "YA";
-        case 3: return "YB";
-        case 4: return "ZA";
-        case 5: return "ZB";
-        default: return NULL;
-    }
+	switch (linkno) {
+	case 0:
+		return "XA";
+	case 1:
+		return "XB";
+	case 2:
+		return "YA";
+	case 3:
+		return "YB";
+	case 4:
+		return "ZA";
+	case 5:
+		return "ZB";
+	default:
+		return NULL;
+	}
 }
 
 #endif

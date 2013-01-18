@@ -2,1526 +2,1526 @@
 #define H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER (0x00)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_device_vendor_id_register {
-	unsigned _vendor_id:16;
-	unsigned _device_id:16;
+	unsigned _vendor_id: 16;
+	unsigned _device_id: 16;
 };
 #endif
 #undef H2S_CSR_F0_STATUS_COMMAND_REGISTER
 #define H2S_CSR_F0_STATUS_COMMAND_REGISTER (0x04)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_status_command_register {
-	unsigned :1;
-	unsigned _memory_space_enable:1;
-	unsigned :18;
-	unsigned _capabilities_list_present:1;
-	unsigned :11;
+	unsigned : 1;
+	unsigned _memory_space_enable: 1;
+	unsigned : 18;
+	unsigned _capabilities_list_present: 1;
+	unsigned : 11;
 };
 #endif
 #undef H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER
 #define H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER (0x08)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_class_code_revision_id_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_HEADER_TYPE_REGISTER
 #define H2S_CSR_F0_HEADER_TYPE_REGISTER (0x0C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_header_type_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_BASE_ADDRESS_REGISTER_0
 #define H2S_CSR_F0_BASE_ADDRESS_REGISTER_0 (0x10)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_base_address_register_0 {
-	unsigned :20;
-	unsigned _address:12;
+	unsigned : 20;
+	unsigned _address: 12;
 };
 #endif
 #undef H2S_CSR_F0_BASE_ADDRESS_REGISTER_1
 #define H2S_CSR_F0_BASE_ADDRESS_REGISTER_1 (0x14)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_base_address_register_1 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_BASE_ADDRESS_REGISTER_2
 #define H2S_CSR_F0_BASE_ADDRESS_REGISTER_2 (0x18)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_base_address_register_2 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_BASE_ADDRESS_REGISTER_3
 #define H2S_CSR_F0_BASE_ADDRESS_REGISTER_3 (0x1C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_base_address_register_3 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_BASE_ADDRESS_REGISTER_4
 #define H2S_CSR_F0_BASE_ADDRESS_REGISTER_4 (0x20)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_base_address_register_4 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_BASE_ADDRESS_REGISTER_5
 #define H2S_CSR_F0_BASE_ADDRESS_REGISTER_5 (0x24)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_base_address_register_5 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_CARDBUS_CIS_POINTER
 #define H2S_CSR_F0_CARDBUS_CIS_POINTER (0x28)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_cardbus_cis_pointer {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_SUB_SYSTEM_ID_VENDOR_ID_REGISTER
 #define H2S_CSR_F0_SUB_SYSTEM_ID_VENDOR_ID_REGISTER (0x2C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_sub_system_id_vendor_id_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS
 #define H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS (0x30)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_expansion_rom_base_address {
-	unsigned _rom:1;
-	unsigned :15;
-	unsigned _base:16;
+	unsigned _rom: 1;
+	unsigned : 15;
+	unsigned _base: 16;
 };
 #endif
 #undef H2S_CSR_F0_CAPABILITIES_POINTER_REGISTER
 #define H2S_CSR_F0_CAPABILITIES_POINTER_REGISTER (0x34)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_capabilities_pointer_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_RESERVED
 #define H2S_CSR_F0_RESERVED (0x38)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_reserved {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_MAX_LATENCY_MIN_GNT_INT_PIN_INT_LINE_REGISTER
 #define H2S_CSR_F0_MAX_LATENCY_MIN_GNT_INT_PIN_INT_LINE_REGISTER (0x3C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_max_latency_min_gnt_int_pin_int_line_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F0_LINK_CAPABILITY_HEADER
 #define H2S_CSR_F0_LINK_CAPABILITY_HEADER (0x80)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_link_capability_header {
-	unsigned _capability:8;
-	unsigned :8;
-	unsigned _feature:8;
-	unsigned :8;
+	unsigned _capability: 8;
+	unsigned : 8;
+	unsigned _feature: 8;
+	unsigned : 8;
 };
 #endif
 #undef H2S_CSR_F0_LINK_CONTROL_REGISTER
 #define H2S_CSR_F0_LINK_CONTROL_REGISTER (0x84)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_link_control_register {
-	unsigned :1;
-	unsigned _crcflooden:1;
-	unsigned :1;
-	unsigned _crcforceerr:1;
-	unsigned :1;
-	unsigned _initcomplete:1;
-	unsigned :2;
-	unsigned :2;
-	unsigned :2;
-	unsigned _isocen:1;
-	unsigned _ldtstoptrien:1;
-	unsigned _extctl:1;
-	unsigned _addr64biten:1;
-	unsigned _maxwidthin:3;
-	unsigned :1;
-	unsigned _maxwidthout:3;
-	unsigned :1;
-	unsigned _widthin:3;
-	unsigned :1;
-	unsigned _widthout:3;
-	unsigned :1;
+	unsigned : 1;
+	unsigned _crcflooden: 1;
+	unsigned : 1;
+	unsigned _crcforceerr: 1;
+	unsigned : 1;
+	unsigned _initcomplete: 1;
+	unsigned : 2;
+	unsigned : 2;
+	unsigned : 2;
+	unsigned _isocen: 1;
+	unsigned _ldtstoptrien: 1;
+	unsigned _extctl: 1;
+	unsigned _addr64biten: 1;
+	unsigned _maxwidthin: 3;
+	unsigned : 1;
+	unsigned _maxwidthout: 3;
+	unsigned : 1;
+	unsigned _widthin: 3;
+	unsigned : 1;
+	unsigned _widthout: 3;
+	unsigned : 1;
 };
 #endif
 #undef H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER
 #define H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER (0x88)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_link_frequency_revision_register {
-	unsigned _revision:8;
-	unsigned _linkfreq:4;
-	unsigned :4;
-	unsigned _lnkfreqcap:16;
+	unsigned _revision: 8;
+	unsigned _linkfreq: 4;
+	unsigned : 4;
+	unsigned _lnkfreqcap: 16;
 };
 #endif
 #undef H2S_CSR_F0_LINK_FEATURE_CAPABILITY_REGISTER
 #define H2S_CSR_F0_LINK_FEATURE_CAPABILITY_REGISTER (0x8C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_link_feature_capability_register {
-	unsigned _isocmode:1;
-	unsigned _ldtstopmode:1;
-	unsigned _crctstmode:1;
-	unsigned _extctlrqd:1;
-	unsigned _64bitaddr:1;
-	unsigned _unitidreorderdis:1;
-	unsigned :2;
-	unsigned _extregset:1;
-	unsigned _upstrcfgcap:1;
-	unsigned :22;
+	unsigned _isocmode: 1;
+	unsigned _ldtstopmode: 1;
+	unsigned _crctstmode: 1;
+	unsigned _extctlrqd: 1;
+	unsigned _64bitaddr: 1;
+	unsigned _unitidreorderdis: 1;
+	unsigned : 2;
+	unsigned _extregset: 1;
+	unsigned _upstrcfgcap: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_COHERENT_LINK_CAPABILITY_HEADER
 #define H2S_CSR_F0_CHTX_COHERENT_LINK_CAPABILITY_HEADER (0xA4)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_coherent_link_capability_header {
-	unsigned _capability:8;
-	unsigned :8;
-	unsigned _feature:8;
-	unsigned :8;
+	unsigned _capability: 8;
+	unsigned : 8;
+	unsigned _feature: 8;
+	unsigned : 8;
 };
 #endif
 #undef H2S_CSR_F0_LINK_BASE_CHANNEL_BUFFER_COUNT_REGISTER
 #define H2S_CSR_F0_LINK_BASE_CHANNEL_BUFFER_COUNT_REGISTER (0xA8)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_link_base_channel_buffer_count_register {
-	unsigned _npreqcmd:5;
-	unsigned _preq:3;
-	unsigned _rspcmd:4;
-	unsigned _probecmd:4;
-	unsigned _npreqdata:2;
-	unsigned _rspdata:2;
-	unsigned _freecmd:5;
-	unsigned _freedata:3;
-	unsigned :3;
-	unsigned _lockbc:1;
+	unsigned _npreqcmd: 5;
+	unsigned _preq: 3;
+	unsigned _rspcmd: 4;
+	unsigned _probecmd: 4;
+	unsigned _npreqdata: 2;
+	unsigned _rspdata: 2;
+	unsigned _freecmd: 5;
+	unsigned _freedata: 3;
+	unsigned : 3;
+	unsigned _lockbc: 1;
 };
 #endif
 #undef H2S_CSR_F0_LINK_ISOCHRONOUS_CHANNEL_BUFFER_COUNT_REGISTERS
 #define H2S_CSR_F0_LINK_ISOCHRONOUS_CHANNEL_BUFFER_COUNT_REGISTERS (0xAC)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_link_isochronous_channel_buffer_count_registers {
-	unsigned :16;
-	unsigned _isocnpreqcmd:3;
-	unsigned _isocpreq:3;
-	unsigned _isocrspcmd:3;
-	unsigned _isocnpreqdata:2;
-	unsigned _isocrspdata:2;
-	unsigned :3;
+	unsigned : 16;
+	unsigned _isocnpreqcmd: 3;
+	unsigned _isocpreq: 3;
+	unsigned _isocrspcmd: 3;
+	unsigned _isocnpreqdata: 2;
+	unsigned _isocrspdata: 2;
+	unsigned : 3;
 };
 #endif
 #undef H2S_CSR_F0_LINK_TYPE_REGISTERS
 #define H2S_CSR_F0_LINK_TYPE_REGISTERS (0xB0)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_link_type_registers {
-	unsigned _linkcon:1;
-	unsigned _initcomplete:1;
-	unsigned _noncoherent:1;
-	unsigned :1;
-	unsigned _linkconpend:1;
-	unsigned :27;
+	unsigned _linkcon: 1;
+	unsigned _initcomplete: 1;
+	unsigned _noncoherent: 1;
+	unsigned : 1;
+	unsigned _linkconpend: 1;
+	unsigned : 27;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_COHERENCY_CAPABILITY_HEADER
 #define H2S_CSR_F0_CHTX_COHERENCY_CAPABILITY_HEADER (0xC4)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_coherency_capability_header {
-	unsigned _capability:8;
-	unsigned :8;
-	unsigned _feature:8;
-	unsigned :8;
+	unsigned _capability: 8;
+	unsigned : 8;
+	unsigned _feature: 8;
+	unsigned : 8;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_NODE_ID
 #define H2S_CSR_F0_CHTX_NODE_ID (0xC8)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_node_id {
-	unsigned _nodeid:3;
-	unsigned :5;
-	unsigned _nodecnt:3;
-	unsigned :5;
-	unsigned _sbnode:3;
-	unsigned :5;
-	unsigned _lknode:3;
-	unsigned :5;
+	unsigned _nodeid: 3;
+	unsigned : 5;
+	unsigned _nodecnt: 3;
+	unsigned : 5;
+	unsigned _sbnode: 3;
+	unsigned : 5;
+	unsigned _lknode: 3;
+	unsigned : 5;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_CPU_COUNT
 #define H2S_CSR_F0_CHTX_CPU_COUNT (0xCC)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_cpu_count {
-	unsigned _cpucnt:16;
-	unsigned :16;
+	unsigned _cpucnt: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_UNIT_ID
 #define H2S_CSR_F0_CHTX_UNIT_ID (0xD0)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_unit_id {
-	unsigned _cpuunitid:2;
-	unsigned :2;
-	unsigned _mctunitid:2;
-	unsigned _hbunitid:2;
-	unsigned :4;
-	unsigned _cpuunitwritable:1;
-	unsigned _mctunitwritable:1;
-	unsigned _hbunitwritable:1;
-	unsigned :17;
+	unsigned _cpuunitid: 2;
+	unsigned : 2;
+	unsigned _mctunitid: 2;
+	unsigned _hbunitid: 2;
+	unsigned : 4;
+	unsigned _cpuunitwritable: 1;
+	unsigned _mctunitwritable: 1;
+	unsigned _hbunitwritable: 1;
+	unsigned : 17;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_LINK_TRANSACTION_CONTROL
 #define H2S_CSR_F0_CHTX_LINK_TRANSACTION_CONTROL (0xD4)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_link_transaction_control {
-	unsigned :4;
-	unsigned _dismts:1;
-	unsigned :3;
-	unsigned _dispmemc:1;
-	unsigned _disrmtpmemc:1;
-	unsigned :1;
-	unsigned _rwsppasspw:1;
-	unsigned :5;
-	unsigned _apicextbrdcst:1;
-	unsigned _apicextid:1;
-	unsigned _apicextspur:1;
-	unsigned _seqidsrcnodeen:1;
-	unsigned :2;
-	unsigned _installstates:1;
-	unsigned _disprefmodeen:1;
-	unsigned :7;
+	unsigned : 4;
+	unsigned _dismts: 1;
+	unsigned : 3;
+	unsigned _dispmemc: 1;
+	unsigned _disrmtpmemc: 1;
+	unsigned : 1;
+	unsigned _rwsppasspw: 1;
+	unsigned : 5;
+	unsigned _apicextbrdcst: 1;
+	unsigned _apicextid: 1;
+	unsigned _apicextspur: 1;
+	unsigned _seqidsrcnodeen: 1;
+	unsigned : 2;
+	unsigned _installstates: 1;
+	unsigned _disprefmodeen: 1;
+	unsigned : 7;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_LINK_INITIALIZATION_CONTROL
 #define H2S_CSR_F0_CHTX_LINK_INITIALIZATION_CONTROL (0xD8)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_link_initialization_control {
-	unsigned _routetbldis:1;
-	unsigned _deflnk:3;
-	unsigned :4;
-	unsigned _defsublnk:1;
-	unsigned :23;
+	unsigned _routetbldis: 1;
+	unsigned _deflnk: 3;
+	unsigned : 4;
+	unsigned _defsublnk: 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_F0_CHTX_ADDITIONAL_LINK_TRANSACTION_CONTROL
 #define H2S_CSR_F0_CHTX_ADDITIONAL_LINK_TRANSACTION_CONTROL (0xDC)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_chtx_additional_link_transaction_control {
-	unsigned :1;
-	unsigned :1;
-	unsigned _dataordercap:1;
-	unsigned _chtextnodeen:1;
-	unsigned _chtextnodecfgen:1;
-	unsigned :4;
-	unsigned :1;
-	unsigned :6;
-	unsigned _chtextaddrcap:1;
-	unsigned _chtextnodecap:1;
-	unsigned _bussegmentcap:1;
-	unsigned :1;
-	unsigned :12;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned _dataordercap: 1;
+	unsigned _chtextnodeen: 1;
+	unsigned _chtextnodecfgen: 1;
+	unsigned : 4;
+	unsigned : 1;
+	unsigned : 6;
+	unsigned _chtextaddrcap: 1;
+	unsigned _chtextnodecap: 1;
+	unsigned _bussegmentcap: 1;
+	unsigned : 1;
+	unsigned : 12;
 };
 #endif
 #undef H2S_CSR_F0_ROUTING_TABLE_CAPABILITY_HEADER
 #define H2S_CSR_F0_ROUTING_TABLE_CAPABILITY_HEADER (0xE8)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f0_routing_table_capability_header {
-	unsigned _capability:8;
-	unsigned :8;
-	unsigned _feature:8;
-	unsigned :8;
+	unsigned _capability: 8;
+	unsigned : 8;
+	unsigned _feature: 8;
+	unsigned : 8;
 };
 #endif
 #undef H2S_CSR_F1_DEVICE_VENDOR_ID_REGISTER
 #define H2S_CSR_F1_DEVICE_VENDOR_ID_REGISTER (0x00)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_device_vendor_id_register {
-	unsigned _vendor_id:16;
-	unsigned _device_id:16;
+	unsigned _vendor_id: 16;
+	unsigned _device_id: 16;
 };
 #endif
 #undef H2S_CSR_F1_STATUS_COMMAND_REGISTER
 #define H2S_CSR_F1_STATUS_COMMAND_REGISTER (0x04)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_status_command_register {
-	unsigned :1;
-	unsigned _memory_space_enable:1;
-	unsigned :18;
-	unsigned _capabilities_list_present:1;
-	unsigned :11;
+	unsigned : 1;
+	unsigned _memory_space_enable: 1;
+	unsigned : 18;
+	unsigned _capabilities_list_present: 1;
+	unsigned : 11;
 };
 #endif
 #undef H2S_CSR_F1_CLASS_CODE_REVISION_ID_REGISTER
 #define H2S_CSR_F1_CLASS_CODE_REVISION_ID_REGISTER (0x08)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_class_code_revision_id_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_HEADER_TYPE_REGISTER
 #define H2S_CSR_F1_HEADER_TYPE_REGISTER (0x0C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_header_type_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_BASE_ADDRESS_REGISTER_0
 #define H2S_CSR_F1_BASE_ADDRESS_REGISTER_0 (0x10)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_base_address_register_0 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_BASE_ADDRESS_REGISTER_1
 #define H2S_CSR_F1_BASE_ADDRESS_REGISTER_1 (0x14)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_base_address_register_1 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_BASE_ADDRESS_REGISTER_2
 #define H2S_CSR_F1_BASE_ADDRESS_REGISTER_2 (0x18)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_base_address_register_2 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_BASE_ADDRESS_REGISTER_3
 #define H2S_CSR_F1_BASE_ADDRESS_REGISTER_3 (0x1C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_base_address_register_3 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_BASE_ADDRESS_REGISTER_4
 #define H2S_CSR_F1_BASE_ADDRESS_REGISTER_4 (0x20)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_base_address_register_4 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_BASE_ADDRESS_REGISTER_5
 #define H2S_CSR_F1_BASE_ADDRESS_REGISTER_5 (0x24)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_base_address_register_5 {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_CARDBUS_CIS_POINTER
 #define H2S_CSR_F1_CARDBUS_CIS_POINTER (0x28)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_cardbus_cis_pointer {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_SUB_SYSTEM_ID_VENDOR_ID_REGISTER
 #define H2S_CSR_F1_SUB_SYSTEM_ID_VENDOR_ID_REGISTER (0x2C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_sub_system_id_vendor_id_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_EXPANSION_ROM_BASE_ADDRESS
 #define H2S_CSR_F1_EXPANSION_ROM_BASE_ADDRESS (0x30)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_expansion_rom_base_address {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_CAPABILITIES_POINTER_REGISTER
 #define H2S_CSR_F1_CAPABILITIES_POINTER_REGISTER (0x34)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_capabilities_pointer_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_RESERVED
 #define H2S_CSR_F1_RESERVED (0x38)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_reserved {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_MAX_LATENCY_MIN_GNT_INT_PIN_INT_LINE_REGISTER
 #define H2S_CSR_F1_MAX_LATENCY_MIN_GNT_INT_PIN_INT_LINE_REGISTER (0x3C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_max_latency_min_gnt_int_pin_int_line_register {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_F1_RESOURCE_MAPPING_CAPABILITY_HEADER
 #define H2S_CSR_F1_RESOURCE_MAPPING_CAPABILITY_HEADER (0x40)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_resource_mapping_capability_header {
-	unsigned _capability:8;
-	unsigned :8;
-	unsigned :3;
-	unsigned :5;
-	unsigned :8;
+	unsigned _capability: 8;
+	unsigned : 8;
+	unsigned : 3;
+	unsigned : 5;
+	unsigned : 8;
 };
 #endif
 #undef H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX
 #define H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX (0x44)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_resource_mapping_entry_index {
-	unsigned _entry:3;
-	unsigned :29;
+	unsigned _entry: 3;
+	unsigned : 29;
 };
 #endif
 #undef H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS
 #define H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS (0x48)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_dram_base_address_registers {
-	unsigned _readenable:1;
-	unsigned _writeenable:1;
-	unsigned :6;
-	unsigned _drambase_47_24:24;
+	unsigned _readenable: 1;
+	unsigned _writeenable: 1;
+	unsigned : 6;
+	unsigned _drambase_47_24: 24;
 };
 #endif
 #undef H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS
 #define H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS (0x4C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_dram_limit_address_registers {
-	unsigned _dstnode:3;
-	unsigned :5;
-	unsigned _dramlimit_47_24:24;
+	unsigned _dstnode: 3;
+	unsigned : 5;
+	unsigned _dramlimit_47_24: 24;
 };
 #endif
 #undef H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS
 #define H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS (0x50)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_mmio_base_address_registers {
-	unsigned _readenable:1;
-	unsigned _writeenable:1;
-	unsigned :6;
-	unsigned _mmiobase_39_16:24;
+	unsigned _readenable: 1;
+	unsigned _writeenable: 1;
+	unsigned : 6;
+	unsigned _mmiobase_39_16: 24;
 };
 #endif
 #undef H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS
 #define H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS (0x54)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_mmio_limit_address_registers {
-	unsigned _dstnode:3;
-	unsigned :4;
-	unsigned _nonposted:1;
-	unsigned _mmiolimit_39_16:24;
+	unsigned _dstnode: 3;
+	unsigned : 4;
+	unsigned _nonposted: 1;
+	unsigned _mmiolimit_39_16: 24;
 };
 #endif
 #undef H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS
 #define H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS (0x58)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_ext_d_mmio_address_base_registers {
-	unsigned _dstnode:3;
-	unsigned :2;
-	unsigned _hypertransport:1;
-	unsigned :2;
-	unsigned _mmiomapbase_20_0:21;
-	unsigned _address_39_36:1;
-	unsigned _address_43_40:1;
-	unsigned _address_47_44:1;
+	unsigned _dstnode: 3;
+	unsigned : 2;
+	unsigned _hypertransport: 1;
+	unsigned : 2;
+	unsigned _mmiomapbase_20_0: 21;
+	unsigned _address_39_36: 1;
+	unsigned _address_43_40: 1;
+	unsigned _address_47_44: 1;
 };
 #endif
 #undef H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS
 #define H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS (0x5C)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_ext_d_mmio_address_mask_registers {
-	unsigned _mmiomapen:1;
-	unsigned :7;
-	unsigned _mmiomapmask_20_0:21;
-	unsigned :3;
+	unsigned _mmiomapen: 1;
+	unsigned : 7;
+	unsigned _mmiomapmask_20_0: 21;
+	unsigned : 3;
 };
 #endif
 #undef H2S_CSR_F1_IO_SPACE_BASE_ADDRESS_REGISTERS
 #define H2S_CSR_F1_IO_SPACE_BASE_ADDRESS_REGISTERS (0x60)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_io_space_base_address_registers {
-	unsigned _readenable:1;
-	unsigned _writeenable:1;
-	unsigned _vgaenable:1;
-	unsigned _isaenable:1;
-	unsigned :8;
-	unsigned _iobase_24_12:13;
-	unsigned :7;
+	unsigned _readenable: 1;
+	unsigned _writeenable: 1;
+	unsigned _vgaenable: 1;
+	unsigned _isaenable: 1;
+	unsigned : 8;
+	unsigned _iobase_24_12: 13;
+	unsigned : 7;
 };
 #endif
 #undef H2S_CSR_F1_IO_SPACE_LIMIT_ADDRESS_REGISTERS
 #define H2S_CSR_F1_IO_SPACE_LIMIT_ADDRESS_REGISTERS (0x64)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_io_space_limit_address_registers {
-	unsigned _dstnode:3;
-	unsigned :9;
-	unsigned _iolimit_24_12:13;
-	unsigned :7;
+	unsigned _dstnode: 3;
+	unsigned : 9;
+	unsigned _iolimit_24_12: 13;
+	unsigned : 7;
 };
 #endif
 #undef H2S_CSR_F1_CONFIGURATION_MAP_REGISTERS
 #define H2S_CSR_F1_CONFIGURATION_MAP_REGISTERS (0x68)
 #ifndef __ASSEMBLER__
 struct dnc_csr_f1_configuration_map_registers {
-	unsigned _readenable:1;
-	unsigned _writeenable:1;
-	unsigned _devcmpen:1;
-	unsigned :1;
-	unsigned _dstnode:3;
-	unsigned :9;
-	unsigned _busnumbase_7_0:8;
-	unsigned _busnumlimit_7_0:8;
+	unsigned _readenable: 1;
+	unsigned _writeenable: 1;
+	unsigned _devcmpen: 1;
+	unsigned : 1;
+	unsigned _dstnode: 3;
+	unsigned : 9;
+	unsigned _busnumbase_7_0: 8;
+	unsigned _busnumlimit_7_0: 8;
 };
 #endif
 #undef H2S_CSR_G0_PHYXA_LINK_STAT
 #define H2S_CSR_G0_PHYXA_LINK_STAT (0xA00+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyxa_link_stat {
-	unsigned _linkup:1;
-	unsigned _ts1ok:4;
-	unsigned _symbalign:4;
-	unsigned _rxsigdet:4;
-	unsigned _remctr:3;
-	unsigned :16;
+	unsigned _linkup: 1;
+	unsigned _ts1ok: 4;
+	unsigned _symbalign: 4;
+	unsigned _rxsigdet: 4;
+	unsigned _remctr: 3;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_PHYXA_LINK_CTR
 #define H2S_CSR_G0_PHYXA_LINK_CTR (0xA04+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyxa_link_ctr {
-	unsigned _genremctr:3;
-	unsigned _sci_loopback:1;
-	unsigned _wb_source_sel:2;
-	unsigned _reset_lc3core:1;
-	unsigned _reset_hss:1;
-	unsigned _hss_rxsigdet_bypass:1;
-	unsigned _wb_rcv_trx_sel:1;
-	unsigned :22;
+	unsigned _genremctr: 3;
+	unsigned _sci_loopback: 1;
+	unsigned _wb_source_sel: 2;
+	unsigned _reset_lc3core: 1;
+	unsigned _reset_hss: 1;
+	unsigned _hss_rxsigdet_bypass: 1;
+	unsigned _wb_rcv_trx_sel: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_PHYXA_ELOG
 #define H2S_CSR_G0_PHYXA_ELOG (0xA08+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyxa_elog {
-	unsigned _10to8_dec_err:4;
-	unsigned _clk_cmp_buf_err:4;
-	unsigned _flg_code_err:1;
-	unsigned _sync_pt_timout:1;
-	unsigned :22;
+	unsigned _10to8_dec_err: 4;
+	unsigned _clk_cmp_buf_err: 4;
+	unsigned _flg_code_err: 1;
+	unsigned _sync_pt_timout: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_1
 #define H2S_CSR_G0_HSSXA_CTR_1 (0xA0C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_1 {
-	unsigned _fddatawrapd:4;
-	unsigned _rxeqd_1_0:8;
-	unsigned _txdrvmoded:4;
-	unsigned :16;
+	unsigned _fddatawrapd: 4;
+	unsigned _rxeqd_1_0: 8;
+	unsigned _txdrvmoded: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_2
 #define H2S_CSR_G0_HSSXA_CTR_2 (0xA10+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_2 {
-	unsigned _rxphsdnd:4;
-	unsigned _rxphslockd:4;
-	unsigned _rxphsupd:4;
-	unsigned :20;
+	unsigned _rxphsdnd: 4;
+	unsigned _rxphslockd: 4;
+	unsigned _rxphsupd: 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_3
 #define H2S_CSR_G0_HSSXA_CTR_3 (0xA14+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_3 {
-	unsigned _txcad_3_0:16;
-	unsigned :16;
+	unsigned _txcad_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_4
 #define H2S_CSR_G0_HSSXA_CTR_4 (0xA18+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_4 {
-	unsigned _txcbd_3_0:16;
-	unsigned :16;
+	unsigned _txcbd_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_5
 #define H2S_CSR_G0_HSSXA_CTR_5 (0xA1C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_5 {
-	unsigned _txdrvobsd:4;
-	unsigned _txdrvpwrd_2_0:12;
-	unsigned :16;
+	unsigned _txdrvobsd: 4;
+	unsigned _txdrvpwrd_2_0: 12;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_6
 #define H2S_CSR_G0_HSSXA_CTR_6 (0xA20+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_6 {
-	unsigned _txdrvsignd:4;
-	unsigned _txdrvslewd_1_0:8;
-	unsigned _txpwrdwnd:4;
-	unsigned :16;
+	unsigned _txdrvsignd: 4;
+	unsigned _txdrvslewd_1_0: 8;
+	unsigned _txpwrdwnd: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_7
 #define H2S_CSR_G0_HSSXA_CTR_7 (0xA24+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_7 {
-	unsigned _receiver:4;
-	unsigned :4;
-	unsigned :4;
-	unsigned :20;
+	unsigned _receiver: 4;
+	unsigned : 4;
+	unsigned : 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_8
 #define H2S_CSR_G0_HSSXA_CTR_8 (0xA28+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_8 {
-	unsigned _transmitter:4;
-	unsigned :4;
-	unsigned :24;
+	unsigned _transmitter: 4;
+	unsigned : 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_CTR_9
 #define H2S_CSR_G0_HSSXA_CTR_9 (0xA2C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_ctr_9 {
-	unsigned _pro:4;
-	unsigned :8;
-	unsigned :4;
-	unsigned :16;
+	unsigned _pro: 4;
+	unsigned : 8;
+	unsigned : 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXA_STAT_1
 #define H2S_CSR_G0_HSSXA_STAT_1 (0xA30+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxa_stat_1 {
-	unsigned _receive:4;
-	unsigned _transmitter:4;
-	unsigned _hss:1;
-	unsigned :23;
+	unsigned _receive: 4;
+	unsigned _transmitter: 4;
+	unsigned _hss: 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G0_PHYXB_LINK_STAT
 #define H2S_CSR_G0_PHYXB_LINK_STAT (0xA40+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyxb_link_stat {
-	unsigned _linkup:1;
-	unsigned _ts1ok:4;
-	unsigned _symbalign:4;
-	unsigned _rxsigdet:4;
-	unsigned _remctr:3;
-	unsigned :16;
+	unsigned _linkup: 1;
+	unsigned _ts1ok: 4;
+	unsigned _symbalign: 4;
+	unsigned _rxsigdet: 4;
+	unsigned _remctr: 3;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_PHYXB_LINK_CTR
 #define H2S_CSR_G0_PHYXB_LINK_CTR (0xA44+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyxb_link_ctr {
-	unsigned _genremctr:3;
-	unsigned _sci_loopback:1;
-	unsigned _wb_source_sel:2;
-	unsigned _reset_lc3core:1;
-	unsigned _reset_hss:1;
-	unsigned _hss_rxsigdet_bypass:1;
-	unsigned _wb_rcv_trx_sel:1;
-	unsigned :22;
+	unsigned _genremctr: 3;
+	unsigned _sci_loopback: 1;
+	unsigned _wb_source_sel: 2;
+	unsigned _reset_lc3core: 1;
+	unsigned _reset_hss: 1;
+	unsigned _hss_rxsigdet_bypass: 1;
+	unsigned _wb_rcv_trx_sel: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_PHYXB_ELOG
 #define H2S_CSR_G0_PHYXB_ELOG (0xA48+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyxb_elog {
-	unsigned _10to8_dec_err:4;
-	unsigned _clk_cmp_buf_err:4;
-	unsigned _flg_code_err:1;
-	unsigned _sync_pt_timout:1;
-	unsigned :22;
+	unsigned _10to8_dec_err: 4;
+	unsigned _clk_cmp_buf_err: 4;
+	unsigned _flg_code_err: 1;
+	unsigned _sync_pt_timout: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_1
 #define H2S_CSR_G0_HSSXB_CTR_1 (0xA4C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_1 {
-	unsigned _fddatawrapd:4;
-	unsigned _rxeqd_1_0:8;
-	unsigned _txdrvmoded:4;
-	unsigned :16;
+	unsigned _fddatawrapd: 4;
+	unsigned _rxeqd_1_0: 8;
+	unsigned _txdrvmoded: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_2
 #define H2S_CSR_G0_HSSXB_CTR_2 (0xA50+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_2 {
-	unsigned _rxphsdnd:4;
-	unsigned _rxphslockd:4;
-	unsigned _rxphsupd:4;
-	unsigned :20;
+	unsigned _rxphsdnd: 4;
+	unsigned _rxphslockd: 4;
+	unsigned _rxphsupd: 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_3
 #define H2S_CSR_G0_HSSXB_CTR_3 (0xA54+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_3 {
-	unsigned _txcad_3_0:16;
-	unsigned :16;
+	unsigned _txcad_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_4
 #define H2S_CSR_G0_HSSXB_CTR_4 (0xA58+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_4 {
-	unsigned _txcbd_3_0:16;
-	unsigned :16;
+	unsigned _txcbd_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_5
 #define H2S_CSR_G0_HSSXB_CTR_5 (0xA5C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_5 {
-	unsigned _txdrvobsd:4;
-	unsigned _txdrvpwrd_2_0:12;
-	unsigned :16;
+	unsigned _txdrvobsd: 4;
+	unsigned _txdrvpwrd_2_0: 12;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_6
 #define H2S_CSR_G0_HSSXB_CTR_6 (0xA60+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_6 {
-	unsigned _txdrvsignd:4;
-	unsigned _txdrvslewd_1_0:8;
-	unsigned _txpwrdwnd:4;
-	unsigned :16;
+	unsigned _txdrvsignd: 4;
+	unsigned _txdrvslewd_1_0: 8;
+	unsigned _txpwrdwnd: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_7
 #define H2S_CSR_G0_HSSXB_CTR_7 (0xA64+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_7 {
-	unsigned _receiver:4;
-	unsigned :4;
-	unsigned :4;
-	unsigned :20;
+	unsigned _receiver: 4;
+	unsigned : 4;
+	unsigned : 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_8
 #define H2S_CSR_G0_HSSXB_CTR_8 (0xA68+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_8 {
-	unsigned _transmitter:4;
-	unsigned :4;
-	unsigned :24;
+	unsigned _transmitter: 4;
+	unsigned : 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_CTR_9
 #define H2S_CSR_G0_HSSXB_CTR_9 (0xA6C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_ctr_9 {
-	unsigned _pro:4;
-	unsigned :8;
-	unsigned :4;
-	unsigned :16;
+	unsigned _pro: 4;
+	unsigned : 8;
+	unsigned : 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSXB_STAT_1
 #define H2S_CSR_G0_HSSXB_STAT_1 (0xA70+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssxb_stat_1 {
-	unsigned _receive:4;
-	unsigned _transmitter:4;
-	unsigned _hss:1;
-	unsigned :23;
+	unsigned _receive: 4;
+	unsigned _transmitter: 4;
+	unsigned _hss: 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G0_PHYYA_LINK_STAT
 #define H2S_CSR_G0_PHYYA_LINK_STAT (0xA80+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyya_link_stat {
-	unsigned _linkup:1;
-	unsigned _ts1ok:4;
-	unsigned _symbalign:4;
-	unsigned _rxsigdet:4;
-	unsigned _remctr:3;
-	unsigned :16;
+	unsigned _linkup: 1;
+	unsigned _ts1ok: 4;
+	unsigned _symbalign: 4;
+	unsigned _rxsigdet: 4;
+	unsigned _remctr: 3;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_PHYYA_LINK_CTR
 #define H2S_CSR_G0_PHYYA_LINK_CTR (0xA84+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyya_link_ctr {
-	unsigned _genremctr:3;
-	unsigned _sci_loopback:1;
-	unsigned _wb_source_sel:2;
-	unsigned _reset_lc3core:1;
-	unsigned _reset_hss:1;
-	unsigned _hss_rxsigdet_bypass:1;
-	unsigned _wb_rcv_trx_sel:1;
-	unsigned :22;
+	unsigned _genremctr: 3;
+	unsigned _sci_loopback: 1;
+	unsigned _wb_source_sel: 2;
+	unsigned _reset_lc3core: 1;
+	unsigned _reset_hss: 1;
+	unsigned _hss_rxsigdet_bypass: 1;
+	unsigned _wb_rcv_trx_sel: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_PHYYA_ELOG
 #define H2S_CSR_G0_PHYYA_ELOG (0xA88+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyya_elog {
-	unsigned _10to8_dec_err:4;
-	unsigned _clk_cmp_buf_err:4;
-	unsigned _flg_code_err:1;
-	unsigned _sync_pt_timout:1;
-	unsigned :22;
+	unsigned _10to8_dec_err: 4;
+	unsigned _clk_cmp_buf_err: 4;
+	unsigned _flg_code_err: 1;
+	unsigned _sync_pt_timout: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_1
 #define H2S_CSR_G0_HSSYA_CTR_1 (0xA8C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_1 {
-	unsigned _fddatawrapd:4;
-	unsigned _rxeqd_1_0:8;
-	unsigned _txdrvmoded:4;
-	unsigned :16;
+	unsigned _fddatawrapd: 4;
+	unsigned _rxeqd_1_0: 8;
+	unsigned _txdrvmoded: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_2
 #define H2S_CSR_G0_HSSYA_CTR_2 (0xA90+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_2 {
-	unsigned _rxphsdnd:4;
-	unsigned _rxphslockd:4;
-	unsigned _rxphsupd:4;
-	unsigned :20;
+	unsigned _rxphsdnd: 4;
+	unsigned _rxphslockd: 4;
+	unsigned _rxphsupd: 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_3
 #define H2S_CSR_G0_HSSYA_CTR_3 (0xA94+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_3 {
-	unsigned _txcad_3_0:16;
-	unsigned :16;
+	unsigned _txcad_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_4
 #define H2S_CSR_G0_HSSYA_CTR_4 (0xA98+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_4 {
-	unsigned _txcbd_3_0:16;
-	unsigned :16;
+	unsigned _txcbd_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_5
 #define H2S_CSR_G0_HSSYA_CTR_5 (0xA9C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_5 {
-	unsigned _txdrvobsd:4;
-	unsigned _txdrvpwrd_2_0:12;
-	unsigned :16;
+	unsigned _txdrvobsd: 4;
+	unsigned _txdrvpwrd_2_0: 12;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_6
 #define H2S_CSR_G0_HSSYA_CTR_6 (0xAA0+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_6 {
-	unsigned _txdrvsignd:4;
-	unsigned _txdrvslewd_1_0:8;
-	unsigned _txpwrdwnd:4;
-	unsigned :16;
+	unsigned _txdrvsignd: 4;
+	unsigned _txdrvslewd_1_0: 8;
+	unsigned _txpwrdwnd: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_7
 #define H2S_CSR_G0_HSSYA_CTR_7 (0xAA4+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_7 {
-	unsigned _receiver:4;
-	unsigned :4;
-	unsigned :4;
-	unsigned :20;
+	unsigned _receiver: 4;
+	unsigned : 4;
+	unsigned : 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_8
 #define H2S_CSR_G0_HSSYA_CTR_8 (0xAA8+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_8 {
-	unsigned _transmitter:4;
-	unsigned :4;
-	unsigned :24;
+	unsigned _transmitter: 4;
+	unsigned : 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_CTR_9
 #define H2S_CSR_G0_HSSYA_CTR_9 (0xAAC+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_ctr_9 {
-	unsigned _pro:4;
-	unsigned :8;
-	unsigned :4;
-	unsigned :16;
+	unsigned _pro: 4;
+	unsigned : 8;
+	unsigned : 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYA_STAT_1
 #define H2S_CSR_G0_HSSYA_STAT_1 (0xAB0+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssya_stat_1 {
-	unsigned _receive:4;
-	unsigned _transmitter:4;
-	unsigned _hss:1;
-	unsigned :23;
+	unsigned _receive: 4;
+	unsigned _transmitter: 4;
+	unsigned _hss: 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G0_PHYYB_LINK_STAT
 #define H2S_CSR_G0_PHYYB_LINK_STAT (0xAC0+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyyb_link_stat {
-	unsigned _linkup:1;
-	unsigned _ts1ok:4;
-	unsigned _symbalign:4;
-	unsigned _rxsigdet:4;
-	unsigned _remctr:3;
-	unsigned :16;
+	unsigned _linkup: 1;
+	unsigned _ts1ok: 4;
+	unsigned _symbalign: 4;
+	unsigned _rxsigdet: 4;
+	unsigned _remctr: 3;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_PHYYB_LINK_CTR
 #define H2S_CSR_G0_PHYYB_LINK_CTR (0xAC4+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyyb_link_ctr {
-	unsigned _genremctr:3;
-	unsigned _sci_loopback:1;
-	unsigned _wb_source_sel:2;
-	unsigned _reset_lc3core:1;
-	unsigned _reset_hss:1;
-	unsigned _hss_rxsigdet_bypass:1;
-	unsigned _wb_rcv_trx_sel:1;
-	unsigned :22;
+	unsigned _genremctr: 3;
+	unsigned _sci_loopback: 1;
+	unsigned _wb_source_sel: 2;
+	unsigned _reset_lc3core: 1;
+	unsigned _reset_hss: 1;
+	unsigned _hss_rxsigdet_bypass: 1;
+	unsigned _wb_rcv_trx_sel: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_PHYYB_ELOG
 #define H2S_CSR_G0_PHYYB_ELOG (0xAC8+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyyb_elog {
-	unsigned _10to8_dec_err:4;
-	unsigned _clk_cmp_buf_err:4;
-	unsigned _flg_code_err:1;
-	unsigned _sync_pt_timout:1;
-	unsigned :22;
+	unsigned _10to8_dec_err: 4;
+	unsigned _clk_cmp_buf_err: 4;
+	unsigned _flg_code_err: 1;
+	unsigned _sync_pt_timout: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_1
 #define H2S_CSR_G0_HSSYB_CTR_1 (0xACC+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_1 {
-	unsigned _fddatawrapd:4;
-	unsigned _rxeqd_1_0:8;
-	unsigned _txdrvmoded:4;
-	unsigned :16;
+	unsigned _fddatawrapd: 4;
+	unsigned _rxeqd_1_0: 8;
+	unsigned _txdrvmoded: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_2
 #define H2S_CSR_G0_HSSYB_CTR_2 (0xAD0+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_2 {
-	unsigned _rxphsdnd:4;
-	unsigned _rxphslockd:4;
-	unsigned _rxphsupd:4;
-	unsigned :20;
+	unsigned _rxphsdnd: 4;
+	unsigned _rxphslockd: 4;
+	unsigned _rxphsupd: 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_3
 #define H2S_CSR_G0_HSSYB_CTR_3 (0xAD4+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_3 {
-	unsigned _txcad_3_0:16;
-	unsigned :16;
+	unsigned _txcad_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_4
 #define H2S_CSR_G0_HSSYB_CTR_4 (0xAD8+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_4 {
-	unsigned _txcbd_3_0:16;
-	unsigned :16;
+	unsigned _txcbd_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_5
 #define H2S_CSR_G0_HSSYB_CTR_5 (0xADC+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_5 {
-	unsigned _txdrvobsd:4;
-	unsigned _txdrvpwrd_2_0:12;
-	unsigned :16;
+	unsigned _txdrvobsd: 4;
+	unsigned _txdrvpwrd_2_0: 12;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_6
 #define H2S_CSR_G0_HSSYB_CTR_6 (0xAE0+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_6 {
-	unsigned _txdrvsignd:4;
-	unsigned _txdrvslewd_1_0:8;
-	unsigned _txpwrdwnd:4;
-	unsigned :16;
+	unsigned _txdrvsignd: 4;
+	unsigned _txdrvslewd_1_0: 8;
+	unsigned _txpwrdwnd: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_7
 #define H2S_CSR_G0_HSSYB_CTR_7 (0xAE4+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_7 {
-	unsigned _receiver:4;
-	unsigned :4;
-	unsigned :4;
-	unsigned :20;
+	unsigned _receiver: 4;
+	unsigned : 4;
+	unsigned : 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_8
 #define H2S_CSR_G0_HSSYB_CTR_8 (0xAE8+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_8 {
-	unsigned _transmitter:4;
-	unsigned :4;
-	unsigned :24;
+	unsigned _transmitter: 4;
+	unsigned : 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_CTR_9
 #define H2S_CSR_G0_HSSYB_CTR_9 (0xAEC+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_ctr_9 {
-	unsigned _pro:4;
-	unsigned :8;
-	unsigned :4;
-	unsigned :16;
+	unsigned _pro: 4;
+	unsigned : 8;
+	unsigned : 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSYB_STAT_1
 #define H2S_CSR_G0_HSSYB_STAT_1 (0xAF0+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssyb_stat_1 {
-	unsigned _receive:4;
-	unsigned _transmitter:4;
-	unsigned _hss:1;
-	unsigned :23;
+	unsigned _receive: 4;
+	unsigned _transmitter: 4;
+	unsigned _hss: 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G0_PHYZA_LINK_STAT
 #define H2S_CSR_G0_PHYZA_LINK_STAT (0xB00+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyza_link_stat {
-	unsigned _linkup:1;
-	unsigned _ts1ok:4;
-	unsigned _symbalign:4;
-	unsigned _rxsigdet:4;
-	unsigned _remctr:3;
-	unsigned :16;
+	unsigned _linkup: 1;
+	unsigned _ts1ok: 4;
+	unsigned _symbalign: 4;
+	unsigned _rxsigdet: 4;
+	unsigned _remctr: 3;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_PHYZA_LINK_CTR
 #define H2S_CSR_G0_PHYZA_LINK_CTR (0xB04+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyza_link_ctr {
-	unsigned _genremctr:3;
-	unsigned _sci_loopback:1;
-	unsigned _wb_source_sel:2;
-	unsigned _reset_lc3core:1;
-	unsigned _reset_hss:1;
-	unsigned _hss_rxsigdet_bypass:1;
-	unsigned _wb_rcv_trx_sel:1;
-	unsigned :22;
+	unsigned _genremctr: 3;
+	unsigned _sci_loopback: 1;
+	unsigned _wb_source_sel: 2;
+	unsigned _reset_lc3core: 1;
+	unsigned _reset_hss: 1;
+	unsigned _hss_rxsigdet_bypass: 1;
+	unsigned _wb_rcv_trx_sel: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_PHYZA_ELOG
 #define H2S_CSR_G0_PHYZA_ELOG (0xB08+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyza_elog {
-	unsigned _10to8_dec_err:4;
-	unsigned _clk_cmp_buf_err:4;
-	unsigned _flg_code_err:1;
-	unsigned _sync_pt_timout:1;
-	unsigned :22;
+	unsigned _10to8_dec_err: 4;
+	unsigned _clk_cmp_buf_err: 4;
+	unsigned _flg_code_err: 1;
+	unsigned _sync_pt_timout: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_1
 #define H2S_CSR_G0_HSSZA_CTR_1 (0xB0C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_1 {
-	unsigned _fddatawrapd:4;
-	unsigned _rxeqd_1_0:8;
-	unsigned _txdrvmoded:4;
-	unsigned :16;
+	unsigned _fddatawrapd: 4;
+	unsigned _rxeqd_1_0: 8;
+	unsigned _txdrvmoded: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_2
 #define H2S_CSR_G0_HSSZA_CTR_2 (0xB10+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_2 {
-	unsigned _rxphsdnd:4;
-	unsigned _rxphslockd:4;
-	unsigned _rxphsupd:4;
-	unsigned :20;
+	unsigned _rxphsdnd: 4;
+	unsigned _rxphslockd: 4;
+	unsigned _rxphsupd: 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_3
 #define H2S_CSR_G0_HSSZA_CTR_3 (0xB14+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_3 {
-	unsigned _txcad_3_0:16;
-	unsigned :16;
+	unsigned _txcad_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_4
 #define H2S_CSR_G0_HSSZA_CTR_4 (0xB18+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_4 {
-	unsigned _txcbd_3_0:16;
-	unsigned :16;
+	unsigned _txcbd_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_5
 #define H2S_CSR_G0_HSSZA_CTR_5 (0xB1C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_5 {
-	unsigned _txdrvobsd:4;
-	unsigned _txdrvpwrd_2_0:12;
-	unsigned :16;
+	unsigned _txdrvobsd: 4;
+	unsigned _txdrvpwrd_2_0: 12;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_6
 #define H2S_CSR_G0_HSSZA_CTR_6 (0xB20+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_6 {
-	unsigned _txdrvsignd:4;
-	unsigned _txdrvslewd_1_0:8;
-	unsigned _txpwrdwnd:4;
-	unsigned :16;
+	unsigned _txdrvsignd: 4;
+	unsigned _txdrvslewd_1_0: 8;
+	unsigned _txpwrdwnd: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_7
 #define H2S_CSR_G0_HSSZA_CTR_7 (0xB24+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_7 {
-	unsigned _receiver:4;
-	unsigned :4;
-	unsigned :4;
-	unsigned :20;
+	unsigned _receiver: 4;
+	unsigned : 4;
+	unsigned : 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_8
 #define H2S_CSR_G0_HSSZA_CTR_8 (0xB28+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_8 {
-	unsigned _transmitter:4;
-	unsigned :4;
-	unsigned :24;
+	unsigned _transmitter: 4;
+	unsigned : 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_CTR_9
 #define H2S_CSR_G0_HSSZA_CTR_9 (0xB2C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_ctr_9 {
-	unsigned _pro:4;
-	unsigned :8;
-	unsigned :4;
-	unsigned :16;
+	unsigned _pro: 4;
+	unsigned : 8;
+	unsigned : 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZA_STAT_1
 #define H2S_CSR_G0_HSSZA_STAT_1 (0xB30+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hssza_stat_1 {
-	unsigned _receive:4;
-	unsigned _transmitter:4;
-	unsigned _hss:1;
-	unsigned :23;
+	unsigned _receive: 4;
+	unsigned _transmitter: 4;
+	unsigned _hss: 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G0_PHYZB_LINK_STAT
 #define H2S_CSR_G0_PHYZB_LINK_STAT (0xB40+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyzb_link_stat {
-	unsigned _linkup:1;
-	unsigned _ts1ok:4;
-	unsigned _symbalign:4;
-	unsigned _rxsigdet:4;
-	unsigned _remctr:3;
-	unsigned :16;
+	unsigned _linkup: 1;
+	unsigned _ts1ok: 4;
+	unsigned _symbalign: 4;
+	unsigned _rxsigdet: 4;
+	unsigned _remctr: 3;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_PHYZB_LINK_CTR
 #define H2S_CSR_G0_PHYZB_LINK_CTR (0xB44+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyzb_link_ctr {
-	unsigned _genremctr:3;
-	unsigned _sci_loopback:1;
-	unsigned _wb_source_sel:2;
-	unsigned _reset_lc3core:1;
-	unsigned _reset_hss:1;
-	unsigned _hss_rxsigdet_bypass:1;
-	unsigned _wb_rcv_trx_sel:1;
-	unsigned :22;
+	unsigned _genremctr: 3;
+	unsigned _sci_loopback: 1;
+	unsigned _wb_source_sel: 2;
+	unsigned _reset_lc3core: 1;
+	unsigned _reset_hss: 1;
+	unsigned _hss_rxsigdet_bypass: 1;
+	unsigned _wb_rcv_trx_sel: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_PHYZB_ELOG
 #define H2S_CSR_G0_PHYZB_ELOG (0xB48+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_phyzb_elog {
-	unsigned _10to8_dec_err:4;
-	unsigned _clk_cmp_buf_err:4;
-	unsigned _flg_code_err:1;
-	unsigned _sync_pt_timout:1;
-	unsigned :22;
+	unsigned _10to8_dec_err: 4;
+	unsigned _clk_cmp_buf_err: 4;
+	unsigned _flg_code_err: 1;
+	unsigned _sync_pt_timout: 1;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_1
 #define H2S_CSR_G0_HSSZB_CTR_1 (0xB4C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_1 {
-	unsigned _fddatawrapd:4;
-	unsigned _rxeqd_1_0:8;
-	unsigned _txdrvmoded:4;
-	unsigned :16;
+	unsigned _fddatawrapd: 4;
+	unsigned _rxeqd_1_0: 8;
+	unsigned _txdrvmoded: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_2
 #define H2S_CSR_G0_HSSZB_CTR_2 (0xB50+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_2 {
-	unsigned _rxphsdnd:4;
-	unsigned _rxphslockd:4;
-	unsigned _rxphsupd:4;
-	unsigned :20;
+	unsigned _rxphsdnd: 4;
+	unsigned _rxphslockd: 4;
+	unsigned _rxphsupd: 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_3
 #define H2S_CSR_G0_HSSZB_CTR_3 (0xB54+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_3 {
-	unsigned _txcad_3_0:16;
-	unsigned :16;
+	unsigned _txcad_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_4
 #define H2S_CSR_G0_HSSZB_CTR_4 (0xB58+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_4 {
-	unsigned _txcbd_3_0:16;
-	unsigned :16;
+	unsigned _txcbd_3_0: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_5
 #define H2S_CSR_G0_HSSZB_CTR_5 (0xB5C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_5 {
-	unsigned _txdrvobsd:4;
-	unsigned _txdrvpwrd_2_0:12;
-	unsigned :16;
+	unsigned _txdrvobsd: 4;
+	unsigned _txdrvpwrd_2_0: 12;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_6
 #define H2S_CSR_G0_HSSZB_CTR_6 (0xB60+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_6 {
-	unsigned _txdrvsignd:4;
-	unsigned _txdrvslewd_1_0:8;
-	unsigned _txpwrdwnd:4;
-	unsigned :16;
+	unsigned _txdrvsignd: 4;
+	unsigned _txdrvslewd_1_0: 8;
+	unsigned _txpwrdwnd: 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_7
 #define H2S_CSR_G0_HSSZB_CTR_7 (0xB64+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_7 {
-	unsigned _receiver:4;
-	unsigned :4;
-	unsigned :4;
-	unsigned :20;
+	unsigned _receiver: 4;
+	unsigned : 4;
+	unsigned : 4;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_8
 #define H2S_CSR_G0_HSSZB_CTR_8 (0xB68+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_8 {
-	unsigned _transmitter:4;
-	unsigned :4;
-	unsigned :24;
+	unsigned _transmitter: 4;
+	unsigned : 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_CTR_9
 #define H2S_CSR_G0_HSSZB_CTR_9 (0xB6C+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_ctr_9 {
-	unsigned _pro:4;
-	unsigned :8;
-	unsigned :4;
-	unsigned :16;
+	unsigned _pro: 4;
+	unsigned : 8;
+	unsigned : 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G0_HSSZB_STAT_1
 #define H2S_CSR_G0_HSSZB_STAT_1 (0xB70+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsszb_stat_1 {
-	unsigned _receive:4;
-	unsigned _transmitter:4;
-	unsigned _hss:1;
-	unsigned :23;
+	unsigned _receive: 4;
+	unsigned _transmitter: 4;
+	unsigned _hss: 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G0_HSSPLL_CTR_1
 #define H2S_CSR_G0_HSSPLL_CTR_1 (0xB80+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsspll_ctr_1 {
-	unsigned :14;
-	unsigned :18;
+	unsigned : 14;
+	unsigned : 18;
 };
 #endif
 #undef H2S_CSR_G0_HSSPLL_CTR_2
 #define H2S_CSR_G0_HSSPLL_CTR_2 (0xB84+(0<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g0_hsspll_ctr_2 {
-	unsigned :2;
-	unsigned _the:6;
-	unsigned _address:3;
-	unsigned :1;
-	unsigned :21;
+	unsigned : 2;
+	unsigned _the: 6;
+	unsigned _address: 3;
+	unsigned : 1;
+	unsigned : 21;
 };
 #endif
 #undef H2S_CSR_G2_F_PREF_MODE
 #define H2S_CSR_G2_F_PREF_MODE (0x800+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_f_pref_mode {
-	unsigned _disable_textbf_0_prefetch_buffer_enabled_textbf_1:1;
-	unsigned _clear_textbf_0_normal_mode_textbf_1:1;
-	unsigned :6;
-	unsigned :24;
+	unsigned _disable_textbf_0_prefetch_buffer_enabled_textbf_1: 1;
+	unsigned _clear_textbf_0_normal_mode_textbf_1: 1;
+	unsigned : 6;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G2_M_PREF_MODE
 #define H2S_CSR_G2_M_PREF_MODE (0x804+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_m_pref_mode {
-	unsigned _disable_textbf_0_prefetch_buffer_enabled_textbf_1:1;
-	unsigned _clear_textbf_0_normal_mode_textbf_1:1;
-	unsigned :6;
-	unsigned :24;
+	unsigned _disable_textbf_0_prefetch_buffer_enabled_textbf_1: 1;
+	unsigned _clear_textbf_0_normal_mode_textbf_1: 1;
+	unsigned : 6;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G2_SRAM_MODE
 #define H2S_CSR_G2_SRAM_MODE (0x808+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_sram_mode {
-	unsigned _disable_textbf_0_sram_enabled_textbf_1:1;
-	unsigned _clear:1;
-	unsigned _break_textbf_0_normal_mode_textbf_1:1;
-	unsigned _init_check_mode_textbf_0_init_mode_textbf_1:1;
-	unsigned :4;
-	unsigned :24;
+	unsigned _disable_textbf_0_sram_enabled_textbf_1: 1;
+	unsigned _clear: 1;
+	unsigned _break_textbf_0_normal_mode_textbf_1: 1;
+	unsigned _init_check_mode_textbf_0_init_mode_textbf_1: 1;
+	unsigned : 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G2_DIAG_SRAM_ADDR
 #define H2S_CSR_G2_DIAG_SRAM_ADDR (0x80C+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_diag_sram_addr {
-	unsigned _addressed:22;
-	unsigned :10;
+	unsigned _addressed: 22;
+	unsigned : 10;
 };
 #endif
 #undef H2S_CSR_G2_WR_DATA
 #define H2S_CSR_G2_WR_DATA (0x810+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_wr_data {
-	unsigned _with:32;
+	unsigned _with: 32;
 };
 #endif
 #undef H2S_CSR_G2_SRAM_DATA
 #define H2S_CSR_G2_SRAM_DATA (0x814+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_sram_data {
-	unsigned _content:32;
+	unsigned _content: 32;
 };
 #endif
 #undef H2S_CSR_G2_SRAM_LIMIT
 #define H2S_CSR_G2_SRAM_LIMIT (0x818+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_sram_limit {
-	unsigned _sram:22;
-	unsigned :10;
+	unsigned _sram: 22;
+	unsigned : 10;
 };
 #endif
 #undef H2S_CSR_G2_FTAG_STATUS
 #define H2S_CSR_G2_FTAG_STATUS (0x81C+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_ftag_status {
-	unsigned _status_of_sram_init_sequence_textbf_0_init_sequence_inactive_textbf_1:1;
-	unsigned _result_of_sram_check_sequence_textbf_0_sram_check_passed_without_errors_textbf_1:1;
-	unsigned :30;
+	unsigned _status_of_sram_init_sequence_textbf_0_init_sequence_inactive_textbf_1: 1;
+	unsigned _result_of_sram_check_sequence_textbf_0_sram_check_passed_without_errors_textbf_1: 1;
+	unsigned : 30;
 };
 #endif
 #undef H2S_CSR_G2_DDL_CTRL
 #define H2S_CSR_G2_DDL_CTRL (0x820+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_ddl_ctrl {
-	unsigned _2_s:8;
-	unsigned :8;
-	unsigned :8;
-	unsigned _stop:1;
-	unsigned _bypass:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned _clear:1;
-	unsigned :1;
+	unsigned _2_s: 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned _stop: 1;
+	unsigned _bypass: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned _clear: 1;
+	unsigned : 1;
 };
 #endif
 #undef H2S_CSR_G2_DDL_STATUS
 #define H2S_CSR_G2_DDL_STATUS (0x824+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_ddl_status {
-	unsigned _calculated:8;
-	unsigned :8;
-	unsigned :8;
-	unsigned _delayout:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned _overflow:1;
-	unsigned :1;
+	unsigned _calculated: 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned _delayout: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned _overflow: 1;
+	unsigned : 1;
 };
 #endif
 #undef H2S_CSR_G2_SRAM_PAD_CTRL
 #define H2S_CSR_G2_SRAM_PAD_CTRL (0x828+(2<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g2_sram_pad_ctrl {
-	unsigned _pe_sram_k:1;
-	unsigned _pe_sram_ctrl:1;
-	unsigned _pe_sram_assr:1;
-	unsigned _pe_sram_d:1;
-	unsigned _sram_mcdhalf_k:1;
-	unsigned _sram_mcdhalf_ctrl:1;
-	unsigned _sram_mcdhalf_addr:1;
-	unsigned _sram_mcdhalf_d:1;
-	unsigned _sram_mctt1_cq:1;
-	unsigned _sram_mctt0_cq:1;
-	unsigned _sram_mctt1_q:1;
-	unsigned _sram_mctt0_q:1;
-	unsigned :4;
-	unsigned :16;
+	unsigned _pe_sram_k: 1;
+	unsigned _pe_sram_ctrl: 1;
+	unsigned _pe_sram_assr: 1;
+	unsigned _pe_sram_d: 1;
+	unsigned _sram_mcdhalf_k: 1;
+	unsigned _sram_mcdhalf_ctrl: 1;
+	unsigned _sram_mcdhalf_addr: 1;
+	unsigned _sram_mcdhalf_d: 1;
+	unsigned _sram_mctt1_cq: 1;
+	unsigned _sram_mctt0_cq: 1;
+	unsigned _sram_mctt1_q: 1;
+	unsigned _sram_mctt0_q: 1;
+	unsigned : 4;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_APIC_MAP_SHIFT
 #define H2S_CSR_G3_APIC_MAP_SHIFT (0x008+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_apic_map_shift {
-	unsigned _shift_bits_shift_bits:2;
-	unsigned :1;
-	unsigned :29;
+	unsigned _shift_bits_shift_bits: 2;
+	unsigned : 1;
+	unsigned : 29;
 };
 #endif
 #undef H2S_CSR_G3_CSR_BASE_ADDRESS
 #define H2S_CSR_G3_CSR_BASE_ADDRESS (0x00C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_csr_base_address {
-	unsigned _bits:16;
-	unsigned :16;
+	unsigned _bits: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_MMCFG_BASE
@@ -1530,216 +1530,216 @@ struct dnc_csr_g3_csr_base_address {
 #define H2S_CSR_G3_MMCFG_CONTROL (0x014+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_mmcfg_control {
-	unsigned _number_limit_number_of_bits:4;
-	unsigned _dnc_node_limit_number:4;
-	unsigned :24;
+	unsigned _number_limit_number_of_bits: 4;
+	unsigned _dnc_node_limit_number: 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PCI_SEG0
 #define H2S_CSR_G3_PCI_SEG0 (0x018+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_pci_seg0 {
-	unsigned _pci_seg0_is_local:1;
-	unsigned :15;
-	unsigned _pci_seg0_node_sci_id:16;
+	unsigned _pci_seg0_is_local: 1;
+	unsigned : 15;
+	unsigned _pci_seg0_node_sci_id: 16;
 };
 #endif
 #undef H2S_CSR_G3_DRAM_SHARED_BASE
 #define H2S_CSR_G3_DRAM_SHARED_BASE (0x01C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_dram_shared_base {
-	unsigned _address_base_47_24:24;
-	unsigned :8;
+	unsigned _address_base_47_24: 24;
+	unsigned : 8;
 };
 #endif
 #undef H2S_CSR_G3_DRAM_SHARED_LIMIT
 #define H2S_CSR_G3_DRAM_SHARED_LIMIT (0x020+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_dram_shared_limit {
-	unsigned _address_base_47_24_an_access_terminated_at_a_given_system_is_considered_to_be_coherently_distributed_over_the_dnc_fabric_if_the_address_accessed_satisfies_textbf_address_47_24_dram_shared_base_23_0_address_47_24_dram_shared_limit_23_0:24;
-	unsigned :8;
+	unsigned _address_base_47_24_an_access_terminated_at_a_given_system_is_considered_to_be_coherently_distributed_over_the_dnc_fabric_if_the_address_accessed_satisfies_textbf_address_47_24_dram_shared_base_23_0_address_47_24_dram_shared_limit_23_0: 24;
+	unsigned : 8;
 };
 #endif
 #undef H2S_CSR_G3_HT_NODEID
 #define H2S_CSR_G3_HT_NODEID (0x024+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_ht_nodeid {
-	unsigned _hypertransport:3;
-	unsigned :29;
+	unsigned _hypertransport: 3;
+	unsigned : 29;
 };
 #endif
 #undef H2S_CSR_G3_CSR_HTX_RESET
 #define H2S_CSR_G3_CSR_HTX_RESET (0x028+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_csr_htx_reset {
-	unsigned :1;
-	unsigned :31;
+	unsigned : 1;
+	unsigned : 31;
 };
 #endif
 #undef H2S_CSR_G3_FAB_CONTROL
 #define H2S_CSR_G3_FAB_CONTROL (0x02C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_fab_control {
-	unsigned :30;
-	unsigned _is_ready:1;
-	unsigned _go_ahead:1;
+	unsigned : 30;
+	unsigned _is_ready: 1;
+	unsigned _go_ahead: 1;
 };
 #endif
 #undef H2S_CSR_G3_EXT_INTERRUPT_GEN
 #define H2S_CSR_G3_EXT_INTERRUPT_GEN (0x030+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_ext_interrupt_gen {
-	unsigned _vector:8;
-	unsigned _msgtype:3;
-	unsigned _index:5;
-	unsigned _destination_apic_id:16;
+	unsigned _vector: 8;
+	unsigned _msgtype: 3;
+	unsigned _index: 5;
+	unsigned _destination_apic_id: 16;
 };
 #endif
 #undef H2S_CSR_G3_EXT_INTERRUPT_STATUS
 #define H2S_CSR_G3_EXT_INTERRUPT_STATUS (0x034+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_ext_interrupt_status {
-	unsigned _result:32;
+	unsigned _result: 32;
 };
 #endif
 #undef H2S_CSR_G3_EXT_INTERRUPT_DEST
 #define H2S_CSR_G3_EXT_INTERRUPT_DEST (0x038+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_ext_interrupt_dest {
-	unsigned _interrupt:8;
-	unsigned :24;
+	unsigned _interrupt: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_HREQ_CTRL
 #define H2S_CSR_G3_HREQ_CTRL (0x400+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_hreq_ctrl {
-	unsigned _disable:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned _strategy:2;
-	unsigned _update:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned _send:1;
-	unsigned _h2s:1;
-	unsigned _delay:3;
-	unsigned _enable:1;
-	unsigned _value:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :6;
-	unsigned _cache:2;
-	unsigned _tracer:2;
-	unsigned :2;
+	unsigned _disable: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned _strategy: 2;
+	unsigned _update: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned _send: 1;
+	unsigned _h2s: 1;
+	unsigned _delay: 3;
+	unsigned _enable: 1;
+	unsigned _value: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 6;
+	unsigned _cache: 2;
+	unsigned _tracer: 2;
+	unsigned : 2;
 };
 #endif
 #undef H2S_CSR_G3_HPRB_CTRL
 #define H2S_CSR_G3_HPRB_CTRL (0x404+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_hprb_ctrl {
-	unsigned :1;
-	unsigned _disable:1;
-	unsigned :2;
-	unsigned _gsm:12;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
+	unsigned : 1;
+	unsigned _disable: 1;
+	unsigned : 2;
+	unsigned _gsm: 12;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
 };
 #endif
 #undef H2S_CSR_G3_SREQ_CTRL
 #define H2S_CSR_G3_SREQ_CTRL (0x408+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_sreq_ctrl {
-	unsigned :4;
-	unsigned _gsm:12;
-	unsigned _disable:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned _watchbus_select:4;
-	unsigned :4;
+	unsigned : 4;
+	unsigned _gsm: 12;
+	unsigned _disable: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned _watchbus_select: 4;
+	unsigned : 4;
 };
 #endif
 #undef H2S_CSR_G3_SPRB_CTRL
 #define H2S_CSR_G3_SPRB_CTRL (0x40C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_sprb_ctrl {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_G3_H2S_CTRL
 #define H2S_CSR_G3_H2S_CTRL (0x410+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_h2s_ctrl {
-	unsigned _0:1;
-	unsigned :31;
+	unsigned _0: 1;
+	unsigned : 31;
 };
 #endif
 #undef H2S_CSR_G3_TRANS_REC_CORE
 #define H2S_CSR_G3_TRANS_REC_CORE (0x418+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_trans_rec_core {
-	unsigned _the:8;
-	unsigned :8;
-	unsigned :16;
+	unsigned _the: 8;
+	unsigned : 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_SPI_INSTRUCTION_AND_STATUS
 #define H2S_CSR_G3_SPI_INSTRUCTION_AND_STATUS (0x41C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_spi_instruction_and_status {
-	unsigned _instruction:8;
-	unsigned _the:1;
-	unsigned :9;
-	unsigned _write:14;
+	unsigned _instruction: 8;
+	unsigned _the: 1;
+	unsigned : 9;
+	unsigned _write: 14;
 };
 #endif
 #undef H2S_CSR_G3_EEPROM_ADDR_IIC_SMBUS_AND_AND_UID
 #define H2S_CSR_G3_EEPROM_ADDR_IIC_SMBUS_AND_AND_UID (0x420+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_eeprom_addr_iic_smbus_and_and_uid {
-	unsigned _seprom:16;
-	unsigned :16;
+	unsigned _seprom: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_ERROR_STATUS
 #define H2S_CSR_G3_ERROR_STATUS (0x424+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_error_status {
-	unsigned _cdata:1;
-	unsigned :1;
-	unsigned _mc:1;
-	unsigned :1;
-	unsigned :28;
+	unsigned _cdata: 1;
+	unsigned : 1;
+	unsigned _mc: 1;
+	unsigned : 1;
+	unsigned : 28;
 };
 #endif
 #undef H2S_CSR_G3_CONTROLLER_IIC
 #define H2S_CSR_G3_CONTROLLER_IIC (0x428+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_controller_iic {
-	unsigned _iic:1;
-	unsigned :31;
+	unsigned _iic: 1;
+	unsigned : 31;
 };
 #endif
 #undef H2S_CSR_G3_CONTROLLER_IIC
@@ -1748,32 +1748,32 @@ struct dnc_csr_g3_controller_iic {
 #define H2S_CSR_G3_SPI_READ_WRITE_DATA (0x42C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_spi_read_write_data {
-	unsigned _31_0:32;
+	unsigned _31_0: 32;
 };
 #endif
 #undef H2S_CSR_G3_EEPROM_ADDR_HSS_PLL_AND_HSS_DATA
 #define H2S_CSR_G3_EEPROM_ADDR_HSS_PLL_AND_HSS_DATA (0x430+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_eeprom_addr_hss_pll_and_hss_data {
-	unsigned _seprom:16;
-	unsigned :16;
+	unsigned _seprom: 16;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_THE_INITIALIZATION_OF_THE_IBM_RAMS
 #define H2S_CSR_G3_THE_INITIALIZATION_OF_THE_IBM_RAMS (0x7F8+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_the_initialization_of_the_ibm_rams {
-	unsigned _0_the_initialisation_of_the_ibm_rams_of_the_whole_dnc_about_10_ms_textbf_1:1;
-	unsigned :31;
+	unsigned _0_the_initialisation_of_the_ibm_rams_of_the_whole_dnc_about_10_ms_textbf_1: 1;
+	unsigned : 31;
 };
 #endif
 #undef H2S_CSR_G3_NC_ATT_MAP_SELECT
 #define H2S_CSR_G3_NC_ATT_MAP_SELECT (0x7FC+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_nc_att_map_select {
-	unsigned _upper_address_bits:4;
-	unsigned _select_ram:4;
-	unsigned :24;
+	unsigned _upper_address_bits: 4;
+	unsigned _select_ram: 4;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_NC_ATT_MAP_SELECT_0
@@ -2292,89 +2292,89 @@ struct dnc_csr_g3_nc_att_map_select {
 #define H2S_CSR_G3_WATCH_BUS_SELECT (0xC00+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_watch_bus_select {
-	unsigned _watch_bus_select_dnc:5;
-	unsigned _watch_bus_select_h2s:1;
-	unsigned :3;
-	unsigned :23;
+	unsigned _watch_bus_select_dnc: 5;
+	unsigned _watch_bus_select_h2s: 1;
+	unsigned : 3;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G3_TRACERCTRL
 #define H2S_CSR_G3_TRACERCTRL (0xC04+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_tracerctrl {
-	unsigned :2;
-	unsigned :10;
-	unsigned :20;
+	unsigned : 2;
+	unsigned : 10;
+	unsigned : 20;
 };
 #endif
 #undef H2S_CSR_G3_TRACERSTAT
 #define H2S_CSR_G3_TRACERSTAT (0xC08+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_tracerstat {
-	unsigned _0:1;
-	unsigned _current:10;
-	unsigned :21;
+	unsigned _0: 1;
+	unsigned _current: 10;
+	unsigned : 21;
 };
 #endif
 #undef H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS
 #define H2S_CSR_G3_TRACER_EVENT_ADDRESS_UPPER_BITS (0xC0C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_tracer_event_address_upper_bits {
-	unsigned _tracer:10;
-	unsigned :22;
+	unsigned _tracer: 10;
+	unsigned : 22;
 };
 #endif
 #undef H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS
 #define H2S_CSR_G3_TRACER_EVENT_ADDRESS_LOWER_BITS (0xC10+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_tracer_event_address_lower_bits {
-	unsigned _tracer:32;
+	unsigned _tracer: 32;
 };
 #endif
 #undef H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK
 #define H2S_CSR_G3_TRACER_SELECT_COMPARE_AND_MASK (0xC14+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_tracer_select_compare_and_mask {
-	unsigned _tracer:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned _select:1;
-	unsigned :15;
+	unsigned _tracer: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned _select: 1;
+	unsigned : 15;
 };
 #endif
 #undef H2S_CSR_G3_SELECT_COUNTER
 #define H2S_CSR_G3_SELECT_COUNTER (0xF78+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_select_counter {
-	unsigned _select_counter_0:3;
-	unsigned :1;
-	unsigned _select_counter_1:3;
-	unsigned :1;
-	unsigned _select_counter_2:3;
-	unsigned :1;
-	unsigned _select_counter_3:3;
-	unsigned :1;
-	unsigned _select_counter_4:3;
-	unsigned :1;
-	unsigned _select_counter_5:3;
-	unsigned :1;
-	unsigned _select_counter_6:3;
-	unsigned :1;
-	unsigned _select_counter_7:3;
-	unsigned :1;
+	unsigned _select_counter_0: 3;
+	unsigned : 1;
+	unsigned _select_counter_1: 3;
+	unsigned : 1;
+	unsigned _select_counter_2: 3;
+	unsigned : 1;
+	unsigned _select_counter_3: 3;
+	unsigned : 1;
+	unsigned _select_counter_4: 3;
+	unsigned : 1;
+	unsigned _select_counter_5: 3;
+	unsigned : 1;
+	unsigned _select_counter_6: 3;
+	unsigned : 1;
+	unsigned _select_counter_7: 3;
+	unsigned : 1;
 };
 #endif
 #undef H2S_CSR_G3_OVERFLOW_COUNTER_0_7
@@ -2383,312 +2383,312 @@ struct dnc_csr_g3_select_counter {
 #define H2S_CSR_G3_TIMER_FOR_ECC_COUNTER_7 (0xF9C+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_timer_for_ecc_counter_7 {
-	unsigned _enable:1;
-	unsigned _clock:31;
+	unsigned _enable: 1;
+	unsigned _clock: 31;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 (0xFA0+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_0 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_1
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_1 (0xFA4+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_1 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_2
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_2 (0xFA8+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_2 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_3
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_3 (0xFAC+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_3 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_4
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_4 (0xFB0+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_4 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_5
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_5 (0xFB4+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_5 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_6
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_6 (0xFB8+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_6 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_7
 #define H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_7 (0xFBC+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_compare_and_mask_of_counter_7 {
-	unsigned _mask:8;
-	unsigned _compare:8;
-	unsigned :16;
+	unsigned _mask: 8;
+	unsigned _compare: 8;
+	unsigned : 16;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS (0xFC0+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_0_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS (0xFC4+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_0_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_1_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_1_40_BIT_UPPER_BITS (0xFC8+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_1_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_1_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_1_40_BIT_LOWER_BITS (0xFCC+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_1_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_2_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_2_40_BIT_UPPER_BITS (0xFD0+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_2_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_2_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_2_40_BIT_LOWER_BITS (0xFD4+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_2_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_3_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_3_40_BIT_UPPER_BITS (0xFD8+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_3_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_3_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_3_40_BIT_LOWER_BITS (0xFDC+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_3_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_4_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_4_40_BIT_UPPER_BITS (0xFE0+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_4_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_4_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_4_40_BIT_LOWER_BITS (0xFE4+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_4_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_5_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_5_40_BIT_UPPER_BITS (0xFE8+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_5_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_5_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_5_40_BIT_LOWER_BITS (0xFEC+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_5_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_6_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_6_40_BIT_UPPER_BITS (0xFF0+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_6_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_6_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_6_40_BIT_LOWER_BITS (0xFF4+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_6_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_7_40_BIT_UPPER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_7_40_BIT_UPPER_BITS (0xFF8+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_7_40_bit_upper_bits {
-	unsigned _upper:8;
-	unsigned :24;
+	unsigned _upper: 8;
+	unsigned : 24;
 };
 #endif
 #undef H2S_CSR_G3_PERFORMANCE_COUNTER_7_40_BIT_LOWER_BITS
 #define H2S_CSR_G3_PERFORMANCE_COUNTER_7_40_BIT_LOWER_BITS (0xFFC+(3<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g3_performance_counter_7_40_bit_lower_bits {
-	unsigned _lower:32;
+	unsigned _lower: 32;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_MAINTR
 #define H2S_CSR_G4_MCTAG_MAINTR (0x700+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_maintr {
-	unsigned _interrupt_en:1;
-	unsigned _prefbuf_en:1;
-	unsigned _ctagc_en:1;
-	unsigned _sw_interrupt:1;
-	unsigned _mem_ini_enable:1;
-	unsigned _auto_scrub_enable:1;
-	unsigned _auto_cor_err_wb:1;
-	unsigned _diagnose:1;
-	unsigned :1;
-	unsigned :23;
+	unsigned _interrupt_en: 1;
+	unsigned _prefbuf_en: 1;
+	unsigned _ctagc_en: 1;
+	unsigned _sw_interrupt: 1;
+	unsigned _mem_ini_enable: 1;
+	unsigned _auto_scrub_enable: 1;
+	unsigned _auto_cor_err_wb: 1;
+	unsigned _diagnose: 1;
+	unsigned : 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_COM_CTRLR
 #define H2S_CSR_G4_MCTAG_COM_CTRLR (0x704+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_com_ctrlr {
-	unsigned _csr_mem_acc:1;
-	unsigned _csr_mem_rd_acc:1;
-	unsigned _csr_mem_wrmask_acc:1;
-	unsigned _srefresh_enter:1;
-	unsigned _mem_size:3;
-	unsigned _ftagbig:1;
-	unsigned _ranks:2;
-	unsigned _udimm:1;
-	unsigned _bsstl18_driver_strength:1;
-	unsigned _dram_available_textbf_rw_0_dram_requests_from_ftag_hreq_and_sprb_are_not_executed_xxx_rdy_0_textbf_rw_1:1;
-	unsigned _prio_port0_mctag:1;
-	unsigned _prio_port1_mctag:1;
-	unsigned :17;
+	unsigned _csr_mem_acc: 1;
+	unsigned _csr_mem_rd_acc: 1;
+	unsigned _csr_mem_wrmask_acc: 1;
+	unsigned _srefresh_enter: 1;
+	unsigned _mem_size: 3;
+	unsigned _ftagbig: 1;
+	unsigned _ranks: 2;
+	unsigned _udimm: 1;
+	unsigned _bsstl18_driver_strength: 1;
+	unsigned _dram_available_textbf_rw_0_dram_requests_from_ftag_hreq_and_sprb_are_not_executed_xxx_rdy_0_textbf_rw_1: 1;
+	unsigned _prio_port0_mctag: 1;
+	unsigned _prio_port1_mctag: 1;
+	unsigned : 17;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_COM_STATR
 #define H2S_CSR_G4_MCTAG_COM_STATR (0x708+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_com_statr {
-	unsigned :3;
-	unsigned _auto_cor_active:1;
-	unsigned _mctr_q_almost_full:1;
-	unsigned _mctr_refresh_in_process:1;
-	unsigned _mctr_controller_busy:1;
-	unsigned _mctr_sum_interrupt:1;
-	unsigned _mctr_ports_busy:2;
-	unsigned _mctr_data_out_rd_id:2;
-	unsigned _denali:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :15;
+	unsigned : 3;
+	unsigned _auto_cor_active: 1;
+	unsigned _mctr_q_almost_full: 1;
+	unsigned _mctr_refresh_in_process: 1;
+	unsigned _mctr_controller_busy: 1;
+	unsigned _mctr_sum_interrupt: 1;
+	unsigned _mctr_ports_busy: 2;
+	unsigned _mctr_data_out_rd_id: 2;
+	unsigned _denali: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 15;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_ERROR_STATR
 #define H2S_CSR_G4_MCTAG_ERROR_STATR (0x70C+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_error_statr {
-	unsigned :6;
-	unsigned :26;
+	unsigned : 6;
+	unsigned : 26;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_ERROR_MASK
 #define H2S_CSR_G4_MCTAG_ERROR_MASK (0x710+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_error_mask {
-	unsigned _mask_ecc_dout_uncorr:1;
-	unsigned _mask_d0_ecc_dout_corr:1;
-	unsigned _mask_d1_ecc_dout_corr:1;
-	unsigned _mask_rhc_read_err:1;
-	unsigned _mask_rsc_read_err:1;
-	unsigned _mask_den_interrupt:1;
-	unsigned :26;
+	unsigned _mask_ecc_dout_uncorr: 1;
+	unsigned _mask_d0_ecc_dout_corr: 1;
+	unsigned _mask_d1_ecc_dout_corr: 1;
+	unsigned _mask_rhc_read_err: 1;
+	unsigned _mask_rsc_read_err: 1;
+	unsigned _mask_den_interrupt: 1;
+	unsigned : 26;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_SCRUBBER_ADDR
 #define H2S_CSR_G4_MCTAG_SCRUBBER_ADDR (0x714+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_scrubber_addr {
-	unsigned :2;
-	unsigned _16byte:30;
+	unsigned : 2;
+	unsigned _16byte: 30;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_MEMORY_ADDR
 #define H2S_CSR_G4_MCTAG_MEMORY_ADDR (0x718+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_memory_addr {
-	unsigned _4byte:32;
+	unsigned _4byte: 32;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_MEMORY_WDATA
 #define H2S_CSR_G4_MCTAG_MEMORY_WDATA (0x71C+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_memory_wdata {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_MEMORY_RDATA
 #define H2S_CSR_G4_MCTAG_MEMORY_RDATA (0x720+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_memory_rdata {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_G4_MCTAG_C1B_MEM_ADDR
 #define H2S_CSR_G4_MCTAG_C1B_MEM_ADDR (0x724+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_mctag_c1b_mem_addr {
-	unsigned _4byte:32;
+	unsigned _4byte: 32;
 };
 #endif
 #undef H2S_CSR_G4_G2XAA8
@@ -2697,112 +2697,112 @@ struct dnc_csr_g4_mctag_c1b_mem_addr {
 #define H2S_CSR_G4_CDATA_MAINTR (0xF00+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_maintr {
-	unsigned _interrupt_en:1;
-	unsigned _prefbuf_en:1;
-	unsigned _ctagc_en:1;
-	unsigned _sw_interrupt:1;
-	unsigned _mem_ini_enable:1;
-	unsigned _auto_scrub_enable:1;
-	unsigned _auto_cor_err_wb:1;
-	unsigned _diagnose:1;
-	unsigned :1;
-	unsigned :23;
+	unsigned _interrupt_en: 1;
+	unsigned _prefbuf_en: 1;
+	unsigned _ctagc_en: 1;
+	unsigned _sw_interrupt: 1;
+	unsigned _mem_ini_enable: 1;
+	unsigned _auto_scrub_enable: 1;
+	unsigned _auto_cor_err_wb: 1;
+	unsigned _diagnose: 1;
+	unsigned : 1;
+	unsigned : 23;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_COM_CTRLR
 #define H2S_CSR_G4_CDATA_COM_CTRLR (0xF04+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_com_ctrlr {
-	unsigned _csr_mem_acc:1;
-	unsigned _csr_mem_rd_acc:1;
-	unsigned _csr_mem_wrmask_acc:1;
-	unsigned _srefresh_enter:1;
-	unsigned _mem_size:3;
-	unsigned _ftagbig:1;
-	unsigned _ranks:2;
-	unsigned _udimm:1;
-	unsigned _bsstl18_driver_strength:1;
-	unsigned _dram_available_textbf_rw_0_dram_requests_from_ftag_hreq_and_sprb_are_not_executed_xxx_rdy_0_textbf_rw_1:1;
-	unsigned _prio_port0_cdata:1;
-	unsigned _prio_port1_cdata:1;
-	unsigned :17;
+	unsigned _csr_mem_acc: 1;
+	unsigned _csr_mem_rd_acc: 1;
+	unsigned _csr_mem_wrmask_acc: 1;
+	unsigned _srefresh_enter: 1;
+	unsigned _mem_size: 3;
+	unsigned _ftagbig: 1;
+	unsigned _ranks: 2;
+	unsigned _udimm: 1;
+	unsigned _bsstl18_driver_strength: 1;
+	unsigned _dram_available_textbf_rw_0_dram_requests_from_ftag_hreq_and_sprb_are_not_executed_xxx_rdy_0_textbf_rw_1: 1;
+	unsigned _prio_port0_cdata: 1;
+	unsigned _prio_port1_cdata: 1;
+	unsigned : 17;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_COM_STATR
 #define H2S_CSR_G4_CDATA_COM_STATR (0xF08+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_com_statr {
-	unsigned :3;
-	unsigned _auto_cor_active:1;
-	unsigned _mctr_q_almost_full:1;
-	unsigned _mctr_refresh_in_process:1;
-	unsigned _mctr_controller_busy:1;
-	unsigned _mctr_sum_interrupt:1;
-	unsigned _mctr_ports_busy:2;
-	unsigned _mctr_data_out_rd_id:2;
-	unsigned _denali:1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :1;
-	unsigned :15;
+	unsigned : 3;
+	unsigned _auto_cor_active: 1;
+	unsigned _mctr_q_almost_full: 1;
+	unsigned _mctr_refresh_in_process: 1;
+	unsigned _mctr_controller_busy: 1;
+	unsigned _mctr_sum_interrupt: 1;
+	unsigned _mctr_ports_busy: 2;
+	unsigned _mctr_data_out_rd_id: 2;
+	unsigned _denali: 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 1;
+	unsigned : 15;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_ERROR_STATR
 #define H2S_CSR_G4_CDATA_ERROR_STATR (0xF0C+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_error_statr {
-	unsigned :6;
-	unsigned :26;
+	unsigned : 6;
+	unsigned : 26;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_ERROR_MASK
 #define H2S_CSR_G4_CDATA_ERROR_MASK (0xF10+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_error_mask {
-	unsigned _mask_ecc_dout_uncorr:1;
-	unsigned _mask_d0_ecc_dout_corr:1;
-	unsigned _mask_d1_ecc_dout_corr:1;
-	unsigned _mask_rhc_read_err:1;
-	unsigned _mask_rsc_read_err:1;
-	unsigned _mask_den_interrupt:1;
-	unsigned :26;
+	unsigned _mask_ecc_dout_uncorr: 1;
+	unsigned _mask_d0_ecc_dout_corr: 1;
+	unsigned _mask_d1_ecc_dout_corr: 1;
+	unsigned _mask_rhc_read_err: 1;
+	unsigned _mask_rsc_read_err: 1;
+	unsigned _mask_den_interrupt: 1;
+	unsigned : 26;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_SCRUBBER_ADDR
 #define H2S_CSR_G4_CDATA_SCRUBBER_ADDR (0xF14+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_scrubber_addr {
-	unsigned :2;
-	unsigned _16byte:30;
+	unsigned : 2;
+	unsigned _16byte: 30;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_MEMORY_ADDR
 #define H2S_CSR_G4_CDATA_MEMORY_ADDR (0xF18+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_memory_addr {
-	unsigned _4byte:32;
+	unsigned _4byte: 32;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_MEMORY_WDATA
 #define H2S_CSR_G4_CDATA_MEMORY_WDATA (0xF1C+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_memory_wdata {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_MEMORY_RDATA
 #define H2S_CSR_G4_CDATA_MEMORY_RDATA (0xF20+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_memory_rdata {
-	unsigned :32;
+	unsigned : 32;
 };
 #endif
 #undef H2S_CSR_G4_CDATA_C1B_MEM_ADDR
 #define H2S_CSR_G4_CDATA_C1B_MEM_ADDR (0xF24+(4<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g4_cdata_c1b_mem_addr {
-	unsigned _4byte:32;
+	unsigned _4byte: 32;
 };
 #endif
 #undef H2S_CSR_G5_TRACER_RAM_1024X_32BIT_0
@@ -4855,61 +4855,61 @@ struct dnc_csr_g4_cdata_c1b_mem_addr {
 #define H2S_CSR_G5_TRACER_RAM_1024X_32BIT_1023 (0xffc+(5<<12))
 #ifndef __ASSEMBLER__
 struct dnc_csr_g5_tracer_ram_1024x_32bit {
-	unsigned _iic:1;
-	unsigned :1;
-	unsigned :3;
-	unsigned _smbus:7;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :4;
-	unsigned :1;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :8;
-	unsigned :1;
-	unsigned :3;
-	unsigned :4;
-	unsigned :32;
+	unsigned _iic: 1;
+	unsigned : 1;
+	unsigned : 3;
+	unsigned _smbus: 7;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 4;
+	unsigned : 1;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 8;
+	unsigned : 1;
+	unsigned : 3;
+	unsigned : 4;
+	unsigned : 32;
 };
 #endif
 #define H2S_RESET_CSR_G2(a) (a)[0x800/4] = 0x00000000;\

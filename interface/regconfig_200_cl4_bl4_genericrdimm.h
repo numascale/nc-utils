@@ -8,7 +8,7 @@
  * permission of Denali Software.                                 *
  ******************************************************************
  ******************************************************************
- *                                                                 
+ *
  *   Module:         regconfig.h
  *   Documentation:  Register programming header file
  *
