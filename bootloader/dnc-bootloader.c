@@ -831,12 +831,11 @@ static void setup_apic_atts(void)
 		uint16_t snode = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
 		uint16_t dnode, ht;
 		printf("Initializing SCI%03x APIC ATT tables...\n", nc_node[i].sci_id);
-		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT,    apic_shift - 1);
+		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
 		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 
-		for (j = 0; j < 64; j++) {
+		for (j = 0; j < 64; j++)
 			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nc_node[0].sci_id);
-		}
 
 		printf("Adding APIC entry on SCI%03x:", nc_node[i].sci_id);
 

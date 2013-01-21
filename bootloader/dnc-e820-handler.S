@@ -168,13 +168,13 @@ init_trampoline:
 	wrmsr
 #endif
 
-		/* Set LSCFG MSR */
+	/* Set LSCFG MSR */
 	mov	%cs:SYM_OFFSET(new_lscfg_msr), %eax
 	mov	%cs:SYM_OFFSET(new_lscfg_msr + 4), %edx
 	mov	$MSR_LSCFG, %ecx
 	wrmsr
 
-		/* Set CUCFG2 MSR */
+	/* Set CUCFG2 MSR */
 	mov	%cs:SYM_OFFSET(new_cucfg2_msr), %eax
 	mov	%cs:SYM_OFFSET(new_cucfg2_msr + 4), %edx
 	mov	$MSR_CU_CFG2, %ecx
@@ -219,7 +219,7 @@ init_trampoline:
 	call	print_hex32
 
 	pop	%eax
-	and	$~0x100, %eax	# Clear BSP flag to let core accept INIT and STARTUP IPIs.
+	and	$~0x100, %eax	/* Clear BSP flag to let core accept INIT and STARTUP IPIs */
 	mov	$MSR_APIC_BAR, %ecx
 	wrmsr
 	rdmsr
