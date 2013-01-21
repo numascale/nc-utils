@@ -2323,7 +2323,7 @@ void selftest_late(void)
 
 					uint32_t oldid = nc_node[node].ht[ht].apic_base + i;
 
-					if ((ht == 0) && (i == 0))
+					if ((node == 0) && (ht == 0) && (i == 0))
 						continue; /* Skip BSP */
 
 					uint32_t apicid = nc_node[node].apic_offset + oldid;
