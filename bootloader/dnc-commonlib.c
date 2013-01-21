@@ -583,15 +583,6 @@ void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t st
 		while ((start | mask) != (end | mask))
 			mask = (mask << 1) | 1;
 
-		val = dnc_read_conf(scinode, 0, 24 + node, FUNC0_HT, 0x168);
-
-		if ((val & 0x300) != 0x200) {
-			if (verbose > 0)
-				printf("Setting extended MMIO map address select to 128M granularity on node %d\n", node);
-
-			dnc_write_conf(scinode, 0, 24 + node, FUNC0_HT, 0x168, (val & ~0x300) | 0x200);
-		}
-
 		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (2 << 28) | idx);
 		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114, (start << 8) | dest);
 		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
@@ -1594,6 +1585,13 @@ static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
 
 			cht_write_conf(node, FUNC0_HT, 0x68,
 			               val | (1 << 25) | (1 << 18) | (1 << 17));
+		}
+
+		/* Enable 128MB-granularity on extended MMIO maps */
+		if (family < 0x15) {
+			val = cht_read_conf(node, FUNC0_HT, 0x168);
+			if ((val & 0x300) != 0x200)
+				cht_write_conf(node, FUNC0_HT, 0x168, (val & ~0x300) | 0x200);
 		}
 
 		/* Enable Addr64BitEn on IO links */
