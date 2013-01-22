@@ -120,9 +120,8 @@ void tally_local_node(int enforce_alignment)
 		if (family >= 0x15)
 			cht_write_conf(i, FUNC1_MAPS, 0x10C, 0);
 
+		/* Disable DRAM scrubbers */
 		nc_node[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
-		printf("Disabling DRAM scrubbers on SCI%03x...\n", nc_node[0].sci_id);
-
 		if (nc_node[0].ht[i].scrub & 0x1f) {
 			cht_write_conf(i, FUNC3_MISC, 0x58, nc_node[0].ht[i].scrub & ~0x1f);
 			/* Allow outstanding scrub requests to finish */
