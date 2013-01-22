@@ -184,7 +184,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	mdataw[3] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 84)); /* Read SPD location 84, 85, 86, 87 */
 	mdataw[4] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 88)); /* Read SPD location 88, 89, 90, 91 */
 	mdata[19] = 0;
-	printf("%s is a %s module (x%d, %dMB)\n", cdata ? "CData" : "MCTag", &mdata[1], dimm->width, 1 << (addr_bits - 17));
+	printf("%s is a x%d %dMB module (%s)\n", cdata ? "CData" : "MCTag", dimm->width, 1 << (addr_bits - 17), mdata[1] ? (char *)&mdata[1] : "unknown");
 
 	switch (addr_bits) {
 	case 31:
