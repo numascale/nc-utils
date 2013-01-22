@@ -2129,7 +2129,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		printf("\nPerforming High Speed Serdes self test: ");
 		/* Trigger a HSS PLL reset */
 		_pic_reset_ctrl(1);
-		printf("HSS ");
+		printf("HSS");
 
 		for (int phy = 0; phy < 6; phy++) {
 			/* 1. Check that the HSS PLL has locked */
