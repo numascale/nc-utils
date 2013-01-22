@@ -1473,18 +1473,10 @@ static void setup_remote_cores(uint16_t num)
 			apicid = cur_node->apic_offset + oldid;
 			*REL8(cpu_apic_renumber) = apicid & 0xff;
 			*REL8(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
-			*REL32(cpu_status) = VECTOR_TRAMPOLINE;
 			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
-			dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (oldid << 16));
-			udelay(50);
-			assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
-			dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
-			              0xff002600 | (oldid << 16) | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff));
 
-			while (*REL32(cpu_status) != 0)
-				cpu_relax();
-
+			wake_core_global(oldid, VECTOR_TRAMPOLINE);
 			printf(" %d", apicid);
 
 			if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
