@@ -2004,13 +2004,13 @@ static int perform_selftest(int asic_mode, char p_type[16])
 	int pass, res;
 	uint32_t val;
 	res = 0;
-	printf("Performing internal RAM self test: ");
+	printf("Performing internal RAM self test:");
 
 	for (pass = 0; pass < 10 && res == 0; pass++) {
 		const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
 		int i, chunk;
 		/* Test PCII/O ATT */
-		printf("1");
+		printf(" 1");
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000000);
 
 		for (i = 0; i < 256; i++) {
@@ -2122,7 +2122,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			}
 		}
 
-		printf("-PASS%d ", pass);
+		printf("-PASS%d", pass);
 	}
 
 	if (asic_mode && res == 0 && _is_pic_present(p_type)) {
@@ -2140,7 +2140,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 				goto pll_err_out;
 			}
 
-			printf("T");
+			printf(" T");
 			/* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
 			/* 3. Allow 6500 bit times (2ns per bit = 13us, use 100 to be safe) */
@@ -2204,7 +2204,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val & ~(0xf));
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00f0);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x0000);
-			printf("%s ", _get_linkname(phy));
+			printf("%s", _get_linkname(phy));
 		}
 
 		/* Trigger a HSS PLL reset */
