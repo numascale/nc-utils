@@ -2076,16 +2076,18 @@ static void update_mtrr(void)
 	uint64_t *syscfg_msr = (void *)REL64(new_syscfg_msr);
 	*syscfg_msr = dnc_rdmsr(MSR_SYSCFG) | (1 << 22);
 	dnc_wrmsr(MSR_SYSCFG, *syscfg_msr);
+
 	/* Ensure default memory type is uncacheable */
 	uint64_t *mtrr_default = (void *)REL64(new_mtrr_default);
 	*mtrr_default = 3 << 10;
 	dnc_wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
+
 	/* Store fixed MTRRs */
-	uint64_t *mtrr_fixed = (void *)REL64(new_mtrr_fixed);
+	uint64_t *new_mtrr_fixed = (void *)REL64(new_mtrr_fixed);
 	uint32_t *fixed_mtrr_regs = (void *)REL64(fixed_mtrr_regs);
 
-	for (int i = 0; i < 11; i++)
-		mtrr_fixed[i] = dnc_rdmsr(fixed_mtrr_regs[i]);
+	for (int i = 0; fixed_mtrr_regs[i] != 0xffffffff; i++)
+		new_mtrr_fixed[i] = dnc_rdmsr(fixed_mtrr_regs[i]);
 
 	/* Store variable MTRRs */
 	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);

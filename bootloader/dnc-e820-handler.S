@@ -82,8 +82,11 @@ init_trampoline:
 	mov	$SYM_OFFSET(fixed_mtrr_regs), %edi /* 32-bit MSR to use */
 	mov	$SYM_OFFSET(new_mtrr_fixed), %esi  /* 64-bit value to write */
 1:
-	mov	%cs:(%edi), %ecx /* MSR register */
+	mov	%cs:(%edi), %ecx /* MSR number */
 	add	$4, %edi
+
+	cmp $0xffffffff, %ecx
+	je break
 
 	mov	%cs:(%esi), %eax /* value[0] */
 	add	$4, %esi
@@ -91,9 +94,9 @@ init_trampoline:
 	add	$4, %esi
 
 	wrmsr
-	cmp	$0, %edi
-	jna	1b
+	jmp	1b
 
+break:
 	/* Set variable MTRRs */
 	mov	$MSR_MTRR_PHYS_BASE0, %ecx
 	mov	$SYM_OFFSET(new_mtrr_var_base), %esi
@@ -353,7 +356,7 @@ EXPORT(fixed_mtrr_regs)
 	.long MSR_MTRR_FIX4K_E8000
 	.long MSR_MTRR_FIX4K_F0000
 	.long MSR_MTRR_FIX4K_F8000
-	.long 0
+	.long 0xffffffff
 EXPORT(new_mtrr_fixed)
 	.skip 11*8, 0
 EXPORT(new_mtrr_var_base)
