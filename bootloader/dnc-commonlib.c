@@ -574,7 +574,6 @@ void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t st
 
 	if (family < 0x15) {
 		uint64_t mask;
-		uint32_t val;
 		assert(idx < 12);
 		mask = 0;
 		start = start >> 27;
@@ -1156,7 +1155,7 @@ static void disable_probefilter(const int nodes)
 	printf("done\n");
 }
 
-void wake_core(const int apicid, const int vector)
+void wake_core_local(const int apicid, const int vector)
 {
 	uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
 	volatile uint32_t *const apic = (void * const)((uint32_t)val & ~0xfff);
@@ -1182,10 +1181,28 @@ void wake_core(const int apicid, const int vector)
 		cpu_relax();
 }
 
-static void wake_cores_early(const int vector)
+void wake_core_global(const int apicid, const int vector)
+{
+	*REL32(cpu_status) = vector;
+
+	/* Deliver initialize IPI */
+	dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (apicid << 16));
+	udelay(50);
+
+	/* Deliver startup IPI */
+	assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
+		0xff002600 | (apicid << 16) | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff));
+
+	/* Wait until execution completed */
+	while (*REL32(cpu_status) != 0)
+		cpu_relax();
+}
+
+static void wake_cores_local(const int vector)
 {
 	for (int i = 1; post_apic_mapping[i] != 255; i++)
-		wake_core(post_apic_mapping[i], vector);
+		wake_core_local(post_apic_mapping[i], vector);
 }
 
 void enable_probefilter(const int nodes)
@@ -1239,9 +1256,9 @@ void enable_probefilter(const int nodes)
 	dnc_wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
 
 	if (family >= 0x15)
-		wake_cores_early(VECTOR_PROBEFILTER_EARLY_f15);
+		wake_cores_local(VECTOR_PROBEFILTER_EARLY_f15);
 	else
-		wake_cores_early(VECTOR_PROBEFILTER_EARLY_f10);
+		wake_cores_local(VECTOR_PROBEFILTER_EARLY_f10);
 
 	/* 6. Set F3x1C4[L3TagInit]=1 */
 	for (i = 0; i <= nodes; i++) {
@@ -1275,7 +1292,7 @@ void enable_probefilter(const int nodes)
 	/* 8.  Enable all cache activity in the system by clearing
 	   CR0.CD for all active cores in the system */
 	enable_cache();
-	wake_cores_early(VECTOR_ENABLE_CACHE);
+	wake_cores_local(VECTOR_ENABLE_CACHE);
 	critical_leave();
 
 	/* 9. Restore L3 and DRAM scrubber register values */
@@ -2290,21 +2307,6 @@ static void dump_northbridge_regs(int ht_id)
 		printf("MSR 0x%08x: %016" PRIx64 "\n", msr, dnc_rdmsr(msr));
 }
 
-#ifdef UNUSED
-void selftest_early(void)
-{
-	uint32_t msr = 0x0000001b;
-	uint64_t val0 = dnc_rdmsr(msr);
-	printf("MSR 0x%08x should be %016llx:", msr, val0);
-
-	for (int i = 1; post_apic_mapping[i] != 255; i++) {
-		*REL32(msr_readback) = msr;
-		wake_core(post_apic_mapping[i], VECTOR_READBACK_MSR);
-		printf(" %d:%016llx", post_apic_mapping[i], *REL64(msr_readback));
-	}
-}
-#endif
-
 void selftest_late(void)
 {
 	unsigned int offset;
@@ -2318,18 +2320,24 @@ void selftest_late(void)
 		for (int node = 0; node < dnc_node_count; node++) {
 			for (int ht = 0; ht < 8; ht++) {
 				for (int i = 0; i < nc_node[node].ht[ht].cores; i++) {
+					if ((node == 0) && (ht == 0) && (i == 0))
+						continue; /* Skip BSP */
 					if (!nc_node[node].ht[ht].cpuid)
 						continue;
 
 					uint32_t oldid = nc_node[node].ht[ht].apic_base + i;
-
-					if ((node == 0) && (ht == 0) && (i == 0))
-						continue; /* Skip BSP */
-
 					uint32_t apicid = nc_node[node].apic_offset + oldid;
 					*REL32(msr_readback) = msr;
-					wake_core(apicid, VECTOR_READBACK_MSR);
 
+#ifdef FIXME
+					wake_core_global(apicid, VECTOR_READBACK_MSR);
+#else
+					/* Use local IPI distribution until global is fixed */
+					if (apicid > 254)
+						break;
+
+					wake_core_local(apicid, VECTOR_READBACK_MSR);
+#endif
 					if (*REL64(msr_readback) != val0) {
 						if (!printed) {
 							printf("MSR 0x%08x should be %016llx:", msr, val0);

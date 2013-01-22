@@ -120,7 +120,8 @@ int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
                    struct node_info *info, struct part_info *part);
 void wait_for_master(struct node_info *info, struct part_info *part);
-void wake_core(const int apicid, const int vector);
+void wake_core_local(const int apicid, const int vector);
+void wake_core_global(const int apicid, const int vector);
 void enable_probefilter(const int nodes);
 void selftest_late(void);
 
