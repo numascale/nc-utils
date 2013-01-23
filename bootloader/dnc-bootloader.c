@@ -2607,6 +2607,9 @@ static void constants(void)
 	printf("NB/TSC frequency is %dMHz\n", tsc_mhz);
 }
 
+#define STEP_MIN (64)
+#define STEP_MAX (16 << 20)
+
 static void selftest_late_memmap(void)
 {
 	struct e820entry *e820 = (void *)REL32(new_e820_map);
@@ -2619,19 +2622,24 @@ static void selftest_late_memmap(void)
 
 		uint64_t start = e820[i].base;
 		uint64_t end = e820[i].base + e820[i].length;
+		printf("Testing memory permissions from %016llx to %016llx...", start, end - 1);
 
-		printf("Testing memory permissions from %016llx to %016llx...", start, end);
-		for (uint64_t pos = start; pos < end; pos += 4096) {
+		uint64_t pos = start;
+		uint64_t mid = start + (end - start) / 2;
+		uint64_t step = STEP_MIN;
+
+		while (pos < mid) {
 			mem64_write32(pos, mem64_read32(pos));
-
-			/* If the second page in each 1MB chunk, skip to second last page */
-			if ((pos & 0xfffff) == 4096) {
-				pos += (1 << 20) - 8192;
-
-				if (pos > end)
-					pos = end - 8192;
-			}
+			pos += step;
+			step = min(step << 1, STEP_MAX);
 		}
+
+		while (pos < end) {
+			mem64_write32(pos, mem64_read32(pos));
+			step = min((end - pos) / 2, STEP_MAX);
+			pos += max(step, STEP_MIN);
+		}
+
 		printf("done\n");
 	}
 }
