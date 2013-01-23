@@ -145,13 +145,15 @@ static void disable_xtpic(void)
 	outb(0xff, PIC_SLAVE_IMR);
 }
 
+#define E820_MAX_LEN 4096
+
 static void load_orig_e820_map(void)
 {
 	static com32sys_t rm;
-	struct e820entry *e820_map;
-	unsigned int e820_len = 0;
-	e820_map = __com32.cs_bounce;
-	memset(e820_map, 0, 4096);
+	unsigned int e820_len;
+	struct e820entry *e820_map = lmalloc(E820_MAX_LEN);
+	assert(e820_map);
+	memset(e820_map, 0, E820_MAX_LEN);
 	rm.eax.l = 0x0000e820;
 	rm.edx.l = STR_DW_N("SMAP");
 	rm.ebx.l = 0;
@@ -160,46 +162,43 @@ static void load_orig_e820_map(void)
 	rm.es = SEG(e820_map);
 	__intcall(0x15, &rm, &rm);
 
-	if (rm.eax.l == STR_DW_N("SMAP")) {
-		/* Function supported */
-		printf("--- E820 memory map\n");
-		e820_len = e820_len + rm.ecx.l;
+	assert(rm.eax.l == STR_DW_N("SMAP"));
+	printf("--- E820 memory map\n");
+	e820_len = rm.ecx.l;
 
-		while (rm.ebx.l > 0) {
-			rm.eax.l = 0x0000e820;
-			rm.edx.l = STR_DW_N("SMAP");
-			rm.ecx.l = sizeof(struct e820entry);
-			rm.edi.w[0] = OFFS(e820_map) + e820_len;
-			rm.es = SEG(e820_map);
-			__intcall(0x15, &rm, &rm);
-			e820_len += rm.ecx.l ? rm.ecx.l : sizeof(struct e820entry);
-		}
-
-		int i, j, len;
-		struct e820entry elem;
-		len = e820_len / sizeof(elem);
-
-		/* Sort e820 map entries */
-		for (j = 1; j < len; j++) {
-			memcpy(&elem, &e820_map[j], sizeof(elem));
-
-			for (i = j - 1; (i >= 0) && (e820_map[i].base > elem.base); i--)
-				memcpy(&e820_map[i + 1], &e820_map[i], sizeof(elem));
-
-			memcpy(&e820_map[i + 1], &elem, sizeof(elem));
-		}
-
-		for (i = 0; i < len; i++) {
-			printf(" %016llx - %016llx (%016llx) [%x]\n",
-			       e820_map[i].base, e820_map[i].base + e820_map[i].length,
-			       e820_map[i].length, e820_map[i].type);
-		}
-
-		orig_e820_map = malloc(e820_len);
-		assert(orig_e820_map);
-		memcpy(orig_e820_map, e820_map, e820_len);
-		orig_e820_len = e820_len;
+	while (rm.ebx.l > 0) {
+		rm.eax.l = 0x0000e820;
+		rm.edx.l = STR_DW_N("SMAP");
+		rm.ecx.l = sizeof(struct e820entry);
+		rm.edi.w[0] = OFFS(e820_map) + e820_len;
+		rm.es = SEG(e820_map);
+		__intcall(0x15, &rm, &rm);
+		e820_len += rm.ecx.l ? rm.ecx.l : sizeof(struct e820entry);
+		assert(e820_len < E820_MAX_LEN);
 	}
+
+	int i, j, len;
+	struct e820entry elem;
+	len = e820_len / sizeof(elem);
+
+	/* Sort e820 map entries */
+	for (j = 1; j < len; j++) {
+		memcpy(&elem, &e820_map[j], sizeof(elem));
+
+		for (i = j - 1; (i >= 0) && (e820_map[i].base > elem.base); i--)
+			memcpy(&e820_map[i + 1], &e820_map[i], sizeof(elem));
+
+		memcpy(&e820_map[i + 1], &elem, sizeof(elem));
+	}
+
+	for (i = 0; i < len; i++) {
+		printf(" %016llx - %016llx (%016llx) [%x]\n",
+		       e820_map[i].base, e820_map[i].base + e820_map[i].length,
+		       e820_map[i].length, e820_map[i].type);
+	}
+
+	orig_e820_map = e820_map;
+	orig_e820_len = e820_len;
 }
 
 static int install_e820_handler(void)
@@ -385,7 +384,7 @@ static void update_e820_map(void)
 	(*len)++;
 
 	/* We're guaranteed only one page, so ensure we don't exceed it */
-	assert((len - REL16(new_e820_len)) < 4096);
+	assert((len - REL16(new_e820_len)) < E820_MAX_LEN);
 	printf("Updated E820 map:\n");
 
 	for (i = 0; i < *len; i++) {
@@ -472,6 +471,7 @@ static void update_acpi_tables(void)
 
 	/* Fixed MTRRs may mark the RSDT and XSDT pointers r/o */
 	disable_fixed_mtrrs();
+
 	/* replace_root may fail if rptr is r/o, so we read the pointers
 	 * back. In case of failure, we'll assume the existing rsdt/xsdt
 	 * tables can be extended where they are */
@@ -508,6 +508,7 @@ static void update_acpi_tables(void)
 	memcpy(apic, oapic, oapic->len);
 	memcpy(apic->oemid, "NUMASC", 6);
 	apic->len = 44;
+
 	/* Apply enable mask to existing APICs, find first unused ACPI ProcessorId */
 	pnum = 0;
 	j = 0;
