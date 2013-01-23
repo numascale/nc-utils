@@ -1157,6 +1157,8 @@ static void disable_probefilter(const int nodes)
 
 void wake_core_local(const int apicid, const int vector)
 {
+	assert(apicid < 0xff);
+
 	uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
 	volatile uint32_t *const apic = (void * const)((uint32_t)val & ~0xfff);
 	volatile uint32_t *const icr = &apic[0x300 / 4];
