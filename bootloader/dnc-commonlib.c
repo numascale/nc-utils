@@ -2309,7 +2309,7 @@ static void dump_northbridge_regs(int ht_id)
 		printf("MSR 0x%08x: %016" PRIx64 "\n", msr, dnc_rdmsr(msr));
 }
 
-void selftest_late(void)
+void selftest_late_msrs(void)
 {
 	unsigned int offset;
 	uint32_t msr;
