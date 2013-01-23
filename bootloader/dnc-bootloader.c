@@ -2607,6 +2607,35 @@ static void constants(void)
 	printf("NB/TSC frequency is %dMHz\n", tsc_mhz);
 }
 
+static void selftest_late_memmap(void)
+{
+	struct e820entry *e820 = (void *)REL32(new_e820_map);
+	uint16_t *len = REL16(new_e820_len);
+
+	for (int i = 0; i < *len; i++) {
+		/* Test only regions marked usable */
+		if (e820[i].type != 1)
+			continue;
+
+		uint64_t start = e820[i].base;
+		uint64_t end = e820[i].base + e820[i].length;
+
+		printf("Testing memory permissions from %016llx to %016llx...", start, end);
+		for (uint64_t pos = start; pos < end; pos += 4096) {
+			mem64_write32(pos, mem64_read32(pos));
+
+			/* If the second page in each 1MB chunk, skip to second last page */
+			if ((pos & 0xfffff) == 4096) {
+				pos += (1 << 20) - 8192;
+
+				if (pos > end)
+					pos = end - 8192;
+			}
+		}
+		printf("done\n");
+	}
+}
+
 static int nc_start(void)
 {
 	uint32_t uuid;
@@ -2745,11 +2774,13 @@ static int nc_start(void)
 		free(cfg_partlist);
 
 		if (verbose) {
+			selftest_late_memmap();
+
 			/* Do this ahead of the self-test to prevent false positives */
 			/* Restore 32-bit only access and non-extended PCI config access */
 			set_wrap32_enable();
 			set_cf8extcfg_disable();
-			selftest_late();
+			selftest_late_msrs();
 		}
 
 		start_user_os();

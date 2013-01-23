@@ -123,7 +123,7 @@ void wait_for_master(struct node_info *info, struct part_info *part);
 void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);
 void enable_probefilter(const int nodes);
-void selftest_late(void);
+void selftest_late_msrs(void);
 
 extern int dnc_asic_mode;
 extern uint32_t dnc_chip_rev;
