@@ -2794,7 +2794,11 @@ static int nc_start(void)
 	} else {
 		/* Slave */
 		uint32_t val;
+
+		/* On non-root servers, prevent writing to unexpected locations */
 		cleanup_stack();
+		handover_legacy();
+
 		/* Set G3x02c FAB_CONTROL bit 30 */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1 << 30);
 		printf("Numascale NumaChip awaiting fabric set-up by master node...");
@@ -2807,19 +2811,18 @@ static int nc_start(void)
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 		} while (!(val & (1 << 31)));
 
-		printf("ready\n");
-		/* On non-root servers, prevent writing to unexpected locations */
-		handover_legacy();
-		disable_dma_all();
-		clear_bsp_flag();
-		disable_smi();
-		/* Disable legacy PIC interrupts and cache */
-		disable_xtpic();
-		disable_cache();
 		printf("\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'\n",
 		       info->desc, cfg_nodes, get_master_name(part->master));
+
+		disable_smi();
+		disable_dma_all(); /* disables VGA refresh */
+		clear_bsp_flag();
+		disable_xtpic();
+		disable_cache();
+
 		/* Let master know we're ready for remapping/integration */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1 << 31));
+
 		/* Restore 32-bit only access and non-extended PCI config access */
 		set_wrap32_enable();
 		set_cf8extcfg_disable();

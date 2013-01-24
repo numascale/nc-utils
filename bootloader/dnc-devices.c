@@ -60,7 +60,9 @@ static void disable_device(int bus, int dev, int fn)
 	dnc_write_conf(0xfff0, bus, dev, fn, 0x30, 0);
 	/* Set Interrupt Line register to 0 (unallocated) */
 	dnc_write_conf(0xfff0, bus, dev, fn, 0x3c, 0);
-	printf("disabled\n");
+
+	if (verbose > 1)
+		printf("disabled\n");
 }
 
 void disable_dma_all(void)
@@ -78,11 +80,13 @@ void disable_dma_all(void)
 
 				switch ((type >> 16) & 0x7f) {
 				case 0:
-					printf("device at %02x:%02x.%x: ", bus, dev, fn);
+					if (verbose > 1)
+						printf("device at %02x:%02x.%x: ", bus, dev, fn);
 					disable_device(bus, dev, fn);
 					break;
 				case 1:
-					printf("bridge at %02x:%02x.%x\n", bus, dev, fn);
+					if (verbose > 1)
+						printf("bridge at %02x:%02x.%x\n", bus, dev, fn);
 					break;
 				}
 
