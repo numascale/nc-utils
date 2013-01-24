@@ -2789,6 +2789,7 @@ static int nc_start(void)
 		free(cfg_nodelist);
 		free(cfg_partlist);
 
+#ifdef BROKEN
 		if (verbose) {
 			selftest_late_memmap();
 
@@ -2798,6 +2799,7 @@ static int nc_start(void)
 			set_cf8extcfg_disable();
 			selftest_late_msrs();
 		}
+#endif
 
 		start_user_os();
 	} else {
