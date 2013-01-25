@@ -1797,22 +1797,20 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 	/* Check if adjusting the frequency is possible */
 	if (_is_pic_present(p_type)) {
 		if (osc_setting > 2) {
-			printf("Invalid Oscillator setting %d; skipping\n", osc_setting);
+			printf("Invalid oscillator setting %d; skipping\n", osc_setting);
 			return 0;
 		}
 
 		dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
 		udelay(10000);
 		val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
-		/* On the RevC cards the micro controller isn't quite fast enough
-		 * to send bit7 of every byte correctly on the I2C bus when reading.
-		 * The bits we care about is in bit[1:0] of the high order byte. */
-		printf("Current oscillator setting : %d (raw=%08x)\n", (val >> 24) & 3, val);
 
+		/* On the RevC cards the micro controller isn't quite fast enough
+		 * to send bit7 of every byte correctly on the I2C bus when reading;
+		 * the bits we care about are bit[1:0] of the high order byte */
 		if (((val >> 24) & 3) != osc_setting) {
 			/* Write directly to the frequency selct register */
 			val = 0x0000b0e9 | (osc_setting << 24);
-			printf("Writing new oscillator setting : %d (raw=%08x)\n", osc_setting, val);
 			dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
 			/* Wait for the new frequency to settle */
 			udelay(10000);
@@ -1820,13 +1818,12 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 			dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
 			udelay(10000);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
-			printf("New current set oscillator setting: %d (raw=%08x)\n", (val >> 24) & 3, val);
+			printf("Oscillator set to %d\n", (val >> 24) & 3);
 			/* Trigger a HSS PLL reset */
 			_pic_reset_ctrl(1);
 		}
-	} else {
-		printf("Oscillator not set, card is of type %s and doesn't support this\n", p_type);
-	}
+	} else
+		printf("Oscillator not set\n");
 
 	return 0;
 }
