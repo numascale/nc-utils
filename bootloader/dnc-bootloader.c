@@ -373,11 +373,6 @@ static void update_e820_map(void)
 		}
 	}
 
-	/* Reserve HT address range */
-	e820[*len].base   = HT_BASE;
-	e820[*len].length = HT_LIMIT - HT_BASE;
-	e820[*len].type   = 2;
-	(*len)++;
 	e820[*len].base   = DNC_MCFG_BASE;
 	e820[*len].length = DNC_MCFG_LIM - DNC_MCFG_BASE + 1;
 	e820[*len].type   = 2;
@@ -2779,17 +2774,17 @@ static int nc_start(void)
 		free(cfg_nodelist);
 		free(cfg_partlist);
 
-#ifdef BROKEN
 		if (verbose) {
 			selftest_late_memmap();
+#ifdef BROKEN
 
 			/* Do this ahead of the self-test to prevent false positives */
 			/* Restore 32-bit only access and non-extended PCI config access */
 			set_wrap32_enable();
 			set_cf8extcfg_disable();
 			selftest_late_msrs();
-		}
 #endif
+		}
 
 		start_user_os();
 	} else {
