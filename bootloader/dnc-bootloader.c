@@ -374,8 +374,8 @@ static void update_e820_map(void)
 	}
 
 	/* Reserve HT address range */
-	e820[*len].base   = 0xfd00000000;
-	e820[*len].length = 0x300000000;
+	e820[*len].base   = HT_BASE;
+	e820[*len].length = HT_LIMIT - HT_BASE;
 	e820[*len].type   = 2;
 	(*len)++;
 	e820[*len].base   = DNC_MCFG_BASE;
