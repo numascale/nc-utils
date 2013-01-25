@@ -182,8 +182,10 @@ void dnc_reset_phy(int phy)
 {
 	uint32_t val;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy);
-//    dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, val | (1<<7) | (1<<6) | (1<<13) | (1<<12));
-	dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, (val & ~((1 << 13) | (1 << 12))) | (1 << 7) | (1 << 6));
+	if (enable_relfreq)
+		dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, val | (1<<7) | (1<<6) | (1<<13) | (1<<12));
+	else
+		dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy, (val & ~((1 << 13) | (1 << 12))) | (1 << 7) | (1 << 6));
 	udelay(1000);
 }
 
@@ -191,8 +193,10 @@ void dnc_reset_lc3(int lc)
 {
 	uint32_t val;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc);
-//    dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, val | (1<<6) | (1<<13) | (1<<12));
-	dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, (val & ~((1 << 13) | (1 << 12))) | (1 << 6));
+	if (enable_relfreq)
+		dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, val | (1<<6) | (1<<13) | (1<<12));
+	else
+		dnc_write_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc, (val & ~((1 << 13) | (1 << 12))) | (1 << 6));
 	udelay(1000);
 }
 

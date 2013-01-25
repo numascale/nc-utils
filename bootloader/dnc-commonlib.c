@@ -51,6 +51,7 @@ int remote_io = 0;
 bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int sync_interval = 1; /* bit[8]=disable prescaler, bit[7:0] sync_interval value */
+int enable_relfreq = 0;
 int singleton = 0;
 static int ht_200mhz_only = 0;
 static int ht_8bit_only = 0;
@@ -1794,6 +1795,11 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 {
 	uint32_t val;
 
+	if (enable_relfreq) {
+		printf("PHY Relative Frequency Correction mode enabled, not adjusting oscillators\n");
+		return 0;
+	}
+
 	/* Check if adjusting the frequency is possible */
 	if (_is_pic_present(p_type)) {
 		if (osc_setting > 2) {
@@ -1925,6 +1931,7 @@ static int parse_cmdline(const char *cmdline)
 		{"renumber-bsp",    &parse_int,    &renumber_bsp},
 		{"forwarding-mode", &parse_int,    &forwarding_mode},
 		{"sync-interval",   &parse_int,    &sync_interval},
+		{"enable-relfreq",  &parse_int,    &enable_relfreq},
 		{"singleton",       &parse_int,    &singleton},       /* Loopback test with cables */
 		{"mem-offline",     &parse_int,    &mem_offline},
 		{"trace-buf",       &parse_uint64_t,    &trace_buf_size},
