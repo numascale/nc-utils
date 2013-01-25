@@ -874,7 +874,6 @@ static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
 {
 	uint64_t val;
 	uint32_t base, lim;
-	int i;
 
 	if (scc_started) {
 		uint32_t att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
@@ -906,7 +905,7 @@ static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
 		              (addr >> 36)); /* Start index */
 		dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
 
-		for (i = 0; i < 8; i++) {
+		for (int i = 0; i < 8; i++) {
 			base = cht_read_conf(0, FUNC1_MAPS, 0x40 + (8 * i));
 			lim = cht_read_conf(0, FUNC1_MAPS, 0x44 + (8 * i));
 
@@ -2648,7 +2647,7 @@ static int nc_start(void)
 	uint32_t uuid;
 	struct node_info *info;
 	struct part_info *part;
-	int i, wait;
+	int i;
 
 	if (check_api_version() < 0)
 		return ERR_API_VERSION;
@@ -2750,7 +2749,7 @@ static int nc_start(void)
 #ifdef UNUSED
 		read_microcode_update();
 #endif
-		wait = 100;
+		int wait = 100;
 
 		while ((i = unify_all_nodes()) == 0) {
 			if (wait > 100000) {
