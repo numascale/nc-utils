@@ -1756,14 +1756,14 @@ static uint32_t identify_eeprom(char p_type[16])
 	uint32_t reg;
 	int i;
 
-	// Read print type
+	/* Read print type */
 	for (i = 0; i < 4; i++) {
 		reg = read_eeprom_dword(0xffc0 + i * 4);
 		memcpy(&p_type[i * 4], &reg, 4);
 	}
 
 	p_type[15] = '\0';
-	// Read UUID
+	/* Read UUID */
 	return read_eeprom_dword(0xfffc);
 }
 
