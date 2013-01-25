@@ -2629,14 +2629,14 @@ static void selftest_late_memmap(void)
 
 		while (pos < mid) {
 			mem64_write32(pos, mem64_read32(pos));
-			pos += step;
+			pos = (pos + step) & ~3;
 			step = min(step << 1, STEP_MAX);
 		}
 
 		while (pos < end) {
 			mem64_write32(pos, mem64_read32(pos));
 			step = min((end - pos) / 2, STEP_MAX);
-			pos += max(step, STEP_MIN);
+			pos += max(step, STEP_MIN) & ~3;
 		}
 
 		printf("done\n");
