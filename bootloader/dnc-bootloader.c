@@ -373,11 +373,7 @@ static void update_e820_map(void)
 		}
 	}
 
-	/* Reserve HT address range */
-	e820[*len].base   = HT_BASE;
-	e820[*len].length = HT_LIMIT - HT_BASE;
-	e820[*len].type   = 2;
-	(*len)++;
+	/* Reserve MCFG address range so Linux accepts it */
 	e820[*len].base   = DNC_MCFG_BASE;
 	e820[*len].length = DNC_MCFG_LIM - DNC_MCFG_BASE + 1;
 	e820[*len].type   = 2;
