@@ -369,17 +369,12 @@ static int tally_remote_node(uint16_t node)
 
 		if (family < 0x15) {
 			val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x68);
-
 			if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
 
 			val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x168);
-
 			if (val & 0x01) cur_node->ht[i].cores++; /* Cpu2En */
-
 			if (val & 0x02) cur_node->ht[i].cores++; /* Cpu3En */
-
 			if (val & 0x04) cur_node->ht[i].cores++; /* Cpu4En */
-
 			if (val & 0x08) cur_node->ht[i].cores++; /* Cpu5En */
 		} else {
 			val = dnc_read_conf(node, 0, 24 + i, FUNC5_EXTD, 0x84);
@@ -398,6 +393,25 @@ static int tally_remote_node(uint16_t node)
 		tot_cores += cur_node->ht[i].cores;
 		cur_apic += cur_node->ht[i].cores;
 		last = i;
+	}
+
+	/* Check if any DRAM ranges overlap the HyperTransport address space */
+	if ((cur_node->addr_base < (HT_LIMIT >> DRAM_MAP_SHIFT)) &&
+		((cur_node->addr_base + cur_node->node_mem) > (HT_BASE >> DRAM_MAP_SHIFT))) {
+		/* Move whole server up to HT decode limit */
+		uint64_t shift = (HT_LIMIT >> DRAM_MAP_SHIFT) - cur_node->addr_base;
+
+		printf("Moving SCI%3x past HyperTransport decode range by %lldGB\n", node, shift >> (30 - DRAM_MAP_SHIFT));
+
+		for (i = 0; i <= max_ht_node; i++) {
+			if (cur_node->ht[i].cpuid == 0)
+				continue;
+
+			cur_node->ht[i].base += shift;
+		}
+
+		cur_node->addr_base += shift;
+		dnc_top_of_mem += shift;
 	}
 
 	/* If rebased apicid[7:0] of last core is above a given threshold,

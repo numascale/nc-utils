@@ -36,6 +36,8 @@ extern uint64_t dnc_csr_lim;
 #define DNC_CSR_LIM (dnc_csr_lim)
 #define DEF_DNC_CSR_BASE 0xffff00000000ULL
 #define DEF_DNC_CSR_LIM  0xffffffffffffULL
+#define HT_BASE 0xfd00000000ULL
+#define HT_LIMIT 0x10000000000ULL
 
 #define PMIO_PORT		0xcd6
 
