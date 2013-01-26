@@ -1200,6 +1200,12 @@ static void renumber_remote_bsp(uint16_t num)
 	cur_node->ht[0].cpuid = 0;
 	cur_node->nc_ht_id = 0;
 
+	/* Reorder the individual HT node memory base address so it is in increasing order */
+	for (i = 1; i <= maxnode; i++) {
+		if (i == 1) cur_node->ht[i].base = cur_node->addr_base;
+		else        cur_node->ht[i].base = cur_node->ht[i-1].base + cur_node->ht[i-1].size;
+	}
+
 	printf("done\n");
 }
 
