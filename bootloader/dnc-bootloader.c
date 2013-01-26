@@ -1988,7 +1988,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			int ours = 0;
 
 			for (i = 0; i < cfg_nodes; i++)
-				if (cfg_nodelist[i].uuid == rsp.uuid) {
+				if ((!name_matching && (cfg_nodelist[i].uuid == rsp.uuid)) ||
+				    ( name_matching && (cfg_nodelist[i].sciid == rsp.sciid))) {
 					ours = 1;
 					break;
 				}
@@ -2686,8 +2687,12 @@ static int nc_start(void)
 	if (!info)
 		return ERR_NODE_CONFIG;
 
-	printf("Node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
-	       info->desc, info->uuid, info->sciid, info->partition, info->osc);
+	if (name_matching)
+		printf("Node: <%s> sciid: 0x%03x, partition: %d, osc: %d\n",
+		       info->desc, info->sciid, info->partition, info->osc);
+	else
+		printf("Node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
+		       info->desc, info->uuid, info->sciid, info->partition, info->osc);
 	part = get_partition_config(info->partition);
 
 	if (!part)
@@ -2701,12 +2706,19 @@ static int nc_start(void)
 		if (config_local(&cfg_nodelist[i], uuid))
 			continue;
 
-		printf("Remote node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
-		       cfg_nodelist[i].desc,
-		       cfg_nodelist[i].uuid,
-		       cfg_nodelist[i].sciid,
-		       cfg_nodelist[i].partition,
-		       cfg_nodelist[i].osc);
+		if (name_matching)
+			printf("Remote node: <%s> sciid: 0x%03x, partition: %d, osc: %d\n",
+			       cfg_nodelist[i].desc,
+			       cfg_nodelist[i].sciid,
+			       cfg_nodelist[i].partition,
+			       cfg_nodelist[i].osc);
+		else
+			printf("Remote node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
+			       cfg_nodelist[i].desc,
+			       cfg_nodelist[i].uuid,
+			       cfg_nodelist[i].sciid,
+			       cfg_nodelist[i].partition,
+			       cfg_nodelist[i].osc);
 	}
 
 	if (adjust_oscillator(dnc_card_type, info->osc) < 0)
