@@ -2300,7 +2300,7 @@ static int unify_all_nodes(void)
 	nc_node[1].ht[0].base = dnc_top_of_mem;
 
 	if (!tally_all_remote_nodes()) {
-		printf("Unable to reach all nodes, retrying...\n");
+		printf("Unable to reach all nodes, aborting...\n");
 		return 0;
 	}
 
@@ -2757,19 +2757,7 @@ static int nc_start(void)
 #ifdef UNUSED
 		read_microcode_update();
 #endif
-		int wait = 100;
-
-		while ((i = unify_all_nodes()) == 0) {
-			if (wait > 100000) {
-				wait = 100;
-			}
-
-			udelay(wait);
-			wait <<= 2;
-			dnc_check_fabric(info);
-		}
-
-		if (i < 0)
+		if (unify_all_nodes() == 0)
 			return ERR_UNIFY_ALL_NODES;
 
 		(void)dnc_check_mctr_status(0);
@@ -2813,9 +2801,15 @@ static int nc_start(void)
 		printf("Numascale NumaChip awaiting fabric set-up by master node...");
 
 		do {
-			dnc_check_mctr_status(0);
-			dnc_check_mctr_status(1);
-			dnc_check_fabric(info);
+			if (((dnc_check_mctr_status(0) & 0xfbc) != 0) ||
+			    ((dnc_check_mctr_status(1) & 0xfbc) != 0) ||
+			    (!dnc_check_fabric(info))) {
+				printf("\nErrors detected, halting!\n");
+				while (1) {
+					cli();
+					asm volatile("hlt" ::: "memory");
+				}
+			}
 			udelay(1000);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 		} while (!(val & (1 << 31)));
