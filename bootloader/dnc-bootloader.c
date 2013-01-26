@@ -1072,10 +1072,11 @@ static void setup_other_cores(void)
 static void renumber_remote_bsp(uint16_t num)
 {
 	uint8_t i, j;
-	uint16_t node = nc_node[num].sci_id;
-	uint8_t maxnode = nc_node[num].nc_ht_id;
+	nc_node_info_t *cur_node = &nc_node[num];
+	uint16_t node = cur_node->sci_id;
+	uint8_t maxnode = cur_node->nc_ht_id;
 	uint32_t val;
-	printf("Renumbering BSP to HT#%d on SCI%03x#0...\n", node, maxnode);
+	printf("Renumbering BSP to HT#%d on SCI%03x#0...\n", maxnode, node);
 
 	for (i = 0; i < maxnode; i++) {
 		val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x00);
@@ -1195,9 +1196,9 @@ static void renumber_remote_bsp(uint16_t num)
 		dnc_write_conf(node, 0, 24 + i, FUNC0_HT, 0x68, (val & ~0x40f) | (1 << 15));
 	}
 
-	memcpy(&nc_node[num].ht[maxnode], &nc_node[num].ht[0], sizeof(ht_node_info_t));
-	nc_node[num].ht[0].cpuid = 0;
-	nc_node[num].nc_ht_id = 0;
+	memcpy(&cur_node->ht[maxnode], &cur_node->ht[0], sizeof(ht_node_info_t));
+	cur_node->ht[0].cpuid = 0;
+	cur_node->nc_ht_id = 0;
 
 	printf("done\n");
 }
@@ -1214,9 +1215,9 @@ static void dram_range(uint16_t node, int ht, int range, uint64_t base, uint64_t
 static void setup_remote_cores(uint16_t num)
 {
 	uint8_t i, map_index;
-	uint16_t node = nc_node[num].sci_id;
-	uint8_t ht_id = nc_node[num].nc_ht_id;
 	nc_node_info_t *cur_node = &nc_node[num];
+	uint16_t node = cur_node->sci_id;
+	uint8_t ht_id = cur_node->nc_ht_id;
 	uint16_t ht, apicid, oldid;
 	uint32_t j;
 	uint32_t val;
@@ -1255,7 +1256,7 @@ static void setup_remote_cores(uint16_t num)
 	if (renumber_bsp)
 		renumber_remote_bsp(num);
 
-	ht_id = nc_node[num].nc_ht_id;
+	ht_id = cur_node->nc_ht_id;
 	printf("Remote H2S MMIO32 ATT set...\n");
 	/* Set H2S_Init */
 	printf("Setting SCI%03x H2S_Init...\n", node);
