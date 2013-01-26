@@ -13,7 +13,7 @@ mjson_dir        := json-$(mjson_version)
 COM32DEPS := $(syslinux_dir)/com32/libutil/libutil_com.a $(syslinux_dir)/com32/lib/libcom32.a
 
 .PHONY: all
-all: dnc-bootloader.c32 sysreset.c32 remreset.c32 test-routing test-aml gen-ucode
+all: dnc-bootloader.c32 test-routing test-aml gen-ucode
 
 .PRECIOUS: %.bz2 %.tar.gz
 
@@ -74,7 +74,7 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 
 $(mjson_dir)/src/json.o: $(mjson_dir)/src/json.c
 
-dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-route.h dnc-acpi.h dnc-config.h dnc-fabric.h dnc-monitor.h dnc-trace.h hw-config.h dnc-bootloader.h dnc-defs.h dnc-masterlib.h dnc-regs.h dnc-access.c dnc-commonlib.c dnc-fabric.c dnc-monitor.c dnc-trace.c sysreset.c test-slavenode.c dnc-acpi.c dnc-config.c dnc-masterlib.c dnc-route.c gen-ucode.c test-masternode.c dnc-bootloader.c dnc-devices.c dnc-mmio.c dnc-test-access.c remreset.c test-routing.c
+dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-route.h dnc-acpi.h dnc-config.h dnc-fabric.h dnc-monitor.h dnc-trace.h hw-config.h dnc-bootloader.h dnc-defs.h dnc-masterlib.h dnc-regs.h dnc-access.c dnc-commonlib.c dnc-fabric.c dnc-monitor.c dnc-trace.c test-slavenode.c dnc-acpi.c dnc-config.c dnc-masterlib.c dnc-route.c gen-ucode.c test-masternode.c dnc-bootloader.c dnc-devices.c dnc-mmio.c dnc-test-access.c test-routing.c
 	@echo \#define VER \"`git describe --always`\" >dnc-version.h
 
 dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-devices.o dnc-monitor.o dnc-trace.o dnc-masterlib.o dnc-mmio.o \
@@ -106,8 +106,6 @@ dnc-route.o: dnc-route.c dnc-route.h
 dnc-acpi.o: dnc-acpi.c dnc-acpi.h
 
 dnc-aml.o: dnc-aml.c dnc-aml.h
-
-remreset.elf: remreset.o dnc-access.o $(COM32DEPS)
 
 test-masternode: test-masternode.o dnc-test-commonlib.o dnc-test-masterlib.o dnc-test-mmio.o \
 	dnc-test-fabric.o dnc-test-access.o dnc-test-route.o dnc-test-config.o \
