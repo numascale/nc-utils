@@ -3153,8 +3153,12 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 
 	while (!go_ahead) {
 		if (++count >= backoff) {
-			printf("Broadcasting state: %s (sciid 0x%03x, uuid %08X, tid %d)\n",
-			       node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
+			if (name_matching)
+				printf("Broadcasting state: %s (sciid 0x%03x, tid %d)\n",
+				       node_state_name[rsp.state], rsp.sciid, rsp.tid);
+			else
+				printf("Broadcasting state: %s (sciid 0x%03x, uuid %08X, tid %d)\n",
+				       node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
 			udp_broadcast_state(handle, &rsp, sizeof(rsp));
 			udelay(100 * backoff);
 
@@ -3179,7 +3183,8 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 
 			/* printf("Got cmd packet (state %d, sciid %03x, uuid %08X, tid %d)\n",
 			 *       cmd.state, cmd.sciid, cmd.uuid, cmd.tid); */
-			if (cmd.uuid == builduuid) {
+			if ((!name_matching && (cmd.uuid == builduuid)) ||
+			    ( name_matching && (cmd.sciid == part->builder))) {
 				if (cmd.tid == last_cmd) {
 					/* Ignoring seen command */
 					continue;
