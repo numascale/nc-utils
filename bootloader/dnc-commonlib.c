@@ -2509,7 +2509,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		val = cht_read_conf(i, FUNC0_HT, 0x164);
 		cht_write_conf(i, FUNC0_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
 
-#ifdef FIXME_NB-5
+#ifdef FIXME /* NB-5 */
 		/* Fix for IBS setup on certain BIOSes and Linux; set IBS to use LVT offset 1 */
 		val = cht_read_conf(i, FUNC3_MISC, 0x1cc);
 
