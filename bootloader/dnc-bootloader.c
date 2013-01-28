@@ -2446,10 +2446,15 @@ static int unify_all_nodes(void)
 	setup_apic_atts();
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL;
 	dnc_wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
+
 	/* Make chipset-specific adjustments */
 	global_chipset_fixup();
+
 	/* Must run after SCI is operational */
+	printf("BSP SMM:");
 	disable_smm_handler(dnc_rdmsr(MSR_SMM_BASE));
+	printf("\n");
+
 	setup_other_cores();
 
 	for (i = 1; i < dnc_node_count; i++)
