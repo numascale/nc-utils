@@ -1340,23 +1340,29 @@ static void setup_remote_cores(uint16_t num)
 		if (!cur_node->ht[i].cpuid)
 			continue;
 
-		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x120,
-		               cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
-		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x124,
-		               (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT));
+		/* Check if DRAM channels are unganged */
 		val = dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110);
-
 		if (val & 1) {
-			/* Reprogram DCT base/offset values */
-			dnc_write_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110, (val & ~0xfffff800) |
-			               ((cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT)) << 11));
+			/* Note offset from base */
+			uint32_t base = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x120) & 0x1fffff;
+			uint32_t rlow = ((dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110) >> 11) - base) << (27 - DRAM_MAP_SHIFT);
+			uint32_t rhigh = ((dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x114) >> 11) - base) << (27 - DRAM_MAP_SHIFT);
+
+			/* Reprogram DCT base/offset values against new base */
+			dnc_write_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110, (val & 0x7ff) |
+			               (((cur_node->ht[i].base + rlow) >> (27 - DRAM_MAP_SHIFT)) << 11));
 			dnc_write_conf(node, 0, 24 + i, FUNC2_DRAM, 0x114,
-			               (cur_node->ht[i].base >> (26 - DRAM_MAP_SHIFT)) << 10);
-			printf("[SCI%03x#%d] F2x110: %08x, F2x114: %08x\n",
+			               ((cur_node->ht[i].base + rhigh) >> (26 - DRAM_MAP_SHIFT)) << 10);
+			printf("SCI%03x#%d: F2x110 %08x, F2x114 %08x\n",
 			       node, i,
 			       dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110),
 			       dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x114));
 		}
+
+		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x120,
+		               cur_node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
+		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x124,
+		               (cur_node->ht[i].base + cur_node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT));
 	}
 
 	/* Program our local DRAM ranges */
