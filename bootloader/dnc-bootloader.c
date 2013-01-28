@@ -2798,14 +2798,11 @@ static int nc_start(void)
 
 		if (verbose) {
 			selftest_late_memmap();
-#ifdef BROKEN
-
 			/* Do this ahead of the self-test to prevent false positives */
 			/* Restore 32-bit only access and non-extended PCI config access */
 			set_wrap32_enable();
 			set_cf8extcfg_disable();
 			selftest_late_msrs();
-#endif
 		}
 
 		start_user_os();
