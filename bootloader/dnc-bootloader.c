@@ -1408,9 +1408,7 @@ static void setup_remote_cores(uint16_t num)
 		}
 	}
 
-	printf("SCI%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
 	dnc_write_csr(node, H2S_CSR_G3_PCI_SEG0, nc_node[0].sci_id << 16);
-	printf("SCI%03x/G3xPCI_SEG0: %x\n", node, dnc_read_csr(node, H2S_CSR_G3_PCI_SEG0));
 
 	/* Quick and dirty: zero out I/O and config space maps; add
 	 * all-covering map towards DNC */
@@ -1437,8 +1435,9 @@ static void setup_remote_cores(uint16_t num)
 	/* Set DRAM range on local NumaChip */
 	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->addr_base >> 6);
 	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT, (cur_node->addr_end >> 6) - 1);
-	printf("SCI%03x/NGCM0: %x\n", node, dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT));
-	printf("SCI%03x/NGCM1: %x\n", node, dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT));
+	printf("SCI%03x NGCM0 %x, NGCM1 %x\n", node,
+		dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT),
+		dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT));
 	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->addr_base);
 	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->addr_end);
 
