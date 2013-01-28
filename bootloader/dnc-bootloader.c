@@ -2417,7 +2417,6 @@ static int unify_all_nodes(void)
 	}
 
 	printf("Loading SCC microcode:");
-
 	for (i = 0; i < dnc_node_count; i++) {
 		node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
 		printf(" SCI%03x", nc_node[i].sci_id);
@@ -2432,13 +2431,24 @@ static int unify_all_nodes(void)
 	*REL64(new_topmem2_msr) = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
 	/* Harmonize TOPMEM */
 	*REL64(new_topmem_msr) = dnc_rdmsr(MSR_TOPMEM);
-#ifdef BROKEN
 
+#ifdef BROKEN
 	/* Update OS visible workaround MSRs */
 	if (disable_c1e)
 		setup_c1e_osvw();
-
 #endif
+
+	/* Unify GARTs */
+	for (node = 0; node < dnc_node_count; node++) {
+		for (int reg = 0x90; reg <= 0x9c; reg += 4) {
+			uint32_t val = cht_read_conf(0, FUNC3_MISC, reg);
+			for (i = 0; i < 8; i++) {
+				if (!nc_node[0].ht[i].cpuid)
+					continue;
+				dnc_write_conf(nc_node[node].sci_id, 0, 24 + i, FUNC3_MISC, reg, val);
+			}
+		}
+	}
 
 	if (verbose > 0)
 		debug_acpi();
