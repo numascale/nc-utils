@@ -134,7 +134,7 @@ void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);
 void enable_probefilter(const int nodes);
 void selftest_late_msrs(void);
-int dnc_dimmtest(int cdata, int run_bist, struct dimm_config *dimm);
+int dnc_dimmtest(int cdata, struct dimm_config *dimm);
 
 extern int dnc_asic_mode;
 extern uint32_t dnc_chip_rev;

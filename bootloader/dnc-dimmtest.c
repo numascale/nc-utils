@@ -66,14 +66,14 @@ static int maint_rdmem_chk(int cdata, uint32_t addr, uint32_t chk)
 	return 0;
 }
 
-int dnc_dimmtest(int cdata, int run_bist, struct dimm_config *dimm)
+int dnc_dimmtest(int cdata, struct dimm_config *dimm)
 {
 	uint32_t reg, tempa, tempb;
 	int i, j, tmp_cnt, result, loops;
 	int passes = 10;
 	int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 
-	if (dnc_asic_mode & (run_bist != 0)) {
+	if (dnc_asic_mode) {
 		printf("Test 1a: Denali BIST\n");
 		dnc_write_csr(0xfff0, denalibase+(BIST_START_ADDRESS_ADDR<<2), 0);
 		dnc_write_csr(0xfff0, denalibase+((BIST_START_ADDRESS_ADDR+1)<<2), 0);

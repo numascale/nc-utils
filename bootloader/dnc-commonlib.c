@@ -525,13 +525,17 @@ int dnc_init_caches(void)
 
 		if (dimmtest > 0) {
 			/* Do DRAM test */
-			if (dnc_dimmtest(cdata, (dimmtest > 1), &dimms[cdata]) < 0)
+			if (dnc_dimmtest(cdata, &dimms[cdata]) < 0) {
+				(void)dnc_check_mctr_status(cdata);
 				return -1;
+			}
 
-			/* Always do a check to see what the interrupt bits say */
-			(void)dnc_check_mctr_status(cdata);
+			/* Check what the interrupt bits say, if we get ECC errors, correctable or not; Abort */
+			val = dnc_check_mctr_status(cdata);
+			if (val & 0x03c)
+				return -1;
 			
-			/* Re-initialize DRAM after test */
+			/* AOK, re-initialize DRAM after test */
 			printf("Re-initializing %dGB %s\n", 1 << mem_size, name);
 			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
