@@ -100,6 +100,16 @@ struct state_bcast {
 	uint32_t tid;
 };
 
+/* Structs to hold DIMM configuration from SPD readout */
+struct dimm_config {
+	uint8_t addr_pins;
+	uint8_t column_size;
+	uint8_t cs_map;
+	uint8_t width;
+	uint8_t eight_bank;
+	int mem_size; /* Size of DIMM in GByte powers of 2 */
+};
+
 const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
 void wait_key(void);
@@ -124,6 +134,7 @@ void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);
 void enable_probefilter(const int nodes);
 void selftest_late_msrs(void);
+int dnc_dimmtest(int cdata, int run_bist, struct dimm_config *dimm);
 
 extern int dnc_asic_mode;
 extern uint32_t dnc_chip_rev;

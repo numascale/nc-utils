@@ -67,18 +67,9 @@ uint32_t tsc_mhz = 0;
 uint32_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
+static int dimmtest = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
-
-/* Structs to hold DIMM configuration from SPD readout */
-struct dimm_config {
-	uint8_t addr_pins;
-	uint8_t column_size;
-	uint8_t cs_map;
-	uint8_t width;
-	uint8_t eight_bank;
-	int mem_size; /* Size of DIMM in GByte powers of 2 */
-};
 
 int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -434,16 +425,17 @@ int dnc_init_caches(void)
 				do {
 					udelay(100);
 					val = dnc_check_mctr_status(0xfff0, cdata);
-				} while (!(val & 0x40));
+				} while (!(val & (1<<6)));
 
 				/* Reset DRAM initialization complete interrupt */
 				val = dnc_read_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2));
-				dnc_write_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2), val | 0x40);
+				dnc_write_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2), val | (1<<6));
+				/* Mask BIST complete interrupt (bit7) */
 				/* Mask DRAM initialization complete interrupt (bit6) */
 				/* Mask the out-of-bounds interrupts since they happen all the time (bit0+1) */
 				val = dnc_read_csr(0xfff0, denalibase + (INT_MASK_ADDR << 2));
 				dnc_write_csr(0xfff0, denalibase + (INT_MASK_ADDR << 2),
-				              val | (0x43 << INT_MASK_OFFSET));
+				              val | (((1<<7)|(1<<6)|(3<<0)) << INT_MASK_OFFSET));
 				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR);
 
 				if (!(val & 0x20)) {
@@ -518,7 +510,7 @@ int dnc_init_caches(void)
 		}
 
 		/* Initialize DRAM */
-		printf("Initializing %dGB %s\n", 1 << mem_size, cdata ? "CData" : "MCTag");
+		printf("Initializing %dGB %s\n", 1 << mem_size, name);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
 		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4));
@@ -530,6 +522,29 @@ int dnc_init_caches(void)
 
 		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4));
+
+		if (dimmtest > 0) {
+			/* Do DRAM test */
+			if (dnc_dimmtest(cdata, (dimmtest > 1), &dimms[cdata]) < 0)
+				return -1;
+
+			/* Always do a check to see what the interrupt bits say */
+			(void)dnc_check_mctr_status(0xfff0, cdata);
+			
+			/* Re-initialize DRAM after test */
+			printf("Re-initializing %dGB %s\n", 1 << mem_size, name);
+			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
+			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
+			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4));
+
+			do {
+				udelay(100);
+				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
+			} while (!(val & 2));
+
+			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
+			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4));
+		}
 
 		if (cdata) {
 			printf("Setting RCache size to %dGB\n", 1 << mem_size);
@@ -1938,6 +1953,7 @@ static int parse_cmdline(const char *cmdline)
 		{"verbose",         &parse_int,    &verbose},
 		{"remote-io",       &parse_int,    &remote_io},
 		{"boot-wait",       &parse_int,    &boot_wait},
+		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 	};
 	char arg[256];
 	int lstart, lend, aend, i;
