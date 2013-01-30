@@ -125,7 +125,7 @@ void critical_leave(void);
 int adjust_oscillator(char p_type[16], uint32_t osc_setting);
 int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], int *p_asic_mode, const char *cmdline);
 int dnc_check_fabric(struct node_info *info);
-uint32_t dnc_check_mctr_status(uint16_t scinode, int cdata);
+uint32_t dnc_check_mctr_status(int cdata);
 int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
                    struct node_info *info, struct part_info *part);
