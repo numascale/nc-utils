@@ -302,7 +302,7 @@ static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 	dnc_write_csr(0xfff0, denalibase + (188 << 2), DENALI_CTL_188_DATA);
 }
 
-uint32_t dnc_check_mctr_status(int cdata)
+uint32_t dnc_check_mctr_status(uint16_t scinode, int cdata)
 {
 	uint32_t val;
 	uint32_t ack = 0;
@@ -312,49 +312,49 @@ uint32_t dnc_check_mctr_status(int cdata)
 	if (!dnc_asic_mode)
 		return 0;
 
-	val = dnc_read_csr(0xfff0, denalibase + (INT_STATUS_ADDR << 2));
+	val = dnc_read_csr(scinode, denalibase + (INT_STATUS_ADDR << 2));
 #ifdef BROKEN
 
 	if (val & 0x001) {
-		printf("Error: %s single access outside the defined Physical memory space detected\n", me);
+		printf("SCI%04x Error: %s single access outside the defined Physical memory space detected\n", scinode, me);
 		ack |= 0x001;
 	}
 
 	if (val & 0x002) {
-		printf("Error: %s multiple access outside the defined Physical memory space detected\n", me);
+		printf("SCI%04x Error: %s multiple access outside the defined Physical memory space detected\n", scinode, me);
 		ack |= 0x002;
 	}
 
 #endif
 
 	if (val & 0x004) {
-		printf("Error: %s single correctable ECC event detected\n", me);
+		printf("SCI%04x Error: %s single correctable ECC event detected\n", scinode, me);
 		ack |= 0x004;
 	}
 
 	if (val & 0x008) {
-		printf("Error: %s multiple correctable ECC event detected\n", me);
+		printf("SCI%04x Error: %s multiple correctable ECC event detected\n", scinode, me);
 		ack |= 0x008;
 	}
 
 	if (val & 0x010) {
-		printf("Error: %s single uncorrectable ECC event detected\n", me);
+		printf("SCI%04x Error: %s single uncorrectable ECC event detected\n", scinode, me);
 		ack |= 0x010;
 	}
 
 	if (val & 0x020) {
-		printf("Error: %s multiple uncorrectable ECC event detected\n", me);
+		printf("SCI%04x Error: %s multiple uncorrectable ECC event detected\n", scinode, me);
 		ack |= 0x020;
 	}
 
 	if (val & 0xf80) {
-		printf("Error: %s error interrupts detected INT_STATUS=%03x\n", me, val & 0xfff);
+		printf("SCI%04x Error: %s error interrupts detected INT_STATUS=%03x\n", scinode, me, val & 0xfff);
 		ack |= (val & 0xf80);
 	}
 
 	if (ack) {
-		ack |= dnc_read_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2));
-		dnc_write_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2), ack);
+		ack |= dnc_read_csr(scinode, denalibase + (INT_ACK_ADDR << 2));
+		dnc_write_csr(scinode, denalibase + (INT_ACK_ADDR << 2), ack);
 	}
 
 	return val;
@@ -433,7 +433,7 @@ int dnc_init_caches(void)
 
 				do {
 					udelay(100);
-					val = dnc_check_mctr_status(cdata);
+					val = dnc_check_mctr_status(0xfff0, cdata);
 				} while (!(val & 0x40));
 
 				/* Reset DRAM initialization complete interrupt */
@@ -453,7 +453,7 @@ int dnc_init_caches(void)
 
 				dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR, val); /* Clear Error status */
 			} else {
-				val = dnc_check_mctr_status(cdata);
+				val = dnc_check_mctr_status(0xfff0, cdata);
 			}
 
 			printf("Initialization of Denali controller done\n");

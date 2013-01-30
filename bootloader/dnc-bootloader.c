@@ -1467,6 +1467,12 @@ static void setup_remote_cores(uint16_t num)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, node);
 	}
 
+	(void)dnc_check_mctr_status(0xfff0, 0);
+	(void)dnc_check_mctr_status(0xfff0, 1);
+
+	(void)dnc_check_mctr_status(node, 0);
+	(void)dnc_check_mctr_status(node, 1);
+	
 	printf("int_status: %x\n", dnc_read_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_STATUS));
 	udelay(200);
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)node << 28ULL) | 0x21ULL;
@@ -1497,6 +1503,12 @@ static void setup_remote_cores(uint16_t num)
 	}
 
 	printf("\n");
+
+	(void)dnc_check_mctr_status(0xfff0, 0);
+	(void)dnc_check_mctr_status(0xfff0, 1);
+
+	(void)dnc_check_mctr_status(node, 0);
+	(void)dnc_check_mctr_status(node, 1);
 }
 
 static void setup_local_mmio_maps(void)
@@ -2789,8 +2801,8 @@ static int nc_start(void)
 		if (unify_all_nodes() == 0)
 			return ERR_UNIFY_ALL_NODES;
 
-		(void)dnc_check_mctr_status(0);
-		(void)dnc_check_mctr_status(1);
+		(void)dnc_check_mctr_status(0xfff0, 0);
+		(void)dnc_check_mctr_status(0xfff0, 1);
 		update_e820_map();
 
 		if (remote_io > 1)
@@ -2827,8 +2839,8 @@ static int nc_start(void)
 		printf("Numascale NumaChip awaiting fabric set-up by master node...");
 
 		do {
-			if (((dnc_check_mctr_status(0) & 0xfbc) != 0) ||
-			    ((dnc_check_mctr_status(1) & 0xfbc) != 0) ||
+			if (((dnc_check_mctr_status(0xfff0, 0) & 0xfbc) != 0) ||
+			    ((dnc_check_mctr_status(0xfff0, 1) & 0xfbc) != 0) ||
 			    (!dnc_check_fabric(info))) {
 				printf("\nErrors detected, halting!\n");
 				while (1) {
