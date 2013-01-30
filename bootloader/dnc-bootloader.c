@@ -1470,6 +1470,37 @@ static void setup_remote_cores(uint16_t num)
 	printf("int_status: %x\n", dnc_read_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_STATUS));
 	udelay(200);
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)node << 28ULL) | 0x21ULL;
+
+	printf("Clearing SCI%03x memory...", node);
+	for (i = 0; i < 8; i++) {
+		if (!cur_node->ht[i].cpuid)
+			continue;
+
+		/* Disable memory controller prefetch */
+		val = dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x11c);
+		dnc_write_conf(node, 0, 24 + i, FUNC2_DRAM, 0x11c, val | (3 << 12));
+
+		/* Start memory clearing */
+		val = dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110);
+		dnc_write_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110, val | (1 << 3));
+	}
+
+	/* Wait for clear to finish */
+	for (i = 0; i < 8; i++) {
+		if (!cur_node->ht[i].cpuid)
+			continue;
+
+		do {
+			udelay(100);
+			val = dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x110);
+		} while (val & (1 << 9));
+
+		/* Reenable memory controller prefetch */
+		val = dnc_read_conf(node, 0, 24 + i, FUNC2_DRAM, 0x11c);
+		dnc_write_conf(node, 0, 24 + i, FUNC2_DRAM, 0x11c, val & ~(3 << 12));
+	}
+	printf("done\n");
+
 	printf("APICs:");
 
 	/* Start all remote cores and let them run our init_trampoline */
