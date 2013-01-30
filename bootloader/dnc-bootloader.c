@@ -820,20 +820,19 @@ static void setup_apic_atts(void)
 	if (apic_shift > 4)
 		apic_shift = 4;
 
-	printf("Using APIC shift: %d (%d)\n", apic_shift, apic_per_node);
+	printf("Setting up APIC ATT tables with shift %d:", apic_shift);
 
 	/* Set APIC ATT for remote interrupts */
 	for (i = 0; i < dnc_node_count; i++) {
 		uint16_t snode = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
 		uint16_t dnode, ht;
-		printf("Initializing SCI%03x APIC ATT tables...\n", nc_node[i].sci_id);
+
+		printf(" SCI%03x", nc_node[i].sci_id);
 		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
 		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 
 		for (j = 0; j < 64; j++)
 			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nc_node[0].sci_id);
-
-		printf("Adding APIC entry on SCI%03x:", nc_node[i].sci_id);
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
 			uint16_t cur, min, max;
@@ -856,14 +855,11 @@ static void setup_apic_atts(void)
 			min = min >> apic_shift;
 			max = (max - 1) >> apic_shift;
 
-			for (j = min; j <= max; j++) {
-				printf(" %02x->%03x", j * 4, nc_node[dnode].sci_id);
+			for (j = min; j <= max; j++)
 				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nc_node[dnode].sci_id);
-			}
 		}
-
-		printf("\n");
 	}
+	printf("\n");
 }
 
 static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
@@ -2420,8 +2416,9 @@ static int unify_all_nodes(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT,
 	              ((nc_node[0].ht[dnc_master_ht_id - 1].base +
 	                nc_node[0].ht[dnc_master_ht_id - 1].size) >> 6) - 1);
-	printf("SCI%03x/NGCM0: %x\n", nc_node[0].sci_id, dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT));
-	printf("SCI%03x/NGCM1: %x\n", nc_node[0].sci_id, dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT));
+	printf("SCI%03x NGCM0 %x, NGCM1 %x\n", nc_node[0].sci_id,
+		dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT),
+		dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT));
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_BASE,
 	              nc_node[0].ht[0].base);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT,

@@ -328,7 +328,6 @@ static int tally_remote_node(uint16_t node)
 			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x10C, 0);
 
 		cur_node->ht[i].scrub = dnc_read_conf(node, 0, 24 + i, FUNC3_MISC, 0x58);
-
 		if (cur_node->ht[i].scrub & 0x1f) {
 			printf("Disabling DRAM scrubber on SCI%03x HT#%x...\n", node, i);
 			dnc_write_conf(node, 0, 24 + i, FUNC3_MISC, 0x58, cur_node->ht[i].scrub & ~0x1f);
