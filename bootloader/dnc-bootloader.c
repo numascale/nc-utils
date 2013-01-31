@@ -1505,19 +1505,15 @@ static void setup_local_mmio_maps(void)
 	uint32_t dst[8];
 	uint32_t curbase, curlim, curdst;
 	unsigned int sbnode;
-	printf("Setting MMIO maps on local DNC...\n");
+
+	tom = dnc_rdmsr(MSR_TOPMEM);
+	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
+	assert(tom < 0x100000000);
 
 	for (i = 0; i < 8; i++) {
 		base[i] = 0;
 		lim[i] = 0;
 		dst[i] = 0;
-	}
-
-	tom = dnc_rdmsr(MSR_TOPMEM);
-
-	if (tom >= 0x100000000) {
-		printf("Error: TOP_MEM above 4G boundary\n");
-		return;
 	}
 
 	sbnode = (cht_read_conf(0, FUNC0_HT, 0x60) >> 8) & 7;
@@ -1537,6 +1533,7 @@ static void setup_local_mmio_maps(void)
 		curbase = cht_read_conf(sbnode, FUNC1_MAPS, 0x80 + i * 8);
 		curlim = cht_read_conf(sbnode, FUNC1_MAPS, 0x84 + i * 8);
 		curdst = ((curlim & 0x7) << 8) | (curbase & 0x3);
+
 		/* This strips NP-bit */
 		curbase = curbase & ~0xff;
 		curlim = curlim & ~0xff;
