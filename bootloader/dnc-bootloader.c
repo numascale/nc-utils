@@ -1934,15 +1934,18 @@ int udp_read_state(int handle __attribute__((unused)),
 	}
 }
 
-static void wait_status(void)
+static void wait_status(struct node_info *info)
 {
 	printf("Waiting for");
 
-	/* Skip first node */
-	for (int i = 1; i < cfg_nodes; i++)
+	for (int i = 0; i < cfg_nodes; i++) {
+		if (config_local(&cfg_nodelist[i], info->uuid)) /* Self */
+			continue;
+		
 		if (nodedata[cfg_nodelist[i].sciid] != 0x80)
 			printf(" SCI%03x (%s)",
 			       cfg_nodelist[i].sciid, cfg_nodelist[i].desc);
+	}
 
 	printf("\n");
 }
@@ -2005,7 +2008,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			if (!len && !do_restart) {
 				if (last_stat > 64) {
 					last_stat = 0;
-					wait_status();
+					wait_status(info);
 				}
 
 				continue;

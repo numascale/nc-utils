@@ -36,7 +36,7 @@ static void maint_wrmem(int cdata, uint32_t addr, uint32_t data)
 	dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg | 1);       // COM_CTRLR.CSR_MEM_WRMASK_ACC=0, COM_CTRLR.CSR_MEM_RD_ACC=0, COM_CTRLR.CSR_MEM_ACC=1
 	dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, 1);             // Reset COM_STATR.CSR_MEM_ACC_DONE to start access
 	while (!(dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR) & 1)) {
-		udelay(100);
+		udelay(10000);
 	}
 	dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg & ~7);
 }
@@ -49,7 +49,7 @@ static void maint_rdmem(int cdata, uint32_t addr, uint32_t *data)
 	dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg | 3);       // COM_CTRLR.CSR_MEM_WRMASK_ACC=0, COM_CTRLR.CSR_MEM_RD_ACC=1, COM_CTRLR.CSR_MEM_ACC=1
 	dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, 1);             // Reset COM_STATR.CSR_MEM_ACC_DONE to start access
 	while (!(dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR) & 1)) {
-		udelay(100);
+		udelay(10000);
 	}
 	*data = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MEMORY_RDATA : H2S_CSR_G4_MCTAG_MEMORY_RDATA);
 	dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg & ~7);
@@ -66,15 +66,20 @@ static int maint_rdmem_chk(int cdata, uint32_t addr, uint32_t chk)
 	return 0;
 }
 
-int dnc_dimmtest(int cdata, struct dimm_config *dimm)
+int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 {
 	uint32_t reg, tempa, tempb;
 	int i, j, tmp_cnt, result, loops;
-	int passes = 10;
 	int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
+	int passes = 15;
 
-	if (dnc_asic_mode) {
-		printf("Test 1a: Denali BIST\n");
+	if (dnc_asic_mode & (testmask & (1<<0))) {
+		printf("Test 1a: MOVI(13N) BIST\n");
+
+		/* De-assert DRAM_AVAILABLE so we don't mess with the user ports when running BIST */
+		reg = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg & ~(1<<12));
+
 		dnc_write_csr(0xfff0, denalibase+(BIST_START_ADDRESS_ADDR<<2), 0);
 		dnc_write_csr(0xfff0, denalibase+((BIST_START_ADDRESS_ADDR+1)<<2), 0);
 		dnc_write_csr(0xfff0, denalibase+(BIST_DATA_MASK_ADDR<<2), 0);
@@ -86,12 +91,18 @@ int dnc_dimmtest(int cdata, struct dimm_config *dimm)
 		reg = dnc_read_csr(0xfff0, denalibase+(BIST_DATA_CHECK_ADDR<<2));
 		dnc_write_csr(0xfff0, denalibase+(BIST_DATA_CHECK_ADDR<<2), reg | (1 << BIST_DATA_CHECK_OFFSET));
 
+		/* Denali docs states that there should be atleast 10 clocks of idle before asserting the BIST go bit */
+		udelay(10000);
+		
+		/* Start BIST test */
 		reg = dnc_read_csr(0xfff0, denalibase+(BIST_GO_ADDR<<2));
 		dnc_write_csr(0xfff0, denalibase+(BIST_GO_ADDR<<2), reg | (1 << BIST_GO_OFFSET));
+
+		/* Wait for it to signal completion */
 		do {
-			udelay(100000);
+			udelay(10000);
 			reg = dnc_read_csr(0xfff0, denalibase+(INT_STATUS_ADDR<<2));
-		}  while ((reg & (1<<7)) == 0);
+		}  while (!(reg & (1<<7)));
 
 		/* Reset BIST complete interrupt */
 		reg = dnc_read_csr(0xfff0, denalibase+(INT_ACK_ADDR<<2));
@@ -119,126 +130,134 @@ int dnc_dimmtest(int cdata, struct dimm_config *dimm)
 			}
 		}
 
-		if (result > 0) {
-			printf("--- PASSED: Test 1a ---\n");
-		}
-		else {
+		if (!(result & 3))
 			return -1;
-		}
 
+		if (verbose > 1)
+			printf("--- PASSED: Test 1a ---\n");
+
+		/* Reset BIST Go bit */
 		reg = dnc_read_csr(0xfff0, denalibase+((BIST_GO_ADDR)<<2));
 		dnc_write_csr(0xfff0, denalibase+((BIST_GO_ADDR)<<2), reg & ~(1<<BIST_GO_OFFSET));
-		reg = dnc_read_csr(0xfff0, denalibase+((START_ADDR)<<2));
-		dnc_write_csr(0xfff0, denalibase+((START_ADDR)<<2), reg | (1<<START_OFFSET));
+		udelay(10000);
+
+		/* Re-assert DRAM_AVAILABLE */
+		reg = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg | (1<<12));
 	}
 
-	//===============================================================
-	printf("Test 2a: MAINT Memory Access incremental housenumbers at low addresses\n");
-	tempa = 0;
-	tempb = 0x11111111;
-	tmp_cnt = 0;
-	for (i=0; i<passes; i++) {
-		maint_wrmem(cdata, tempa, tempb);
-		if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
-			printf("--- Error: Failed Test 2a pass %0d !!!\n", tmp_cnt);
-			return -1;
-		}
-		if (verbose > 1)
-			printf("--- PASSED: Test 2a pass %0d ---\n", tmp_cnt);
-		tempa = tempa + 1;
-		tempb = tempb + 0x11111111;
-		tmp_cnt = tmp_cnt + 1;
-	}
-
-	tempa = 0;
-	tempb = 0x11111111;
-	for (i=0; i<passes; i++) {
-		if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
-			printf("--- Error: Failed Test 2a pass %0d !!!\n", tmp_cnt);
-			return -1;
-		}
-		if (verbose > 1)
-			printf("--- PASSED: Test 2a pass %0d ---\n", tmp_cnt);
-		tempa = tempa + 1;
-		tempb = tempb + 0x11111111;
-		tmp_cnt = tmp_cnt + 1;
-	}
-
-	//===============================================================
-	printf("Test 2b: MAINT Memory Access incremental address position\n");
-	tmp_cnt = 0;
-	loops = dimm->mem_size + 29;
-
-	for (i=0; i<loops; i++) {
-		tempa = i ? 1<<(i-1) : 0;
-		tempb = 1 << i;
-		maint_wrmem(cdata, tempa, tempb);
-		if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
-			printf("--- Error: Failed Test 2b pass %0d !!!\n", tmp_cnt);
-			return -1;
-		}
-		tmp_cnt = tmp_cnt + 1;
-
-		for (j=0; j<i; j++) {
-			tempa = j ? 1<<(j-1) : 0;
-			tempb = 1 << j;
+	if (testmask & (1<<1)) {
+		//===============================================================
+		printf("Test 2a: MAINT Memory Access incremental housenumbers at low addresses\n");
+		tempa = 0;
+		tempb = 0x11111111;
+		tmp_cnt = 0;
+		for (i=0; i<passes; i++) {
+			maint_wrmem(cdata, tempa, tempb);
 			if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
-				printf("--- Error: Failed Test 2b readback pass %0d (echo %d - %d) !!!\n", tmp_cnt, i, j);
+				printf("--- Error: Failed Test 2a pass %0d !!!\n", tmp_cnt);
 				return -1;
 			}
+			if (verbose > 1)
+				printf("--- PASSED: Test 2a pass %0d ---\n", tmp_cnt);
+			tempa = tempa + 1;
+			tempb = tempb + 0x11111111;
+			tmp_cnt = tmp_cnt + 1;
 		}
-	}
 
-	//===============================================================
-	tempa = (1<<(dimm->mem_size+25));
-	tempb = 0xC396A578;
-	tmp_cnt = 0;
-	printf("Test 2c: MAINT Memory Access incremental housenumbers at high addresses (tempa=%08x)\n", tempa);
-	for (i=0; i<passes; i++) {
-		maint_wrmem(cdata, tempa, tempb);
-		if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
-			printf("--- Error: Failed Test 2c pass %0d !!!\n", tmp_cnt);
-			return -1;
+		tempa = 0;
+		tempb = 0x11111111;
+		for (i=0; i<passes; i++) {
+			if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
+				printf("--- Error: Failed Test 2a pass %0d !!!\n", tmp_cnt);
+				return -1;
+			}
+			if (verbose > 1)
+				printf("--- PASSED: Test 2a pass %0d ---\n", tmp_cnt);
+			tempa = tempa + 1;
+			tempb = tempb + 0x11111111;
+			tmp_cnt = tmp_cnt + 1;
 		}
-		if (verbose > 1)
-			printf("--- PASSED: Test 2c pass %0d ---\n", tmp_cnt);
-		tempa = tempa + 1;
-		tempb = tempb + 0x11111111;
-		tmp_cnt = tmp_cnt + 1;
-	}
+
+		//===============================================================
+		printf("Test 2b: MAINT Memory Access incremental address position\n");
+		tmp_cnt = 0;
+		loops = dimm->mem_size + 29;
+
+		for (i=0; i<loops; i++) {
+			tempa = i ? 1<<(i-1) : 0;
+			tempb = 1 << i;
+			maint_wrmem(cdata, tempa, tempb);
+			if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
+				printf("--- Error: Failed Test 2b pass %0d !!!\n", tmp_cnt);
+				return -1;
+			}
+			tmp_cnt = tmp_cnt + 1;
+
+			for (j=0; j<i; j++) {
+				tempa = j ? 1<<(j-1) : 0;
+				tempb = 1 << j;
+				if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
+					printf("--- Error: Failed Test 2b readback pass %0d (echo %d - %d) !!!\n", tmp_cnt, i, j);
+					return -1;
+				}
+			}
+		}
+
+		//===============================================================
+		tempa = (1<<(dimm->mem_size+25));
+		tempb = 0xC396A578;
+		tmp_cnt = 0;
+		printf("Test 2c: MAINT Memory Access incremental housenumbers at high addresses\n");
+		for (i=0; i<passes; i++) {
+			maint_wrmem(cdata, tempa, tempb);
+			if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
+				printf("--- Error: Failed Test 2c pass %0d !!!\n", tmp_cnt);
+				return -1;
+			}
+			if (verbose > 1)
+				printf("--- PASSED: Test 2c pass %0d ---\n", tmp_cnt);
+			tempa = tempa + 1;
+			tempb = tempb + 0x11111111;
+			tmp_cnt = tmp_cnt + 1;
+		}
          
-	tempa = (1<<(dimm->mem_size+25));
-	tempb = 0xC396A578;
-	for (i=0; i<passes; i++) {
-		if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
-			printf("--- Error: Failed Test 2c pass %0d !!!\n", tmp_cnt);
-			return -1;
+		tempa = (1<<(dimm->mem_size+25));
+		tempb = 0xC396A578;
+		for (i=0; i<passes; i++) {
+			if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
+				printf("--- Error: Failed Test 2c pass %0d !!!\n", tmp_cnt);
+				return -1;
+			}
+			if (verbose > 1)
+				printf("--- PASSED: Test 2c pass %0d ---\n", tmp_cnt);
+			tempa = tempa + 1;
+			tempb = tempb + 0x11111111;
+			tmp_cnt = tmp_cnt + 1;
 		}
-		if (verbose > 1)
-			printf("--- PASSED: Test 2c pass %0d ---\n", tmp_cnt);
-		tempa = tempa + 1;
-		tempb = tempb + 0x11111111;
-		tmp_cnt = tmp_cnt + 1;
 	}
 
-	//===============================================================
-	printf("Test 3: MAINT Memory Access random patterns, write then read\n");
-	tmp_cnt = 0;
-	for (i=0; i<passes; i++) {
-		tempa = random();
-		tempa = tempa & ((1<<(dimm->mem_size+26))-1);
-		tempb = random();
+	if (testmask & (1<<2)) {
+		//===============================================================
+		printf("Test 3: MAINT Memory Access random patterns, write then read\n");
+		tmp_cnt = 0;
+		for (i=0; i<passes; i++) {
+			tempa = random();
+			tempa = tempa & ((1<<(dimm->mem_size+26))-1);
+			tempb = random();
 
-		maint_wrmem(cdata, tempa, tempb);
-		if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
-			printf("--- Error: Failed Test 3 pass %0d !!!\n", tmp_cnt);
-			return -1;
+			maint_wrmem(cdata, tempa, tempb);
+			if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
+				printf("--- Error: Failed Test 3 pass %0d !!!\n", tmp_cnt);
+				return -1;
+			}
+			if (verbose > 1)
+				printf("--- PASSED: Test 3 pass %0d ---\n", tmp_cnt);
+			tmp_cnt = tmp_cnt + 1;
 		}
-		if (verbose > 1)
-			printf("--- PASSED: Test 3 pass %0d ---\n", tmp_cnt);
-		tmp_cnt = tmp_cnt + 1;
 	}
-	printf("%s DIMM Finished without Errors\n", (cdata) ? "CData" : "MCTag");
+
+	printf("%s DIMM Test finished without errors\n", (cdata) ? "CData" : "MCTag");
 
 	return 0;
 }

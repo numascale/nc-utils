@@ -209,101 +209,101 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 
 static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 {
-	int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
+	int mctrbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 	dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00) + (0 << 2), DENALI_CTL_00_DATA);
-	dnc_write_csr(0xfff0, denalibase + (1 << 2), DENALI_CTL_01_DATA);
-	dnc_write_csr(0xfff0, denalibase + (2 << 2), DENALI_CTL_02_DATA);
-	dnc_write_csr(0xfff0, denalibase + (3 << 2), DENALI_CTL_03_DATA);
-	dnc_write_csr(0xfff0, denalibase + (4 << 2),
+	dnc_write_csr(0xfff0, mctrbase + (1 << 2), DENALI_CTL_01_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (2 << 2), DENALI_CTL_02_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (3 << 2), DENALI_CTL_03_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (4 << 2),
 	              (DENALI_CTL_04_DATA & ~(1 << 24)) | (dimm->eight_bank << 24));
-	dnc_write_csr(0xfff0, denalibase + (5 << 2), DENALI_CTL_05_DATA);
-	dnc_write_csr(0xfff0, denalibase + (7 << 2), DENALI_CTL_07_DATA);
-	dnc_write_csr(0xfff0, denalibase + (8 << 2), DENALI_CTL_08_DATA);
-	dnc_write_csr(0xfff0, denalibase + (9 << 2), DENALI_CTL_09_DATA);
-	dnc_write_csr(0xfff0, denalibase + (10 << 2), DENALI_CTL_10_DATA);
-	dnc_write_csr(0xfff0, denalibase + (11 << 2), DENALI_CTL_11_DATA);
-	dnc_write_csr(0xfff0, denalibase + (12 << 2),
+	dnc_write_csr(0xfff0, mctrbase + (5 << 2), DENALI_CTL_05_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (7 << 2), DENALI_CTL_07_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (8 << 2), DENALI_CTL_08_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (9 << 2), DENALI_CTL_09_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (10 << 2), DENALI_CTL_10_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (11 << 2), DENALI_CTL_11_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (12 << 2),
 	              (DENALI_CTL_12_DATA & ~(3 << 16)) | ((dimm->width == 8 ? 1 : 0) << 16));
-	dnc_write_csr(0xfff0, denalibase + (13 << 2),
+	dnc_write_csr(0xfff0, mctrbase + (13 << 2),
 	              (DENALI_CTL_13_DATA & ~(0x7 << 16)) | ((dimm->addr_pins & 0x7) << 16));
-	dnc_write_csr(0xfff0, denalibase + (14 << 2),
+	dnc_write_csr(0xfff0, mctrbase + (14 << 2),
 	              (DENALI_CTL_14_DATA & ~(0x7 << 16)) | ((dimm->column_size & 0x7) << 16));
-	dnc_write_csr(0xfff0, denalibase + (16 << 2), DENALI_CTL_16_DATA);
-	dnc_write_csr(0xfff0, denalibase + (17 << 2), DENALI_CTL_17_DATA);
-	dnc_write_csr(0xfff0, denalibase + (18 << 2), DENALI_CTL_18_DATA);
-	dnc_write_csr(0xfff0, denalibase + (19 << 2),
+	dnc_write_csr(0xfff0, mctrbase + (16 << 2), DENALI_CTL_16_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (17 << 2), DENALI_CTL_17_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (18 << 2), DENALI_CTL_18_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (19 << 2),
 	              (DENALI_CTL_19_DATA & ~(0x3 << 24)) | ((dimm->cs_map & 0x3) << 24));
-	dnc_write_csr(0xfff0, denalibase + (20 << 2), DENALI_CTL_20_DATA);
-	dnc_write_csr(0xfff0, denalibase + (21 << 2), DENALI_CTL_21_DATA);
-	dnc_write_csr(0xfff0, denalibase + (22 << 2), DENALI_CTL_22_DATA);
-	dnc_write_csr(0xfff0, denalibase + (23 << 2), DENALI_CTL_23_DATA);
-	dnc_write_csr(0xfff0, denalibase + (24 << 2), DENALI_CTL_24_DATA);
-	dnc_write_csr(0xfff0, denalibase + (25 << 2), DENALI_CTL_25_DATA);
-	dnc_write_csr(0xfff0, denalibase + (26 << 2), DENALI_CTL_26_DATA);
-	dnc_write_csr(0xfff0, denalibase + (28 << 2), DENALI_CTL_28_DATA);
-	dnc_write_csr(0xfff0, denalibase + (30 << 2), DENALI_CTL_30_DATA);
-	dnc_write_csr(0xfff0, denalibase + (31 << 2), DENALI_CTL_31_DATA);
-	dnc_write_csr(0xfff0, denalibase + (33 << 2), DENALI_CTL_33_DATA);
-	dnc_write_csr(0xfff0, denalibase + (35 << 2), DENALI_CTL_35_DATA);
-	dnc_write_csr(0xfff0, denalibase + (36 << 2), DENALI_CTL_36_DATA);
-	dnc_write_csr(0xfff0, denalibase + (37 << 2), DENALI_CTL_37_DATA);
-	dnc_write_csr(0xfff0, denalibase + (38 << 2), DENALI_CTL_38_DATA);
-	dnc_write_csr(0xfff0, denalibase + (46 << 2), DENALI_CTL_46_DATA);
-	dnc_write_csr(0xfff0, denalibase + (48 << 2), DENALI_CTL_48_DATA);
-	dnc_write_csr(0xfff0, denalibase + (49 << 2), DENALI_CTL_49_DATA);
-	dnc_write_csr(0xfff0, denalibase + (50 << 2), DENALI_CTL_50_DATA);
-	dnc_write_csr(0xfff0, denalibase + (51 << 2), DENALI_CTL_51_DATA);
-	dnc_write_csr(0xfff0, denalibase + (52 << 2), DENALI_CTL_52_DATA);
-	dnc_write_csr(0xfff0, denalibase + (53 << 2), DENALI_CTL_53_DATA);
-	dnc_write_csr(0xfff0, denalibase + (54 << 2), DENALI_CTL_54_DATA);
-	dnc_write_csr(0xfff0, denalibase + (55 << 2), DENALI_CTL_55_DATA);
-	dnc_write_csr(0xfff0, denalibase + (56 << 2), DENALI_CTL_56_DATA);
-	dnc_write_csr(0xfff0, denalibase + (57 << 2), DENALI_CTL_57_DATA);
-	dnc_write_csr(0xfff0, denalibase + (59 << 2), DENALI_CTL_59_DATA);
-	dnc_write_csr(0xfff0, denalibase + (60 << 2), DENALI_CTL_60_DATA);
-	dnc_write_csr(0xfff0, denalibase + (61 << 2), DENALI_CTL_61_DATA);
-	dnc_write_csr(0xfff0, denalibase + (62 << 2), DENALI_CTL_62_DATA);
-	dnc_write_csr(0xfff0, denalibase + (63 << 2), DENALI_CTL_63_DATA);
-	dnc_write_csr(0xfff0, denalibase + (64 << 2), DENALI_CTL_64_DATA);
-	dnc_write_csr(0xfff0, denalibase + (65 << 2), DENALI_CTL_65_DATA);
-	dnc_write_csr(0xfff0, denalibase + (66 << 2), DENALI_CTL_66_DATA);
-	dnc_write_csr(0xfff0, denalibase + (67 << 2), DENALI_CTL_67_DATA);
-	dnc_write_csr(0xfff0, denalibase + (69 << 2), DENALI_CTL_69_DATA);
-	dnc_write_csr(0xfff0, denalibase + (94 << 2), DENALI_CTL_94_DATA);
-	dnc_write_csr(0xfff0, denalibase + (95 << 2), DENALI_CTL_95_DATA);
-	dnc_write_csr(0xfff0, denalibase + (96 << 2), DENALI_CTL_96_DATA);
-	dnc_write_csr(0xfff0, denalibase + (97 << 2), DENALI_CTL_97_DATA);
-	dnc_write_csr(0xfff0, denalibase + (98 << 2), DENALI_CTL_98_DATA);
-	dnc_write_csr(0xfff0, denalibase + (99 << 2), DENALI_CTL_99_DATA);
-	dnc_write_csr(0xfff0, denalibase + (100 << 2), DENALI_CTL_100_DATA);
-	dnc_write_csr(0xfff0, denalibase + (101 << 2), DENALI_CTL_101_DATA);
-	dnc_write_csr(0xfff0, denalibase + (102 << 2), DENALI_CTL_102_DATA);
-	dnc_write_csr(0xfff0, denalibase + (103 << 2), DENALI_CTL_103_DATA);
-	dnc_write_csr(0xfff0, denalibase + (104 << 2), DENALI_CTL_104_DATA);
-	dnc_write_csr(0xfff0, denalibase + (105 << 2), DENALI_CTL_105_DATA);
-	dnc_write_csr(0xfff0, denalibase + (106 << 2), DENALI_CTL_106_DATA);
-	dnc_write_csr(0xfff0, denalibase + (107 << 2), DENALI_CTL_107_DATA);
-	dnc_write_csr(0xfff0, denalibase + (108 << 2), DENALI_CTL_108_DATA);
-	dnc_write_csr(0xfff0, denalibase + (109 << 2), DENALI_CTL_109_DATA);
-	dnc_write_csr(0xfff0, denalibase + (110 << 2), DENALI_CTL_110_DATA);
-	dnc_write_csr(0xfff0, denalibase + (111 << 2), DENALI_CTL_111_DATA);
-	dnc_write_csr(0xfff0, denalibase + (184 << 2), DENALI_CTL_184_DATA);
-	dnc_write_csr(0xfff0, denalibase + (185 << 2), DENALI_CTL_185_DATA);
-	dnc_write_csr(0xfff0, denalibase + (186 << 2), DENALI_CTL_186_DATA);
-	dnc_write_csr(0xfff0, denalibase + (188 << 2), DENALI_CTL_188_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (20 << 2), DENALI_CTL_20_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (21 << 2), DENALI_CTL_21_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (22 << 2), DENALI_CTL_22_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (23 << 2), DENALI_CTL_23_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (24 << 2), DENALI_CTL_24_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (25 << 2), DENALI_CTL_25_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (26 << 2), DENALI_CTL_26_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (28 << 2), DENALI_CTL_28_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (30 << 2), DENALI_CTL_30_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (31 << 2), DENALI_CTL_31_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (33 << 2), DENALI_CTL_33_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (35 << 2), DENALI_CTL_35_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (36 << 2), DENALI_CTL_36_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (37 << 2), DENALI_CTL_37_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (38 << 2), DENALI_CTL_38_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (46 << 2), DENALI_CTL_46_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (48 << 2), DENALI_CTL_48_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (49 << 2), DENALI_CTL_49_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (50 << 2), DENALI_CTL_50_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (51 << 2), DENALI_CTL_51_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (52 << 2), DENALI_CTL_52_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (53 << 2), DENALI_CTL_53_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (54 << 2), DENALI_CTL_54_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (55 << 2), DENALI_CTL_55_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (56 << 2), DENALI_CTL_56_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (57 << 2), DENALI_CTL_57_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (59 << 2), DENALI_CTL_59_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (60 << 2), DENALI_CTL_60_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (61 << 2), DENALI_CTL_61_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (62 << 2), DENALI_CTL_62_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (63 << 2), DENALI_CTL_63_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (64 << 2), DENALI_CTL_64_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (65 << 2), DENALI_CTL_65_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (66 << 2), DENALI_CTL_66_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (67 << 2), DENALI_CTL_67_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (69 << 2), DENALI_CTL_69_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (94 << 2), DENALI_CTL_94_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (95 << 2), DENALI_CTL_95_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (96 << 2), DENALI_CTL_96_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (97 << 2), DENALI_CTL_97_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (98 << 2), DENALI_CTL_98_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (99 << 2), DENALI_CTL_99_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (100 << 2), DENALI_CTL_100_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (101 << 2), DENALI_CTL_101_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (102 << 2), DENALI_CTL_102_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (103 << 2), DENALI_CTL_103_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (104 << 2), DENALI_CTL_104_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (105 << 2), DENALI_CTL_105_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (106 << 2), DENALI_CTL_106_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (107 << 2), DENALI_CTL_107_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (108 << 2), DENALI_CTL_108_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (109 << 2), DENALI_CTL_109_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (110 << 2), DENALI_CTL_110_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (111 << 2), DENALI_CTL_111_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (184 << 2), DENALI_CTL_184_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (185 << 2), DENALI_CTL_185_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (186 << 2), DENALI_CTL_186_DATA);
+	dnc_write_csr(0xfff0, mctrbase + (188 << 2), DENALI_CTL_188_DATA);
 }
 
 uint32_t dnc_check_mctr_status(int cdata)
 {
 	uint32_t val;
 	uint32_t ack = 0;
-	const int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
+	const int mctrbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 	const char *me = cdata ? "CData" : "MCTag";
 
 	if (!dnc_asic_mode)
 		return 0;
 
-	val = dnc_read_csr(0xfff0, denalibase + (INT_STATUS_ADDR << 2));
+	val = dnc_read_csr(0xfff0, mctrbase + (INT_STATUS_ADDR << 2));
 #ifdef BROKEN
 
 	if (val & 0x001) {
@@ -344,8 +344,8 @@ uint32_t dnc_check_mctr_status(int cdata)
 	}
 
 	if (ack) {
-		ack |= dnc_read_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2));
-		dnc_write_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2), ack);
+		ack |= dnc_read_csr(0xfff0, mctrbase + (INT_ACK_ADDR << 2));
+		dnc_write_csr(0xfff0, mctrbase + (INT_ACK_ADDR << 2), ack);
 	}
 
 	return val;
@@ -411,50 +411,48 @@ int dnc_init_caches(void)
 				return -1;
 			}
 		} else {
-			int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
-			val = dnc_read_csr(0xfff0, denalibase + (START_ADDR << 2)); /* Read the Denali START parameter */
+			int mctbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
+			val = dnc_read_csr(0xfff0, mctbase + (START_ADDR << 2)); /* Read the Denali START parameter */
 
 			if (((val >> START_OFFSET) & 1) == 0) {
-				printf("Resetting and loading Denali Controller, Denali phy and external DDR2 RAM (EMODE-register)\n");
+				printf("Resetting and loading DDR2 MCT, DDR2 PHY and external DDR2 RAM (EMODE-register)...");
 				_denali_mctr_reset(cdata, &dimms[cdata]);
-				printf("Start Denali Controller\n");
-				val = dnc_read_csr(0xfff0, denalibase + (START_ADDR << 2));
-				dnc_write_csr(0xfff0, denalibase + (START_ADDR << 2), val | (1 << START_OFFSET));
-				printf("Polling the Denali Interrupt Status Register\n");
 
+				/* Start DRAM initialization */
+				val = dnc_read_csr(0xfff0, mctbase + (START_ADDR << 2));
+				dnc_write_csr(0xfff0, mctbase + (START_ADDR << 2), val | (1 << START_OFFSET));
+
+				/* Wait for it to signal completion */
 				do {
 					udelay(100);
 					val = dnc_check_mctr_status(cdata);
 				} while (!(val & (1<<6)));
 
 				/* Reset DRAM initialization complete interrupt */
-				val = dnc_read_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2));
-				dnc_write_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2), val | (1<<6));
+				val = dnc_read_csr(0xfff0, mctbase + (INT_ACK_ADDR << 2));
+				dnc_write_csr(0xfff0, mctbase + (INT_ACK_ADDR << 2), val | (1<<6));
 				/* Mask BIST complete interrupt (bit7) */
 				/* Mask DRAM initialization complete interrupt (bit6) */
 				/* Mask the out-of-bounds interrupts since they happen all the time (bit0+1) */
-				val = dnc_read_csr(0xfff0, denalibase + (INT_MASK_ADDR << 2));
-				dnc_write_csr(0xfff0, denalibase + (INT_MASK_ADDR << 2),
+				val = dnc_read_csr(0xfff0, mctbase + (INT_MASK_ADDR << 2));
+				dnc_write_csr(0xfff0, mctbase + (INT_MASK_ADDR << 2),
 				              val | (((1<<7)|(1<<6)|(3<<0)) << INT_MASK_OFFSET));
+
+				/* Clear H2S Error Status (W1TC) */
 				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR);
+				dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR, val);
 
-				if (!(val & 0x20)) {
-					printf("ERROR: No Denali interrupt seen by H2S (%08x)\n", val);
-					return -1;
-				}
-
-				dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR, val); /* Clear Error status */
+				printf(" done\n");
 			} else {
-				val = dnc_check_mctr_status(cdata);
+				/* Controller has already been started, just check for interrupts */
+				(void)dnc_check_mctr_status(cdata);
 			}
-
-			printf("Initialization of Denali controller done\n");
 		}
 
 		if ((dnc_asic_mode && dnc_chip_rev >= 2) || !dnc_asic_mode) {
 			int tmp = mem_size;
 
-			/* New Rev2 MCTag setting for supporting larger local memory */
+			/* New RevC MCTag setting for supporting larger local memory */
 			if (!cdata) {
 				if (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) {        /* 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory */
 					tmp = 0;
@@ -510,22 +508,24 @@ int dnc_init_caches(void)
 		}
 
 		/* Initialize DRAM */
-		printf("Initializing %dGB %s\n", 1 << mem_size, name);
+		
+		printf("Initializing %dGB %s...\n", 1 << mem_size, name);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
 		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4));
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
 
 		do {
 			udelay(100);
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
-		} while (!(val & 2));
+		} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
 
 		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4));
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
 
-		if (dimmtest > 0) {
+		if (dimmtest) {
 			/* Do DRAM test */
-			if (dnc_dimmtest(cdata, &dimms[cdata]) < 0) {
+			if (dnc_dimmtest(cdata, dimmtest, &dimms[cdata]) < 0) {
 				(void)dnc_check_mctr_status(cdata);
 				return -1;
 			}
@@ -534,20 +534,21 @@ int dnc_init_caches(void)
 			val = dnc_check_mctr_status(cdata);
 			if (val & 0x03c)
 				return -1;
-			
+
 			/* AOK, re-initialize DRAM after test */
-			printf("Re-initializing %dGB %s\n", 1 << mem_size, name);
+			printf("Re-initializing %dGB %s...\n", 1 << mem_size, name);
 			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
+			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4));
+			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
 
 			do {
 				udelay(100);
 				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
-			} while (!(val & 2));
+			} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
 
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4));
+			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
 		}
 
 		if (cdata) {
