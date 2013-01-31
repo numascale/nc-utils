@@ -1258,7 +1258,28 @@ static void setup_remote_cores(uint16_t num)
 		              nc_node[0].sci_id);
 	}
 
-	if (renumber_bsp)
+	if (renumber_bsp == -1) {
+		/* Check if renumbering is needed */
+		for (int ht = 0; ht < 8; ht++) {
+			if (!cur_node->ht[ht].cpuid)
+				continue;
+			unsigned regs = family < 0x15 ? 8 : 12;
+
+			for (j = 0; j < regs; j++) {
+				if (dnc_read_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x80 + j * 8) & (1 << 3)) {
+					printf("SCI%03x has locked MMIO ranges\n", node);
+					renumber_bsp = 1;
+					break;
+				}
+			}
+
+			/* Break out of outer loop if needed */
+			if (renumber_bsp)
+				break;
+		}
+	}
+
+	if (renumber_bsp != 0)
 		renumber_remote_bsp(num);
 
 	ht_id = cur_node->nc_ht_id;

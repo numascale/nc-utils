@@ -46,7 +46,7 @@ int force_probefilteron = 0;
 static int ht_force_ganged = 1;
 int disable_smm = 0;
 int disable_c1e = 0;
-int renumber_bsp = 0;
+int renumber_bsp = -1;
 int remote_io = 0;
 bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
