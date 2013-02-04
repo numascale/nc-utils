@@ -173,9 +173,9 @@ void tally_local_node(int enforce_alignment)
 			if (val & 0x04) nc_node[0].ht[i].cores++; /* Cpu4En */
 			if (val & 0x08) nc_node[0].ht[i].cores++; /* Cpu5En */
 		} else {
-			val = cht_read_conf(i, 5, 0x84);
+			val = cht_read_conf(i, FUNC5_EXTD, 0x84);
 			nc_node[0].ht[i].cores += val & 0xff;
-			val = cht_read_conf(i, 3, 0x190);
+			val = cht_read_conf(i, FUNC3_MISC, 0x190);
 
 			while (val > 0) {
 				if (val & 1)
