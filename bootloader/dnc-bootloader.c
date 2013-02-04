@@ -1117,6 +1117,17 @@ static void renumber_remote_bsp(const uint16_t num)
 		dnc_write_conf(node, 0, 24 + i, FUNC0_HT, 0x60,
 		               (val & ~0xff00) | (maxnode << 12) | (maxnode << 8));
 
+		/* Update VGA routing */
+		val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf4);
+		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf4, (val & ~(7 << 4)) | maxnode);
+
+		/* Ensure CC6 state save node is local */
+		if (family >= 0x15) {
+			val = dnc_read_conf(node, 0, 24 + i, FUNC4_LINK, 0x128);
+			if (((val >> 12) & 0xff) == 0)
+				dnc_write_conf(node, 0, 24 + i, FUNC4_LINK, 0x128, val | (maxnode << 12));
+		}
+
 		/* Update DRAM maps */
 		for (j = 0; j < 8; j++) {
 			val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x44 + 8 * j);
