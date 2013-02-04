@@ -2323,12 +2323,8 @@ static int unify_all_nodes(void)
 	uint16_t node;
 	uint8_t abort = 0;
 	int model, model_first = 0;
-	volatile uint32_t *apic;
-	apic = (void *)((uint32_t)dnc_rdmsr(MSR_APIC_BAR) & ~0xfff);
 	dnc_node_count = 0;
 	ht_pdom_count  = 0;
-	ht_next_apic   = apic[0x20 / 4] >> 24;
-	printf("ht_next_apic: %x\n", ht_next_apic);
 	tally_local_node(1);
 	nc_node[1].ht[0].base = dnc_top_of_mem;
 
