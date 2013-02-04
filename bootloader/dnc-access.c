@@ -336,7 +336,7 @@ void cht_test(uint8_t node, int neigh, int neigh_link)
 uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg)
 {
 	uint32_t ret;
-	int reboot;
+	bool reboot;
 
 	if (ht_testmode & HT_TESTMODE_WATCHDOG)
 		watchdog_run(100); /* 1s timeout if read hangs due to unstable link */

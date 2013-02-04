@@ -258,9 +258,9 @@ void tally_remote_node_mmio(uint16_t node)
 }
 
 /* Leave existing entries pointing to the root server, adding remote I/O regions */
-int setup_remote_node_mmio(uint16_t node)
+bool setup_remote_node_mmio(uint16_t node)
 {
-	int ret = 1;
+	bool ret = 1;
 	int ht = nc_node[node].nc_ht_id;
 	uint16_t sci = nc_node[node].sci_id;
 	uint32_t top;

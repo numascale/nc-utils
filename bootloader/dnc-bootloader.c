@@ -52,7 +52,7 @@
 #define MIN_NODE_MEM		256*1024*1024
 
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
-int dnc_asic_mode;
+bool dnc_asic_mode;
 uint32_t dnc_chip_rev;
 char dnc_card_type[16];
 uint16_t dnc_node_count = 0;

@@ -624,17 +624,11 @@ void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t st
 
 void del_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx)
 {
-	uint32_t val;
-
 	if (verbose)
 		printf("SCI%03x#%d: Removing Extd MMIO map #%d\n", scinode, node, idx);
 
 	if (family < 0x15) {
 		assert(idx < 12);
-		/* Make sure CHtExtAddrEn, ApicExtId and ApicExtBrdCst are enabled */
-		val = dnc_read_conf(scinode, 0, 24 + node, FUNC0_HT, 0x68);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC0_HT, 0x68,
-		               val | (1 << 25) | (1 << 18) | (1 << 17));
 		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (2 << 28) | idx);
 		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114, 0);
 		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
@@ -653,13 +647,12 @@ static uint32_t get_phy_register(int node, int link, int idx, int direct)
 	int base = 0x180 + link * 8;
 	int i;
 	uint32_t reg;
-	cht_write_conf(node, 4, base, idx | (direct << 29));
+	cht_write_conf(node, FUNC4_LINK, base, idx | (direct << 29));
 
 	for (i = 0; i < 1000; i++) {
-		reg = cht_read_conf(node, 4, base);
-
+		reg = cht_read_conf(node, FUNC4_LINK, base);
 		if (reg & 0x80000000)
-			return cht_read_conf(node, 4, base + 4);
+			return cht_read_conf(node, FUNC4_LINK, base + 4);
 	}
 
 	printf("Read from phy register HT#%d F4x%x idx %x did not complete\n",
@@ -672,12 +665,11 @@ static void set_phy_register(int node, int link, int idx, int direct, uint32_t v
 	int base = 0x180 + link * 8;
 	int i;
 	uint32_t reg;
-	cht_write_conf(node, 4, base + 4, val);
-	cht_write_conf(node, 4, base, idx | (direct << 29) | (1 << 30));
+	cht_write_conf(node, FUNC4_LINK, base + 4, val);
+	cht_write_conf(node, FUNC4_LINK, base, idx | (direct << 29) | (1 << 30));
 
 	for (i = 0; i < 1000; i++) {
-		reg = cht_read_conf(node, 4, base);
-
+		reg = cht_read_conf(node, FUNC4_LINK, base);
 		if (reg & 0x80000000)
 			return;
 	}
@@ -883,7 +875,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	printf("(Only doing HT reconfig in 32-bit mode)\n");
 	return;
 #else
-	int reboot = 0;
+	bool reboot = 0;
 	int ganged;
 	int neigh;
 	int link;
@@ -1344,17 +1336,17 @@ static void disable_link(int node, int link)
 
 static int disable_nc = 0;
 
-static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
+static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 {
 #ifndef __i386
 	printf("(Only doing HT discovery and reconfig in 32-bit mode)\n");
 	return -1;
 #else
-	int nodes, neigh, link = 0, rt, use, nc, i;
+	int nodes, neigh, link = 0, rt, nc, i;
 	uint32_t val;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	nodes = (val >> 4) & 7;
-	use = 1;
+	bool use = 1;
 
 	for (neigh = 0; neigh <= nodes; neigh++) {
 		uint32_t aggr = cht_read_conf(neigh, FUNC0_HT, 0x164);
@@ -1386,7 +1378,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	}
 
 	if (use) {
-		printf("No unrouted coherent links found.\n");
+		printf("Error: No unrouted coherent links found\n");
 		return -1;
 	}
 
@@ -1554,7 +1546,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 #endif
 }
 
-static int ht_fabric_fixup(int *p_asic_mode, uint32_t *p_chip_rev)
+static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 {
 	uint32_t val;
 	uint8_t node;
@@ -2375,11 +2367,11 @@ void selftest_late_msrs(void)
 	}
 }
 
-int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], int *p_asic_mode, const char *cmdline)
+int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode, const char *cmdline)
 {
 	uint32_t uuid, val, chip_rev;
-	int i, asic_mode;
-	int ht_id = -1;
+	int i, ht_id = -1;
+	bool asic_mode;
 
 	if (parse_cmdline(cmdline) < 0)
 		return -1;
@@ -2534,13 +2526,13 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 #endif
 		/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
 		if (family >= 0x15) {
-			val = cht_read_conf(i, 5, 0x88);
+			val = cht_read_conf(i, FUNC5_EXTD, 0x88);
 
 			if (!(val & (1 << 9))) {
 				if (verbose > 0)
 					printf("Setting DisHintInHtMskCnt for node %d\n", i);
 
-				cht_write_conf(i, 5, 0x88, val | (1 << 9));
+				cht_write_conf(i, FUNC5_EXTD, 0x88, val | (1 << 9));
 			}
 		}
 	}
