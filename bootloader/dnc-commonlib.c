@@ -701,8 +701,8 @@ static void reorganize_mmio(int nc)
 	printf("MSR_TOPMEM : %llx\n", tom);
 
 	for (i = 0; i < 8; i++) {
-		base = cht_read_conf(0, 1, 0x80 + i * 8);
-		lim  = cht_read_conf(0, 1, 0x84 + i * 8);
+		base = cht_read_conf(0, FUNC1_MAPS, 0x80 + i * 8);
+		lim  = cht_read_conf(0, FUNC1_MAPS, 0x84 + i * 8);
 
 		if (!(base & 3))
 			continue;
