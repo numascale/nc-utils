@@ -81,7 +81,7 @@ void tally_local_node(int enforce_alignment)
 	nc_node[0].sci_id = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
 	nc_node[0].nc_ht_id = dnc_master_ht_id;
 	nc_node[0].nc_neigh = nc_neigh;
-	nc_node[0].addr_base = 0;
+	nc_node[0].dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	max_ht_node = (val >> 4) & 7;
 #ifdef __i386
@@ -194,7 +194,7 @@ void tally_local_node(int enforce_alignment)
 	printf("%2d CPU cores and %dGB of memory and I/O maps found in SCI%03x\n",
 	       tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 	dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
-	nc_node[0].addr_end = dnc_top_of_mem;
+	nc_node[0].dram_limit = dnc_top_of_mem;
 	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
 
 	if (rest && enforce_alignment) {
@@ -276,7 +276,7 @@ static int tally_remote_node(uint16_t node)
 	/* Ensure that all nodes start out on 1G boundaries
 	   FIXME: Add IO holes to cover address space discontinuity? */
 	dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
-	cur_node->addr_base = dnc_top_of_mem;
+	cur_node->dram_base = dnc_top_of_mem;
 	val = dnc_read_conf(node, 0, 24, FUNC0_HT, 0x60);
 
 	if (val == 0xffffffff) {
@@ -391,10 +391,10 @@ static int tally_remote_node(uint16_t node)
 	}
 
 	/* Check if any DRAM ranges overlap the HyperTransport address space */
-	if ((cur_node->addr_base < (HT_LIMIT >> DRAM_MAP_SHIFT)) &&
-		((cur_node->addr_base + cur_node->node_mem) > (HT_BASE >> DRAM_MAP_SHIFT))) {
+	if ((cur_node->dram_base < (HT_LIMIT >> DRAM_MAP_SHIFT)) &&
+		((cur_node->dram_base + cur_node->node_mem) > (HT_BASE >> DRAM_MAP_SHIFT))) {
 		/* Move whole server up to HT decode limit */
-		uint64_t shift = (HT_LIMIT >> DRAM_MAP_SHIFT) - cur_node->addr_base;
+		uint64_t shift = (HT_LIMIT >> DRAM_MAP_SHIFT) - cur_node->dram_base;
 
 		printf("Moving SCI%3x past HyperTransport decode range by %lldGB\n", node, shift >> (30 - DRAM_MAP_SHIFT));
 
@@ -405,7 +405,7 @@ static int tally_remote_node(uint16_t node)
 			cur_node->ht[i].base += shift;
 		}
 
-		cur_node->addr_base += shift;
+		cur_node->dram_base += shift;
 		dnc_top_of_mem += shift;
 	}
 
@@ -417,7 +417,7 @@ static int tally_remote_node(uint16_t node)
 	cur_node->apic_offset = ht_next_apic - cur_node->ht[0].apic_base;
 	ht_next_apic = cur_node->apic_offset + cur_node->ht[last].apic_base + apic_per_node;
 	printf("ht_next_apic: %d\n", ht_next_apic);
-	cur_node->addr_end = dnc_top_of_mem;
+	cur_node->dram_limit = dnc_top_of_mem;
 	printf("%2d CPU cores and %2d GBytes of memory found in SCI%03x\n",
 	       tot_cores, cur_node->node_mem >> 6, node);
 	printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", node);

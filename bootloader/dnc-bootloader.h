@@ -74,8 +74,8 @@ typedef struct ht_node_info {
 
 typedef struct nc_node_info {
 	uint32_t node_mem;	/* Amount of DRAM at dnc nodes, in 16MB chunks */
-	uint32_t addr_base;
-	uint32_t addr_end;
+	uint32_t dram_base;
+	uint32_t dram_limit;
 	uint32_t mmio_base;	/* Start of local MMIO mapping, in 16MB chunks */
 	uint32_t mmio_end;
 	ht_node_info_t ht[8];
