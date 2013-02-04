@@ -118,7 +118,7 @@ void tally_local_node(int enforce_alignment)
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
 		if (family >= 0x15)
-			cht_write_conf(i, FUNC1_MAPS, 0x10C, 0);
+			cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
 
 		/* Disable DRAM scrubbers */
 		nc_node[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
@@ -325,7 +325,7 @@ static int tally_remote_node(uint16_t node)
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
 		if (family >= 0x15)
-			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x10C, 0);
+			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
 
 		cur_node->ht[i].scrub = dnc_read_conf(node, 0, 24 + i, FUNC3_MISC, 0x58);
 		if (cur_node->ht[i].scrub & 0x1f)
