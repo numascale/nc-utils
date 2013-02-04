@@ -1433,7 +1433,7 @@ static int ht_fabric_find_nc(int *p_asic_mode, uint32_t *p_chip_rev)
 	val = cht_read_conf(nc, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
 
 	if (val != 0x06011b47) {
-		printf("Unrouted coherent device found is not NumaChip: %08x.\n", val);
+		printf("Error: Unrouted coherent device %08x is not NumaChip\n", val);
 		return -1;
 	}
 
