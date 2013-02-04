@@ -194,9 +194,8 @@ void tally_local_node(int enforce_alignment)
 	printf("%2d CPU cores and %dGB of memory and I/O maps found in SCI%03x\n",
 	       tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 	dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
-	nc_node[0].dram_limit = dnc_top_of_mem;
-	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
 
+	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
 	if (rest && enforce_alignment) {
 		printf("Deducting %dMB from SCI%03x#%x to accommodate granularity requirements\n",
 		       rest << (DRAM_MAP_SHIFT - 20), nc_node[0].sci_id, last);
@@ -222,6 +221,7 @@ void tally_local_node(int enforce_alignment)
 		cht_write_conf(last, FUNC1_MAPS, 0x124, limit - (rest >> (27 - DRAM_MAP_SHIFT)));
 		asm volatile("wbinvd" ::: "memory");
 	}
+	nc_node[0].dram_limit = dnc_top_of_mem;
 
 	printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", nc_node[0].sci_id);
 	/* Set PCI I/O map */
