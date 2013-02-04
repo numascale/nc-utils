@@ -1280,12 +1280,12 @@ static void setup_remote_cores(uint16_t num)
 			}
 
 			/* Break out of outer loop if needed */
-			if (renumber_bsp)
+			if (renumber_bsp == 1)
 				break;
 		}
 	}
 
-	if (renumber_bsp != 0)
+	if (renumber_bsp == 1)
 		renumber_remote_bsp(num);
 
 	ht_id = cur_node->nc_ht_id;
