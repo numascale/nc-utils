@@ -1066,11 +1066,11 @@ static void disable_atmmode(const int nodes)
 
 #endif
 
-	/* 7.  Set F0x68[ATMModeEn]=0
-	           F3x1B8[L3ATMModeEn]=0. */
+	/* 7.  Set F0x68[ATMModeEn]=0 and F3x1B8[L3ATMModeEn]=0 */
 	for (i = 0; i <= nodes; i++) {
-		val = cht_read_conf(0, FUNC0_HT, 0x68);
+		val = cht_read_conf(i, FUNC0_HT, 0x68);
 		cht_write_conf(i, FUNC0_HT, 0x68, val & ~(1 << 12));
+
 		val = cht_read_conf(i, FUNC3_MISC, 0x1b8);
 		cht_write_conf(i, FUNC3_MISC, 0x1b8, val & ~(1 << 27));
 	}
