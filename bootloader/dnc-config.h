@@ -18,6 +18,7 @@
 #ifndef __DNC_CONFIG_H
 #define __DNC_CONFIG_H 1
 
+#include <stdbool.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -36,7 +37,7 @@ struct node_info {
 	uint32_t partition;
 	uint32_t osc;
 	char desc[32];
-	uint32_t sync_only;
+	bool sync_only;
 };
 
 struct part_info {
@@ -48,7 +49,7 @@ extern struct fabric_info cfg_fabric;
 extern struct node_info *cfg_nodelist;
 extern struct part_info *cfg_partlist;
 extern int cfg_nodes, cfg_partitions;
-extern int name_matching;
+extern bool name_matching;
 
 int parse_config_file(char *data);
 void make_singleton_config(uint32_t uuid);

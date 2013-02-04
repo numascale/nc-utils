@@ -123,7 +123,7 @@ void enable_smi(void);
 void critical_enter(void);
 void critical_leave(void);
 int adjust_oscillator(char p_type[16], uint32_t osc_setting);
-int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], int *p_asic_mode, const char *cmdline);
+int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode, const char *cmdline);
 int dnc_check_fabric(struct node_info *info);
 uint32_t dnc_check_mctr_status(int cdata);
 int dnc_init_caches(void);
@@ -136,7 +136,7 @@ void enable_probefilter(const int nodes);
 void selftest_late_msrs(void);
 int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm);
 
-extern int dnc_asic_mode;
+extern bool dnc_asic_mode;
 extern uint32_t dnc_chip_rev;
 extern char dnc_card_type[16];
 

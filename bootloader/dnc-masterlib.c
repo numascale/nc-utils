@@ -239,7 +239,7 @@ void tally_local_node(int enforce_alignment)
 	dnc_node_count++;
 }
 
-static int tally_remote_node(uint16_t node)
+static bool tally_remote_node(uint16_t node)
 {
 	uint32_t val, base, limit;
 	uint16_t i, max_ht_node, tot_cores;
@@ -437,16 +437,16 @@ static int tally_remote_node(uint16_t node)
 	return 1;
 }
 
-int tally_all_remote_nodes(void)
+bool tally_all_remote_nodes(void)
 {
-	int ret = 1;
+	bool ret = 1;
 	uint16_t node;
 
 	for (node = 1; node < 4096; node++) {
 		if ((nodedata[node] & 0xc0) != 0x80)
 			continue;
 
-		ret = tally_remote_node(node) && ret;
+		ret &= tally_remote_node(node);
 	}
 
 	/* MMIO is added after DRAM */

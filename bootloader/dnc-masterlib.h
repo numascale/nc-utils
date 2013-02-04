@@ -28,6 +28,6 @@ extern int mseq_table_length;
 
 void load_scc_microcode(uint16_t node);
 void tally_local_node(int enforce_alignment);
-int tally_all_remote_nodes(void);
+bool tally_all_remote_nodes(void);
 
 #endif
