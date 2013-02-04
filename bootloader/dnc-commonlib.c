@@ -929,29 +929,27 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 		printf(".");
 	}
 
-	/* Make sure link towards NC is ganged, disable LS2En */
-	/* XXX: Why do we alter this, optimally the link should be detected as
-	   ganged anyway if we set our CTL[1] terminations correctly ?? */
+	/* Gang link when appropriate, as the BIOS may not */
 	if (ht_force_ganged) {
-		val = cht_read_conf(neigh, 0, 0x170 + link * 4);
-		cht_write_conf(neigh, 0, 0x170 + link * 4, (val & ~0x100) | 1);
+		val = cht_read_conf(neigh, FUNC0_HT, 0x170 + link * 4);
+		if ((val & 1) == 0) {
+			printf("<ganging>");
+			cht_write_conf(neigh, FUNC0_HT, 0x170 + link * 4, val | 1);
+		}
 	}
 
 	/* For ASIC revision 2 and later, optimize width (16b) */
 	/* For FPGA, optimize width (16b) */
 	printf(".");
 	val = cht_read_conf(neigh, FUNC0_HT, 0x84 + link * 0x20);
+	val &= ~(1 << 13); /* Disable LdtStopTriEn */
+	cht_write_conf(neigh, FUNC0_HT, 0x84 + link * 0x20, val);
 
 	if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11) &&
 	                      ((asic_mode && rev >= 2) || !asic_mode)))) {
 		printf("*");
-		udelay(50);
-		val = cht_read_conf(neigh, FUNC0_HT, 0x84 + link * 0x20);
-		printf(".");
-
 		if ((val >> 24) != 0x11) {
 			printf("<CPU width>");
-			udelay(50);
 			cht_write_conf(neigh, FUNC0_HT, 0x84 + link * 0x20, (val & 0x00ffffff) | 0x11000000);
 			reboot = 1;
 		}
@@ -963,7 +961,6 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 
 		if ((val >> 24) != 0x11) {
 			printf("<NC width>");
-			udelay(50);
 			cht_write_conf(nc, 0, H2S_CSR_F0_LINK_CONTROL_REGISTER, (val & 0x00ffffff) | 0x11000000);
 			reboot = 1;
 		}
@@ -974,13 +971,11 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	/* On ASIC optimize link frequency (800MHz), if option to disable this is not set */
 	if (asic_mode && !ht_200mhz_only) {
 		printf("+");
-		udelay(50);
 		val = cht_read_conf(neigh, FUNC0_HT, 0x88 + link * 0x20);
 		printf(".");
 
 		if (((val >> 8) & 0xf) != 0x5) {
 			printf("<CPU freq>");
-			udelay(50);
 			cht_write_conf(neigh, FUNC0_HT, 0x88 + link * 0x20, (val & ~0xf00) | 0x500);
 			reboot = 1;
 		}
@@ -992,7 +987,6 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 
 		if (((val >> 8) & 0xf) != 0x5) {
 			printf("<NC freq>");
-			udelay(50);
 			cht_write_conf(nc, 0, H2S_CSR_F0_LINK_FREQUENCY_REVISION_REGISTER, (val & ~0xf00) | 0x500);
 			reboot = 1;
 		}
