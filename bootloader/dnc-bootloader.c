@@ -1206,7 +1206,7 @@ static void renumber_remote_bsp(const uint16_t num)
 #ifdef BROKEN
 	/* Reorder the individual HT node memory base address so it is in increasing order */
 	for (i = 1; i <= maxnode; i++) {
-		if (i == 1) cur_node->ht[i].base = cur_node->addr_base;
+		if (i == 1) cur_node->ht[i].base = cur_node->dram_base;
 		else        cur_node->ht[i].base = cur_node->ht[i-1].base + cur_node->ht[i-1].size;
 	}
 #endif
@@ -1417,7 +1417,7 @@ static void setup_remote_cores(uint16_t num)
 			if (!cur_node->ht[i].cpuid)
 				continue;
 
-			dram_range(node, i, map_index + 1, cur_node->addr_end, nc_node[dnc_node_count - 1].addr_end - 1, ht_id, true);
+			dram_range(node, i, map_index + 1, cur_node->dram_limit, nc_node[dnc_node_count - 1].dram_limit - 1, ht_id, true);
 		}
 
 		map_index++;
@@ -1464,13 +1464,13 @@ static void setup_remote_cores(uint16_t num)
 	}
 
 	/* Set DRAM range on local NumaChip */
-	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->addr_base >> 6);
-	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT, (cur_node->addr_end >> 6) - 1);
+	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->dram_base >> 6);
+	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT, (cur_node->dram_limit >> 6) - 1);
 	printf("SCI%03x NGCM0 %x, NGCM1 %x\n", node,
 		dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT),
 		dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT));
-	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->addr_base);
-	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->addr_end);
+	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->dram_base);
+	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->dram_limit);
 
 	/* Rewrite the correct Global CSR and MMCFG maps when the HT numbering has changed */
 	if (renumber_bsp) {
