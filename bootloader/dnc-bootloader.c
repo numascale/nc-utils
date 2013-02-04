@@ -1107,15 +1107,13 @@ static void renumber_remote_bsp(const uint16_t num)
 	/* Renumber HT#0 */
 	val = dnc_read_conf(node, 0, 24 + 0, FUNC0_HT, 0x60);
 	dnc_write_conf(node, 0, 24 + 0, FUNC0_HT, 0x60,
-	               (val & ~0xff0f) | (maxnode << 12) | (maxnode << 8) | maxnode);
-	val = dnc_read_conf(node, 0, 24 + maxnode, FUNC0_HT, 0x60);
-	printf("- F0x60 value 0x%08x on HT#%d (BSP)\n", val, maxnode);
+	               (val & ~0x7707) | (maxnode << 12) | (maxnode << 8) | maxnode);
 
 	for (i = 1; i <= maxnode; i++) {
 		/* Update LkNode, SbNode */
 		val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x60);
 		dnc_write_conf(node, 0, 24 + i, FUNC0_HT, 0x60,
-		               (val & ~0xff00) | (maxnode << 12) | (maxnode << 8));
+		               (val & ~0x7700) | (maxnode << 12) | (maxnode << 8));
 
 		/* Update VGA routing */
 		val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf4);
