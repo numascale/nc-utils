@@ -1212,7 +1212,7 @@ static void renumber_remote_bsp(const uint16_t num)
 	printf("done\n");
 }
 
-static void dram_range(uint16_t node, int ht, int range, uint64_t base, uint64_t limit, int dest, bool en)
+static void dram_range(uint16_t node, int ht, int range, uint32_t base, uint32_t limit, int dest, bool en)
 {
 	assert(range < 8);
 	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
@@ -2393,48 +2393,29 @@ static int unify_all_nodes(void)
 	}
 
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
-	 * NB: Assuming that memory is assigned sequentially to SCI nodes and HT nodes */
+	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
 	for (i = 0; i < dnc_master_ht_id; i++) {
 		assert(cht_read_conf(i, 1, 0x78) == 0);
-		cht_write_conf(i, 1, 0x17c, (dnc_top_of_mem - 1) >> (40 - DRAM_MAP_SHIFT));
-		cht_write_conf(i, 1, 0x7c, ((dnc_top_of_mem - 1) << 16) | dnc_master_ht_id);
-		cht_write_conf(i, 1, 0x178, nc_node[1].ht[0].base >> (40 - DRAM_MAP_SHIFT));
-		cht_write_conf(i, 1, 0x78, (nc_node[1].ht[0].base << 16) | 3);
+		dram_range(0xfff0, i, 7, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id, 1);
 	}
 
-	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT,
-	              nc_node[0].ht[0].base >> 6);
-	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT,
-	              ((nc_node[0].ht[dnc_master_ht_id - 1].base +
-	                nc_node[0].ht[dnc_master_ht_id - 1].size) >> 6) - 1);
-	printf("SCI%03x NGCM0 %x, NGCM1 %x\n", nc_node[0].sci_id,
-		dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT),
-		dnc_read_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT));
-	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_BASE,
-	              nc_node[0].ht[0].base);
-	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT,
-	              nc_node[0].ht[dnc_master_ht_id - 1].base +
-	              nc_node[0].ht[dnc_master_ht_id - 1].size);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, nc_node[0].dram_base >> 6);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT, (nc_node[0].dram_limit >> 6) - 1);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_BASE, nc_node[0].dram_base);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT, nc_node[0].dram_limit);
 
 	for (i = 0; i < dnc_node_count; i++) {
 		uint16_t dnode;
-		uint32_t addr, end, ht;
 		node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
-			addr = nc_node[dnode].ht[0].base;
-			end  = addr + nc_node[dnode].ht[0].size;
-
-			for (ht = 1; ht < 8; ht++)
-				if (nc_node[dnode].ht[ht].base > addr)
-					end = nc_node[dnode].ht[ht].base + nc_node[dnode].ht[ht].size;
+			uint32_t addr = nc_node[dnode].dram_base;
+			uint32_t end  = nc_node[dnode].dram_limit;
 
 			dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX,
 			              0x80000000 | /* AutoInc */
 			              (0x08000000 << SCC_ATT_INDEX_RANGE) | /* Index Range */
 			              (addr / SCC_ATT_GRAN)); /* Start index for current node */
-			printf("SCI%03x ATT_INDEX: %x (%x, %x) SCI%03x\n", nc_node[i].sci_id,
-			       dnc_read_csr(node, H2S_CSR_G0_ATT_INDEX), addr, end, nc_node[dnode].sci_id);
 
 			while (addr < end) {
 				dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[dnode].sci_id);
