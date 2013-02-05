@@ -1212,16 +1212,28 @@ static void renumber_remote_bsp(const uint16_t num)
 	printf("done\n");
 }
 
-static void dram_range(uint16_t node, int ht, int range, uint32_t base, uint32_t limit, int dest, bool en)
+static void dram_range(uint16_t node, int ht, int range, uint32_t base, uint32_t limit, int dest)
 {
 	assert(range < 8);
+	assert((dnc_read_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) == 0);
+
 	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
 	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
 	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, base >> (40 - DRAM_MAP_SHIFT));
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | (en ? 3 : 0));
+	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | 3);
 }
 
-static void setup_remote_cores(uint16_t num)
+static void dram_range_del(uint16_t node, int ht, int range)
+{
+	assert(range < 8);
+
+	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, 0);
+	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, 0);
+	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, 0);
+	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
+}
+
+static void setup_remote_cores(const uint16_t num)
 {
 	uint8_t i, map_index;
 	nc_node_info_t *cur_node = &nc_node[num];
@@ -1348,12 +1360,12 @@ static void setup_remote_cores(uint16_t num)
 
 		/* Clear all entries */
 		for (j = 0; j < 8; j++)
-			dram_range(node, i, j, 0, 0, 0, false);
+			dram_range_del(node, i, j);
 
 		/* Clear DRAM Hole */
 		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf0,  0);
 		/* Re-direct everything below our first local address to NumaChip */
-		dram_range(node, i, 0, nc_node[0].ht[0].base, cur_node->ht[0].base - 1, ht_id, true);
+		dram_range(node, i, 0, nc_node[0].ht[0].base, cur_node->ht[0].base - 1, ht_id);
 	}
 
 	/* Reprogram HT node "self" ranges */
@@ -1397,7 +1409,7 @@ static void setup_remote_cores(uint16_t num)
 			if (!cur_node->ht[j].cpuid)
 				continue;
 
-			dram_range(node, j, map_index + 1, cur_node->ht[i].base, cur_node->ht[i].base + cur_node->ht[i].size - 1, i, true);
+			dram_range(node, j, map_index + 1, cur_node->ht[i].base, cur_node->ht[i].base + cur_node->ht[i].size - 1, i);
 		}
 
 		dnc_write_conf(node, 0, 24 + ht_id, FUNC1_MAPS, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX,
@@ -1415,7 +1427,7 @@ static void setup_remote_cores(uint16_t num)
 			if (!cur_node->ht[i].cpuid)
 				continue;
 
-			dram_range(node, i, map_index + 1, cur_node->dram_limit, nc_node[dnc_node_count - 1].dram_limit - 1, ht_id, true);
+			dram_range(node, i, map_index + 1, cur_node->dram_limit, nc_node[dnc_node_count - 1].dram_limit - 1, ht_id);
 		}
 
 		map_index++;
@@ -2393,7 +2405,7 @@ static int unify_all_nodes(void)
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
 	for (i = 0; i < dnc_master_ht_id; i++) {
 		assert(cht_read_conf(i, 1, 0x78) == 0);
-		dram_range(0xfff0, i, 7, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id, 1);
+		dram_range(0xfff0, i, 7, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
 	}
 
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, nc_node[0].dram_base >> 6);

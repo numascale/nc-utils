@@ -593,9 +593,11 @@ void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t st
 		printf("SCI%03x#%d: Adding MMIO map #%d %016" PRIx64 "-%016" PRIx64 " to HT#%d\n", scinode, node, idx, start, end, dest);
 
 	if (family < 0x15) {
-		uint64_t mask;
 		assert(idx < 12);
-		mask = 0;
+		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
+		assert((dnc_read_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114) & 1) == 0);
+
+		uint64_t mask = 0;
 		start = start >> 27;
 		end   = end >> 27;
 
@@ -608,6 +610,8 @@ void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t st
 		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114, (mask << 8) | 1);
 	} else {
 		assert(idx < 4);
+		assert((dnc_read_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1a0 + idx * 8) & 3) == 0);
+
 		/* From family 15h, the Extd MMIO maps are deprecated in favor
 		 * of extending the legacy MMIO maps with a "base/limit high"
 		 * register set.  To avoid trampling over existing mappings,
@@ -1663,7 +1667,6 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		/* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
 		 * and set this value in expansion rom base address register */
 		printf("Setting default CSR maps...\n");
-
 		for (node = 0; node < dnc_ht_id; node++)
 			add_extd_mmio_maps(0xfff0, node, 0, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
 
@@ -1681,8 +1684,8 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	}
 
 	printf("Setting CSR and MCFG maps...\n");
-
 	for (node = 0; node < dnc_ht_id; node++) {
+		del_extd_mmio_maps(0xfff0, node, 0);
 		add_extd_mmio_maps(0xfff0, node, 0, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
 		add_extd_mmio_maps(0xfff0, node, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
 	}
