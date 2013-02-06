@@ -938,7 +938,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	node = (val >> 16) & 0xfff;
 
 	for (i = 0; i < dnc_master_ht_id; i++)
-		add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
+		mmio_range(0xfff0, i, 11, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -969,7 +969,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
 	for (i = 0; i < dnc_master_ht_id; i++)
-		del_extd_mmio_maps(0xfff0, i, 3);
+		mmio_range_del(0xfff0, i, 11);
 }
 
 static void setup_other_cores(void)
@@ -1134,10 +1134,8 @@ static void renumber_remote_bsp(const uint16_t num)
 				dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x44 + 8 * j, val | maxnode);
 		}
 
-		int regs = family < 0x15 ? 8 : 12;
-
-		/* Update MMIO maps */
-		for (j = 0; j < regs; j++) {
+		/* Update low MMIO ranges leaving upper ranges */
+		for (j = 0; j < 8; j++) {
 			val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x84 + 8 * j);
 
 			if ((val & 7) == 0)
@@ -1209,6 +1207,14 @@ static void renumber_remote_bsp(const uint16_t num)
 	}
 #endif
 
+	/* Rewrite high MMIO ranges to route CSR access to Numachip */
+	for (i = 1; i <= maxnode; i++) {
+		mmio_range_del(node, i, 8);
+		mmio_range(node, i, 8, DNC_CSR_BASE, DNC_CSR_LIM, 0);
+		mmio_range_del(node, i, 9);
+		mmio_range(node, i, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, 0);
+	}
+
 	printf("done\n");
 }
 
@@ -1279,19 +1285,28 @@ static void setup_remote_cores(const uint16_t num)
 		for (int ht = 0; ht < 8; ht++) {
 			if (!cur_node->ht[ht].cpuid)
 				continue;
-			unsigned regs = family < 0x15 ? 8 : 12;
 
-			for (j = 0; j < regs; j++) {
+			for (j = 0; j < 8; j++) {
 				if (dnc_read_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x80 + j * 8) & (1 << 3)) {
-					printf("SCI%03x has locked MMIO ranges\n", node);
 					renumber_bsp = 1;
 					break;
 				}
 			}
 
+			if (family >= 0x15) {
+				for (j = 0; j < 4; j++) {
+					if (dnc_read_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x1a0 + j * 8) & (1 << 3)) {
+						renumber_bsp = 1;
+						break;
+					}
+				}
+			}
+
 			/* Break out of outer loop if needed */
-			if (renumber_bsp == 1)
+			if (renumber_bsp == 1) {
+				printf("SCI%03x has locked MMIO ranges\n", node);
 				break;
+			}
 		}
 	}
 
@@ -1321,31 +1336,20 @@ static void setup_remote_cores(const uint16_t num)
 		if (!cur_node->ht[i].cpuid)
 			continue;
 
-		unsigned regs = family < 0x15 ? 8 : 12;
+		/* Clear low MMIO ranges, leaving high ranges */
+		for (j = 0; j < 8; j++)
+			mmio_range_del(node, i, j);
 
-		/* Clear all MMIO maps */
-		for (j = 0; j < regs; j++) {
-			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x80 + j * 8, 0x0);
-			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x84 + j * 8, 0x0);
+		/* 1st MMIO map pair is set to point to the VGA segment A0000-C0000 */
+		mmio_range(node, i, 0, 0xa0000, 0xbffff, ht_id);
 
-			/* Fam15h high register bits[47:40] */
-			if (family >= 0x15)
-				dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x180 + j * 8, 0);
-		}
-
-		/* FIXME: Fam10h extended MMIO maps */
-		/* 1st MMIO map pair is set to point to the VGA segment a0000-e0000 */
-		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x84, 0x00000f00 | ht_id);
-		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x80, 0x00000a03);
 		/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
-		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x8c, 0x00ffff00 | ht_id);
-		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x88, tom | 3);
+		mmio_range(node, i, 1, tom, 0xffffffff, ht_id);
 
 		/* Make sure the VGA Enable register is disabled to forward VGA transactions
 		 * (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
 		if (!pf_vga_local) {
 			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf4, 0x0);
-
 			if (dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf4))
 				printf("Warning: Legacy VGA access is locked to local server; some video card BIOSs may cause any X servers to fail to complete initialisation\n");
 		}
@@ -1364,6 +1368,7 @@ static void setup_remote_cores(const uint16_t num)
 
 		/* Clear DRAM Hole */
 		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf0,  0);
+
 		/* Re-direct everything below our first local address to NumaChip */
 		dram_range(node, i, 0, nc_node[0].ht[0].base, cur_node->ht[0].base - 1, ht_id);
 	}
@@ -1482,23 +1487,12 @@ static void setup_remote_cores(const uint16_t num)
 	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->dram_base);
 	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->dram_limit);
 
-	/* Rewrite the correct Global CSR and MMCFG maps when the HT numbering has changed */
-	if (renumber_bsp) {
-		for (i = 0; i < 8; i++) {
-			if (!cur_node->ht[i].cpuid)
-				continue;
-			add_extd_mmio_maps(node, i, 0, DNC_CSR_BASE, DNC_CSR_LIM, ht_id);
-			add_extd_mmio_maps(node, i, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, ht_id);
-		}
-	}
-
 	/* "Wraparound" entry, lets APIC 0xff00 - 0xffff target 0x0 to 0xff on destination node */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x0000002f);
 	i = dnc_read_csr(0xfff0, H2S_CSR_G3_APIC_MAP_SHIFT) + 1;
 
-	for (j = (0xff00 >> i) & 0xff; j < 0x100; j++) {
+	for (j = (0xff00 >> i) & 0xff; j < 0x100; j++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, node);
-	}
 
 	printf("int_status: %x\n", dnc_read_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_STATUS));
 	udelay(200);
@@ -2216,10 +2210,8 @@ static void local_chipset_fixup(bool master)
 		val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 		node = (val >> 16) & 0xfff;
 
-		for (i = 0; i < dnc_master_ht_id; i++) {
-			add_extd_mmio_maps(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL,
-			                   dnc_master_ht_id);
-		}
+		for (i = 0; i < dnc_master_ht_id; i++)
+			mmio_range(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -2239,7 +2231,7 @@ static void local_chipset_fixup(bool master)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
 		for (i = 0; i < dnc_master_ht_id; i++)
-			del_extd_mmio_maps(0xfff0, i, 3);
+			mmio_range_del(0xfff0, i, 3);
 	}
 
 	printf("Chipset-specific setup done\n");

@@ -587,62 +587,97 @@ int cpu_family(uint16_t scinode, uint8_t node)
 	return (fam << 16) | (model << 8) | stepping;
 }
 
-void add_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx, uint64_t start, uint64_t end, uint8_t dest)
+void mmio_range(uint16_t sci, int ht, uint8_t range, uint64_t base, uint64_t limit, int dest)
 {
 	if (verbose)
-		printf("SCI%03x#%d: Adding MMIO map #%d %016" PRIx64 "-%016" PRIx64 " to HT#%d\n", scinode, node, idx, start, end, dest);
+		printf("Adding MMIO range %d on SCI%03x#%x from 0x%llx to 0x%llx towards %d\n",
+			range, sci, ht, base, limit, dest);
 
-	if (family < 0x15) {
-		assert(idx < 12);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
-		assert((dnc_read_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114) & 1) == 0);
+	if (family >= 0x15) {
+		assert(range < 12);
 
-		uint64_t mask = 0;
-		start = start >> 27;
-		end   = end >> 27;
+		int loff = 0, hoff = 0;
+		if (range > 7) {
+			loff = 0xe0;
+			hoff = 0x20;
+		}
 
-		while ((start | mask) != (end | mask))
-			mask = (mask << 1) | 1;
+		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
+		if (val & (1 << 3))
+			return; /* Locked */
+		assert((val & 3) == 0); /* Unused */
 
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (2 << 28) | idx);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114, (start << 8) | dest);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114, (mask << 8) | 1);
-	} else {
-		assert(idx < 4);
-		assert((dnc_read_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1a0 + idx * 8) & 3) == 0);
-
-		/* From family 15h, the Extd MMIO maps are deprecated in favor
-		 * of extending the legacy MMIO maps with a "base/limit high"
-		 * register set.  To avoid trampling over existing mappings,
-		 * use the (also new) 9-12 mapping entries when invoked here. */
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1a0 + idx * 8, 0);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1c0 + idx * 4,
-		               ((end >> 40) << 16) | (start >> 40));
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1a4 + idx * 8,
-		               ((end >> 16) << 8) | dest);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1a0 + idx * 8,
-		               ((start >> 16) << 8) | 3);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, ((limit >> 40) << 16) | (base >> 40));
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, ((limit >> 16) << 8) | dest);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, ((base >> 16) << 8 | 3));
+		return;
 	}
+
+	/* Family 10h */
+	if (range < 8) {
+		assert(limit < (1ULL << 40));
+		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8);
+		if (val & (1 << 3))
+			return; /* Locked */
+		assert((val & 3) == 0); /* Unused */
+
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8, ((limit >> 16) << 8) | dest);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, ((base >> 16) << 8 | 3));
+		return;
+	}
+
+	assert(range < 12);
+	range -= 8;
+
+	/* Reading an uninitialised extended MMIO ranges results in MCE, so can't assert */
+
+	uint64_t mask = 0;
+	base  >>= 27;
+	limit >>= 27;
+
+	while ((base | mask) != (limit | mask))
+		mask = (mask << 1) | 1;
+
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (base << 8) | dest);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (mask << 8) | 1);
 }
 
-void del_extd_mmio_maps(uint16_t scinode, uint8_t node, uint8_t idx)
+void mmio_range_del(uint16_t sci, int ht, uint8_t range)
 {
-	if (verbose)
-		printf("SCI%03x#%d: Removing Extd MMIO map #%d\n", scinode, node, idx);
+	if (verbose > 1)
+		printf("Deleting MMIO range %d on SCI%03x#%x\n", range, sci, ht);
 
-	if (family < 0x15) {
-		assert(idx < 12);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (2 << 28) | idx);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114, 0);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x110, (3 << 28) | idx);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x114, 0);
-	} else {
-		assert(idx < 4);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1a0 + idx * 8, 0);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1a4 + idx * 8, 0);
-		dnc_write_conf(scinode, 0, 24 + node, FUNC1_MAPS, 0x1c0 + idx * 4, 0);
+	if (family >= 0x15) {
+		assert(range < 12);
+
+		int loff = 0, hoff = 0;
+		if (range > 7) {
+			loff = 0xe0;
+			hoff = 0x20;
+		}
+
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, 0);
+		return;
 	}
+
+	/* Family 10h */
+	if (range < 8) {
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, 0);
+		return;
+	}
+
+	assert(range < 12);
+	range -= 8;
+
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
 }
 
 #ifdef __i386
@@ -1668,7 +1703,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		 * and set this value in expansion rom base address register */
 		printf("Setting default CSR maps...\n");
 		for (node = 0; node < dnc_ht_id; node++)
-			add_extd_mmio_maps(0xfff0, node, 0, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
+			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
 
 		printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
 		mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1 << 15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
@@ -1685,9 +1720,9 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	printf("Setting CSR and MCFG maps...\n");
 	for (node = 0; node < dnc_ht_id; node++) {
-		del_extd_mmio_maps(0xfff0, node, 0);
-		add_extd_mmio_maps(0xfff0, node, 0, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
-		add_extd_mmio_maps(0xfff0, node, 1, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
+		mmio_range_del(0xfff0, node, 8);
+		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
+		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
 	}
 
 	/* Set MMCFG base register so local NC will forward correctly */
