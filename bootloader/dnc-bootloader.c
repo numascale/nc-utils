@@ -64,6 +64,7 @@ uint32_t dnc_top_of_dram;      /* Top of DRAM, before MMIO, in 16MB chunks */
 uint32_t dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
 uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static int scc_started = 0;
+static struct in_addr myip = {0xffffffff};
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -1881,23 +1882,14 @@ int udp_open(void)
 {
 	t_PXENV_TFTP_CLOSE *tftp_close_param;
 	t_PXENV_UDP_OPEN *pxe_open_param;
-	pxe_bootp_t *buf;
-	in_addr_t srcip;
-	size_t len;
 	tftp_close_param = __com32.cs_bounce;
 	memset(tftp_close_param, 0, sizeof(*tftp_close_param));
 	pxeapi_call(PXENV_TFTP_CLOSE, (uint8_t *)tftp_close_param);
 	printf("TFTP close returns: %d\n", tftp_close_param->Status);
-	srcip = 0xffffffff;
-
-	if (pxe_get_cached_info(2, (void **)&buf, &len) >= 0) {
-		srcip = buf->yip;
-		free(buf);
-	}
 
 	pxe_open_param = __com32.cs_bounce;
 	memset(pxe_open_param, 0, sizeof(*pxe_open_param));
-	pxe_open_param->src_ip = srcip;
+	pxe_open_param->src_ip = myip.s_addr;
 	pxeapi_call(PXENV_UDP_OPEN, (uint8_t *)pxe_open_param);
 	printf("PXE UDP open returns: %d\n", pxe_open_param->status);
 	return 1;
@@ -2612,11 +2604,18 @@ static void cleanup_stack(void)
 
 static void get_hostname(void)
 {
+	int sts;
 	char *dhcpdata;
 	size_t dhcplen;
 
-	if (pxe_get_cached_info(PXENV_PACKET_TYPE_DHCP_ACK, (void **)&dhcpdata, &dhcplen))
+	if ((sts = pxe_get_cached_info(PXENV_PACKET_TYPE_DHCP_ACK, (void **)&dhcpdata, &dhcplen)) != 0) {
+		printf("pxe_get_cached_info() returned status : %d\n", sts);
 		return;
+	}
+
+	/* Save MyIP for later (in udp_open) */
+	myip.s_addr = ((pxe_bootp_t *)dhcpdata)->yip;
+	printf("My IP address is %s\n", inet_ntoa(myip));
 
 	/* Skip standard fields, as hostname is an option */
 	unsigned int offset = 4 + offsetof(pxe_bootp_t, vendor.d);
