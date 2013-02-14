@@ -405,6 +405,7 @@ static bool tally_remote_node(uint16_t node)
 			cur_node->ht[i].base += shift;
 		}
 
+		ht_base = (uint64_t)cur_node->dram_base << DRAM_MAP_SHIFT; /* End of last node limit */
 		cur_node->dram_base += shift;
 		dnc_top_of_mem += shift;
 	}

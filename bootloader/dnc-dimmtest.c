@@ -93,7 +93,7 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 
 		/* Denali docs states that there should be atleast 10 clocks of idle before asserting the BIST go bit */
 		udelay(10000);
-		
+
 		/* Start BIST test */
 		reg = dnc_read_csr(0xfff0, denalibase+(BIST_GO_ADDR<<2));
 		dnc_write_csr(0xfff0, denalibase+(BIST_GO_ADDR<<2), reg | (1 << BIST_GO_OFFSET));

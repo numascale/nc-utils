@@ -65,6 +65,7 @@ uint32_t dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
 uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static int scc_started = 0;
 static struct in_addr myip = {0xffffffff};
+uint64_t ht_base = HT_BASE;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -108,16 +109,10 @@ extern uint8_t smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
-static void set_cf8extcfg_disable(void)
+void set_cf8extcfg_enable(const int ht)
 {
-	uint64_t val = dnc_rdmsr(MSR_NB_CFG);
-	dnc_wrmsr(MSR_NB_CFG, val & ~(1ULL << 46));
-}
-
-static void set_cf8extcfg_enable(void)
-{
-	uint64_t val = dnc_rdmsr(MSR_NB_CFG);
-	dnc_wrmsr(MSR_NB_CFG, val | (1ULL << 46));
+	uint32_t val = cht_read_conf(ht, FUNC3_MISC, 0x8c);
+	cht_write_conf(ht, FUNC3_MISC, 0x8c, val | (1 << (46 - 32)));
 }
 
 static void set_wrap32_disable(void)
@@ -1943,7 +1938,7 @@ static void wait_status(struct node_info *info)
 	for (int i = 0; i < cfg_nodes; i++) {
 		if (config_local(&cfg_nodelist[i], info->uuid)) /* Self */
 			continue;
-		
+
 		if (nodedata[cfg_nodelist[i].sciid] != 0x80)
 			printf(" SCI%03x (%s)",
 			       cfg_nodelist[i].sciid, cfg_nodelist[i].desc);
@@ -2249,7 +2244,7 @@ static void global_chipset_fixup(void)
 			val = dnc_read_conf(node, 0, 0, 0, 0xc8);
 			dnc_write_conf(node, 0, 0, 0, 0xc8, val | (1 << 15));
 			/* Limit TOM2 to HyperTransport address */
-			uint64_t limit = min(0xfd00000000, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
+			uint64_t limit = min(ht_base, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 			ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
 			ioh_htiu_write(node, SR56X0_HTIU_TOM2HI, limit >> 32);
 
@@ -2320,7 +2315,7 @@ static int unify_all_nodes(void)
 {
 	uint16_t i;
 	uint16_t node;
-	uint8_t abort = 0;
+	bool abort = 0;
 	int model, model_first = 0;
 	dnc_node_count = 0;
 	ht_pdom_count  = 0;
@@ -2577,9 +2572,8 @@ static int check_api_version(void)
 static void start_user_os(void)
 {
 	static com32sys_t rm;
-	/* Restore 32-bit only access and non-extended PCI config access */
+	/* Restore 32-bit only access */
 	set_wrap32_enable();
-	set_cf8extcfg_disable();
 	strcpy(__com32.cs_bounce, next_label);
 	rm.eax.w[0] = 0x0003;
 	rm.ebx.w[0] = OFFS(__com32.cs_bounce);
@@ -2851,9 +2845,8 @@ static int nc_start(void)
 			selftest_late_memmap();
 
 			/* Do this ahead of the self-test to prevent false positives */
-			/* Restore 32-bit only access and non-extended PCI config access */
+			/* Restore 32-bit only access */
 			set_wrap32_enable();
-			set_cf8extcfg_disable();
 			selftest_late_msrs();
 		}
 
@@ -2896,9 +2889,8 @@ static int nc_start(void)
 		/* Let master know we're ready for remapping/integration */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1 << 31));
 
-		/* Restore 32-bit only access and non-extended PCI config access */
+		/* Restore 32-bit only access */
 		set_wrap32_enable();
-		set_cf8extcfg_disable();
 
 		while (1) {
 			cli();
@@ -2914,10 +2906,13 @@ int main(void)
 	int ret;
 	openconsole(&dev_rawcon_r, &dev_stdcon_w);
 	printf("*** NumaConnect system unification module " VER " ***\n");
-	/* Enable extended PCI config space access via CF8 */
-	set_cf8extcfg_enable();
+
+	/* Enable CF8 extended access for first Northbridge; we do others for Linux later */
+	set_cf8extcfg_enable(0);
+
 	/* Disable 32-bit address wrapping to allow 64-bit access in 32-bit code */
 	set_wrap32_disable();
+
 	ret = nc_start();
 
 	if (ret < 0) {
@@ -2925,8 +2920,7 @@ int main(void)
 		wait_key();
 	}
 
-	/* Restore 32-bit only access and non-extended PCI config access */
+	/* Restore 32-bit only access */
 	set_wrap32_enable();
-	set_cf8extcfg_disable();
 	return ret;
 }
