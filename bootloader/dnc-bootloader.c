@@ -64,6 +64,7 @@ uint32_t dnc_top_of_dram;      /* Top of DRAM, before MMIO, in 16MB chunks */
 uint32_t dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
 uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static int scc_started = 0;
+uint64_t ht_base = HT_BASE;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -2248,7 +2249,7 @@ static void global_chipset_fixup(void)
 			val = dnc_read_conf(node, 0, 0, 0, 0xc8);
 			dnc_write_conf(node, 0, 0, 0, 0xc8, val | (1 << 15));
 			/* Limit TOM2 to HyperTransport address */
-			uint64_t limit = min(0xfd00000000, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
+			uint64_t limit = min(ht_base, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 			ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
 			ioh_htiu_write(node, SR56X0_HTIU_TOM2HI, limit >> 32);
 
@@ -2320,7 +2321,7 @@ static int unify_all_nodes(void)
 	uint16_t i;
 	uint16_t node;
 	bool abort = 0;
-	int ht, model, model_first = 0;
+	int model, model_first = 0;
 	dnc_node_count = 0;
 	ht_pdom_count  = 0;
 	tally_local_node(1);

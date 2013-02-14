@@ -99,6 +99,7 @@ extern uint32_t dnc_top_of_mem;
 extern char *asm_relocated;
 extern unsigned char asm_relocate_start;
 extern unsigned char asm_relocate_end;
+extern uint64_t ht_base;
 
 void set_cf8extcfg_enable(const int ht);
 int read_config_file(char *file_name);
