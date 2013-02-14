@@ -1639,6 +1639,14 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	DNC_CSR_BASE = 0x3fff00000000ULL;
 	DNC_CSR_LIM = 0x3fffffffffffULL;
 
+	/* Enable IOH high addressing before enabling on IO links from the NBs */
+	val = dnc_read_conf(0xfff0, 0, 0, 0, 0);
+	if (val == VENDEV_SR5690 || val == VENDEV_SR5670 || val == VENDEV_SR5650) {
+		/* Enable 52-bit PCIe address generation */
+		val = dnc_read_conf(0xfff0, 0, 0, 0, 0xc8);
+		dnc_write_conf(0xfff0, 0, 0, 0, 0xc8, val | (1 << 15));
+	}
+
 	/* Since we use high addresses for our CSR and MCFG space, make sure the necessary
 	   features in the CPU is enabled before we start using them */
 	for (node = 0; node < dnc_ht_id; node++) {

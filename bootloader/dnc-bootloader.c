@@ -2178,7 +2178,6 @@ static void local_chipset_fixup(bool master)
 	}
 
 	val = dnc_read_conf(0xfff0, 0, 0, 0, 0);
-
 	if (val == VENDEV_SR5690 || val == VENDEV_SR5670 || val == VENDEV_SR5650) {
 		if (!remote_io && !master) {
 			printf("- disabling IOAPIC\n");
@@ -2240,9 +2239,6 @@ static void global_chipset_fixup(void)
 
 		if ((val == VENDEV_SR5690) || (val == VENDEV_SR5670) || (val == VENDEV_SR5650)) {
 			printf("Adjusting configuration of AMD SR56x0 on SCI%03x...\n", node);
-			/* Enable 52-bit PCIe address generation */
-			val = dnc_read_conf(node, 0, 0, 0, 0xc8);
-			dnc_write_conf(node, 0, 0, 0, 0xc8, val | (1 << 15));
 			/* Limit TOM2 to HyperTransport address */
 			uint64_t limit = min(ht_base, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 			ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
