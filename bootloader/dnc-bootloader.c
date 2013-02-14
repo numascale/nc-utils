@@ -107,12 +107,6 @@ extern uint8_t smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
-static void set_cf8extcfg_disable(void)
-{
-	uint64_t val = dnc_rdmsr(MSR_NB_CFG);
-	dnc_wrmsr(MSR_NB_CFG, val & ~(1ULL << 46));
-}
-
 static void set_cf8extcfg_enable(void)
 {
 	uint64_t val = dnc_rdmsr(MSR_NB_CFG);
@@ -2325,8 +2319,8 @@ static int unify_all_nodes(void)
 {
 	uint16_t i;
 	uint16_t node;
-	uint8_t abort = 0;
-	int model, model_first = 0;
+	bool abort = 0;
+	int ht, model, model_first = 0;
 	dnc_node_count = 0;
 	ht_pdom_count  = 0;
 	tally_local_node(1);
@@ -2459,6 +2453,17 @@ static int unify_all_nodes(void)
 		}
 	}
 
+	/* Linux enables CF8 on all visible Northbridges, just all northbridges
+	   aren't visible, so do it here; see set_cf8extcfg_enable() */
+	for (node = 0; node < dnc_node_count; node++) {
+		for (ht = 0; ht < 8; ht++) {
+			if (!nc_node[0].ht[ht].cpuid)
+				continue;
+			uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24 + ht, FUNC3_MISC, 0x8c);
+			dnc_write_conf(nc_node[node].sci_id, 0, 24 + ht, FUNC3_MISC, 0x8c, val | (1 << (46 - 32)));
+		}
+	}
+
 	if (verbose > 0)
 		debug_acpi();
 
@@ -2582,9 +2587,8 @@ static int check_api_version(void)
 static void start_user_os(void)
 {
 	static com32sys_t rm;
-	/* Restore 32-bit only access and non-extended PCI config access */
+	/* Restore 32-bit only access */
 	set_wrap32_enable();
-	set_cf8extcfg_disable();
 	strcpy(__com32.cs_bounce, next_label);
 	rm.eax.w[0] = 0x0003;
 	rm.ebx.w[0] = OFFS(__com32.cs_bounce);
@@ -2849,9 +2853,8 @@ static int nc_start(void)
 			selftest_late_memmap();
 
 			/* Do this ahead of the self-test to prevent false positives */
-			/* Restore 32-bit only access and non-extended PCI config access */
+			/* Restore 32-bit only access */
 			set_wrap32_enable();
-			set_cf8extcfg_disable();
 			selftest_late_msrs();
 		}
 
@@ -2894,9 +2897,8 @@ static int nc_start(void)
 		/* Let master know we're ready for remapping/integration */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, val & ~(1 << 31));
 
-		/* Restore 32-bit only access and non-extended PCI config access */
+		/* Restore 32-bit only access */
 		set_wrap32_enable();
-		set_cf8extcfg_disable();
 
 		while (1) {
 			cli();
@@ -2923,8 +2925,7 @@ int main(void)
 		wait_key();
 	}
 
-	/* Restore 32-bit only access and non-extended PCI config access */
+	/* Restore 32-bit only access */
 	set_wrap32_enable();
-	set_cf8extcfg_disable();
 	return ret;
 }
