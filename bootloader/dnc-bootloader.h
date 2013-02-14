@@ -100,6 +100,7 @@ extern char *asm_relocated;
 extern unsigned char asm_relocate_start;
 extern unsigned char asm_relocate_end;
 
+void set_cf8extcfg_enable(const int ht);
 int read_config_file(char *file_name);
 int udp_open(void);
 void udp_broadcast_state(int handle, void *buf, int len);

@@ -107,10 +107,10 @@ extern uint8_t smm_handler_end;
 static struct e820entry *orig_e820_map;
 static int orig_e820_len;
 
-static void set_cf8extcfg_enable(void)
+void set_cf8extcfg_enable(const int ht)
 {
-	uint64_t val = dnc_rdmsr(MSR_NB_CFG);
-	dnc_wrmsr(MSR_NB_CFG, val | (1ULL << 46));
+	uint32_t val = cht_read_conf(ht, FUNC3_MISC, 0x8c);
+	cht_write_conf(ht, FUNC3_MISC, 0x8c, val | (1 << (46 - 32)));
 }
 
 static void set_wrap32_disable(void)
@@ -2453,17 +2453,6 @@ static int unify_all_nodes(void)
 		}
 	}
 
-	/* Linux enables CF8 on all visible Northbridges, just all northbridges
-	   aren't visible, so do it here; see set_cf8extcfg_enable() */
-	for (node = 0; node < dnc_node_count; node++) {
-		for (ht = 0; ht < 8; ht++) {
-			if (!nc_node[0].ht[ht].cpuid)
-				continue;
-			uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24 + ht, FUNC3_MISC, 0x8c);
-			dnc_write_conf(nc_node[node].sci_id, 0, 24 + ht, FUNC3_MISC, 0x8c, val | (1 << (46 - 32)));
-		}
-	}
-
 	if (verbose > 0)
 		debug_acpi();
 
@@ -2914,10 +2903,13 @@ int main(void)
 	int ret;
 	openconsole(&dev_rawcon_r, &dev_stdcon_w);
 	printf("*** NumaConnect system unification module " VER " ***\n");
-	/* Enable extended PCI config space access via CF8 */
-	set_cf8extcfg_enable();
+
+	/* Enable CF8 extended access for first Northbridge; we do others for Linux later */
+	set_cf8extcfg_enable(0);
+
 	/* Disable 32-bit address wrapping to allow 64-bit access in 32-bit code */
 	set_wrap32_disable();
+
 	ret = nc_start();
 
 	if (ret < 0) {

@@ -1641,8 +1641,10 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	/* Since we use high addresses for our CSR and MCFG space, make sure the necessary
 	   features in the CPU is enabled before we start using them */
 	for (node = 0; node < dnc_ht_id; node++) {
-		val = cht_read_conf(node, FUNC0_HT, 0x68);
+		/* Enable CF8 extended access for all NBs, as Linux needs this later */
+		set_cf8extcfg_enable(node);
 
+		val = cht_read_conf(node, FUNC0_HT, 0x68);
 		if ((val & ((1 << 25) | (1 << 18) | (1 << 17))) != ((1 << 25) | (1 << 18) | (1 << 17))) {
 			if (verbose > 0)
 				printf("Enabling cHtExtAddrEn, ApicExtId and ApicExtBrdCst on node %d\n", node);
@@ -2408,7 +2410,7 @@ void selftest_late_msrs(void)
 int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode, const char *cmdline)
 {
 	uint32_t uuid, val, chip_rev;
-	int i, ht_id = -1;
+	int i, ht_id;
 	bool asic_mode;
 
 	if (parse_cmdline(cmdline) < 0)
