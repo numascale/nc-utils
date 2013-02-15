@@ -1000,21 +1000,21 @@ static void setup_other_cores(void)
 	 * Given that HUGE caveat, here is the information that I got from a good source:
 	 * LSCFG[44] =1 will disable it. MSR number is C001_1020 */
 	msr = dnc_rdmsr(MSR_LSCFG);
-
-	if (family == 0x10)
-		msr = msr | (1ULL << 44);
-
-	dnc_wrmsr(MSR_LSCFG, msr);
+	if (family == 0x10) {
+		msr |= 1ULL << 44;
+		dnc_wrmsr(MSR_LSCFG, msr);
+	}
 	*REL64(new_lscfg_msr) = msr;
+
 	/* AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
 	 * Suggested Workaround: BIOS should set MSRC001_102A[27] = 1b */
 	msr = dnc_rdmsr(MSR_CU_CFG2);
-
-	if (family >= 0x15)
-		msr = msr | (1ULL << 27);
-
-	dnc_wrmsr(MSR_CU_CFG2, msr);
+	if (family >= 0x15) {
+		msr |= 1ULL << 27;
+		dnc_wrmsr(MSR_CU_CFG2, msr);
+	}
 	*REL64(new_cucfg2_msr) = msr;
+
 	printf("APICs:");
 	critical_enter();
 
@@ -2101,6 +2101,29 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		}
 	}
 }
+
+#ifdef UNUSED
+static void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
+{
+	uint64_t val;
+	int i = -1;
+
+	/* Find next unused entry */
+	do {
+		i++;
+		assert(i < 8);
+		val = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
+	} while (val);
+
+	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
+	uint64_t *mtrr_var_mask = (void *)REL64(new_mtrr_var_mask);
+
+	mtrr_var_base[i] = base | type;
+	dnc_wrmsr(MSR_MTRR_PHYS_BASE0 + i * 2, mtrr_var_base[i]);
+	mtrr_var_mask[i] = (((1ULL << 48) - 1) &~ (limit - base - 1)) | 0x800;
+	dnc_wrmsr(MSR_MTRR_PHYS_MASK0 + i * 2, mtrr_var_mask[i]);
+}
+#endif
 
 static void update_mtrr(void)
 {

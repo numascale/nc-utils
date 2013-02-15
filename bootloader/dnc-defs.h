@@ -31,6 +31,8 @@
 #define FUNC4_LINK  4
 #define FUNC5_EXTD  5
 
+#define MTRR_UC		0
+
 #define MSR_APIC_BAR    0x0000001b
 #define MSR_FS_BASE     0xc0000100
 #define MSR_SYSCFG      0xc0010010
