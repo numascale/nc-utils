@@ -106,6 +106,9 @@ int read_config_file(char *file_name);
 int udp_open(void);
 void udp_broadcast_state(int handle, void *buf, int len);
 int udp_read_state(int handle, void *buf, int len);
+void mmio_range_print(const uint16_t sci, const int ht, uint8_t range);
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const int dest);
+void mmio_range_del(const uint16_t sci, const int ht, uint8_t range);
 
 #endif
 

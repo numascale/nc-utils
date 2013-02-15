@@ -114,8 +114,6 @@ const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
 void wait_key(void);
 int cpu_family(uint16_t scinode, uint8_t node);
-void mmio_range(uint16_t node, int ht, uint8_t range, uint64_t base, uint64_t limit, int dest);
-void mmio_range_del(uint16_t node, int ht, uint8_t range);
 void probefilter_tokens(int nodes);
 void detect_southbridge(void);
 void disable_smi(void);

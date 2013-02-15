@@ -1221,25 +1221,164 @@ static void renumber_remote_bsp(const uint16_t num)
 	printf("done\n");
 }
 
-static void dram_range(uint16_t node, int ht, int range, uint32_t base, uint32_t limit, int dest)
+void mmio_range_print(const uint16_t sci, const int ht, uint8_t range)
 {
-	assert(range < 8);
-	assert((dnc_read_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) == 0);
+	if (family >= 0x15) {
+		assert(range < 12);
 
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, base >> (40 - DRAM_MAP_SHIFT));
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | 3);
+		int loff = 0, hoff = 0;
+		if (range > 7) {
+			loff = 0xe0;
+			hoff = 0x20;
+		}
+
+		printf("SCI%03x#%d MMIO range %d: %08x %08x %08x\n", sci, ht, range,
+			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8),
+			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8),
+			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4));
+		return;
+	}
+
+	/* Family 10h */
+	if (range < 8) {
+		printf("SCI%03x#%d MMIO range %d: %08x %08x\n", sci, ht, range,
+			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8),
+			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8));
+		return;
+	}
+
+	assert(range < 12);
+	range -= 8;
+
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
+	uint32_t val1 = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
+	uint32_t val2 = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114);
+
+	printf("SCI%03x#%d MMIO range %d: %08x %08x\n", sci, ht, range, val1, val2);
 }
 
-static void dram_range_del(uint16_t node, int ht, int range)
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest)
+{
+	if (verbose)
+		printf("Adding MMIO range %d on SCI%03x#%x from 0x%llx to 0x%llx towards %d\n",
+			range, sci, ht, base, limit, dest);
+
+	if (family >= 0x15) {
+		assert(range < 12);
+
+		int loff = 0, hoff = 0;
+		if (range > 7) {
+			loff = 0xe0;
+			hoff = 0x20;
+		}
+
+		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
+		if (val & (1 << 3))
+			return; /* Locked */
+		assert((val & 3) == 0); /* Unused */
+
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, ((limit >> 40) << 16) | (base >> 40));
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, ((limit >> 16) << 8) | dest);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, ((base >> 16) << 8 | 3));
+		return;
+	}
+
+	/* Family 10h */
+	if (range < 8) {
+		assert(limit < (1ULL << 40));
+		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8);
+		if (val & (1 << 3))
+			return; /* Locked */
+		assert((val & 3) == 0); /* Unused */
+
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8, ((limit >> 16) << 8) | dest);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, ((base >> 16) << 8 | 3));
+		return;
+	}
+
+	assert(range < 12);
+	range -= 8;
+
+	/* Reading an uninitialised extended MMIO ranges results in MCE, so can't assert */
+
+	uint64_t mask = 0;
+	base  >>= 27;
+	limit >>= 27;
+
+	while ((base | mask) != (limit | mask))
+		mask = (mask << 1) | 1;
+
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (base << 8) | dest);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (mask << 8) | 1);
+}
+
+void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
+{
+	if (verbose > 1)
+		printf("Deleting MMIO range %d on SCI%03x#%x\n", range, sci, ht);
+
+	if (family >= 0x15) {
+		assert(range < 12);
+
+		int loff = 0, hoff = 0;
+		if (range > 7) {
+			loff = 0xe0;
+			hoff = 0x20;
+		}
+
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, 0);
+		return;
+	}
+
+	/* Family 10h */
+	if (range < 8) {
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, 0);
+		return;
+	}
+
+	assert(range < 12);
+	range -= 8;
+
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
+}
+
+static void dram_range_print(const uint16_t sci, const int ht, const int range)
+{
+	printf("SCI%03x#%d DRAM range %d: baseL 0x%08x, baseH 0x%08x, limitL 0x%08x limitH 0x%08x\n", sci, ht, range,
+	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8),
+	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8),
+	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8),
+	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8));
+}
+
+static void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
+{
+	assert(range < 8);
+	assert((dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) == 0);
+
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, base >> (40 - DRAM_MAP_SHIFT));
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | 3);
+}
+
+static void dram_range_del(const uint16_t sci, const int ht, const int range)
 {
 	assert(range < 8);
 
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, 0);
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, 0);
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, 0);
-	dnc_write_conf(node, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, 0);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, 0);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, 0);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
 }
 
 static void setup_remote_cores(const uint16_t num)
@@ -1446,14 +1585,11 @@ static void setup_remote_cores(const uint16_t num)
 			if (!cur_node->ht[i].cpuid)
 				continue;
 
-			for (j = 0; j <= map_index; j++) {
-				printf("SCI%03x#%d DRAM map %d: baseL 0x%08x, baseH 0x%08x, limitL 0x%08x limitH 0x%08x\n",
-				       node, i, j,
-				       dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x40 + j * 8),
-				       dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x140 + j * 8),
-				       dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x44 + j * 8),
-				       dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x144 + j * 8));
-			}
+			for (j = 0; j <= map_index; j++)
+				dram_range_print(node, i, j);
+
+			for (int j = 0; j < 8; j++)
+				mmio_range_print(node, i, j);
 		}
 	}
 
