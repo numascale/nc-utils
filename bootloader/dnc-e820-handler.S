@@ -145,6 +145,12 @@ break:
 	mov	$MSR_SYSCFG, %ecx
 	wrmsr
 
+	/* Set CPU WDT MSR */
+	mov	%cs:SYM_OFFSET(new_cpuwdt_msr), %eax
+	mov	%cs:SYM_OFFSET(new_cpuwdt_msr + 4), %edx
+	mov	$MSR_CPUWDT, %ecx
+	wrmsr
+
 #ifdef BROKEN
 	/* Set OSVW_ID_LEN MSR */
 	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr), %eax
@@ -341,6 +347,8 @@ EXPORT(new_mcfg_msr)
 EXPORT(new_topmem_msr)
 	.long 0, 0
 EXPORT(new_topmem2_msr)
+	.long 0, 0
+EXPORT(new_cpuwdt_msr)
 	.long 0, 0
 EXPORT(new_mtrr_default)
 	.long 0, 0

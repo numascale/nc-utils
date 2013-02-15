@@ -102,6 +102,7 @@ IMPORT_RELOCATED(new_int_halt_msr);
 #endif
 IMPORT_RELOCATED(new_lscfg_msr);
 IMPORT_RELOCATED(new_cucfg2_msr);
+IMPORT_RELOCATED(new_cpuwdt_msr);
 
 extern uint8_t smm_handler_start;
 extern uint8_t smm_handler_end;
@@ -986,6 +987,12 @@ static void setup_other_cores(void)
 	icr = &apic[0x300 / 4];
 	printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
 	       (uint32_t)apic, apic[0x20 / 4], (uint32_t)icr, *icr);
+
+	/* Set core watchdog timer to 21s */
+	msr = (9 << 3) | 1;
+	dnc_wrmsr(MSR_CPUWDT, msr);
+	*REL64(new_cpuwdt_msr) = msr;
+
 	/* ERRATA #N28: Disable HT Lock mechanism on Fam10h
 	 * AMD Email dated 31.05.2011 :
 	 * There is a switch that can help with these high contention issues,

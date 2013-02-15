@@ -1966,7 +1966,7 @@ static int parse_cmdline(const char *cmdline)
 		{"route-only",	    &parse_int,    &route_only},
 		{"disable-nc",	    &parse_int,    &disable_nc},      /* Disable the HT link to NumaChip */
 		{"enablenbmce",	    &parse_int,    &enable_nbmce},    /* Enable northbridge MCE */
-		{"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enbale northbridge WDT */
+		{"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enable northbridge WDT */
 		{"disable-sram",    &parse_int,    &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
 		{"ht.testmode",	    &parse_int,    &ht_testmode},
 		{"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
@@ -2530,10 +2530,17 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		if (enable_nbmce > -1)
 			val = (val & ~(1 << 6)) | (!enable_nbmce << 6);
 
+		/* Increase NB WDT timeout to 10s; has to be less than core WDT of 21s */
+		val &= ~((3 << 12) | (7 << 9));
+
 		if (enable_nbwdt > -1)
 			val = (val & ~(1 << 8)) | (!enable_nbwdt << 8);
 
 		cht_write_conf(i, FUNC3_MISC, 0x44, val);
+
+		/* Update WDTCntSel[3] */
+		val = cht_read_conf(i, FUNC3_MISC, 0x180);
+		cht_write_conf(i, FUNC3_MISC, 0x180, val | (1 << 2));
 
 		if (disable_c1e) {
 			/* Disable C1E sleep mode in northbridge */
