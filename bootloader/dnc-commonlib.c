@@ -123,7 +123,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	uint8_t addr_bits;
 	uint8_t mdata[20];
 
-	// On N313025 and N323024, the SPD addresses are reversed */
+	/* On N313025 and N323024, the SPD addresses are reversed */
 	if ((strncmp("N313025", p_type, 7) == 0) ||
 	    (strncmp("N323024", p_type, 7) == 0))
 		spd_addr = cdata ? 0 : 1;
@@ -508,7 +508,6 @@ int dnc_init_caches(void)
 		}
 
 		/* Initialize DRAM */
-
 		printf("Initializing %dGB %s...\n", 1 << mem_size, name);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
@@ -1389,7 +1388,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	/* RevB ASIC requires syncflood to be disabled */
 	if (*p_asic_mode && *p_chip_rev < 2)
-		ht_suppress = -1;
+		ht_suppress = 0x3fff; /* Suppress most sync-flood generation */
 
 	if (ht_suppress) {
 		printf("Setting HT features (%x)...", ht_suppress);
@@ -1401,12 +1400,10 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 			if (ht_suppress & 0x1) val &= ~(1 << 2);
 
 			/* SyncPktGenDis: sync packet generation disable */
-			if (!(ht_suppress & 0x2)) val &= ~(1 << 3);
-			else                      val |= (1 << 3);
+			if (ht_suppress & 0x2) val |= 1 << 3;
 
 			/* SyncPktPropDis: sync packet propagation disable */
-			if (!(ht_suppress & 0x4)) val &= ~(1 << 4);
-			else                      val |= (1 << 4);
+			if (ht_suppress & 0x4) val |= 1 << 4;
 
 			/* SyncOnWDTEn: sync flood on watchdog timer error enable */
 			if (ht_suppress & 0x8) val &= ~(1 << 20);
@@ -1444,7 +1441,37 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 			/* SyncFloodOnTblWalkErr: sync flood on table walk error enable */
 			if (ht_suppress & 0x2000) val &= ~(1 << 22);
 
+			/* ChgUcToCeEn: change uncorrectable to correctable for debug purposes */
+			if (ht_suppress & 0x4000) val |= 1 << 26;
+
 			cht_write_conf(i, FUNC3_MISC, 0x180, val);
+
+			/* SERR_EN: initiate sync flood when PCIe System Error detected in IOH */
+			if (ht_suppress & 0x8000) {
+				val = dnc_read_conf(0xfff0, 0, 0, 0, 0x4);
+				dnc_write_conf(0xfff0, 0, 0, 0, 0x4, val & ~(1 << 8));
+			}
+
+			/* PFErrInt: ProbeFilter error interrupt */
+			if (ht_suppress & 0x10000) {
+				val = cht_read_conf(i, FUNC3_MISC, 0x1d4);
+				cht_write_conf(i, FUNC3_MISC, 0x1d4, val & ~(3 << 22));
+			}
+
+			for (int link = 0; link < 4; link++) {
+				/* CrcFloodEn: Enable sync flood propagation upon link failure */
+				if (ht_suppress & 0x20000) {
+					val = cht_read_conf(i, FUNC0_HT, 0x84 + link * 0x20);
+					cht_write_conf(i, FUNC0_HT, 0x84 + link * 0x20, val & ~2);
+				}
+
+				/* IntType: Link error threshold overflow counter */
+				if (ht_suppress & 0x40000) {
+					val = cht_read_conf(i, FUNC3_MISC, 0x160 + link * 8);
+					assert((val & (1 << 29)) == 0); /* Locked */
+					cht_write_conf(i, FUNC3_MISC, 0x160 + link * 8, val & ~(3 << 17));
+				}
+			}
 		}
 
 		printf("done\n");
@@ -2333,9 +2360,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		return -1;
 
 	detect_southbridge();
-#ifdef __i386
-	watchdog_setup();
-#endif
+
 	ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
 
 	if (verbose > 1)
