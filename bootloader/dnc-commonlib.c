@@ -1892,7 +1892,7 @@ static int parse_uint64_t(const char *val, void *intp)
 
 static int parse_cmdline(const char *cmdline)
 {
-	static struct optargs options[] = {
+	static const struct optargs options[] = {
 		{"config",	    &parse_string, &config_file_name},/* Config (JSON) file to use */
 		{"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
 		{"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */

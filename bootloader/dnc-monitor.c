@@ -76,7 +76,7 @@ void lc3_activity(void)
 
 void system_activity(void)
 {
-	static struct perf_ev events[] = {
+	static const struct perf_ev events[] = {
 		{0x040, 0x00, "Data cache access"},
 		{0x02b, 0x00, "SMI received"},
 		{0x0cf, 0x00, "Interrupt received"},
@@ -104,7 +104,7 @@ void system_activity(void)
 		{0x0eb, 0x20, "Sized Commands: SzRd DW"},
 		{0x000, 0x0, ""}
 	};
-	struct perf_ev *ev;
+	const struct perf_ev *ev;
 	uint64_t val;
 	printf("Profiling quiescent system activity...\n");
 
