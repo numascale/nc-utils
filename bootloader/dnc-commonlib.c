@@ -2958,7 +2958,7 @@ static int phy_check_status(int phy)
 
 	if (val & 0xf0) {
 		if (verbose)
-			printf("PHY%s_ELOG = %x, issuing PHY reset!!\n", _get_linkname(phy) , val);
+			printf("Warning: Issuing fabric phy reset due to PHY%s_ELOG 0x%x\n", _get_linkname(phy) , val);
 
 		/* Clock compensation error, try forced retraining */
 		dnc_reset_phy(phy);
@@ -2972,7 +2972,7 @@ static int phy_check_status(int phy)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
 
 	if (verbose & (val != 0x1fff))
-		printf("\nPHY%s_LINK_STAT = %x\n", _get_linkname(phy) , val);
+		printf("Warning: Fabric phy PHY%s_LINK_STAT 0x%x\n", _get_linkname(phy) , val);
 
 	return (val != 0x1fff) << phy;
 }
@@ -2980,7 +2980,7 @@ static int phy_check_status(int phy)
 static void phy_print_error(int mask)
 {
 	int i;
-	printf("phy training failure - check cables to ports");
+	printf("Error: Fabric phy training failure - check cables to ports");
 
 	for (i = 0; i < 6; i++)
 		if (mask & (1 << i))
