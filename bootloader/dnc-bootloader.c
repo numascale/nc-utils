@@ -63,7 +63,7 @@ uint16_t ht_next_apic;
 uint32_t dnc_top_of_dram;      /* Top of DRAM, before MMIO, in 16MB chunks */
 uint32_t dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
 uint8_t post_apic_mapping[256]; /* POST APIC assigments */
-static int scc_started = 0;
+static bool scc_started = 0;
 static struct in_addr myip = {0xffffffff};
 uint64_t ht_base = HT_BASE;
 
@@ -1581,6 +1581,7 @@ static void setup_remote_cores(const uint16_t num)
 	}
 
 	if (verbose > 0) {
+		printf("Master DRAM and MMIO ranges:\n");
 		for (i = 0; i < 8; i++) {
 			if (!cur_node->ht[i].cpuid)
 				continue;
@@ -1588,7 +1589,7 @@ static void setup_remote_cores(const uint16_t num)
 			for (j = 0; j <= map_index; j++)
 				dram_range_print(node, i, j);
 
-			for (int j = 0; j < 8; j++)
+			for (j = 0; j < 8; j++)
 				mmio_range_print(node, i, j);
 		}
 	}
@@ -2557,8 +2558,19 @@ static int unify_all_nodes(void)
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
 	for (i = 0; i < dnc_master_ht_id; i++) {
-		assert(cht_read_conf(i, 1, 0x78) == 0);
+		assert(cht_read_conf(i, FUNC1_MAPS, 0x78) == 0);
 		dram_range(0xfff0, i, 7, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
+	}
+
+	if (verbose > 0) {
+		printf("DRAM and MMIO ranges:\n");
+		for (i = 0; i < dnc_master_ht_id; i++) {
+			for (int j = 0; j < 8; j++)
+				dram_range_print(0xfff0, i, j);
+
+			for (int j = 0; j < 8; j++)
+				mmio_range_print(0xfff0, i, j);
+		}
 	}
 
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, nc_node[0].dram_base >> 6);
