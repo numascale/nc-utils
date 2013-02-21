@@ -157,11 +157,11 @@ static void completion_timeout(const int bus, const int dev, const int fn)
 		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, val | (1 << 4));
 		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
 		if (val & (1 << 4))
-			printf("disabled Completion Timeout %08x\n", val);
+			printf("disabled Completion Timeout\n");
 		else
-			printf("Warning: failed to disable Completion Timeout %08x\n", val);
+			printf("Warning: failed to disable Completion Timeout\n");
 	} else
-		printf("Completion Timeout not enabled %08x\n", val);
+		printf("Completion Timeout not enabled\n");
 }
 
 static void stop_ohci(int bus, int dev, int fn)
@@ -242,7 +242,7 @@ static void stop_ehci(int bus, int dev, int fn)
 	uint32_t legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
 
 	if ((legsup & 0x10100ff) != 0x0010001) {
-		printf("legacy support not enabled (status 0x%08x)\n", legsup);
+		printf("legacy support not enabled\n");
 		return;
 	}
 
@@ -286,7 +286,7 @@ static void stop_xhci(int bus, int dev, int fn)
 	uint32_t legsup = mem64_read32(bar0 + ecp);
 
 	if ((legsup & 0x10100ff) != 0x0010001) {
-		printf("legacy support not enabled (status 0x%08x)\n", legsup);
+		printf("legacy support not enabled\n");
 		return;
 	}
 
@@ -330,7 +330,7 @@ static void stop_ahci(int bus, int dev, int fn)
 	legsup = mem64_read32(bar5 + 0x28);
 
 	if ((legsup & 1) != 1) {
-		printf("legacy support not enabled (status 0x%08x)\n", legsup);
+		printf("legacy support not enabled\n");
 		return;
 	}
 
