@@ -2507,6 +2507,13 @@ static int unify_all_nodes(void)
 				abort = 1;
 			}
 
+			/* 6200/4200 processors lack the HT lock mechanism, so abort */
+			if ((family >> 8) == 0x1501) {
+				printf("Error: SCI%03x (%s) has incompatible 6200/4200 processors; please use 6300/4300 or later\n",
+					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
+				abort = 1;
+			}
+
 			if ((model >> 16) >= 0x15) {
 				uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24 + i, FUNC2_DRAM, 0x118);
 
