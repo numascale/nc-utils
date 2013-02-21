@@ -74,6 +74,12 @@
 /* Legacy emulation registers (if enabled in the revision register, bit8) */
 #define HceControl 0x100
 
+#define PCI_CAP_NONE					0x00
+#define PCI_CAP_PCIE					0x10
+
+#define PCI_CLASS_ANY					0xfffffffe
+#define PCI_CLASS_FINAL					0xffffffff
+
 #define PCI_CLASS_DISPLAY_VGA           0x030000
 #define PCI_CLASS_DISPLAY_CONTROLLER    0x038000
 
@@ -94,5 +100,6 @@ struct devspec {
 void stop_acpi(void);
 void disable_dma_all(void);
 void handover_legacy(void);
+void pci_setup(void);
 
 #endif

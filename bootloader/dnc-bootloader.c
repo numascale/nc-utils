@@ -2389,6 +2389,8 @@ static void local_chipset_fixup(bool master)
 			mmio_range_del(0xfff0, i, 3);
 	}
 
+	pci_setup();
+
 	printf("Chipset-specific setup done\n");
 }
 

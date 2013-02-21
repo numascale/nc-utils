@@ -26,21 +26,25 @@
 static void pci_search(const struct devspec *list)
 {
 	int bus, dev, fn;
-	uint32_t val;
 	const struct devspec *listp;
 
 	for (bus = 0; bus < 256; bus++) {
 		for (dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
 			for (fn = 0; fn < 8; fn++) {
-				val = dnc_read_conf(0xfff0, bus, dev, fn, 8);
-
+				uint32_t type = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
 				/* PCI device functions are not necessarily contiguous */
-				if (val == 0xffffffff)
+				if (type == 0xffffffff)
 					continue;
 
-				for (listp = list; listp->class; listp++)
-					if ((val >> ((4 - listp->classlen) * 8)) == listp->class)
+				uint32_t ctlcap = dnc_read_conf(0xfff0, bus, dev, fn, 8);
+
+				for (listp = list; listp->class != PCI_CLASS_FINAL; listp++)
+					if ((listp->class == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->class))
 						listp->handler(bus, dev, fn);
+
+				/* If not multi-function, break out of function loop */
+				if (!fn && !(type & 0x800000))
+					break;
 			}
 		}
 	}
@@ -96,6 +100,68 @@ void disable_dma_all(void)
 			}
 		}
 	}
+}
+
+uint16_t capability(const uint8_t cap, const int bus, const int dev, const int fn)
+{
+	/* Check for capability list */
+	if (!(dnc_read_conf(0xfff0, bus, dev, fn, 0x4) & (1 << 20)))
+		return PCI_CAP_NONE;
+
+	uint8_t pos = dnc_read_conf(0xfff0, bus, dev, fn, 0x34) & 0xff;
+
+	for (int lim = 0; lim < 48 && pos >= 0x40; lim++) {
+		pos &= ~3;
+
+		uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, pos + 0);
+		if (val == 0xffffffff)
+			break;
+
+		if ((val & 0xff) == cap)
+			return pos;
+
+		pos = (val >> 8) & 0xff;
+	}
+
+	return PCI_CAP_NONE;
+}
+
+static void completion_timeout(const int bus, const int dev, const int fn)
+{
+	uint16_t cap = capability(PCI_CAP_PCIE, bus, dev, fn);
+	if (cap == PCI_CAP_NONE)
+		return;
+
+	printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
+
+#ifdef FIXME
+/* Need to implement advanced capabilities */
+	uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+	if (val && (val & (1 << 14))) {
+		printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
+
+		/* Ensure Completion Timeout is non-fatal */
+		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x0c, val & ~(1 << 14));
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+		if (val & (1 << 14))
+			printf("Completion Timeout now non-fatal\n");
+		else
+			printf("Warning: failed to set Completion Timeout as non-fatal\n");
+	}
+#endif
+
+	/* Ensure Device Control 2 Register is implemented */
+	uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+	if (!(val & (1 << 4))) {
+		/* Disable Completion Timeout */
+		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, val | (1 << 4));
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+		if (val & (1 << 4))
+			printf("disabled Completion Timeout %08x\n", val);
+		else
+			printf("Warning: failed to disable Completion Timeout %08x\n", val);
+	} else
+		printf("Completion Timeout not enabled %08x\n", val);
 }
 
 static void stop_ohci(int bus, int dev, int fn)
@@ -336,7 +402,16 @@ void handover_legacy(void)
 		{PCI_CLASS_SERIAL_USB_XHCI, 3, stop_xhci},
 		{PCI_CLASS_STORAGE_SATA, 2, stop_ahci},
 		{PCI_CLASS_STORAGE_RAID, 2, stop_ahci},
-		{0, 0, 0}
+		{PCI_CLASS_FINAL, 0, NULL}
+	};
+	pci_search(devices);
+}
+
+void pci_setup(void)
+{
+	const struct devspec devices[] = {
+		{PCI_CLASS_ANY, 0, completion_timeout},
+		{PCI_CLASS_FINAL, 0, NULL}
 	};
 	pci_search(devices);
 }
