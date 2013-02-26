@@ -36,29 +36,29 @@ IMPORT_RELOCATED(msr_readback);
 char *config_file_name = "nc-config/fabric.json";
 char *next_label = "menu.c32";
 char *microcode_path = "";
-static int init_only = 0;
-static int route_only = 0;
+static bool init_only = 0;
+static bool route_only = 0;
 static int enable_nbmce = -1;
 static int enable_nbwdt = 0;
-static int disable_sram = 0;
+static bool disable_sram = 0;
 int force_probefilteroff = 0;
 int force_probefilteron = 0;
 static int ht_force_ganged = 1;
-int disable_smm = 0;
-int disable_c1e = 0;
+bool disable_smm = 0;
+bool disable_c1e = 0;
 int renumber_bsp = -1;
 int remote_io = 0;
 bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int sync_interval = 1; /* bit[8]=disable prescaler, bit[7:0] sync_interval value */
-int enable_relfreq = 0;
-int singleton = 0;
-static int ht_200mhz_only = 0;
-static int ht_8bit_only = 0;
+bool enable_relfreq = 0;
+bool singleton = 0;
+static bool ht_200mhz_only = 0;
+static bool ht_8bit_only = 0;
 static int ht_suppress = 0;
 static int ht_lockdelay = 0;
 bool handover_acpi;
-int mem_offline = 0;
+bool mem_offline = 0;
 uint64_t trace_buf = 0;
 uint32_t trace_buf_size = 0;
 int verbose = 0;
@@ -67,7 +67,7 @@ uint32_t tsc_mhz = 0;
 uint32_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
-static int dimmtest = 0;
+static bool dimmtest = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 
@@ -1840,9 +1840,11 @@ static int parse_bool(const char *val, void *voidp)
 {
 	bool *boolp = (bool *)voidp;
 
-	if (val[0] != '\0')
-		*boolp = atoi(val);
-	else
+	if (val[0] != '\0') {
+		int res = atoi(val);
+		assertf(res == !!res, "Error: Boolean option doesn't take value %d", res);
+		*boolp = res;
+	} else
 		*boolp = true;
 
 	return 1;
@@ -1896,15 +1898,15 @@ static int parse_cmdline(const char *cmdline)
 		{"config",	    &parse_string, &config_file_name},/* Config (JSON) file to use */
 		{"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
 		{"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */
-		{"init-only",	    &parse_int,    &init_only},       /* Only initialize chip, but then load <nest-label> without setting up a full system */
-		{"route-only",	    &parse_int,    &route_only},
-		{"disable-nc",	    &parse_int,    &disable_nc},      /* Disable the HT link to NumaChip */
+		{"init-only",	    &parse_bool,   &init_only},       /* Only initialize chip, but then load <nest-label> without setting up a full system */
+		{"route-only",	    &parse_bool,   &route_only},
+		{"disable-nc",	    &parse_bool,   &disable_nc},      /* Disable the HT link to NumaChip */
 		{"enablenbmce",	    &parse_int,    &enable_nbmce},    /* Enable northbridge MCE */
 		{"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enable northbridge WDT */
-		{"disable-sram",    &parse_int,    &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
+		{"disable-sram",    &parse_bool,   &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
 		{"ht.testmode",	    &parse_int,    &ht_testmode},
 		{"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
-		{"ht.8bit-only",    &parse_int,    &ht_8bit_only},
+		{"ht.8bit-only",    &parse_bool,   &ht_8bit_only},
 		{"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
 		{"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
 		{"ht.lockdelay",    &parse_int,    &ht_lockdelay},    /* HREQ_CTRL lock_delay setting 0-7 */
@@ -1914,19 +1916,19 @@ static int parse_cmdline(const char *cmdline)
 		{"pf.vga-local",    &parse_bool,   &pf_vga_local},    /* Let legacy VGA access route locally */
 		{"pf.maxmem",       &parse_int,    &pf_maxmem},       /* Memory in GB per server */
 		{"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
-		{"disable-smm",     &parse_int,    &disable_smm},     /* Rewrite start of System Management Mode handler to return */
-		{"disable-c1e",     &parse_int,    &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
+		{"disable-smm",     &parse_bool,   &disable_smm},     /* Rewrite start of System Management Mode handler to return */
+		{"disable-c1e",     &parse_bool,   &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
 		{"renumber-bsp",    &parse_int,    &renumber_bsp},
 		{"forwarding-mode", &parse_int,    &forwarding_mode},
 		{"sync-interval",   &parse_int,    &sync_interval},
-		{"enable-relfreq",  &parse_int,    &enable_relfreq},
-		{"singleton",       &parse_int,    &singleton},       /* Loopback test with cables */
-		{"mem-offline",     &parse_int,    &mem_offline},
+		{"enable-relfreq",  &parse_bool,   &enable_relfreq},
+		{"singleton",       &parse_bool,   &singleton},       /* Loopback test with cables */
+		{"mem-offline",     &parse_bool,   &mem_offline},
 		{"trace-buf",       &parse_uint64_t,    &trace_buf_size},
 		{"verbose",         &parse_int,    &verbose},
 		{"remote-io",       &parse_int,    &remote_io},
-		{"boot-wait",       &parse_int,    &boot_wait},
-		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
+		{"boot-wait",       &parse_bool,   &boot_wait},
+		{"dimmtest",	    &parse_bool,   &dimmtest},        /* Run on-board DIMM self test */
 	};
 	char arg[256];
 	int lstart, lend, aend, i;
