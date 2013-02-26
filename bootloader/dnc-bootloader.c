@@ -2094,9 +2094,9 @@ static void wait_status(struct node_info *info)
 static void wait_for_slaves(struct node_info *info, struct part_info *part)
 {
 	struct state_bcast cmd, rsp;
-	int ready_pending = 1;
+	bool ready_pending = 1;
 	int count, backoff, last_stat;
-	int do_restart;
+	bool do_restart = 0;
 	enum node_state waitfor, own_state;
 	uint32_t last_cmd = ~0;
 	int len, i;
@@ -2107,7 +2107,6 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	cmd.sciid = info->sciid;
 	cmd.tid   = 0; /* Must match initial rsp.tid for RSP_SLAVE_READY */
 	waitfor = RSP_SLAVE_READY;
-	do_restart = 0;
 	printf("Waiting for %d nodes...\n", cfg_nodes - 1);
 	count = 0;
 	backoff = 1;
