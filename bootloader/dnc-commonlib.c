@@ -68,6 +68,7 @@ uint32_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
 static bool dimmtest = 0;
+static bool workaround_hreq = 1;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 
@@ -1929,6 +1930,7 @@ static int parse_cmdline(const char *cmdline)
 		{"remote-io",       &parse_int,    &remote_io},
 		{"boot-wait",       &parse_bool,   &boot_wait},
 		{"dimmtest",	    &parse_bool,   &dimmtest},        /* Run on-board DIMM self test */
+		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
 	};
 	char arg[256];
 	int lstart, lend, aend, i;
@@ -2194,7 +2196,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 				break;
 			}
 
-			/* Stop BIST test*/
+			/* Stop BIST test */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x00f0);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x0000);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy);
@@ -2394,8 +2396,8 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		 * transIDs (HPrb: 0-15, HReq: 16-30) */
 		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1 << 4));
-	} else if (asic_mode && (chip_rev == 2)) {
-		/* Unknown ERRATA: Disable buffer 0-15 to ease some preassure */
+	} else if (asic_mode && (chip_rev == 2) && workaround_hreq) {
+		/* Unknown ERRATA: Disable buffer 0-15 to ease some pressure */
 		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1 << 4));
 	}
