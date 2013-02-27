@@ -130,7 +130,7 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 			}
 		}
 
-		if (!(result & 3))
+		if ((result & 3) != 3)
 			return -1;
 
 		if (verbose > 1)
