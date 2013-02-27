@@ -130,12 +130,6 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 			}
 		}
 
-		if ((result & 3) != 3)
-			return -1;
-
-		if (verbose > 1)
-			printf("--- PASSED: Test 1a ---\n");
-
 		/* Reset BIST Go bit */
 		reg = dnc_read_csr(0xfff0, denalibase+((BIST_GO_ADDR)<<2));
 		dnc_write_csr(0xfff0, denalibase+((BIST_GO_ADDR)<<2), reg & ~(1<<BIST_GO_OFFSET));
@@ -144,6 +138,12 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 		/* Re-assert DRAM_AVAILABLE */
 		reg = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg | (1<<12));
+
+		if ((result & 3) != 3)
+			return -1;
+
+		if (verbose > 1)
+			printf("--- PASSED: Test 1a ---\n");
 	}
 
 	if (testmask & (1<<1)) {

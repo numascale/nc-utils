@@ -397,7 +397,7 @@ static int dnc_initialize_sram(void)
 int dnc_init_caches(void)
 {
 	uint32_t val;
-	int cdata, ret;
+	int cdata, ret = 0;
 
 	for (cdata = 0; cdata < 2; cdata++) {
 		const char *name = cdata ? "CData" : "MCTag";
@@ -525,15 +525,13 @@ int dnc_init_caches(void)
 
 		if (dimmtest != 0) {
 			/* Do DRAM test */
-			if (dnc_dimmtest(cdata, dimmtest, &dimms[cdata]) < 0) {
-				(void)dnc_check_mctr_status(cdata);
-				return -1;
-			}
+			if (dnc_dimmtest(cdata, dimmtest, &dimms[cdata]) < 0)
+				ret = -1;
 
 			/* Check what the interrupt bits say, if we get ECC errors, correctable or not; Abort */
 			val = dnc_check_mctr_status(cdata);
 			if (val & 0x03c)
-				return -1;
+				ret = -1;
 
 			/* AOK, re-initialize DRAM after test */
 			printf("Re-initializing %dGB %s...\n", 1 << mem_size, name);
@@ -559,6 +557,10 @@ int dnc_init_caches(void)
 			dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, mem_size + 1); /* ((2 ^ (N - 1)) * 1GB) */
 		}
 	}
+
+	/* If ret is different from zero here, it means we should stop */
+	if (ret != 0)
+		return ret;
 
 	/* Initialize SRAM */
 	if (!dnc_asic_mode) { /* Special FPGA considerations for Ftag SRAM */
