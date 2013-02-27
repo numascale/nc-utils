@@ -67,7 +67,7 @@ uint32_t tsc_mhz = 0;
 uint32_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
-static bool dimmtest = 0;
+static int dimmtest = 0;
 static bool workaround_hreq = 1;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
@@ -523,7 +523,7 @@ int dnc_init_caches(void)
 		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
 		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
 
-		if (dimmtest) {
+		if (dimmtest != 0) {
 			/* Do DRAM test */
 			if (dnc_dimmtest(cdata, dimmtest, &dimms[cdata]) < 0) {
 				(void)dnc_check_mctr_status(cdata);
@@ -1929,7 +1929,7 @@ static int parse_cmdline(const char *cmdline)
 		{"verbose",         &parse_int,    &verbose},
 		{"remote-io",       &parse_int,    &remote_io},
 		{"boot-wait",       &parse_bool,   &boot_wait},
-		{"dimmtest",	    &parse_bool,   &dimmtest},        /* Run on-board DIMM self test */
+		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
 	};
 	char arg[256];
