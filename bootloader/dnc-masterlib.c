@@ -190,7 +190,6 @@ void tally_local_node(int enforce_alignment)
 		tot_cores += nc_node[0].ht[i].cores;
 	}
 
-	printf("ht_next_apic: %d\n", ht_next_apic);
 	printf("%2d CPU cores and %dGB of memory and I/O maps found in SCI%03x\n",
 	       tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
 	dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
@@ -223,7 +222,6 @@ void tally_local_node(int enforce_alignment)
 	}
 	nc_node[0].dram_limit = dnc_top_of_mem;
 
-	printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", nc_node[0].sci_id);
 	/* Set PCI I/O map */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
 
@@ -287,12 +285,8 @@ static bool tally_remote_node(uint16_t node)
 	max_ht_node = (val >> 4) & 7;
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < 16; i++)
 		apic_used[i] = dnc_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-
-		if (apic_used[i] != 0) /* May be sparse */
-			printf("apic_used[%d]: %08x\n", i, apic_used[i]);
-	}
 
 	ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
 	cur_node->apic_offset = ht_next_apic;
@@ -417,11 +411,10 @@ static bool tally_remote_node(uint16_t node)
 
 	cur_node->apic_offset = ht_next_apic - cur_node->ht[0].apic_base;
 	ht_next_apic = cur_node->apic_offset + cur_node->ht[last].apic_base + apic_per_node;
-	printf("ht_next_apic: %d\n", ht_next_apic);
 	cur_node->dram_limit = dnc_top_of_mem;
 	printf("%2d CPU cores and %2d GBytes of memory found in SCI%03x\n",
 	       tot_cores, cur_node->node_mem >> 6, node);
-	printf("Initializing SCI%03x PCI I/O and IntRecCtrl tables...\n", node);
+
 	/* Set PCI I/O map */
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
 
