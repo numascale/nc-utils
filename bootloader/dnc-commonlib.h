@@ -26,19 +26,19 @@
 #define cpu_relax() asm volatile("pause" ::: "memory")
 
 #define assert(cond) do { if (!(cond)) {				\
-	printf("Error: assertion '%s' failed in %s at %s:%d\n",		\
+	printf("\nError: assertion '%s' failed in %s at %s:%d\n",	\
 	    #cond, __FUNCTION__, __FILE__, __LINE__);			\
 	while (1) cpu_relax();						\
     } } while (0)
 
 #define assertf(cond, format, ...) do { if (!(cond)) {			\
-	printf("Error: ");						\
+	printf("\nError: ");						\
 	printf(format, __VA_ARGS__);					\
 	while (1) cpu_relax();						\
     } } while(0)
 
 #define fatal(format, ...) do {						\
-	printf("Error: ");						\
+	printf("\nError: ");						\
 	printf(format, __VA_ARGS__);					\
 	while (1) cpu_relax();						\
    } while (0)

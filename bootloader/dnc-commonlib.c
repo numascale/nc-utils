@@ -1843,7 +1843,7 @@ static int parse_bool(const char *val, void *voidp)
 
 	if (val[0] != '\0') {
 		int res = atoi(val);
-		assertf(res == !!res, "Error: Boolean option doesn't take value %d", res);
+		assertf(res == !!res, "Boolean option doesn't take value %d", res);
 		*boolp = res;
 	} else
 		*boolp = true;
