@@ -2484,6 +2484,12 @@ static int unify_all_nodes(void)
 	dnc_node_count = 0;
 	ht_pdom_count  = 0;
 	tally_local_node(1);
+
+	if (mem_gap) {
+		printf("Inserting gap of %lldMB\n", mem_gap >> 20);
+		dnc_top_of_mem += mem_gap >> DRAM_MAP_SHIFT;
+	}
+
 	nc_node[1].ht[0].base = dnc_top_of_mem;
 
 	if (!tally_all_remote_nodes()) {

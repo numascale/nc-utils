@@ -69,6 +69,7 @@ bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
 static int dimmtest = 0;
 static bool workaround_hreq = 1;
+uint64_t mem_gap = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 
@@ -1874,6 +1875,9 @@ static int parse_uint64_t(const char *val, void *intp)
 		uint64_t ret = strtoull(val, &endptr, 0);
 
 		switch (*endptr) {
+		case 'T':
+		case 't':
+			ret <<= 10;
 		case 'G':
 		case 'g':
 			ret <<= 10;
@@ -1933,6 +1937,7 @@ static int parse_cmdline(const char *cmdline)
 		{"boot-wait",       &parse_bool,   &boot_wait},
 		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
+		{"mem-gap",         &parse_uint64_t, &mem_gap},
 	};
 	char arg[256];
 	int lstart, lend, aend, i;

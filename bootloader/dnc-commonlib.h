@@ -163,6 +163,7 @@ extern bool pf_vga_local;
 extern uint32_t max_mem_per_node;
 extern int force_probefilteroff;
 extern int force_probefilteron;
+extern uint64_t mem_gap;
 
 extern const char *node_state_name[];
 
