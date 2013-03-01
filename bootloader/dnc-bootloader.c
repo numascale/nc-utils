@@ -2851,7 +2851,7 @@ static void constants(void)
 }
 
 #define STEP_MIN (64)
-#define STEP_MAX (16 << 20)
+#define STEP_MAX (4 << 20)
 
 static void selftest_late_memmap(void)
 {
