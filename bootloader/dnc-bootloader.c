@@ -935,7 +935,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	node = (val >> 16) & 0xfff;
 
 	for (i = 0; i < dnc_master_ht_id; i++)
-		mmio_range(0xfff0, i, 11, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
+		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -966,7 +966,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
 	for (i = 0; i < dnc_master_ht_id; i++)
-		mmio_range_del(0xfff0, i, 11);
+		mmio_range_del(0xfff0, i, 10);
 }
 
 static void setup_other_cores(void)
@@ -2366,7 +2366,7 @@ static void local_chipset_fixup(bool master)
 		node = (val >> 16) & 0xfff;
 
 		for (i = 0; i < dnc_master_ht_id; i++)
-			mmio_range(0xfff0, i, 3, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
+			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -2386,7 +2386,7 @@ static void local_chipset_fixup(bool master)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
 		for (i = 0; i < dnc_master_ht_id; i++)
-			mmio_range_del(0xfff0, i, 3);
+			mmio_range_del(0xfff0, i, 10);
 	}
 
 	pci_setup();
