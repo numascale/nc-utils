@@ -18,6 +18,8 @@
 #ifndef __DNC_BOOTLOADER_H
 #define __DNC_BOOTLOADER_H 1
 
+#include <stdbool.h>
+
 #define IMPORT_RELOCATED(sym) extern volatile uint8_t sym ## _relocate
 #define REL8(sym) ((uint8_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 #define REL16(sym) ((uint16_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))

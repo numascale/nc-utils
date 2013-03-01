@@ -1621,7 +1621,7 @@ static void setup_remote_cores(const uint16_t num)
 	/* Set DRAM range on local NumaChip */
 	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->dram_base >> 6);
 	dnc_write_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT, (cur_node->dram_limit >> 6) - 1);
-	printf("SCI%03x NGCM0 %x, NGCM1 %x\n", node,
+	printf("SCI%03x NGCM0 0x%x, NGCM1 0x%x\n", node,
 		dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM0_LIMIT),
 		dnc_read_csr(node, H2S_CSR_G0_MIU_NGCM1_LIMIT));
 	dnc_write_csr(node, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->dram_base);

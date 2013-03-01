@@ -92,7 +92,7 @@ void tally_local_node(int enforce_alignment)
 #endif
 	apic_per_node = 1 << ((val >> 12) & 0xf);
 	nc_node[0].apic_offset = 0;
-	printf("Examining SCI%03x...\n", nc_node[0].sci_id);
+	printf("Examining SCI%03x...", nc_node[0].sci_id);
 
 	for (i = 0; i <= max_ht_node; i++) {
 		if (i == dnc_master_ht_id)
@@ -106,7 +106,7 @@ void tally_local_node(int enforce_alignment)
 		if ((nc_node[0].ht[i].cpuid == 0) ||
 		    (nc_node[0].ht[i].cpuid == 0xffffffff) ||
 		    (nc_node[0].ht[i].cpuid != nc_node[0].ht[0].cpuid)) {
-			printf("Error: Root server has mix of CPUIDs %08x and %08x, skipping...\n", nc_node[0].ht[0].cpuid, nc_node[0].ht[i].cpuid);
+			printf("Error: Master server has mix of CPUIDs %08x and %08x, skipping...\n", nc_node[0].ht[0].cpuid, nc_node[0].ht[i].cpuid);
 			nc_node[0].ht[i].cpuid = 0;
 			nc_node[0].ht[i].pdom = 0;
 			continue;
@@ -190,8 +190,7 @@ void tally_local_node(int enforce_alignment)
 		tot_cores += nc_node[0].ht[i].cores;
 	}
 
-	printf("%2d CPU cores and %dGB of memory and I/O maps found in SCI%03x\n",
-	       tot_cores, nc_node[0].node_mem >> 6, nc_node[0].sci_id);
+	printf("%d cores and %dGB of memory and I/O maps\n", tot_cores, nc_node[0].node_mem >> 6);
 	dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
 
 	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
@@ -291,7 +290,7 @@ static bool tally_remote_node(uint16_t node)
 	ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
 	cur_node->apic_offset = ht_next_apic;
 	cur_apic = 0;
-	printf("Examining SCI%03x...\n", node);
+	printf("Examining SCI%03x...", node);
 
 	for (i = 0; i <= max_ht_node; i++) {
 		if (i == cur_node->nc_ht_id) {
@@ -307,7 +306,7 @@ static bool tally_remote_node(uint16_t node)
 		if ((cur_node->ht[i].cpuid == 0) ||
 		    (cur_node->ht[i].cpuid == 0xffffffff) ||
 		    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid)) {
-			printf("Error: SCI%03x has CPUID %08x differing from root server CPUID %08x; skipping...\n", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
+			printf("Error: SCI%03x has CPUID %08x differing from master server CPUID %08x; skipping...\n", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
 			cur_node->ht[i].pdom = 0;
 			cur_node->ht[i].cpuid = 0;
 			continue;
@@ -412,8 +411,7 @@ static bool tally_remote_node(uint16_t node)
 	cur_node->apic_offset = ht_next_apic - cur_node->ht[0].apic_base;
 	ht_next_apic = cur_node->apic_offset + cur_node->ht[last].apic_base + apic_per_node;
 	cur_node->dram_limit = dnc_top_of_mem;
-	printf("%2d CPU cores and %2d GBytes of memory found in SCI%03x\n",
-	       tot_cores, cur_node->node_mem >> 6, node);
+	printf("%d cores and %dGB of memory\n", tot_cores, cur_node->node_mem >> 6);
 
 	/* Set PCI I/O map */
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
