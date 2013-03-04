@@ -293,7 +293,7 @@ static int install_e820_handler(void)
 
 static void update_e820_map(void)
 {
-	uint64_t prev_end, rest;
+	uint64_t prev_end;
 	unsigned int i, j, max;
 	struct e820entry *e820;
 	uint16_t *len;
@@ -306,23 +306,6 @@ static void update_e820_map(void)
 		if (prev_end < e820[i].base + e820[i].length) {
 			max = i;
 			prev_end = e820[max].base + e820[max].length;
-		}
-	}
-
-	/* Truncate to SCI000/HT 0 end; rest added below */
-	e820[max].length = ((uint64_t)nc_node[0].ht[0].size << DRAM_MAP_SHIFT) - e820[max].base;
-	prev_end = e820[max].base + e820[max].length;
-
-	if (nc_node[0].nc_ht_id == 1) {
-		/* Truncate SCI000/HT 0 to SCC ATT granularity if only HT
-		 * node on SCI000; existing adjustment of ht_node_size
-		 * handles rest */
-		rest = prev_end & ((SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1);
-
-		if (rest) {
-			printf("Deducting 0x%x from e820 entry...\n", (uint32_t)rest);
-			e820[max].length -= rest;
-			prev_end -= rest;
 		}
 	}
 
@@ -2485,7 +2468,7 @@ static int unify_all_nodes(void)
 	int model, model_first = 0;
 	dnc_node_count = 0;
 	ht_pdom_count  = 0;
-	tally_local_node(1);
+	tally_local_node();
 
 	if (mem_gap) {
 		printf("Inserting gap of %lldMB\n", mem_gap >> 20);

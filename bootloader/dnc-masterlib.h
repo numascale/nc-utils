@@ -27,7 +27,7 @@ extern int mseq_ucode_length;
 extern int mseq_table_length;
 
 void load_scc_microcode(uint16_t node);
-void tally_local_node(int enforce_alignment);
+void tally_local_node(void);
 bool tally_all_remote_nodes(void);
 
 #endif

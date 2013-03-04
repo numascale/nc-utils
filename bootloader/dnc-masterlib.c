@@ -71,7 +71,7 @@ void load_scc_microcode(uint16_t node)
 	dnc_write_csr(node, H2S_CSR_G0_STATE_CLEAR, val);
 }
 
-void tally_local_node(int enforce_alignment)
+void tally_local_node(void)
 {
 	uint32_t val, base, limit, rest;
 	uint16_t i, j, max_ht_node, tot_cores;
@@ -190,34 +190,14 @@ void tally_local_node(int enforce_alignment)
 		tot_cores += nc_node[0].ht[i].cores;
 	}
 
-	printf("%d cores and %dGB of memory and I/O maps\n", tot_cores, nc_node[0].node_mem >> 6);
+	printf("%d cores and %dMB of memory and I/O maps\n", tot_cores, nc_node[0].node_mem << 4);
 	dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
-
 	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
-	if (rest && enforce_alignment) {
-		printf("Deducting %dMB from SCI%03x#%x to accommodate granularity requirements\n",
-		       rest << (DRAM_MAP_SHIFT - 20), nc_node[0].sci_id, last);
-		asm volatile("wbinvd" ::: "memory");
-		nc_node[0].ht[last].size -= rest;
-		/* Ensure there is some resulting memory */
-		assertf(nc_node[0].ht[last].size > SCC_ATT_GRAN, "Insufficient memory in SCI%03x - need a minimum of %lluMB more\n",
-		        nc_node[0].sci_id, (SCC_ATT_GRAN - rest) << (DRAM_MAP_SHIFT - 20));
-		dnc_top_of_mem -= rest;
-
-		for (i = 0; i <= max_ht_node; i++) {
-			if (i == dnc_master_ht_id)
-				continue;
-
-			if (!nc_node[0].ht[i].cpuid)
-				continue;
-
-			limit = cht_read_conf(i, FUNC1_MAPS, 0x44 + last * 8);
-			cht_write_conf(i, FUNC1_MAPS, 0x44 + last * 8, limit - (rest << 16));
-		}
-
-		limit = cht_read_conf(last, FUNC1_MAPS, 0x124);
-		cht_write_conf(last, FUNC1_MAPS, 0x124, limit - (rest >> (27 - DRAM_MAP_SHIFT)));
-		asm volatile("wbinvd" ::: "memory");
+	if (rest) {
+		rest = SCC_ATT_GRAN - rest;
+		printf("Adding %dMB to SCI%03x to accommodate granularity requirements\n",
+		       rest << (DRAM_MAP_SHIFT - 20), nc_node[0].sci_id);
+		dnc_top_of_mem += rest;
 	}
 	nc_node[0].dram_limit = dnc_top_of_mem;
 
