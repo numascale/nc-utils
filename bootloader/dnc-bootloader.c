@@ -1215,8 +1215,12 @@ void mmio_range_print(const uint16_t sci, const int ht, uint8_t range)
 			hoff = 0x20;
 		}
 
-		printf("SCI%03x#%d MMIO range %d: %08x %08x %08x\n", sci, ht, range,
-			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8),
+		/* Skip disabled ranges */
+		uint32_t low = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
+		if (!(low & 3))
+			return;
+
+		printf("SCI%03x#%d MMIO range %d: %08x %08x %08x\n", sci, ht, range, low,
 			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8),
 			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4));
 		return;
@@ -1224,8 +1228,12 @@ void mmio_range_print(const uint16_t sci, const int ht, uint8_t range)
 
 	/* Family 10h */
 	if (range < 8) {
-		printf("SCI%03x#%d MMIO range %d: %08x %08x\n", sci, ht, range,
-			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8),
+		/* Skip disabled ranges */
+		uint32_t low = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8);
+		if (!(low & 3))
+			return;
+
+		printf("SCI%03x#%d MMIO range %d: %08x %08x\n", sci, ht, range, low,
 			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8));
 		return;
 	}
