@@ -757,7 +757,15 @@ static void cht_print(int neigh, int link)
 	printf("HT#%d L%d Link Ext. Control  : 0x%08x\n", neigh, link,
 	       cht_read_conf(neigh, 0, 0x170 + link * 4));
 	val = get_phy_register(neigh, link, 0xe0, 0); /* Link phy compensation and calibration control 1 */
-	printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, (val >> 23) & 0x1f, (val >> 18) & 0x1f);
+
+	uint8_t rtt = (val >> 23) & 0x1f;
+	printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
+
+	if (rtt == 0) {
+		printf("Error: Hypertransport interface phy calibration failure; rebooting in 15s...");
+		udelay(15000000);
+		reset_cf9(0xa, 0);
+	}
 
 	if (!(ht_testmode & HT_TESTMODE_PRINT))
 		return;
