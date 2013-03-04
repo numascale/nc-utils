@@ -59,7 +59,7 @@ void lc3_activity(void)
 		for (lc = 1; lc <= lim; lc++)
 			dnc_write_csr(0xfff1 + lc, LC3_CSR_PCCNT, 0);
 
-		msleep(500);
+		udelay(500000);
 
 		for (lc = 1; lc <= lim; lc++) {
 			uint32_t val = dnc_read_csr(0xfff1 + lc, LC3_CSR_PCCNT);
