@@ -2406,7 +2406,7 @@ static void global_chipset_fixup(void)
 		val = dnc_read_conf(node, 0, 0, 0, 0);
 
 		if ((val == VENDEV_SR5690) || (val == VENDEV_SR5670) || (val == VENDEV_SR5650)) {
-			printf("Adjusting configuration of AMD SR56x0 on SCI%03x...\n", node);
+			printf("Adjusting configuration of AMD SR56x0 on SCI%03x...", node);
 			/* Limit TOM2 to HyperTransport address */
 			uint64_t limit = min(ht_base, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 			ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
@@ -2418,7 +2418,7 @@ static void global_chipset_fixup(void)
 				ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, 0);
 
 			if (verbose)
-				printf("- TOM2LO 0x%08x, TOM2HI 0x%08x TOM3 0x%08x\n",
+				printf("TOM2LO 0x%08x TOM2HI 0x%08x TOM3 0x%08x ",
 				       ioh_htiu_read(node, SR56X0_HTIU_TOM2LO), ioh_htiu_read(node, SR56X0_HTIU_TOM2HI),
 				       ioh_nbmiscind_read(node, SR56X0_MISC_TOM3));
 
@@ -2426,6 +2426,8 @@ static void global_chipset_fixup(void)
 			 * write 0 to register 0 to disable IOAPIC */
 			dnc_write_conf(node, 0, 0, 2, 0xf8, 0);
 			dnc_write_conf(node, 0, 0, 2, 0xfc, 0);
+
+			printf("done\n");
 		} else if ((val == VENDEV_MCP55)) {
 			uint32_t val = dnc_read_conf(node, 0, 0, 0, 0x90);
 			printf("Adjusting configuration of nVidia MCP55 on SCI%03x...\n",
