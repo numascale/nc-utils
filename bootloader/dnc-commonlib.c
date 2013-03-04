@@ -1921,7 +1921,7 @@ static int parse_cmdline(const char *cmdline)
 		{"ht.force-pf-off", &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
 		{"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
 		{"pf.vga-local",    &parse_bool,   &pf_vga_local},    /* Let legacy VGA access route locally */
-		{"pf.maxmem",       &parse_int,    &pf_maxmem},       /* Memory in GB per server */
+		{"pf.maxmem",       &parse_uint64_t, &pf_maxmem},       /* Memory per server */
 		{"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
 		{"disable-smm",     &parse_bool,   &disable_smm},     /* Rewrite start of System Management Mode handler to return */
 		{"disable-c1e",     &parse_bool,   &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
