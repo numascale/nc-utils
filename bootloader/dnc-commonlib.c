@@ -2386,11 +2386,11 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		dump_northbridge_regs(ht_id);
 
 	/* Indicate immediate jump to next-label (-2) if init-only is also given */
-	if ((disable_nc > 0) && (init_only > 0))
+	if ((disable_nc > 0) && init_only)
 		return -2;
 
 	/* Indicate immediate jump to next-label (-2) if route_only issued */
-	if (route_only > 0)
+	if (route_only)
 		return -2;
 
 	if (ht_id < 0)
@@ -2558,7 +2558,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		return -1;
 
 	/* If init-only parameter is given, stop here and return */
-	if (init_only > 0)
+	if (init_only)
 		return -2;
 
 	*p_asic_mode = asic_mode;
