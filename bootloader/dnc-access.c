@@ -203,8 +203,9 @@ void watchdog_setup(void)
 void reset_cf9(int mode, int last)
 {
 	int i;
-	/* Ensure last lines were sent from management controller */
-	fflush(stdin);
+
+	/* Ensure last lines are sent from management controller */
+	fflush(stdout);
 	fflush(stderr);
 	udelay(2500000);
 
