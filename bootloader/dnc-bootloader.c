@@ -309,6 +309,10 @@ static void update_e820_map(void)
 		}
 	}
 
+	/* Truncate to SCI000/HT 0 end; rest added below */
+	e820[max].length = ((uint64_t)nc_node[0].ht[0].size << DRAM_MAP_SHIFT) - e820[max].base;
+	prev_end = e820[max].base + e820[max].length;
+
 	if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size)) {
 		e820[max].length -= trace_buf_size;
 		trace_buf = e820[max].base + e820[max].length;
