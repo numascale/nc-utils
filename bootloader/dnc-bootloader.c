@@ -1496,6 +1496,9 @@ static void setup_remote_cores(const uint16_t num)
 	/* Now, reset all DRAM maps */
 	printf("Resetting DRAM maps on SCI%03x\n", node);
 
+	/* Read DRAM Hole register off master BSP */
+	uint32_t memhole = cht_read_conf(0, FUNC1_MAPS, 0xf0);
+
 	for (i = 0; i < 8; i++) {
 		if (!cur_node->ht[i].cpuid)
 			continue;
@@ -1504,8 +1507,8 @@ static void setup_remote_cores(const uint16_t num)
 		for (j = 0; j < 8; j++)
 			dram_range_del(node, i, j);
 
-		/* Clear DRAM Hole */
-		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf0,  0);
+		/* If Memory hoisting is enabled on master BSP, copy DramHoleBase[31:24] and DramMemHoistValid[1] */
+		dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf0, memhole & 0xff000002);
 
 		/* Re-direct everything below our first local address to NumaChip */
 		dram_range(node, i, 0, nc_node[0].ht[0].base, cur_node->ht[0].base - 1, ht_id);
