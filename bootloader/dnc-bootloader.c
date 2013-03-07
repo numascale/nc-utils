@@ -1011,17 +1011,18 @@ static void setup_other_cores(void)
 			if (!nc_node[0].ht[ht].cpuid)
 				continue;
 
-			oldid = nc_node[0].ht[ht].apic_base + i;
-
 			if ((ht == 0) && (i == 0))
 				continue; /* Skip BSP */
 
+			oldid = nc_node[0].ht[ht].apic_base + i;
 			apicid = nc_node[0].apic_offset + oldid;
+
 			*REL8(cpu_apic_renumber) = apicid;
 			*REL8(cpu_apic_hi)       = 0;
 			*REL32(cpu_status) = VECTOR_TRAMPOLINE;
 			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
+
 			apic[0x310 / 4] = oldid << 24;
 			*icr = 0x00004500;
 
@@ -1643,6 +1644,7 @@ static void setup_remote_cores(const uint16_t num)
 
 			oldid = cur_node->ht[ht].apic_base + i;
 			apicid = cur_node->apic_offset + oldid;
+
 			*REL8(cpu_apic_renumber) = apicid & 0xff;
 			*REL8(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
 			*REL64(rem_topmem_msr) = ~0ULL;
@@ -1709,8 +1711,8 @@ static void setup_local_mmio_maps(void)
 			       i, curbase, curlim, curdst);
 
 		if (curdst & 3) {
-			int found = 0;
-			int placed = 0;
+			bool found = 0;
+			bool placed = 0;
 
 			for (j = 0; j < next; j++) {
 				if (((curbase < base[j]) && (curlim > base[j])) ||

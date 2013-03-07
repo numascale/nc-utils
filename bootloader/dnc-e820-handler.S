@@ -503,7 +503,7 @@ EXPORT(new_e820_handler)
 	inc	%ebx
 	mov	$20, %ecx
 	and	$~1, 4(%esp)	# Clear carry flag
-	cmp	%cs:SYM_OFFSET(new_e820_len), %bx 
+	cmp	%cs:SYM_OFFSET(new_e820_len), %bx
 	jge	2f
 	iret
 

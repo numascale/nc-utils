@@ -1126,6 +1126,7 @@ void wake_core_local(const int apicid, const int vector)
 	uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
 	volatile uint32_t *const apic = (void * const)((uint32_t)val & ~0xfff);
 	volatile uint32_t *const icr = &apic[0x300 / 4];
+
 	/* Deliver initialize IPI */
 	apic[0x310 / 4] = apicid << 24;
 	*icr = 0x00004500;
@@ -1133,14 +1134,18 @@ void wake_core_local(const int apicid, const int vector)
 	while (*icr & (1 << 12))
 		cpu_relax();
 
+	assert(!apic[0x280 / 4]); /* Check for errors */
+
 	*REL32(cpu_status) = vector;
 	/* Deliver startup IPI */
 	apic[0x310 / 4] = apicid << 24;
 	assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
-	*icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
+	*icr = 0x00004600 | ((uint32_t)REL32(init_dispatch) >> 12);
 
 	while (*icr & 0x1000)
 		cpu_relax();
+
+	assert(!apic[0x280 / 4]); /* Check for errors */
 
 	/* Wait until execution completed */
 	while (*REL32(cpu_status))
@@ -1153,15 +1158,14 @@ void wake_core_global(const int apicid, const int vector)
 
 	/* Deliver initialize IPI */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN, 0xff001500 | (apicid << 16));
-	udelay(50);
 
 	/* Deliver startup IPI */
 	assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
-		0xff002600 | (apicid << 16) | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff));
+		0xff002600 | (apicid << 16) | ((uint32_t)REL32(init_dispatch) >> 12));
 
 	/* Wait until execution completed */
-	while (*REL32(cpu_status) != 0)
+	while (*REL32(cpu_status))
 		cpu_relax();
 }
 
