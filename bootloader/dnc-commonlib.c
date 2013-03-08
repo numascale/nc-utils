@@ -69,6 +69,7 @@ bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
 static int dimmtest = 0;
 static bool workaround_hreq = 1;
+static bool workaround_rtt = 0;
 uint64_t mem_gap = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
@@ -762,9 +763,13 @@ static void cht_print(int neigh, int link)
 	printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
 
 	if (rtt == 0) {
-		printf("Error: Hypertransport interface phy calibration failure; rebooting in 15s...");
-		udelay(15000000);
-		reset_cf9(0xa, 0);
+		if (workaround_rtt) {
+			printf("Warning: Hypertransport interface phy calibration failure\n");
+		} else {
+			printf("Error: Hypertransport interface phy calibration failure; rebooting in 15s...");
+			udelay(15000000);
+			reset_cf9(0xa, 0);
+		}
 	}
 
 	if (!(ht_testmode & HT_TESTMODE_PRINT))
@@ -1949,6 +1954,7 @@ static int parse_cmdline(const char *cmdline)
 		{"boot-wait",       &parse_bool,   &boot_wait},
 		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
+		{"workaround.rtt",  &parse_bool,   &workaround_rtt},  /* Prevent failure when HT Rtt calibration fails */
 		{"mem-gap",         &parse_uint64_t, &mem_gap},
 	};
 	char arg[256];
