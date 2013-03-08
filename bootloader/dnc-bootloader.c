@@ -1347,13 +1347,49 @@ void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
 }
 
+static bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dst)
+{
+	assert(range < 8);
+
+	uint32_t base_l = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8);
+	uint32_t limit_l = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8);
+	uint32_t base_h = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8);
+	uint32_t limit_h = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8);
+
+	*base = ((uint64_t)(base_l & ~0xffff) << (24 - 16)) | ((uint64_t)(base_h & 0xff) << 40);
+	*limit = ((uint64_t)(limit_l & ~0xffff) << (24 - 16)) | ((uint64_t)(limit_h & 0xff) << 40);
+	*dst = limit_l & 7;
+
+	/* Ensure both read and write are enabled or neither */
+	assert((base_l & 1) == ((base_l >> 1) & 1));
+	bool en = base_l & 1;
+	if (en)
+		*limit |= 0xffffff;
+
+	return en;
+}
+
+static int dram_range_unused(const uint16_t sci, const int ht)
+{
+	uint64_t base, limit;
+	int dst;
+
+	for (int range = 0; range < 8; range++)
+		if (!dram_range_read(sci, ht, range, &base, &limit, &dst))
+			return range;
+
+	fatal("Error: No free DRAM ranges on SCI%03x\n", sci);
+}
+
 static void dram_range_print(const uint16_t sci, const int ht, const int range)
 {
-	printf("SCI%03x#%d DRAM range %d: baseL 0x%08x, baseH 0x%08x, limitL 0x%08x limitH 0x%08x\n", sci, ht, range,
-	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8),
-	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8),
-	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8),
-	       dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8));
+	uint64_t base, limit;
+	int dst;
+
+	assert(range < 8);
+
+	if (dram_range_read(sci, ht, range, &base, &limit, &dst))
+		printf("SCI%03x#%d DRAM range %d: 0x%016llx - 0x%016llx towards %d\n", sci, ht, range, base, limit, dst);
 }
 
 static void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
@@ -1585,7 +1621,7 @@ static void setup_remote_cores(const uint16_t num)
 			if (!cur_node->ht[i].cpuid)
 				continue;
 
-			for (j = 0; j <= map_index; j++)
+			for (j = 0; j < 8; j++)
 				dram_range_print(node, i, j);
 
 			for (j = 0; j < 8; j++)
@@ -2566,7 +2602,8 @@ static int unify_all_nodes(void)
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
 	for (i = 0; i < dnc_master_ht_id; i++) {
 		assert(cht_read_conf(i, FUNC1_MAPS, 0x78) == 0);
-		dram_range(0xfff0, i, 7, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
+		int range = dram_range_unused(0xfff0, i);
+		dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
 	}
 
 	if (verbose > 0) {
