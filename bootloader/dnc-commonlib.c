@@ -2488,6 +2488,9 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		/* Disable Northbridge WatchDog timer and MCE target/master abort for debugging */
 		val = cht_read_conf(i, FUNC3_MISC, 0x44);
 
+		/* Since Linux enables automatic ECC correction on visible Nortbridges, do it on all here */
+		val |= 1 << 22; /* DramEccEn */
+
 		if (enable_nbmce > -1)
 			val = (val & ~(1 << 6)) | (!enable_nbmce << 6);
 
@@ -2548,6 +2551,11 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 				cht_write_conf(i, FUNC5_EXTD, 0x88, val | (1 << 9));
 			}
 		}
+
+		/* Disable GARTs; Linux will reenable them on the master, so it's safer to disable
+		 * them to prevent interpreting false entries from application memory */
+		for (int reg = 0x90; reg <= 0x9c; reg += 4)
+			cht_write_conf(i, FUNC3_MISC, reg, 0);
 	}
 
 	/* ====================== END ERRATA WORKAROUNDS ====================== */

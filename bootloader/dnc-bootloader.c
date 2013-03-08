@@ -2664,18 +2664,6 @@ static int unify_all_nodes(void)
 		setup_c1e_osvw();
 #endif
 
-	/* Unify GARTs */
-	for (node = 0; node < dnc_node_count; node++) {
-		for (int reg = 0x90; reg <= 0x9c; reg += 4) {
-			uint32_t val = cht_read_conf(0, FUNC3_MISC, reg);
-			for (i = 0; i < 8; i++) {
-				if (!nc_node[0].ht[i].cpuid)
-					continue;
-				dnc_write_conf(nc_node[node].sci_id, 0, 24 + i, FUNC3_MISC, reg, val);
-			}
-		}
-	}
-
 	if (verbose > 0)
 		debug_acpi();
 
