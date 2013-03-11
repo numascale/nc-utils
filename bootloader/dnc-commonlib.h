@@ -37,9 +37,9 @@
 	while (1) cpu_relax();						\
     } } while(0)
 
-#define fatal(format, ...) do {						\
+#define fatal(format, args...) do {						\
 	printf("\nError: ");						\
-	printf(format, __VA_ARGS__);					\
+	printf(format, ## args);					\
 	while (1) cpu_relax();						\
    } while (0)
 
@@ -164,6 +164,7 @@ extern uint32_t max_mem_per_node;
 extern int force_probefilteroff;
 extern int force_probefilteron;
 extern uint64_t mem_gap;
+extern bool workaround_locks;
 
 extern const char *node_state_name[];
 
