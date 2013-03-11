@@ -1378,7 +1378,7 @@ static int dram_range_unused(const uint16_t sci, const int ht)
 		if (!dram_range_read(sci, ht, range, &base, &limit, &dst))
 			return range;
 
-	fatal("Error: No free DRAM ranges on SCI%03x\n", sci);
+	fatal("No free DRAM ranges on SCI%03x\n", sci);
 }
 
 static void dram_range_print(const uint16_t sci, const int ht, const int range)
@@ -2366,6 +2366,67 @@ static void disable_iommu(void)
 }
 #endif
 
+static void lvt_setup(void)
+{
+	uint32_t val;
+
+	for (int ht = 0; ht < dnc_master_ht_id; ht++) {
+		val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
+		if (((val >> 14) & 3) == 2) {
+			printf("- disabling ECC error SMI on HT#%d\n", ht);
+			cht_write_conf(ht, FUNC3_MISC, 0xb0, val & ~(3 << 14));
+		}
+
+		val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
+		if (((val >> 12) & 3) == 2) {
+			printf("- disabling online DIMM swap complete SMI on HT#%d\n", ht);
+			cht_write_conf(ht, FUNC3_MISC, 0xb0, val & ~(3 << 12));
+		}
+
+		val = cht_read_conf(ht, FUNC3_MISC, 0x160);
+		if (((val >> 17) & 3) == 2) {
+			printf("- disabling DRAM thresholding SMI on HT#%d\n", ht);
+			if (!(val & (1 << 29))) {
+				if (workaround_locks)
+					printf("Error: Unable to disable locked SMI\n");
+				else
+					fatal("Unable to disable locked SMI\n");
+			}
+			cht_write_conf(ht, FUNC3_MISC, 0x160, val & ~(3 << 17));
+		}
+
+		val = cht_read_conf(ht, FUNC3_MISC, 0x168);
+		if (((val >> 17) & 3) == 2) {
+			printf("- disabling link thresholding SMI on HT%d\n", ht);
+			if (!(val & (1 << 29))) {
+				if (workaround_locks)
+					printf("Error: Unable to disable locked SMI\n");
+				else
+					fatal("Unable to disable locked SMI\n");
+			}
+			cht_write_conf(ht, FUNC3_MISC, 0x168, val & ~(3 << 17));
+		}
+
+		val = cht_read_conf(ht, FUNC3_MISC, 0x170);
+		if (((val >> 17) & 3) == 2) {
+			printf("- disabling L3 cache thresholding on HT#%d\n", ht);
+			if (!(val & (1 << 29))) {
+				if (workaround_locks)
+					printf("Error: Unable to disable locked SMI\n");
+				else
+					fatal("Unable to disable locked SMI\n");
+			}
+			cht_write_conf(ht, FUNC3_MISC, 0x170, val & ~(3 << 17));
+		}
+
+		val = cht_read_conf(ht, FUNC3_MISC, 0x1d4);
+		if (((val >> 22) & 3) == 2) {
+			printf("- disabling probe filter error SMI on HT#%d\n", ht);
+			cht_write_conf(ht, FUNC3_MISC, 0x1d4, val & ~(3 << 22));
+		}
+	}
+}
+
 static void local_chipset_fixup(bool master)
 {
 	uint32_t val;
@@ -2426,6 +2487,7 @@ static void local_chipset_fixup(bool master)
 	}
 
 	pci_setup();
+	lvt_setup();
 
 	printf("Chipset-specific setup done\n");
 }

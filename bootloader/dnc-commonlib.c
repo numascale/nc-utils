@@ -70,6 +70,7 @@ uint32_t max_mem_per_node;
 static int dimmtest = 0;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 0;
+bool workaround_locks = 0;
 uint64_t mem_gap = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
@@ -1955,6 +1956,7 @@ static int parse_cmdline(const char *cmdline)
 		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
 		{"workaround.rtt",  &parse_bool,   &workaround_rtt},  /* Prevent failure when HT Rtt calibration fails */
+		{"workaround.locks", &parse_bool,  &workaround_locks}, /* Prevent failure when SMI triggers are locked */
 		{"mem-gap",         &parse_uint64_t, &mem_gap},
 	};
 	char arg[256];
