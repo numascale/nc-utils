@@ -151,6 +151,12 @@ break:
 	mov	$MSR_CPUWDT, %ecx
 	wrmsr
 
+	/* Ensure MCEs aren't redirected into SMIs */
+	mov	$0, %eax
+	mov	$0, %edx
+	mov	$MSR_MCE_REDIR, %ecx
+	wrmsr
+
 #ifdef BROKEN
 	/* Set OSVW_ID_LEN MSR */
 	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr), %eax

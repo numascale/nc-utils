@@ -2425,6 +2425,9 @@ static void lvt_setup(void)
 			cht_write_conf(ht, FUNC3_MISC, 0x1d4, val & ~(3 << 22));
 		}
 	}
+
+	/* Ensure MCEs aren't redirected into SMIs */
+	dnc_wrmsr(MSR_MCE_REDIR, 0);
 }
 
 static void local_chipset_fixup(bool master)
