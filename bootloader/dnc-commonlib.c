@@ -2490,9 +2490,6 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		/* Disable Northbridge WatchDog timer and MCE target/master abort for debugging */
 		val = cht_read_conf(i, FUNC3_MISC, 0x44);
 
-		/* Since Linux enables automatic ECC correction on visible Nortbridges, do it on all here */
-		val |= 1 << 22; /* DramEccEn */
-
 		if (enable_nbmce > -1)
 			val = (val & ~(1 << 6)) | (!enable_nbmce << 6);
 
