@@ -1463,35 +1463,19 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 			/* SyncFloodOnTblWalkErr: sync flood on table walk error enable */
 			if (ht_suppress & 0x2000) val &= ~(1 << 22);
 
-			/* ChgUcToCeEn: change uncorrectable to correctable for debug purposes */
-			if (ht_suppress & 0x4000) val |= 1 << 26;
-
 			cht_write_conf(i, FUNC3_MISC, 0x180, val);
 
 			/* SERR_EN: initiate sync flood when PCIe System Error detected in IOH */
-			if (ht_suppress & 0x8000) {
+			if (ht_suppress & 0x4000) {
 				val = dnc_read_conf(0xfff0, 0, 0, 0, 0x4);
 				dnc_write_conf(0xfff0, 0, 0, 0, 0x4, val & ~(1 << 8));
 			}
 
-			/* PFErrInt: ProbeFilter error interrupt */
-			if (ht_suppress & 0x10000) {
-				val = cht_read_conf(i, FUNC3_MISC, 0x1d4);
-				cht_write_conf(i, FUNC3_MISC, 0x1d4, val & ~(3 << 22));
-			}
-
 			for (int link = 0; link < 4; link++) {
 				/* CrcFloodEn: Enable sync flood propagation upon link failure */
-				if (ht_suppress & 0x20000) {
+				if (ht_suppress & 0x8000) {
 					val = cht_read_conf(i, FUNC0_HT, 0x84 + link * 0x20);
 					cht_write_conf(i, FUNC0_HT, 0x84 + link * 0x20, val & ~2);
-				}
-
-				/* IntType: Link error threshold overflow counter */
-				if (ht_suppress & 0x40000) {
-					val = cht_read_conf(i, FUNC3_MISC, 0x160 + link * 8);
-					assert((val & (1 << 29)) == 0); /* Locked */
-					cht_write_conf(i, FUNC3_MISC, 0x160 + link * 8, val & ~(3 << 17));
 				}
 			}
 		}
