@@ -146,7 +146,7 @@ static void completion_timeout(const int bus, const int dev, const int fn)
 		if (val & (1 << 14))
 			printf("Completion Timeout now non-fatal\n");
 		else
-			printf("Warning: failed to set Completion Timeout as non-fatal\n");
+			fatal("Failed to set Completion Timeout as non-fatal\n");
 	}
 #endif
 
@@ -159,7 +159,7 @@ static void completion_timeout(const int bus, const int dev, const int fn)
 		if (val & (1 << 4))
 			printf("disabled Completion Timeout\n");
 		else
-			printf("Warning: failed to disable Completion Timeout\n");
+			fatal("Failed to disable Completion Timeout\n");
 	} else
 		printf("Completion Timeout not enabled\n");
 }

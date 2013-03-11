@@ -54,7 +54,7 @@ void load_scc_microcode(uint16_t node)
 		mseq_ucode_length = sizeof(numachip_mseq_ucode_revb) / sizeof(numachip_mseq_ucode_revb[0]);
 		mseq_table_length = sizeof(numachip_mseq_table_revb) / sizeof(numachip_mseq_table_revb[0]);
 	} else
-		fatal("Error: no microcode for NumaChip version %d\n", dnc_chip_rev);
+		fatal("No microcode for NumaChip version %d\n", dnc_chip_rev);
 
 	dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 
