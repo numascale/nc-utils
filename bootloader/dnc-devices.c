@@ -192,7 +192,7 @@ static void stop_ohci(int bus, int dev, int fn)
 			udelay(100);
 
 			if (--temp == 0) {
-				printf("legacy handoff timed out\n");
+				printf("legacy handover timed out\n");
 				return;
 			}
 		}
@@ -204,7 +204,7 @@ static void stop_ohci(int bus, int dev, int fn)
 		mem64_write32(bar0 + HcControl, val);
 		/* Flush the writes */
 		val = mem64_read32(bar0 + HcControl);
-		printf("legacy handoff succeeded\n");
+		printf("legacy handover succeeded\n");
 	} else {
 		printf("legacy support not enabled\n");
 	}
@@ -256,12 +256,12 @@ static void stop_ehci(int bus, int dev, int fn)
 		legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
 
 		if ((legsup & (1 << 16)) == 0) {
-			printf("legacy handoff succeeded\n");
+			printf("legacy handover succeeded\n");
 			return;
 		}
 	} while (--limit);
 
-	printf("legacy handoff timed out\n");
+	printf("legacy handover timed out\n");
 }
 
 static void stop_xhci(int bus, int dev, int fn)
@@ -300,12 +300,12 @@ static void stop_xhci(int bus, int dev, int fn)
 		legsup = mem64_read32(bar0 + ecp);
 
 		if ((legsup & (1 << 16)) == 0) {
-			printf("legacy handoff succeeded\n");
+			printf("legacy handover succeeded\n");
 			return;
 		}
 	} while (--limit);
 
-	printf("legacy handoff timed out\n");
+	printf("legacy handover timed out\n");
 }
 
 static void stop_ahci(int bus, int dev, int fn)
@@ -344,17 +344,17 @@ static void stop_ahci(int bus, int dev, int fn)
 		legsup = mem64_read32(bar5 + 0x28);
 
 		if ((legsup & 1) == 0) {
-			printf("legacy handoff succeeded\n");
+			printf("legacy handover succeeded\n");
 			return;
 		}
 	} while (--limit);
 
-	printf("legacy handoff timed out\n");
+	printf("legacy handover timed out\n");
 }
 
 void stop_acpi(void)
 {
-	printf("ACPI handoff: ");
+	printf("ACPI handover: ");
 	acpi_sdt_p fadt = find_sdt("FACP");
 
 	if (!fadt) {
@@ -380,12 +380,12 @@ void stop_acpi(void)
 		sci_en = inb(acpipm1cntblk);
 
 		if ((sci_en & 1) == 1) {
-			printf("legacy handoff succeeded\n");
+			printf("legacy handover succeeded\n");
 			return;
 		}
 	} while (--limit);
 
-	printf("ACPI handoff timed out\n");
+	printf("ACPI handover timed out\n");
 }
 
 void handover_legacy(void)
