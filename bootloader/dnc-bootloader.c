@@ -2729,6 +2729,10 @@ static int unify_all_nodes(void)
 		setup_c1e_osvw();
 #endif
 
+	/* If Linux can't handover ACPI, we can */
+	if (handover_acpi || disable_smm)
+		stop_acpi();
+
 	if (verbose > 0)
 		debug_acpi();
 
@@ -3112,10 +3116,6 @@ static int nc_start(void)
 
 		if (remote_io > 1)
 			setup_mmio_late();
-
-		/* If Linux can't handover ACPI, we can */
-		if (handover_acpi)
-			stop_acpi();
 
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
