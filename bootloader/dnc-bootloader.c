@@ -2274,8 +2274,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	}
 }
 
-#ifdef UNUSED
-static void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
+void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
 {
 	uint64_t val;
 	int i = -1;
@@ -2295,7 +2294,6 @@ static void mtrr_range(const uint64_t base, const uint64_t limit, const int type
 	mtrr_var_mask[i] = (((1ULL << 48) - 1) &~ (limit - base - 1)) | 0x800;
 	dnc_wrmsr(MSR_MTRR_PHYS_MASK0 + i * 2, mtrr_var_mask[i]);
 }
-#endif
 
 static void update_mtrr(void)
 {
