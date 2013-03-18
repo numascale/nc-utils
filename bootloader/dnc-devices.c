@@ -390,10 +390,6 @@ void stop_acpi(void)
 
 void handover_legacy(void)
 {
-	/* If SMM is disabled, USB handover functionality may have been lost */
-	if (disable_smm)
-		return;
-
 	/* Stop ACPI first, as Linux requests ownership of this before other subsystems */
 	stop_acpi();
 	const struct devspec devices[] = {

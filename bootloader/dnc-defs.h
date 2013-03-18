@@ -34,7 +34,10 @@
 #define MTRR_UC		0
 
 #define MSR_APIC_BAR    0x0000001b
+#define MSR_MC4_MISC0   0x00000413
 #define MSR_FS_BASE     0xc0000100
+#define MSR_MC4_MISC1   0xc0000408
+#define MSR_MC4_MISC2   0xc0000409
 #define MSR_SYSCFG      0xc0010010
 #define MSR_HWCR        0xc0010015
 #define MSR_TOPMEM      0xc001001a
@@ -42,7 +45,7 @@
 #define MSR_NB_CFG      0xc001001f
 #define MSR_INT_HALT    0xc0010055
 #define MSR_MCFG_BASE   0xc0010058
-#define MSR_CPUWDT		0xc0010074
+#define MSR_CPUWDT	0xc0010074
 #define MSR_SMM_BASE    0xc0010111
 #define MSR_OSVW_ID_LEN 0xc0010140
 #define MSR_OSVW_STATUS 0xc0010141

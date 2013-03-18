@@ -98,12 +98,15 @@ IMPORT_RELOCATED(rem_smm_base_msr);
 #ifdef BROKEN
 IMPORT_RELOCATED(new_osvw_id_len_msr);
 IMPORT_RELOCATED(new_osvw_status_msr);
-IMPORT_RELOCATED(new_hwcr_msr);
 IMPORT_RELOCATED(new_int_halt_msr);
 #endif
 IMPORT_RELOCATED(new_lscfg_msr);
 IMPORT_RELOCATED(new_cucfg2_msr);
 IMPORT_RELOCATED(new_cpuwdt_msr);
+IMPORT_RELOCATED(new_hwcr_msr);
+IMPORT_RELOCATED(new_mc4_misc0_msr);
+IMPORT_RELOCATED(new_mc4_misc1_msr);
+IMPORT_RELOCATED(new_mc4_misc2_msr);
 
 extern uint8_t smm_handler_start;
 extern uint8_t smm_handler_end;
@@ -2425,42 +2428,6 @@ static void lvt_setup(void)
 			cht_write_conf(ht, FUNC3_MISC, 0xb0, val & ~(3 << 12));
 		}
 
-		val = cht_read_conf(ht, FUNC3_MISC, 0x160);
-		if (((val >> 17) & 3) == 2) {
-			printf("- disabling DRAM thresholding SMI on HT#%d\n", ht);
-			if (!(val & (1 << 29))) {
-				if (workaround_locks)
-					printf("Error: Unable to disable locked SMI\n");
-				else
-					fatal("Unable to disable locked SMI\n");
-			}
-			cht_write_conf(ht, FUNC3_MISC, 0x160, val & ~(3 << 17));
-		}
-
-		val = cht_read_conf(ht, FUNC3_MISC, 0x168);
-		if (((val >> 17) & 3) == 2) {
-			printf("- disabling link thresholding SMI on HT%d\n", ht);
-			if (!(val & (1 << 29))) {
-				if (workaround_locks)
-					printf("Error: Unable to disable locked SMI\n");
-				else
-					fatal("Unable to disable locked SMI\n");
-			}
-			cht_write_conf(ht, FUNC3_MISC, 0x168, val & ~(3 << 17));
-		}
-
-		val = cht_read_conf(ht, FUNC3_MISC, 0x170);
-		if (((val >> 17) & 3) == 2) {
-			printf("- disabling L3 cache thresholding on HT#%d\n", ht);
-			if (!(val & (1 << 29))) {
-				if (workaround_locks)
-					printf("Error: Unable to disable locked SMI\n");
-				else
-					fatal("Unable to disable locked SMI\n");
-			}
-			cht_write_conf(ht, FUNC3_MISC, 0x170, val & ~(3 << 17));
-		}
-
 		val = cht_read_conf(ht, FUNC3_MISC, 0x1d4);
 		if (((val >> 22) & 3) == 2) {
 			printf("- disabling probe filter error SMI on HT#%d\n", ht);
@@ -2468,8 +2435,6 @@ static void lvt_setup(void)
 		}
 	}
 
-	/* Ensure MCEs aren't redirected into SMIs */
-	dnc_wrmsr(MSR_MCE_REDIR, 0);
 }
 
 static void local_chipset_fixup(bool master)
@@ -2619,6 +2584,42 @@ static void setup_c1e_osvw(void)
 	}
 }
 #endif
+
+void setup_mc4_thresholds(void)
+{
+	uint64_t msr;
+
+	/* Ensure MCEs aren't redirected into SMIs */
+	dnc_wrmsr(MSR_MCE_REDIR, 0);
+
+	/* Set McStatusWrEn in HWCR first or we might get a GPF */
+	msr = dnc_rdmsr(MSR_HWCR);
+	msr |= (1ULL << 18);
+	dnc_wrmsr(MSR_HWCR, msr);
+	*REL64(new_hwcr_msr) = msr & ~(1ULL << 17); /* Don't let the Wrap32Dis bit follow through to other cores */
+	msr = dnc_rdmsr(MSR_HWCR);
+
+	msr = dnc_rdmsr(MSR_MC4_MISC0);
+	if (((msr >> 49) & 3) == 2)
+		printf("- disabling DRAM thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
+	msr &= ~((3ULL << 49) | (1ULL << 61));
+	dnc_wrmsr(MSR_MC4_MISC0, msr);
+	*REL64(new_mc4_misc0_msr) = msr;
+
+	msr = dnc_rdmsr(MSR_MC4_MISC1);
+	if (((msr >> 49) & 3) == 2)
+		printf("- disabling link thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
+	msr &= ~((3ULL << 49) | (1ULL << 61));
+	dnc_wrmsr(MSR_MC4_MISC1, msr);
+	*REL64(new_mc4_misc1_msr) = msr;
+
+	msr = dnc_rdmsr(MSR_MC4_MISC2);
+	if (((msr >> 49) & 3) == 2)
+		printf("- disabling L3 cache thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
+	msr &= ~((3ULL << 49) | (1ULL << 61));
+	dnc_wrmsr(MSR_MC4_MISC2, msr);
+	*REL64(new_mc4_misc2_msr) = msr;
+}
 
 static int unify_all_nodes(void)
 {
@@ -2771,8 +2772,14 @@ static int unify_all_nodes(void)
 		setup_c1e_osvw();
 #endif
 
+	/* Make sure MC4 threshold regs are appropriate */
+	setup_mc4_thresholds();
+
+	/* If SMM is going to be disabled, do handover now */
+	if (disable_smm)
+		handover_legacy();
 	/* If Linux can't handover ACPI, we can */
-	if (handover_acpi || disable_smm)
+	else if (handover_acpi)
 		stop_acpi();
 
 	if (verbose > 0)

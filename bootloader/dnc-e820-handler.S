@@ -157,6 +157,30 @@ break:
 	mov	$MSR_MCE_REDIR, %ecx
 	wrmsr
 
+	/* Set HWCR MSR */
+	mov	%cs:SYM_OFFSET(new_hwcr_msr), %eax
+	mov	%cs:SYM_OFFSET(new_hwcr_msr + 4), %edx
+	mov	$MSR_HWCR, %ecx
+	wrmsr
+
+	/* Set MC4_MISC0 MSR */
+	mov	%cs:SYM_OFFSET(new_mc4_misc0_msr), %eax
+	mov	%cs:SYM_OFFSET(new_mc4_misc0_msr + 4), %edx
+	mov	$MSR_MC4_MISC0, %ecx
+	wrmsr
+
+	/* Set MC4_MISC1 MSR */
+	mov	%cs:SYM_OFFSET(new_mc4_misc1_msr), %eax
+	mov	%cs:SYM_OFFSET(new_mc4_misc1_msr + 4), %edx
+	mov	$MSR_MC4_MISC1, %ecx
+	wrmsr
+
+	/* Set MC4_MISC2 MSR */
+	mov	%cs:SYM_OFFSET(new_mc4_misc2_msr), %eax
+	mov	%cs:SYM_OFFSET(new_mc4_misc2_msr + 4), %edx
+	mov	$MSR_MC4_MISC2, %ecx
+	wrmsr
+
 #ifdef BROKEN
 	/* Set OSVW_ID_LEN MSR */
 	mov	%cs:SYM_OFFSET(new_osvw_id_len_msr), %eax
@@ -168,12 +192,6 @@ break:
 	mov	%cs:SYM_OFFSET(new_osvw_status_msr), %eax
 	mov	%cs:SYM_OFFSET(new_osvw_status_msr + 4), %edx
 	mov	$MSR_OSVW_STATUS, %ecx
-	wrmsr
-
-	/* Set HWCR MSR */
-	mov	%cs:SYM_OFFSET(new_hwcr_msr), %eax
-	mov	%cs:SYM_OFFSET(new_hwcr_msr + 4), %edx
-	mov	$MSR_HWCR, %ecx
 	wrmsr
 
 	/* Set Interrupt Pending and CMP-Halt Register MSR */
@@ -383,12 +401,18 @@ EXPORT(rem_topmem_msr)
 	.long 0, 0
 EXPORT(rem_smm_base_msr)
 	.long 0, 0
+EXPORT(new_hwcr_msr)
+	.long 0, 0
+EXPORT(new_mc4_misc0_msr)
+	.long 0, 0
+EXPORT(new_mc4_misc1_msr)
+	.long 0, 0
+EXPORT(new_mc4_misc2_msr)
+	.long 0, 0
 #ifdef BROKEN
 EXPORT(new_osvw_id_len_msr)
 	.long 0, 0
 EXPORT(new_osvw_status_msr)
-	.long 0, 0
-EXPORT(new_hwcr_msr)
 	.long 0, 0
 EXPORT(new_int_halt_msr)
 	.long 0, 0
