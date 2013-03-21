@@ -2094,7 +2094,7 @@ static int pxeapi_call(int func, uint8_t *buf)
 	static com32sys_t inargs, outargs;
 	inargs.eax.w[0] = 0x0009; /* Call PXE Stack */
 	inargs.ebx.w[0] = func; /* PXE function number */
-	inargs.esi.w[0] = OFFS(buf);
+	inargs.edi.w[0] = OFFS(buf);
 	inargs.es = SEG(buf);
 	__intcall(0x22, &inargs, &outargs);
 	return outargs.eax.w[0] == PXENV_EXIT_SUCCESS;
@@ -2144,6 +2144,7 @@ int udp_read_state(int handle __attribute__((unused)),
 	buf_reloc = (char *)__com32.cs_bounce + sizeof(*pxe_read_param);
 	memset(pxe_read_param, 0, sizeof(*pxe_read_param));
 	pxe_read_param->s_port = htons(4711);
+	pxe_read_param->d_port = htons(4711);
 	pxe_read_param->buffer.seg = SEG(buf_reloc);
 	pxe_read_param->buffer.offs = OFFS(buf_reloc);
 	pxe_read_param->buffer_size = len;
@@ -2197,8 +2198,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 	while (1) {
 		if (++count >= backoff) {
-			if (cmd.state != CMD_STARTUP)
-				udp_broadcast_state(handle, &cmd, sizeof(cmd));
+			udp_broadcast_state(handle, &cmd, sizeof(cmd));
 
 			udelay(100 * backoff);
 			last_stat += backoff;
