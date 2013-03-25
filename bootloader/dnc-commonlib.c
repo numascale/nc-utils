@@ -137,7 +137,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) +  0); /* Read SPD location 0, 1, 2, 3 */
 
 	if (((reg >> 8) & 0xff) != 0x08) {
-		printf("Error: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
+		error("Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller",
 		       cdata ? "CData" : "MCTag");
 		return -1;
 	}
@@ -151,7 +151,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) +  8); /* Read SPD location 8, 9, 10, 11 */
 
 	if (!(reg & 2)) {
-		printf("Error: Unsupported non-ECC %s DIMM\n", cdata ? "CData" : "MCTag");
+		error("Unsupported non-ECC %s DIMM", cdata ? "CData" : "MCTag");
 		return -1;
 	}
 
@@ -159,7 +159,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	dimm->width = (reg >> 8) & 0xff;
 
 	if ((dimm->width != 4) && (dimm->width != 8)) {
-		printf("Error: Unsupported %s SDRAM width %d\n", cdata ? "CData" : "MCTag", dimm->width);
+		error("Unsupported %s SDRAM width %d", cdata ? "CData" : "MCTag", dimm->width);
 		return -1;
 	}
 
@@ -169,7 +169,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 20); /* Read SPD location 20, 21, 22, 23 */
 
 	if (!(reg & 0x11000000)) {
-		printf("Error: Unsupported non-Registered %s DIMM\n", cdata ? "CData" : "MCTag");
+		error("Unsupported non-Registered %s DIMM", cdata ? "CData" : "MCTag");
 		return -1;
 	}
 
@@ -200,8 +200,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 		break; /*  1G */
 	default:
 		dimm->mem_size = 0;
-		printf("Error: Unsupported %s DIMM size of %dMB\n",
-		       cdata ? "CData" : "MCTag", 1 << (addr_bits - 17));
+		error("Unsupported %s DIMM size of %dMB", cdata ? "CData" : "MCTag", 1 << (addr_bits - 17));
 		return -1;
 	}
 
@@ -311,39 +310,39 @@ uint32_t dnc_check_mctr_status(int cdata)
 #ifdef BROKEN
 
 	if (val & 0x001) {
-		printf("Error: %s single access outside the defined Physical memory space detected\n", me);
+		error("%s single access outside the defined Physical memory space detected", me);
 		ack |= 0x001;
 	}
 
 	if (val & 0x002) {
-		printf("Error: %s multiple access outside the defined Physical memory space detected\n", me);
+		error("%s multiple access outside the defined Physical memory space detected", me);
 		ack |= 0x002;
 	}
 
 #endif
 
 	if (val & 0x004) {
-		printf("Error: %s single correctable ECC event detected\n", me);
+		error("%s single correctable ECC event detected", me);
 		ack |= 0x004;
 	}
 
 	if (val & 0x008) {
-		printf("Error: %s multiple correctable ECC event detected\n", me);
+		error("%s multiple correctable ECC event detected", me);
 		ack |= 0x008;
 	}
 
 	if (val & 0x010) {
-		printf("Error: %s single uncorrectable ECC event detected\n", me);
+		error("%s single uncorrectable ECC event detected", me);
 		ack |= 0x010;
 	}
 
 	if (val & 0x020) {
-		printf("Error: %s multiple uncorrectable ECC event detected\n", me);
+		error("%s multiple uncorrectable ECC event detected", me);
 		ack |= 0x020;
 	}
 
 	if (val & 0xf80) {
-		printf("Error: %s error interrupts detected INT_STATUS=%03x\n", me, val & 0xfff);
+		error("%s error interrupts detected INT_STATUS=%03x", me, val & 0xfff);
 		ack |= (val & 0xf80);
 	}
 
@@ -475,7 +474,7 @@ int dnc_init_caches(void)
 				} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
 					tmp = 7;
 				} else {
-					printf("Error: Unsupported MCTag/CData combination (%d/%dGB)\n",
+					error("Unsupported MCTag/CData combination (%d/%dGB)",
 					       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size));
 					return -1;
 				}
@@ -494,8 +493,7 @@ int dnc_init_caches(void)
 		} else { /* Older than Rev2 */
 			/* On Rev1 and older there's a direct relationship between the MTag size and RCache size */
 			if (cdata && mem_size == 0) {
-				printf("Error: Unsupported CData size of %dGB\n",
-				       (1 << mem_size));
+				error("Unsupported CData size of %dGB", (1 << mem_size));
 				return -1;
 			}
 
@@ -764,13 +762,10 @@ static void cht_print(int neigh, int link)
 	printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
 
 	if (rtt == 0) {
-		if (workaround_rtt) {
-			printf("Warning: Hypertransport interface phy calibration failure\n");
-		} else {
-			printf("Error: Hypertransport interface phy calibration failure; rebooting in 15s...");
-			udelay(15000000);
-			reset_cf9(0xa, 0);
-		}
+		if (workaround_rtt)
+			warning("Hypertransport interface phy calibration failure");
+		else
+			fatal_reboot("Hypertransport interface phy calibration failure");
 	}
 
 	if (!(ht_testmode & HT_TESTMODE_PRINT))
@@ -1346,7 +1341,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	}
 
 	if (use) {
-		printf("Error: No unrouted coherent links found\n");
+		error("No unrouted coherent links found");
 		return -1;
 	}
 
@@ -1387,7 +1382,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	val = cht_read_conf(nc, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
 
 	if (val != 0x06011b47) {
-		printf("Error: Unrouted coherent device %08x is not NumaChip\n", val);
+		error("Unrouted coherent device %08x is not NumaChip", val);
 		return -1;
 	}
 
@@ -1997,7 +1992,8 @@ static int parse_cmdline(const char *cmdline)
 			if (i == (int)(sizeof(options) / sizeof(options[0]))) {
 				/* Terminate current arg */
 				*strchr(&cmdline[lstart], ' ') = '\0';
-				printf("\nError: invalid option '%s'\n", &cmdline[lstart]);
+				printf("\n");
+				error("Invalid option '%s'", &cmdline[lstart]);
 				wait_key();
 			}
 		}
@@ -2660,7 +2656,7 @@ static int _check_dim(int dim)
 	ok &= (dnc_check_phy(linkidb) == 0);
 
 	if (!ok) {
-		printf("Errors detected on PHY%s and PHY%s; resetting\n",
+		warning("Errors detected on PHY%s and PHY%s; resetting",
 		       _get_linkname(linkida), _get_linkname(linkidb));
 		/* Counter-rotating rings, reset both phys */
 		dnc_reset_phy(linkida);
@@ -2670,7 +2666,7 @@ static int _check_dim(int dim)
 		ok &= (dnc_check_phy(linkidb) == 0);
 
 		if (!ok) {
-			printf("Errors still present on PHY%s and PHY%s\n",
+			warning("Errors still present on PHY%s and PHY%s",
 			       _get_linkname(linkida), _get_linkname(linkidb));
 			return -1;
 		}
@@ -2680,7 +2676,7 @@ static int _check_dim(int dim)
 	ok &= (dnc_check_lc3(linkidb) == 0);
 
 	if (!ok) {
-		printf("LC3 errors detected on LC3%s and LC3%s; resetting\n",
+		warning("LC3 errors detected on LC3%s and LC3%s; resetting",
 		       _get_linkname(linkida), _get_linkname(linkidb));
 		/* Counter-rotating rings, reset both phys */
 		dnc_reset_phy(linkida);
@@ -2692,7 +2688,7 @@ static int _check_dim(int dim)
 		ok &= (dnc_check_lc3(linkidb) == 0);
 
 		if (!ok) {
-			printf("LC3 reset not successful\n");
+			error("LC3 reset not successful");
 			return -1;
 		}
 	}
@@ -2996,7 +2992,7 @@ static int phy_check_status(int phy)
 static void phy_print_error(int mask)
 {
 	int i;
-	printf("Error: Fabric phy training failure - check cables to ports");
+	error("Fabric phy training failure - check cables to ports");
 
 	for (i = 0; i < 6; i++)
 		if (mask & (1 << i))
