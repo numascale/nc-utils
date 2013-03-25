@@ -252,7 +252,7 @@ int dnc_check_lc3(int lc)
 		return -1;
 
 	if ((((initst & 7) != 2) && ((initst & 7) != 4))) {
-		printf("LC3%s INIT_STATE 0x%x\n", linkname, initst);
+		warning("LC3%s INIT_STATE 0x%x", linkname, initst);
 		return -1;
 	}
 
@@ -274,7 +274,7 @@ int dnc_check_lc3(int lc)
 		if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0) != 0)
 			return -1;
 
-		printf("LC3%s ERROR_COUNT %d, ELOG0 0x%04x, ELOG1 0x%04x\n", linkname, error_count, elog0, elog1);
+		warning("LC3%s ERROR_COUNT %d, ELOG0 0x%04x, ELOG1 0x%04x", linkname, error_count, elog0, elog1);
 
 		if ((elog0 & fatal_mask0) || (elog1 & fatal_mask1))
 			return -1;
@@ -359,8 +359,7 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 		return -1;
 
 	if (error_count1 != error_count2) {
-		printf("Errors while initializing LC3%s (%d != %d)\n",
-		       linkname, error_count1, error_count2);
+		warning("Errors while initializing LC3%s (%d != %d)", linkname, error_count1, error_count2);
 		return -1;
 	}
 

@@ -30,7 +30,7 @@ int cfg_nodes, cfg_partitions;
 bool name_matching = 0;
 char *hostname;
 
-static bool parse_json_bool(json_t *obj, const char *label, uint32_t *val, int opt)
+static bool parse_json_bool(json_t *obj, const char *label, uint32_t *val, bool opt)
 {
 	json_t *item;
 	*val = -1;
@@ -38,7 +38,7 @@ static bool parse_json_bool(json_t *obj, const char *label, uint32_t *val, int o
 
 	if (!(item && item->child)) {
 		if (!opt)
-			printf("Warning: Label <%s> not found in fabric configuration file\n", label);
+			warning("Label <%s> not found in fabric configuration file", label);
 
 		return 0;
 	}
@@ -48,7 +48,7 @@ static bool parse_json_bool(json_t *obj, const char *label, uint32_t *val, int o
 	} else if (item->child->type == JSON_FALSE) {
 		*val = 0;
 	} else {
-		printf("Warning: Label <%s> has bad type %d in fabric configuration file\n",
+		warning("Label <%s> has bad type %d in fabric configuration file",
 		       label, item->child->type);
 		return 0;
 	}
@@ -65,7 +65,7 @@ static int parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt
 
 	if (!(item && item->child)) {
 		if (!opt)
-			printf("Warning: Label <%s> not found in fabric configuration file\n", label);
+			warning("Label <%s> not found in fabric configuration file", label);
 
 		return 0;
 	}
@@ -75,13 +75,13 @@ static int parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt
 	} else if (item->child->type == JSON_STRING) {
 		*val = strtol(item->child->text, &end, 16);
 	} else {
-		printf("Warning: Label <%s> has bad type %d in fabric configuration file\n",
+		warning("Label <%s> has bad type %d in fabric configuration file",
 		       label, item->child->type);
 		return 0;
 	}
 
 	if (end[0] != '\0') {
-		printf("Warning: Label <%s> value bad format in fabric configuration file\n", label);
+		warning("Label <%s> value bad format in fabric configuration file", label);
 		*val = -1;
 		return 0;
 	}
@@ -97,7 +97,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
 
 	if (!(item && item->child)) {
 		if (!opt)
-			printf("Warning: Label <%s> not found in fabric configuration file\n", label);
+			warning("Label <%s> not found in fabric configuration file", label);
 
 		return 0;
 	}
@@ -106,7 +106,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
 		strncpy(val, item->child->text, len);
 		val[len - 1] = '\0';
 	} else {
-		printf("Warning: Label <%s> has bad type %d in fabric configuration file\n",
+		warning("Label <%s> has bad type %d in fabric configuration file",
 		       label, item->child->type);
 		return 0;
 	}
@@ -122,32 +122,32 @@ static int parse_json(json_t *root)
 	fab = json_find_first_label(root, "fabric");
 
 	if (!fab) {
-		printf("Error: Label <fabric> not found in fabric configuration file\n");
+		error("Label <fabric> not found in fabric configuration file");
 		goto out1;
 	}
 
 	if (!parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0)) {
-		printf("Error: Label <x-size> not found in fabric configuration file\n");
+		error("Label <x-size> not found in fabric configuration file");
 		goto out1;
 	}
 
 	if (!parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0)) {
-		printf("Error: Label <y-size> not found in fabric configuration file\n");
+		error("Label <y-size> not found in fabric configuration file");
 		goto out1;
 	}
 
 	if (!parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)) {
-		printf("Error: Label <z-size> not found in fabric configuration file\n");
+		error("Label <z-size> not found in fabric configuration file");
 		goto out1;
 	}
 
-	if (!parse_json_bool(fab->child, "strict", &cfg_fabric.strict, 0))
+	if (!parse_json_bool(fab->child, "strict", &cfg_fabric.strict, 1))
 		cfg_fabric.strict = 0;
 
 	list = json_find_first_label(fab->child, "nodes");
 
 	if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-		printf("Error: Label <nodes> not found in fabric configuration file\n");
+		error("Label <nodes> not found in fabric configuration file");
 		goto out1;
 	}
 
@@ -165,12 +165,12 @@ static int parse_json(json_t *root)
 		}
 
 		if (!parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0)) {
-			printf("Error: Label <sciid> not found in fabric configuration file\n");
+			error("Label <sciid> not found in fabric configuration file");
 			goto out2;
 		}
 
 		if (!parse_json_num(obj, "partition", &cfg_nodelist[i].partition, 0)) {
-			printf("Error: Label <partition> not found in fabric configuration file\n");
+			error("Label <partition> not found in fabric configuration file");
 			goto out2;
 		}
 
@@ -179,7 +179,7 @@ static int parse_json(json_t *root)
 			cfg_nodelist[i].osc = 0;
 
 		if (!parse_json_str(obj, "desc", cfg_nodelist[i].desc, 32, 0)) {
-			printf("Error: Label <desc> not found in fabric configuration file\n");
+			error("Label <desc> not found in fabric configuration file");
 			goto out2;
 		}
 
@@ -195,7 +195,7 @@ static int parse_json(json_t *root)
 	list = json_find_first_label(fab->child, "partitions");
 
 	if (!(list && list->child && list->child->type == JSON_ARRAY)) {
-		printf("Error: Label <partitions> not found in fabric configuration file\n");
+		error("Label <partitions> not found in fabric configuration file");
 		free(cfg_nodelist);
 		return 0;
 	}
@@ -208,12 +208,12 @@ static int parse_json(json_t *root)
 
 	for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
 		if (!parse_json_num(obj, "master", &cfg_partlist[i].master, 0)) {
-			printf("Error: Label <master> not found in fabric configuration file\n");
+			error("Label <master> not found in fabric configuration file");
 			goto out3;
 		}
 
 		if (!parse_json_num(obj, "builder", &cfg_partlist[i].builder, 0)) {
-			printf("Error: Label <builder> not found in fabric configuration file\n");
+			error("Label <builder> not found in fabric configuration file");
 			goto out3;
 		}
 	}
@@ -252,10 +252,10 @@ int parse_config_file(char *data)
 
 	err = json_parse_document(&root, data);
 	if (err != JSON_OK)
-		fatal("%s when parsing fabric configuration\n", json_errors[err]);
+		fatal("%s when parsing fabric configuration", json_errors[err]);
 
 	if (!parse_json(root)) {
-		printf("Error: Parsing fabric configuration root failed\n");
+		error("Parsing fabric configuration root failed");
 		json_free_value(&root);
 		return 0;
 	}
@@ -305,7 +305,7 @@ struct node_info *get_node_config(uint32_t uuid) {
 		if (config_local(&cfg_nodelist[i], uuid))
 			return &cfg_nodelist[i];
 
-	printf("Error: Failed to find node config (hostname %s)\n", hostname ? hostname : "<none>");
+	error("Failed to find node config (hostname %s)", hostname ? hostname : "<none>");
 	return NULL;
 }
 

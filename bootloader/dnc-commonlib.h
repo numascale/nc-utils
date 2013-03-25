@@ -25,22 +25,51 @@
 
 #define cpu_relax() asm volatile("pause" ::: "memory")
 
+#define COL_DEFAULT   "\033[0m"
+#define COL_RED       "\033[31m"
+#define COL_YELLOW    "\033[33m"
+#define BANNER        "\033\143\033[1m\033[37m"
+
 #define assert(cond) do { if (!(cond)) {				\
-	printf("\nError: assertion '%s' failed in %s at %s:%d\n",	\
+	printf(COL_RED "Error: assertion '%s' failed in %s at %s:%d\n",	\
 	    #cond, __FUNCTION__, __FILE__, __LINE__);			\
+	printf(COL_DEFAULT);					\
 	while (1) cpu_relax();						\
     } } while (0)
 
 #define assertf(cond, format, ...) do { if (!(cond)) {			\
-	printf("\nError: ");						\
+	printf(COL_RED "Error: ");						\
 	printf(format, __VA_ARGS__);					\
+	printf(COL_DEFAULT);					\
 	while (1) cpu_relax();						\
     } } while(0)
 
 #define fatal(format, args...) do {						\
-	printf("\nError: ");						\
+	printf(COL_RED "Error: ");						\
 	printf(format, ## args);					\
+	printf(COL_DEFAULT);					\
 	while (1) cpu_relax();						\
+   } while (0)
+
+#define fatal_reboot(format, args...) do {						\
+	printf(COL_RED "Error: ");						\
+	printf(format, ## args);					\
+	printf("; rebooting in 15s...");		\
+	printf(COL_DEFAULT);					\
+	udelay(15000000);						\
+	reset_cf9(0xa, 0);						\
+   } while (0)
+
+#define warning(format, args...) do {						\
+	printf(COL_YELLOW "Warning: ");						\
+	printf(format, ## args);					\
+	printf(COL_DEFAULT "\n");					\
+   } while (0)
+
+#define error(format, args...) do {						\
+	printf(COL_RED "Error: ");						\
+	printf(format, ## args);					\
+	printf("\n");					\
    } while (0)
 
 #ifdef __i386__

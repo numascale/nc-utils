@@ -282,7 +282,7 @@ static int install_e820_handler(void)
 	*REL32(old_int15_vec) = int_vecs[0x15];
 
 	if (last_32b < 0) {
-		printf("Error: Unable to allocate room for ACPI tables\n");
+		error("Unable to allocate room for ACPI tables");
 		return 0;
     }
 
@@ -1112,7 +1112,7 @@ static void renumber_remote_bsp(const uint16_t num)
 	for (i = 0; i < maxnode; i++) {
 		val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x0);
 		if ((val != 0x12001022) && (val != 0x16001022)) {
-			printf("Error: F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x\n",
+			error("F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x",
 			       val, node, i);
 			return;
 		}
@@ -1201,7 +1201,7 @@ static void renumber_remote_bsp(const uint16_t num)
 		val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x00);
 
 		if ((val != 0x12001022) && (val != 0x16001022)) {
-			printf("Error: F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x\n",
+			error("F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x",
 			       i, val, node);
 			return;
 		}
@@ -1803,7 +1803,7 @@ static void setup_local_mmio_maps(void)
 			for (j = 0; j < next; j++) {
 				if (((curbase < base[j]) && (curlim > base[j])) ||
 				    ((curbase < lim[j])  && (curlim > lim[j]))) {
-					printf("Error: MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)\n",
+					error("MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)",
 					       i, curbase, curlim, j, base[j], lim[j]);
 					return;
 				}
@@ -1836,7 +1836,7 @@ static void setup_local_mmio_maps(void)
 					} else {
 						/* Enclosed region */
 						if (next >= 8) {
-							printf("Error: Ran out of MMIO regions trying to place #%d (%x-%x)\n",
+							error("Ran out of MMIO regions trying to place #%d (%x-%x)",
 							       i, curbase, curlim);
 							return;
 						}
@@ -1858,7 +1858,7 @@ static void setup_local_mmio_maps(void)
 			if (found) {
 				if (!placed) {
 					if (next >= 8) {
-						printf("Error: Ran out of MMIO regions trying to place #%d (%x-%x)\n",
+						error("Ran out of MMIO regions trying to place #%d (%x-%x)",
 						       i, curbase, curlim);
 						return;
 					}
@@ -1869,7 +1869,7 @@ static void setup_local_mmio_maps(void)
 					next++;
 				}
 			} else {
-				printf("Error: Enclosing window not found for MMIO range #%d (%x-%x)\n",
+				error("Enclosing window not found for MMIO range #%d (%x-%x)",
 				       i, curbase, curlim);
 				return;
 			}
@@ -1890,10 +1890,7 @@ static int read_file(const char *filename, void *buf, int bufsz)
 	static com32sys_t inargs, outargs;
 	int fd, len, bsize, blocks;
 
-	if (bufsz < (int)(strlen(filename) + 1)) {
-		printf("Error: Buffer of %d bytes too small\n", bufsz);
-		return -1;
-	}
+	assert(bufsz >= ((int)(strlen(filename) + 1)));
 
 	printf("Trying to open %s....", filename);
 	strcpy(buf, filename);
@@ -1906,12 +1903,12 @@ static int read_file(const char *filename, void *buf, int bufsz)
 	bsize = outargs.ecx.w[0];
 
 	if (fd == 0 || len < 0) {
-		printf("Error: File not found\n");
+		error("File not found");
 		return -1;
 	}
 
 	if ((len + 1) > bufsz) {
-		printf("Error: File to large at %d bytes\n", len);
+		error("File to large at %d bytes", len);
 		return -1;
 	}
 
@@ -1966,14 +1963,9 @@ static int convert_buf_uint16_t(char *src, uint16_t *dst, int max_offset)
 	for (b = strtok(src, " \n"); b != NULL && offs < max_offset; b = strtok(NULL, "\n")) {
 		if (b[0] == '@') {
 			offs = strtol(&b[1], NULL, 16);
-
-			if (offs >= max_offset) {
-				printf("Error: Value too large converting offset %s\n", b);
-				return -1;
-			}
-		} else {
+			assert(offs < max_offset);
+		} else
 			dst[offs++] = strtol(b, NULL, 16);
-		}
 	}
 
 	return offs - 1;
@@ -2076,7 +2068,7 @@ int read_config_file(char *file_name)
 	config_len = read_file(file_name, __com32.cs_bounce, __com32.cs_bounce_size);
 
 	if (config_len < 0) {
-		printf("Error: Fabric configuration file <%s> not found\n", file_name);
+		error("Fabric configuration file <%s> not found", file_name);
 		return -1;
 	}
 
@@ -2654,14 +2646,14 @@ static int unify_all_nodes(void)
 			if (!model_first)
 				model_first = model;
 			else if (model != model_first) {
-				printf("Error: SCI%03x (%s) has varying processor models 0x%08x and 0x%08x\n",
+				error("SCI%03x (%s) has varying processor models 0x%08x and 0x%08x",
 					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id), model_first, model);
 				abort = 1;
 			}
 
 			/* 6200/4200 processors lack the HT lock mechanism, so abort */
 			if ((family >> 8) == 0x1501) {
-				printf("Error: SCI%03x (%s) has incompatible 6200/4200 processors; please use 6300/4300 or later\n",
+				error("SCI%03x (%s) has incompatible 6200/4200 processors; please use 6300/4300 or later",
 					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
 				abort = 1;
 			}
@@ -2670,7 +2662,7 @@ static int unify_all_nodes(void)
 				uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24 + i, FUNC2_DRAM, 0x118);
 
 				if (val & (1 << 19)) {
-					printf("Error: SCI%03x (%s) has CState C6 enabled in the BIOS\n",
+					error("SCI%03x (%s) has CState C6 enabled in the BIOS",
 					       nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
 					abort = 1;
 				}
@@ -2895,7 +2887,7 @@ static int check_api_version(void)
 	printf("Detected SYSLINUX API version %d.%02d\n", major, minor);
 
 	if ((major * 100 + minor) < 372) {
-		printf("Error: SYSLINUX API version >= 3.72 is required\n");
+		error("SYSLINUX API version >= 3.72 is required");
 		return -1;
 	}
 
@@ -3234,7 +3226,7 @@ int main(void)
 {
 	int ret;
 	openconsole(&dev_rawcon_r, &dev_stdcon_w);
-	printf("*** NumaConnect system unification module " VER " ***\n");
+	printf(BANNER "NumaConnect system unification module " VER COL_DEFAULT "\n");
 
 	/* Enable CF8 extended access for first Northbridge; we do others for Linux later */
 	set_cf8extcfg_enable(0);
@@ -3243,9 +3235,8 @@ int main(void)
 	set_wrap32_disable();
 
 	ret = nc_start();
-
 	if (ret < 0) {
-		printf("Error: nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
+		error("nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
 		wait_key();
 	}
 
