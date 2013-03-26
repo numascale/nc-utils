@@ -3198,7 +3198,8 @@ static int nc_start(void)
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 		} while (!(val & (1 << 31)));
 
-		printf("\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'\n",
+		printf("\n\n");
+		printf(BANNER "This server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'",
 		       info->desc, cfg_nodes, get_master_name(part->master));
 
 		disable_smi();
