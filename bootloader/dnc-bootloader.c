@@ -1441,8 +1441,12 @@ static void dram_range_print(const uint16_t sci, const int ht, const int range)
 
 static void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
 {
+	assert(dest < 8);
 	assert(range < 8);
 	assert((dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) == 0);
+
+	if (verbose)
+		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x towards %d\n", sci, ht, range, base, limit, dest);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
@@ -2703,7 +2707,10 @@ static int unify_all_nodes(void)
 	for (i = 0; i < dnc_master_ht_id; i++) {
 		assert(cht_read_conf(i, FUNC1_MAPS, 0x78) == 0);
 		int range = dram_range_unused(0xfff0, i);
-		dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
+
+		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
+		if (nc_node[1].dram_base > nc_node[0].dram_base)
+			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
 	}
 
 	if (verbose > 0) {
