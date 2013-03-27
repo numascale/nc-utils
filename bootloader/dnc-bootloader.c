@@ -37,6 +37,7 @@
 #include "dnc-masterlib.h"
 #include "dnc-devices.h"
 #include "dnc-mmio.h"
+#include "dnc-escrow.h"
 #include "dnc-version.h"
 
 #include "hw-config.h"
@@ -486,7 +487,7 @@ static void update_acpi_tables(void)
 	acpi_sdt_p apic = (void *)tables_relocated + 8192;
 	memcpy(apic, oapic, oapic->len);
 	memcpy(apic->oemid, "NUMASC", 6);
-	apic->len = 44;
+	apic->len = offsetof(struct acpi_sdt, data) + 8; /* Count 'Local Interrupt Controller' and 'Flags' fields */
 
 	/* Apply enable mask to existing APICs, find first unused ACPI ProcessorId */
 	pnum = 0;
@@ -556,7 +557,6 @@ static void update_acpi_tables(void)
 		fatal("No room for SLIT table\n");
 
 	memcpy(slit->sig.s, "SLIT", 4);
-	slit->len = 0;
 	slit->revision = ACPI_REV;
 	memcpy(slit->oemid, "NUMASC", 6);
 	memcpy(slit->oemtableid, "N313NUMA", 8);
@@ -691,7 +691,7 @@ static void update_acpi_tables(void)
 
 	memset(mcfg, 0, sizeof(*mcfg) + 8);
 	memcpy(mcfg->sig.s, "MCFG", 4);
-	mcfg->len = 44;
+	mcfg->len = offsetof(struct acpi_sdt, data) + 8 ; /* Count 'reserved' field */
 	mcfg->revision = ACPI_REV;
 	memcpy(mcfg->oemid, "NUMASC", 6);
 	memcpy(mcfg->oemtableid, "N313NUMA", 8);
@@ -725,14 +725,13 @@ static void update_acpi_tables(void)
 
 	memset(oemn, 0, sizeof(*oemn) + 8);
 	memcpy(oemn->sig.s, "OEMN", 4);
-	oemn->len = 44;
 	oemn->revision = ACPI_REV;
 	memcpy(oemn->oemid, "NUMASC", 6);
 	memcpy(oemn->oemtableid, "N313NUMA", 8);
 	oemn->oemrev = 0;
 	memcpy(oemn->creatorid, "1B47", 4);
 	oemn->creatorrev = 1;
-	/* XXX: No Data yet */
+	oemn->len = offsetof(struct acpi_sdt, data) + escrow_populate(oemn->data);
 	oemn->checksum = -checksum(oemn, oemn->len);
 
 	if (rsdt) add_child(oemn, rsdt, 4);
@@ -752,7 +751,6 @@ static void update_acpi_tables(void)
 
 				memset(ssdt, 0, sizeof(*ssdt) + 8);
 				memcpy(ssdt->sig.s, "SSDT", 4);
-				ssdt->len = 44;
 				ssdt->revision = ACPI_REV;
 				memcpy(ssdt->oemid, "NUMASC", 6);
 				memcpy(ssdt->oemtableid, "N313NUMA", 8);
@@ -760,7 +758,7 @@ static void update_acpi_tables(void)
 				memcpy(ssdt->creatorid, "1B47", 4);
 				ssdt->creatorrev = 1;
 				memcpy(ssdt->data, extra, extra_len);
-				ssdt->len += extra_len;
+				ssdt->len = offsetof(struct acpi_sdt, data) + extra_len;
 				ssdt->checksum = -checksum(ssdt, ssdt->len);
 				bool failed = 0;
 
