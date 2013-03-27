@@ -28,19 +28,16 @@
 #define ID_BOOTLOG   3
 
 struct ent_global {
-	unsigned int numachip_major : 4;
-	unsigned int numachip_minor : 4;
-	uint8_t escrow_ver;
+	unsigned int numachip_rev : 4;
 	unsigned int size_x : 4;
 	unsigned int size_y : 4;
 	unsigned int size_z : 4;
-	bool symmetric;
-	bool renumbering;
-	unsigned int limit_ht : 3;
-	unsigned int numachip_ht : 3;
+	unsigned int northbridges : 3;
 	unsigned int neigh_ht : 3;
 	unsigned int neigh_link : 2;
-};
+	unsigned int symmetric : 1;
+	unsigned int renumbering : 1;
+} __attribute__((packed));
 
 struct ent_external {
 	uint8_t id;
@@ -48,13 +45,13 @@ struct ent_external {
 	uint64_t base : 48;
 	uint16_t reserved;
 	uint64_t limit : 48;	
-};
+} __attribute__((packed));
 
 union escrow_ent {
 	uint8_t id;
 	struct ent_global global;
 	struct ent_external external;
-};
+} __attribute__((packed));
 
 extern int escrow_populate(void *data);
 

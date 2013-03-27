@@ -18,6 +18,7 @@
 #include "dnc-escrow.h"
 #include "dnc-config.h"
 #include "dnc-commonlib.h"
+#include "dnc-bootloader.h"
 
 #include <stdio.h>
 
@@ -26,18 +27,17 @@ int escrow_populate(void *data)
 	union escrow_ent *start = data;
 	union escrow_ent *cur = start;
 
-	cur->global.numachip_major = 1;
-	cur->global.numachip_minor = dnc_chip_rev;
-	cur->global.escrow_ver = 0;
-	cur->global.size_x = cfg_fabric.x_size;
-	cur->global.size_y = cfg_fabric.y_size;
-	cur->global.size_z = cfg_fabric.z_size;
-	cur->global.symmetric = 1;
-	cur->global.renumbering = renumber_bsp;
-	cur->global.neigh_ht = nc_neigh;
-	cur->global.neigh_link = nc_neigh_link;
+	cur->global.numachip_rev = dnc_chip_rev;
+	cur->global.size_x       = cfg_fabric.x_size;
+	cur->global.size_y       = cfg_fabric.y_size;
+	cur->global.size_z       = cfg_fabric.z_size;
+	cur->global.northbridges = nc_node[0].nc_ht_id;
+	cur->global.neigh_ht     = nc_neigh;
+	cur->global.neigh_link   = nc_neigh_link;
+	cur->global.symmetric    = 1;
+	cur->global.renumbering  = !nc_node[1].ht[0].cpuid;
 	cur++;
-	
+
 	return (cur - start) * sizeof(cur[0]);
 }
 
