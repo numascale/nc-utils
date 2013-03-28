@@ -637,7 +637,7 @@ static void reorganize_mmio(int nc)
 	uint64_t mmio_start;
 	uint64_t base, lim;
 	int i;
-	tom = dnc_rdmsr(MSR_TOPMEM);
+	tom = rdmsr(MSR_TOPMEM);
 	mmio_start = ~0;
 	printf("MSR_TOPMEM : %llx\n", tom);
 
@@ -1124,7 +1124,7 @@ void wake_core_local(const int apicid, const int vector)
 {
 	assert(apicid < 0xff);
 
-	uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
+	uint64_t val = rdmsr(MSR_APIC_BAR);
 	volatile uint32_t *const apic = (void * const)((uint32_t)val & ~0xfff);
 	volatile uint32_t *const icr = &apic[0x300 / 4];
 
@@ -1216,15 +1216,15 @@ void enable_probefilter(const int nodes)
 
 	/* 3. Ensure CD bit is shared amongst cores */
 	if (family >= 0x15) {
-		val6 = dnc_rdmsr(MSR_CU_CFG3);
-		dnc_wrmsr(MSR_CU_CFG3, val6 | (1ULL << 49));
+		val6 = rdmsr(MSR_CU_CFG3);
+		wrmsr(MSR_CU_CFG3, val6 | (1ULL << 49));
 	}
 
 	/* 4.  Issue WBINVD on all active cores in the system */
 	disable_cache();
 	/* 5. Enable Probe Filter support */
-	val6 = dnc_rdmsr(MSR_CU_CFG2);
-	dnc_wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
+	val6 = rdmsr(MSR_CU_CFG2);
+	wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
 
 	if (family >= 0x15)
 		wake_cores_local(VECTOR_PROBEFILTER_EARLY_f15);
@@ -1528,7 +1528,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	int dnc_ht_id;
 
 	/* Ensure SMIs are invoked when accessing config space */
-	assert(!dnc_rdmsr(MSR_TRAP_CTL));
+	assert(!rdmsr(MSR_TRAP_CTL));
 
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	dnc_ht_id = (val >> 4) & 7;
@@ -2313,7 +2313,7 @@ static void dump_northbridge_regs(int ht_id)
 	uint32_t msr;
 
 	for (offset = 0; (msr = get_msr(offset)) != 0xffffffff; offset++)
-		printf("MSR 0x%08x: %016" PRIx64 "\n", msr, dnc_rdmsr(msr));
+		printf("MSR 0x%08x: %016" PRIx64 "\n", msr, rdmsr(msr));
 }
 
 void selftest_late_msrs(void)
@@ -2324,7 +2324,7 @@ void selftest_late_msrs(void)
 
 	for (offset = 0; (msr = get_msr(offset)) != 0xffffffff; offset++) {
 		bool printed = false;
-		uint64_t val0 = dnc_rdmsr(msr);
+		uint64_t val0 = rdmsr(msr);
 
 		for (int node = 0; node < dnc_node_count; node++) {
 			for (int ht = 0; ht < 8; ht++) {

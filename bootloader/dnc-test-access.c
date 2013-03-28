@@ -295,7 +295,7 @@ void pmio_clearl(uint16_t offset, uint32_t val)
 {
 }
 
-uint64_t dnc_rdmsr(uint32_t msr)
+uint64_t rdmsr(uint32_t msr)
 {
 	int fd;
 	uint64_t val;
@@ -317,7 +317,7 @@ uint64_t dnc_rdmsr(uint32_t msr)
 }
 
 
-void dnc_wrmsr(uint32_t msr, uint64_t v)
+void wrmsr(uint32_t msr, uint64_t v)
 {
 	int fd;
 	fd = open("/dev/cpu/0/msr", O_RDWR);
@@ -347,19 +347,19 @@ void dnc_wrmsr(uint32_t msr, uint64_t v)
 int main(int argc, char **argv)
 {
 	uint64_t val;
-	val = dnc_rdmsr(MSR_MTRR_DEFAULT_MTYPE);
+	val = rdmsr(MSR_MTRR_DEFAULT_MTYPE);
 	printf("MTRR_DEFAULT_MTYPE : %llx\n", val);
-	val = dnc_rdmsr(MSR_IORR_BASE0);
+	val = rdmsr(MSR_IORR_BASE0);
 	printf("MSR_IORR_BASE0 : %llx\n", val);
-	val = dnc_rdmsr(MSR_IORR_BASE1);
+	val = rdmsr(MSR_IORR_BASE1);
 	printf("MSR_IORR_BASE1 : %llx\n", val);
-	val = dnc_rdmsr(MSR_IORR_MASK0);
+	val = rdmsr(MSR_IORR_MASK0);
 	printf("MSR_IORR_MASK0 : %llx\n", val);
-	val = dnc_rdmsr(MSR_IORR_MASK1);
+	val = rdmsr(MSR_IORR_MASK1);
 	printf("MSR_IORR_MASK1 : %llx\n", val);
-	val = dnc_rdmsr(MSR_TOPMEM);
+	val = rdmsr(MSR_TOPMEM);
 	printf("MSR_TOPMEM : %llx\n", val);
-	val = dnc_rdmsr(MSR_TOPMEM2);
+	val = rdmsr(MSR_TOPMEM2);
 	printf("MSR_TOPMEM2 : %llx\n", val);
 	return 0;
 }
