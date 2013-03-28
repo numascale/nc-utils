@@ -43,15 +43,16 @@
 #define MSR_TOPMEM      0xc001001a
 #define MSR_TOPMEM2     0xc001001d
 #define MSR_NB_CFG      0xc001001f
+#define MSR_MCE_REDIR	0xc0010022
 #define MSR_INT_HALT    0xc0010055
 #define MSR_MCFG_BASE   0xc0010058
+#define MSR_TRAP_CTL	0xc0010059
 #define MSR_CPUWDT	0xc0010074
 #define MSR_SMM_BASE    0xc0010111
 #define MSR_OSVW_ID_LEN 0xc0010140
 #define MSR_OSVW_STATUS 0xc0010141
 #define MSR_NODE_ID     0xc001100c
 #define MSR_LSCFG       0xc0011020
-#define MSR_MCE_REDIR	0xc0010022
 #define MSR_CU_CFG2     0xc001102a
 #define MSR_CU_CFG3	0xc001102b
 

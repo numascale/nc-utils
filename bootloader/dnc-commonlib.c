@@ -1527,6 +1527,9 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	uint8_t node;
 	int dnc_ht_id;
 
+	/* Ensure SMIs are invoked when accessing config space */
+	assert(!dnc_rdmsr(MSR_TRAP_CTL));
+
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	dnc_ht_id = (val >> 4) & 7;
 	val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
