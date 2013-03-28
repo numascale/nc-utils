@@ -74,7 +74,7 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 
 $(mjson_dir)/src/json.o: $(mjson_dir)/src/json.c
 
-dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-route.h dnc-acpi.h dnc-config.h dnc-fabric.h dnc-monitor.h dnc-escrow.h dnc-trace.h hw-config.h dnc-bootloader.h dnc-defs.h dnc-masterlib.h dnc-regs.h dnc-access.c dnc-commonlib.c dnc-fabric.c dnc-monitor.c dnc-escrow.c dnc-trace.c test-slavenode.c dnc-acpi.c dnc-config.c dnc-masterlib.c dnc-route.c gen-ucode.c test-masternode.c dnc-bootloader.c dnc-dimmtest.c dnc-devices.c dnc-mmio.c dnc-test-access.c test-routing.c
+dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-route.h dnc-acpi.h dnc-config.h dnc-fabric.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-bootloader.h dnc-defs.h dnc-masterlib.h dnc-regs.h dnc-access.c dnc-commonlib.c dnc-fabric.c dnc-monitor.c dnc-escrow.c dnc-trace.c test-slavenode.c dnc-acpi.c dnc-config.c dnc-masterlib.c dnc-route.c gen-ucode.c test-masternode.c dnc-bootloader.c dnc-dimmtest.c dnc-devices.c dnc-mmio.c dnc-test-access.c test-routing.c
 	@echo \#define VER \"`git describe --always`\" >dnc-version.h
 
 dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-dimmtest.o dnc-devices.o dnc-monitor.o dnc-escrow.o dnc-trace.o dnc-masterlib.o dnc-mmio.o \
@@ -83,9 +83,9 @@ dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-dimmtest.o dnc-devices.
 
 dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-regs.h \
 	dnc-fabric.h dnc-access.h dnc-route.h dnc-acpi.h dnc-aml.h dnc-config.h dnc-version.h \
-	dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-masterlib.h dnc-mmio.h hw-config.h
+	dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-masterlib.h dnc-mmio.h
 
-dnc-e820-handler.o: hw-config.h dnc-defs.h
+dnc-e820-handler.o: dnc-defs.h
 
 dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-access.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h ../interface/mctr_define_register_C.h
 
@@ -93,7 +93,7 @@ dnc-dimmtest.o: dnc-dimmtest.c dnc-commonlib.h dnc-access.h ../interface/mctr_de
 
 dnc-config.o: dnc-config.c dnc-config.h $(mjson_dir)/src/json.h
 
-dnc-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
+dnc-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-masterlib.h dnc-mmio.h dnc-access.h
 
 dnc-mmio.o: dnc-mmio.c dnc-mmio.h
 
@@ -152,7 +152,7 @@ test-json.o: $(mjson_dir)/src/json.c
 dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
 	$(CC) $(COPT) -c $< -o $@
 
-dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-masterlib.h dnc-mmio.h hw-config.h dnc-access.h
+dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-masterlib.h dnc-mmio.h dnc-access.h
 	$(CC) $(COPT) -c $< -o $@
 
 dnc-test-mmio.o: dnc-mmio.c $(UCODEDEPS) dnc-mmio.h

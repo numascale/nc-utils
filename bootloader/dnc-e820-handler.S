@@ -15,9 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "hw-config.h"
 #include "dnc-defs.h"
 
+#define DEBUG_TRAMP 0
 #define EXPORT(sym) .global sym ## _relocate; sym ## _relocate: sym:
 #define SYM_OFFSET(sym) ((sym) - asm_relocate_start)
 #define STATUS(val) movl $val, %cs:SYM_OFFSET(cpu_status)
