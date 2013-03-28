@@ -27,7 +27,6 @@
 #include "dnc-config.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
-#include "hw-config.h"
 
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);

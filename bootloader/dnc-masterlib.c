@@ -29,8 +29,6 @@
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
-#include "hw-config.h"
-
 #include "../interface/numachip-mseq.h"
 
 void load_scc_microcode(uint16_t node)
