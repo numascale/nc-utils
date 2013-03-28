@@ -99,7 +99,7 @@ uint32_t  dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr);
 void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val);
 uint32_t  dnc_read_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg);
 void dnc_write_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg, uint32_t val);
-uint64_t dnc_rdmsr(uint32_t msr);
-void dnc_wrmsr(uint32_t msr, uint64_t v);
+uint64_t rdmsr(uint32_t msr);
+void wrmsr(uint32_t msr, uint64_t v);
 
 #endif

@@ -123,20 +123,20 @@ void set_cf8extcfg_enable(const int ht)
 
 static void set_wrap32_disable(void)
 {
-	uint64_t val = dnc_rdmsr(MSR_HWCR);
-	dnc_wrmsr(MSR_HWCR, val | (1ULL << 17));
+	uint64_t val = rdmsr(MSR_HWCR);
+	wrmsr(MSR_HWCR, val | (1ULL << 17));
 }
 
 static void set_wrap32_enable(void)
 {
-	uint64_t val = dnc_rdmsr(MSR_HWCR);
-	dnc_wrmsr(MSR_HWCR, val & ~(1ULL << 17));
+	uint64_t val = rdmsr(MSR_HWCR);
+	wrmsr(MSR_HWCR, val & ~(1ULL << 17));
 }
 
 static void clear_bsp_flag(void)
 {
-	uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
-	dnc_wrmsr(MSR_APIC_BAR, val & ~(1ULL << 8));
+	uint64_t val = rdmsr(MSR_APIC_BAR);
+	wrmsr(MSR_APIC_BAR, val & ~(1ULL << 8));
 }
 
 static void disable_xtpic(void)
@@ -427,14 +427,14 @@ static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
 static void disable_fixed_mtrrs(void)
 {
 	disable_cache();
-	dnc_wrmsr(MSR_MTRR_DEFAULT, dnc_rdmsr(MSR_MTRR_DEFAULT) & ~(1 << 10));
+	wrmsr(MSR_MTRR_DEFAULT, rdmsr(MSR_MTRR_DEFAULT) & ~(1 << 10));
 	enable_cache();
 }
 
 static void enable_fixed_mtrrs(void)
 {
 	disable_cache();
-	dnc_wrmsr(MSR_MTRR_DEFAULT, dnc_rdmsr(MSR_MTRR_DEFAULT) | (1 << 10));
+	wrmsr(MSR_MTRR_DEFAULT, rdmsr(MSR_MTRR_DEFAULT) | (1 << 10));
 	enable_cache();
 }
 
@@ -1013,7 +1013,7 @@ static void setup_other_cores(void)
 	printf("Setting SCI%03x H2S_Init...\n", node);
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 12));
-	msr = dnc_rdmsr(MSR_APIC_BAR);
+	msr = rdmsr(MSR_APIC_BAR);
 	printf("MSR APIC_BAR: %012llx\n", msr);
 	apic = (void *)((uint32_t)msr & ~0xfff);
 	icr = &apic[0x300 / 4];
@@ -1022,7 +1022,7 @@ static void setup_other_cores(void)
 
 	/* Set core watchdog timer to 21s */
 	msr = (9 << 3) | 1;
-	dnc_wrmsr(MSR_CPUWDT, msr);
+	wrmsr(MSR_CPUWDT, msr);
 	*REL64(new_cpuwdt_msr) = msr;
 
 	/* ERRATA #N28: Disable HT Lock mechanism on Fam10h
@@ -1031,19 +1031,19 @@ static void setup_other_cores(void)
 	 * but it isn't "productized" due to a very rare potential for live lock if turned on.
 	 * Given that HUGE caveat, here is the information that I got from a good source:
 	 * LSCFG[44] =1 will disable it. MSR number is C001_1020 */
-	msr = dnc_rdmsr(MSR_LSCFG);
+	msr = rdmsr(MSR_LSCFG);
 	if (family == 0x10) {
 		msr |= 1ULL << 44;
-		dnc_wrmsr(MSR_LSCFG, msr);
+		wrmsr(MSR_LSCFG, msr);
 	}
 	*REL64(new_lscfg_msr) = msr;
 
 	/* AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
 	 * Suggested Workaround: BIOS should set MSRC001_102A[27] = 1b */
-	msr = dnc_rdmsr(MSR_CU_CFG2);
+	msr = rdmsr(MSR_CU_CFG2);
 	if (family >= 0x15) {
 		msr |= 1ULL << 27;
-		dnc_wrmsr(MSR_CU_CFG2, msr);
+		wrmsr(MSR_CU_CFG2, msr);
 	}
 	*REL64(new_cucfg2_msr) = msr;
 
@@ -1545,14 +1545,14 @@ static void setup_remote_cores(const uint16_t num)
 
 	/* Check additional IO range registers */
 	for (i = 0; i < 2; i++) {
-		uint64_t qval = dnc_rdmsr(MSR_IORR_PHYS_MASK0 + i * 2);
+		uint64_t qval = rdmsr(MSR_IORR_PHYS_MASK0 + i * 2);
 
 		if (qval & (1 << 11))
-			printf("Warning: IO range 0x%llx is enabled\n", dnc_rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
+			printf("Warning: IO range 0x%llx is enabled\n", rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
 	}
 
 	/* Insert coverall MMIO maps */
-	tom = dnc_rdmsr(MSR_TOPMEM) >> 8;
+	tom = rdmsr(MSR_TOPMEM) >> 8;
 	printf("Inserting coverall MMIO maps on SCI%03x\n", node);
 
 	for (i = 0; i < 8; i++) {
@@ -1762,7 +1762,7 @@ static void setup_local_mmio_maps(void)
 	uint32_t curbase, curlim, curdst;
 	unsigned int sbnode;
 
-	tom = dnc_rdmsr(MSR_TOPMEM);
+	tom = rdmsr(MSR_TOPMEM);
 	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
 	assert(tom < 0x100000000);
 
@@ -2324,36 +2324,36 @@ void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
 	do {
 		i++;
 		assert(i < 8);
-		val = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
+		val = rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
 	} while (val);
 
 	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
 	uint64_t *mtrr_var_mask = (void *)REL64(new_mtrr_var_mask);
 
 	mtrr_var_base[i] = base | type;
-	dnc_wrmsr(MSR_MTRR_PHYS_BASE0 + i * 2, mtrr_var_base[i]);
+	wrmsr(MSR_MTRR_PHYS_BASE0 + i * 2, mtrr_var_base[i]);
 	mtrr_var_mask[i] = (((1ULL << 48) - 1) &~ (limit - base - 1)) | 0x800;
-	dnc_wrmsr(MSR_MTRR_PHYS_MASK0 + i * 2, mtrr_var_mask[i]);
+	wrmsr(MSR_MTRR_PHYS_MASK0 + i * 2, mtrr_var_mask[i]);
 }
 
 static void update_mtrr(void)
 {
 	/* Ensure Tom2ForceMemTypeWB (bit 22) is set, so memory between 4G and TOM2 is writeback */
 	uint64_t *syscfg_msr = (void *)REL64(new_syscfg_msr);
-	*syscfg_msr = dnc_rdmsr(MSR_SYSCFG) | (1 << 22);
-	dnc_wrmsr(MSR_SYSCFG, *syscfg_msr);
+	*syscfg_msr = rdmsr(MSR_SYSCFG) | (1 << 22);
+	wrmsr(MSR_SYSCFG, *syscfg_msr);
 
 	/* Ensure default memory type is uncacheable */
 	uint64_t *mtrr_default = (void *)REL64(new_mtrr_default);
 	*mtrr_default = 3 << 10;
-	dnc_wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
+	wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
 
 	/* Store fixed MTRRs */
 	uint64_t *new_mtrr_fixed = (void *)REL64(new_mtrr_fixed);
 	uint32_t *fixed_mtrr_regs = (void *)REL64(fixed_mtrr_regs);
 
 	for (int i = 0; fixed_mtrr_regs[i] != 0xffffffff; i++)
-		new_mtrr_fixed[i] = dnc_rdmsr(fixed_mtrr_regs[i]);
+		new_mtrr_fixed[i] = rdmsr(fixed_mtrr_regs[i]);
 
 	/* Store variable MTRRs */
 	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
@@ -2361,8 +2361,8 @@ static void update_mtrr(void)
 	printf("Variable MTRRs:\n");
 
 	for (int i = 0; i < 8; i++) {
-		mtrr_var_base[i] = dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
-		mtrr_var_mask[i] = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
+		mtrr_var_base[i] = rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
+		mtrr_var_mask[i] = rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
 
 		if (mtrr_var_mask[i] & 0x800ULL) {
 			printf("  [%d] base=0x%012llx, mask=0x%012llx : %s\n", i, mtrr_var_base[i] & ~0xfffULL,
@@ -2461,7 +2461,7 @@ static void local_chipset_fixup(bool master)
 		uint64_t addr;
 		int i;
 		uint32_t sreq_ctrl;
-		addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
+		addr = rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
 		addr += 0x200000000000ULL;
 		val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 		node = (val >> 16) & 0xfff;
@@ -2547,30 +2547,30 @@ static void setup_c1e_osvw(void)
 {
 	uint64_t msr;
 	/* Disable C1E in MSRs */
-	msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
-	dnc_wrmsr(MSR_HWCR, msr);
+	msr = rdmsr(MSR_HWCR) & ~(1 << 12);
+	wrmsr(MSR_HWCR, msr);
 	*REL64(new_hwcr_msr) = msr;
 	msr = 0;
-	dnc_wrmsr(MSR_INT_HALT, msr);
+	wrmsr(MSR_INT_HALT, msr);
 	*REL64(new_int_halt_msr) = msr;
 	/* Disable OS Vendor Workaround bit for errata #400, as C1E is disabled */
-	msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
+	msr = rdmsr(MSR_OSVW_ID_LEN);
 
 	if (msr < 2) {
 		/* Extend ID length to cover errata 400 status bit */
-		dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
+		wrmsr(MSR_OSVW_ID_LEN, 2);
 		*REL64(new_osvw_id_len_msr) = 2;
-		msr = dnc_rdmsr(MSR_OSVW_STATUS) & ~2;
-		dnc_wrmsr(MSR_OSVW_STATUS, msr);
+		msr = rdmsr(MSR_OSVW_STATUS) & ~2;
+		wrmsr(MSR_OSVW_STATUS, msr);
 		*REL64(new_osvw_status_msr) = msr;
 		printf("Enabled OSVW errata #400 workaround status, as C1E disabled\n");
 	} else {
 		*REL64(new_osvw_id_len_msr) = msr;
-		msr = dnc_rdmsr(MSR_OSVW_STATUS);
+		msr = rdmsr(MSR_OSVW_STATUS);
 
 		if (msr & 2) {
 			msr &= ~2;
-			dnc_wrmsr(MSR_OSVW_STATUS, msr);
+			wrmsr(MSR_OSVW_STATUS, msr);
 			printf("Cleared OSVW errata #400 bit status, as C1E disabled\n");
 		}
 
@@ -2584,34 +2584,34 @@ void setup_mc4_thresholds(void)
 	uint64_t msr;
 
 	/* Ensure MCEs aren't redirected into SMIs */
-	dnc_wrmsr(MSR_MCE_REDIR, 0);
+	wrmsr(MSR_MCE_REDIR, 0);
 
 	/* Set McStatusWrEn in HWCR first or we might get a GPF */
-	msr = dnc_rdmsr(MSR_HWCR);
+	msr = rdmsr(MSR_HWCR);
 	msr |= (1ULL << 18);
-	dnc_wrmsr(MSR_HWCR, msr);
+	wrmsr(MSR_HWCR, msr);
 	*REL64(new_hwcr_msr) = msr & ~(1ULL << 17); /* Don't let the Wrap32Dis bit follow through to other cores */
-	msr = dnc_rdmsr(MSR_HWCR);
+	msr = rdmsr(MSR_HWCR);
 
-	msr = dnc_rdmsr(MSR_MC4_MISC0);
+	msr = rdmsr(MSR_MC4_MISC0);
 	if (((msr >> 49) & 3) == 2)
 		printf("- disabling DRAM thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
 	msr &= ~((3ULL << 49) | (1ULL << 61));
-	dnc_wrmsr(MSR_MC4_MISC0, msr);
+	wrmsr(MSR_MC4_MISC0, msr);
 	*REL64(new_mc4_misc0_msr) = msr;
 
-	msr = dnc_rdmsr(MSR_MC4_MISC1);
+	msr = rdmsr(MSR_MC4_MISC1);
 	if (((msr >> 49) & 3) == 2)
 		printf("- disabling link thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
 	msr &= ~((3ULL << 49) | (1ULL << 61));
-	dnc_wrmsr(MSR_MC4_MISC1, msr);
+	wrmsr(MSR_MC4_MISC1, msr);
 	*REL64(new_mc4_misc1_msr) = msr;
 
-	msr = dnc_rdmsr(MSR_MC4_MISC2);
+	msr = rdmsr(MSR_MC4_MISC2);
 	if (((msr >> 49) & 3) == 2)
 		printf("- disabling L3 cache thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
 	msr &= ~((3ULL << 49) | (1ULL << 61));
-	dnc_wrmsr(MSR_MC4_MISC2, msr);
+	wrmsr(MSR_MC4_MISC2, msr);
 	*REL64(new_mc4_misc2_msr) = msr;
 }
 
@@ -2758,10 +2758,10 @@ static int unify_all_nodes(void)
 	scc_started = 1;
 	update_mtrr();
 	/* Set TOPMEM2 for ourselves and other cores */
-	dnc_wrmsr(MSR_TOPMEM2, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
+	wrmsr(MSR_TOPMEM2, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 	*REL64(new_topmem2_msr) = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
 	/* Harmonize TOPMEM */
-	*REL64(new_topmem_msr) = dnc_rdmsr(MSR_TOPMEM);
+	*REL64(new_topmem_msr) = rdmsr(MSR_TOPMEM);
 
 #ifdef BROKEN
 	/* Update OS visible workaround MSRs */
@@ -2791,14 +2791,14 @@ static int unify_all_nodes(void)
 	setup_local_mmio_maps();
 	setup_apic_atts();
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL;
-	dnc_wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
+	wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
 
 	/* Make chipset-specific adjustments */
 	global_chipset_fixup();
 
 	/* Must run after SCI is operational */
 	printf("BSP SMM:");
-	disable_smm_handler(dnc_rdmsr(MSR_SMM_BASE));
+	disable_smm_handler(rdmsr(MSR_SMM_BASE));
 	printf("\n");
 
 	setup_other_cores();
@@ -2991,7 +2991,7 @@ static void constants(void)
 		tsc_mhz = 200 * (((val >> 1) & 0x1f) + 4) / (1 + ((val >> 7) & 1));
 	} else {
 		uint32_t val = cht_read_conf(0, FUNC3_MISC, 0xd4);
-		uint64_t val6 = dnc_rdmsr(0xc0010071);
+		uint64_t val6 = rdmsr(0xc0010071);
 		tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
 	}
 
