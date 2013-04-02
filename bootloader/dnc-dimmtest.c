@@ -68,12 +68,12 @@ static int maint_rdmem_chk(int cdata, uint32_t addr, uint32_t chk)
 	return 0;
 }
 
-int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
+int dnc_dimmtest(const int cdata, const int testmask, struct dimm_config *const dimm)
 {
 	uint32_t reg, tempa, tempb;
 	int i, tmp_cnt;
-	int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
-	int passes = 15;
+	const int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
+	const int passes = 15;
 
 	if (dnc_asic_mode & (testmask & (1 << 0))) {
 		printf("Test 1a: MOVI(13N) BIST...");
@@ -143,9 +143,8 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 
 		if ((result & 3) != 3)
 			return -1;
-
-		printf("passed\n");
 	}
+	printf("passed\n");
 
 	if (testmask & (1 << 1)) {
 		printf("Test 2a: MAINT Memory Access incremental housenumbers at low addresses...");
@@ -158,7 +157,6 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 				error("failed during pass %d", tmp_cnt);
 				return -1;
 			}
-			printf("passed, ");
 
 			tempa++;
 			tempb += 0x11111111;
@@ -172,11 +170,11 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 				error("failed during pass %d", tmp_cnt);
 				return -1;
 			}
-			printf("passed\n");
 			tempa++;
 			tempb += 0x11111111;
 			tmp_cnt++;
 		}
+		printf("passed\n");
 
 		printf("Test 2b: MAINT Memory Access incremental address position...");
 		tmp_cnt = 0;
@@ -202,6 +200,7 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 				}
 			}
 		}
+		printf("passed\n");
 
 		tempa = 1 << (dimm->mem_size + 25);
 		tempb = 0xc396a578;
@@ -213,7 +212,6 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 				error("failed during pass %d", tmp_cnt);
 				return -1;
 			}
-			printf("passed, ");
 			tempa++;
 			tempb += 0x11111111;
 			tmp_cnt++;
@@ -226,11 +224,11 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 				error("failed during pass %d", tmp_cnt);
 				return -1;
 			}
-			printf("passed\n");
 			tempa++;
 			tempb += 0x11111111;
 			tmp_cnt++;
 		}
+		printf("passed\n");
 	}
 
 	if (testmask & (1 << 2)) {
@@ -246,9 +244,9 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 				error("failed during pass %d", tmp_cnt);
 				return -1;
 			}
-			printf("passed\n");
 			tmp_cnt++;
 		}
+		printf("passed\n");
 	}
 
 	return 0;
