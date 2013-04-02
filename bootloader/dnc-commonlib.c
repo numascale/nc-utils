@@ -395,6 +395,31 @@ static int dnc_initialize_sram(void)
 	return 0;
 }
 
+static void dnc_dram_initialise(void)
+{
+	int cdata;
+	uint32_t val;
+
+	printf("Initialising DIMMs...");
+	for (cdata = 0; cdata < 2; cdata++) {
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
+		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
+	}
+
+	for (cdata = 0; cdata < 2; cdata++) {
+		do {
+			udelay(100);
+			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
+		} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
+
+		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
+	}
+	printf("done\n");
+}
+
 int dnc_init_caches(void)
 {
 	uint32_t val;
@@ -402,7 +427,6 @@ int dnc_init_caches(void)
 
 	for (cdata = 0; cdata < 2; cdata++) {
 		const char *name = cdata ? "CData" : "MCTag";
-		int mem_size = dimms[cdata].mem_size;
 
 		if (!dnc_asic_mode) {
 			/* On FPGA, just check that the phy is initialized */
@@ -452,7 +476,7 @@ int dnc_init_caches(void)
 		}
 
 		if ((dnc_asic_mode && dnc_chip_rev >= 2) || !dnc_asic_mode) {
-			int tmp = mem_size;
+			int tmp = dimms[cdata].mem_size;
 
 			/* New RevC MCTag setting for supporting larger local memory */
 			if (!cdata) {
@@ -491,8 +515,8 @@ int dnc_init_caches(void)
 			              (val & ~7) | (1 << 12) | ((tmp & 7) << 4)); /* DRAM_AVAILABLE, MEMSIZE[2:0] */
 		} else { /* Older than Rev2 */
 			/* On Rev1 and older there's a direct relationship between the MTag size and RCache size */
-			if (cdata && mem_size == 0) {
-				error("Unsupported CData size of %dGB", (1 << mem_size));
+			if (cdata && dimms[cdata].mem_size == 0) {
+				error("Unsupported CData size of %dGB", (1 << dimms[cdata].mem_size));
 				return -1;
 			}
 
@@ -505,62 +529,28 @@ int dnc_init_caches(void)
 
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
-			              (val & ~7) | (1 << 12) | (1 << 7) | ((mem_size & 7) << 4)); /* DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0] */
-		}
-
-		/* Initialize DRAM */
-		printf("Initializing %dGB %s...\n", 1 << mem_size, name);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
-		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
-
-		do {
-			udelay(100);
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
-		} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
-
-		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
-
-		if (dimmtest != 0) {
-			/* Do DRAM test */
-			if (dnc_dimmtest(cdata, dimmtest, &dimms[cdata]) < 0)
-				ret = -1;
-
-			/* Check what the interrupt bits say, if we get ECC errors, correctable or not; Abort */
-			val = dnc_check_mctr_status(cdata);
-			if (val & 0x03c)
-				ret = -1;
-
-			/* AOK, re-initialize DRAM after test */
-			printf("Re-initializing %dGB %s...\n", 1 << mem_size, name);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
-
-			do {
-				udelay(100);
-				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
-			} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
-
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
-		}
-
-		if (cdata) {
-			printf("Setting RCache size to %dGB\n", 1 << mem_size);
-			/* Set the cache size in HReq and MIU */
-			val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-			dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3 << 26)) | ((mem_size - 1) << 26)); /* [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB */
-			dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, mem_size + 1); /* ((2 ^ (N - 1)) * 1GB) */
+			              (val & ~7) | (1 << 12) | (1 << 7) | ((dimms[cdata].mem_size & 7) << 4)); /* DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0] */
 		}
 	}
 
-	/* If ret is different from zero here, it means we should stop */
-	if (ret != 0)
-		return ret;
+	dnc_dram_initialise();
+
+	if (dimmtest) {
+		for (cdata = 0; cdata < 2; cdata++) {
+			dnc_dimmtest(cdata, dimmtest, &dimms[cdata]);
+
+			val = dnc_check_mctr_status(cdata);
+			assertf(!(val & 0x03c), "ECC errors detected in DIMM %d", cdata);
+		}
+
+		dnc_dram_initialise();
+	}
+
+	printf("Setting RCache size to %dGB\n", 1 << dimms[1].mem_size);
+	/* Set the cache size in HReq and MIU */
+	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3 << 26)) | ((dimms[1].mem_size - 1) << 26)); /* [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, dimms[1].mem_size + 1); /* ((2 ^ (N - 1)) * 1GB) */
 
 	/* Initialize SRAM */
 	if (!dnc_asic_mode) { /* Special FPGA considerations for Ftag SRAM */
