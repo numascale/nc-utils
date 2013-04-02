@@ -66,7 +66,7 @@ uint32_t tsc_mhz = 0;
 uint32_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
-static int dimmtest = 0;
+static int dimmtest = 6;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 0;
 bool workaround_locks = 0;
