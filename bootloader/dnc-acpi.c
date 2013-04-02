@@ -408,7 +408,7 @@ static void debug_acpi_apic(acpi_sdt_p apic)
 			printf("\n");
 
 		if (lapic->len == 0) {
-			printf("Error: APIC entry at %p (offset %d) reports len 0\n",
+			printf("Error: APIC entry at %p (offset %u) reports len 0\n",
 			       lapic, i);
 			break;
 		}

@@ -810,7 +810,6 @@ void probefilter_tokens(int nodes)
 			if ((!(val & 1)) || (val & 4))
 				continue;
 
-			val = cht_read_conf(i, FUNC0_HT, 0x170 + i * 4);
 			/* Same buffer counts for ganged and unganged */
 			val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
 			cht_write_conf(i, FUNC0_HT, 0x90 + j * 0x20, val | (1 << 31));

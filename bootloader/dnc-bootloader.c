@@ -508,7 +508,7 @@ static void update_acpi_tables(void)
 		}
 
 		if (lapic->len == 0) {
-			printf("APIC entry at %p (offset %d) reports len 0, aborting!\n",
+			printf("APIC entry at %p (offset %u) reports len 0, aborting!\n",
 			       lapic, i);
 			break;
 		}
@@ -2579,7 +2579,6 @@ void setup_mc4_thresholds(void)
 	msr |= (1ULL << 18);
 	wrmsr(MSR_HWCR, msr);
 	*REL64(new_hwcr_msr) = msr & ~(1ULL << 17); /* Don't let the Wrap32Dis bit follow through to other cores */
-	msr = rdmsr(MSR_HWCR);
 
 	msr = rdmsr(MSR_MC4_MISC0);
 	if (((msr >> 49) & 3) == 2)

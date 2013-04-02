@@ -169,15 +169,12 @@ static void stop_ohci(int bus, int dev, int fn)
 	uint32_t val, bar0;
 	printf("OHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
 	bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
-
 	if ((bar0 == 0xffffffff) || (bar0 == 0)) {
 		printf("BAR not configured\n");
 		return;
 	}
 
-	val = mem64_read32(bar0 + HcHCCA);
 	val = mem64_read32(bar0 + HcControl);
-
 	if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
 		uint32_t temp;
 		/* This timeout is arbitrary.  we make it long, so systems
