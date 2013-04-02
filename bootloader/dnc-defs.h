@@ -18,8 +18,6 @@
 #ifndef __DNC_DEFS
 #define __DNC_DEFS 1
 
-#define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
-
 #define VECTOR_TRAMPOLINE 1
 #define VECTOR_PROBEFILTER_EARLY_f10 2
 #define VECTOR_PROBEFILTER_EARLY_f15 3

@@ -23,7 +23,12 @@
 
 #include "dnc-config.h"
 
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
 #define cpu_relax() asm volatile("pause" ::: "memory")
+#define PRInode "node 0x%03x (%s)"
+#define nodestr_offset(x) cfg_nodelist[x].sciid, cfg_nodelist[x].desc
 
 #define COL_DEFAULT   "\033[0m"
 #define COL_RED       "\033[31m"
@@ -37,9 +42,9 @@
 	while (1) cpu_relax();						\
     } } while (0)
 
-#define assertf(cond, format, ...) do { if (!(cond)) {			\
+#define assertf(cond, format, args...) do { if (!(cond)) {			\
 	printf(COL_RED "Error: ");						\
-	printf(format, __VA_ARGS__);					\
+	printf(format, ## args);					\
 	printf(COL_DEFAULT);					\
 	while (1) cpu_relax();						\
     } } while(0)
@@ -88,12 +93,6 @@
 	"mov %%eax, %%cr0\n" ::: "eax", "memory"); \
 	} while (0)
 #endif
-
-#define min(a, b) (((a) < (b)) ? (a) : (b))
-#define max(a, b) (((a) > (b)) ? (a) : (b))
-
-#define PRInode "node 0x%03x (%s)"
-#define nodestr_offset(x) cfg_nodelist[x].sciid, cfg_nodelist[x].desc
 
 #define DRAM_MAP_SHIFT 24ULL
 
