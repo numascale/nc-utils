@@ -21,6 +21,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#define RSDT_MAX 1024
+
 struct acpi_rsdp {
 	unsigned char sig[8];
 	uint8_t checksum;
