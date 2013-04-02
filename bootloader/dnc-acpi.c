@@ -247,6 +247,7 @@ int replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned i
 	/* Append entry to end of table */
 	memcpy(&parent->data[i], &newp, ptrsize);
 	parent->len += ptrsize;
+	assert(parent->len < RSDT_MAX);
 	parent->checksum -= checksum(parent, parent->len);
 	return 1;
 }
@@ -264,6 +265,7 @@ bool add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 	int i = parent->len - sizeof(*parent);
 	memcpy(&parent->data[i], &newp, ptrsize);
 	parent->len += ptrsize;
+	assert(parent->len < RSDT_MAX);
 	parent->checksum -= checksum(parent, parent->len);
 
 	return 0;

@@ -47,7 +47,7 @@
 
 #define MTRR_TYPE(x) (x) == 0 ? "uncacheable" : (x) == 1 ? "write-combining" : (x) == 4 ? "write-through" : (x) == 5 ? "write-protect" : (x) == 6 ? "write-back" : "unknown"
 
-#define TABLE_AREA_SIZE		1024*1024
+#define TABLE_AREA_SIZE		256*1024
 #define TABLE_ALIGNMENT		64
 #define MIN_NODE_MEM		256*1024*1024
 
@@ -72,6 +72,7 @@ uint8_t nodedata[4096];
 
 char *asm_relocated;
 static char *tables_relocated;
+void *tables_next;
 
 IMPORT_RELOCATED(new_e820_handler);
 IMPORT_RELOCATED(old_int15_vec);
@@ -287,6 +288,7 @@ static int install_e820_handler(void)
 
 	e820[last_32b].length -= TABLE_AREA_SIZE;
 	tables_relocated = (void *)(long)e820[last_32b].base + (long)e820[last_32b].length;
+	tables_next = tables_relocated;
 	int_vecs[0x15] = (((uint32_t)asm_relocated) << 12) |
 	                 ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
 	printf("Persistent code relocated to %p\n", asm_relocated);
@@ -436,13 +438,15 @@ static void enable_fixed_mtrrs(void)
 	enable_cache();
 }
 
+static void tables_add(const size_t len)
+{
+	tables_next += roundup(len, TABLE_ALIGNMENT);
+	assert((char *)tables_next < (tables_relocated + TABLE_AREA_SIZE));
+}
+
 static void update_acpi_tables(void)
 {
 	acpi_sdt_p oroot;
-	acpi_sdt_p osrat = find_sdt("SRAT");
-	acpi_sdt_p oapic = find_sdt("APIC");
-	acpi_sdt_p rsdt = (void *)tables_relocated;
-	acpi_sdt_p xsdt = (void *)tables_relocated + 4096;
 	uint8_t *dist;
 	unsigned int i, j, apicid, pnum;
 	unsigned int node, ht;
@@ -453,8 +457,12 @@ static void update_acpi_tables(void)
 	/* replace_root may fail if rptr is r/o, so we read the pointers
 	 * back. In case of failure, we'll assume the existing rsdt/xsdt
 	 * tables can be extended where they are */
-	oroot = find_root("RSDT");
+	acpi_sdt_p rsdt = tables_next;
+	tables_add(RSDT_MAX);
+	acpi_sdt_p xsdt = tables_next;
+	tables_add(RSDT_MAX);
 
+	oroot = find_root("RSDT");
 	if (oroot) {
 		memcpy(rsdt, oroot, oroot->len);
 		replace_root("RSDT", rsdt);
@@ -463,7 +471,6 @@ static void update_acpi_tables(void)
 		rsdt = NULL;
 
 	oroot = find_root("XSDT");
-
 	if (oroot) {
 		memcpy(xsdt, oroot, oroot->len);
 		replace_root("XSDT", xsdt);
@@ -476,13 +483,14 @@ static void update_acpi_tables(void)
 		return;
 	}
 
+	acpi_sdt_p oapic = find_sdt("APIC");
 	if (!oapic) {
 		printf("Default ACPI APIC table not found\n");
 		return;
 	}
 
 	/* With APIC we reuse the old info and add our new entries */
-	acpi_sdt_p apic = (void *)tables_relocated + 8192;
+	acpi_sdt_p apic = tables_next;
 	memcpy(apic, oapic, oapic->len);
 	memcpy(apic->oemid, "NUMASC", 6);
 	apic->len = offsetof(struct acpi_sdt, data) + 8; /* Count 'Local Interrupt Controller' and 'Flags' fields */
@@ -542,17 +550,13 @@ static void update_acpi_tables(void)
 	}
 
 	apic->checksum -= checksum(apic, apic->len);
-	if (((void *)apic + apic->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for APIC table\n");
+	tables_add(apic->len);
 
 	if (rsdt) replace_child("APIC", apic, rsdt, 4);
 	if (xsdt) replace_child("APIC", apic, xsdt, 8);
 
 	/* Make SLIT info from scratch (ie replace existing table if any) */
-	acpi_sdt_p slit = (void *)((uintptr_t)((void *)apic + apic->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)slit >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for SLIT table\n");
+	acpi_sdt_p slit = tables_next;
 
 	memcpy(slit->sig.s, "SLIT", 4);
 	slit->revision = ACPI_REV;
@@ -583,8 +587,7 @@ static void update_acpi_tables(void)
 	memcpy(slit->data, &ht_pdom_count, sizeof(ht_pdom_count));
 	slit->len = 44 + ht_pdom_count * ht_pdom_count;
 	slit->checksum -= checksum(slit, slit->len);
-	if (((void *)slit + slit->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for SLIT table\n");
+	tables_add(slit->len);
 
 	if (rsdt) {
 		/* If original bios doesn't have room/entry for SLIT table
@@ -601,15 +604,13 @@ static void update_acpi_tables(void)
 	}
 
 	/* With SRAT we reuse the old info and add our new entries */
+	acpi_sdt_p osrat = find_sdt("SRAT");
 	if (!osrat) {
 		printf("Default ACPI SRAT table not found\n");
 		return;
 	}
 
-	acpi_sdt_p srat = (void *)((uintptr_t)((void *)slit + slit->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)srat >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for SRAT table\n");
+	acpi_sdt_p srat = tables_next;
 
 	memcpy(srat, osrat, osrat->len);
 	memcpy(srat->oemid, "NUMASC", 6);
@@ -675,18 +676,13 @@ static void update_acpi_tables(void)
 	}
 
 	srat->checksum -= checksum(srat, srat->len);
-	if (((void *)srat + srat->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for SRAT table\n");
+	tables_add(srat->len);
 
 	if (rsdt) replace_child("SRAT", srat, rsdt, 4);
 	if (xsdt) replace_child("SRAT", srat, xsdt, 8);
 
 	/* MCFG table */
-	acpi_sdt_p mcfg = (void *)((uintptr_t)((void *)srat + srat->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)mcfg >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for MCFG table\n");
-
+	acpi_sdt_p mcfg = tables_next;
 	memset(mcfg, 0, sizeof(*mcfg) + 8);
 	memcpy(mcfg->sig.s, "MCFG", 4);
 	mcfg->len = offsetof(struct acpi_sdt, data) + 8 ; /* Count 'reserved' field */
@@ -709,18 +705,13 @@ static void update_acpi_tables(void)
 	}
 
 	mcfg->checksum = -checksum(mcfg, mcfg->len);
-	if (((void *)mcfg + mcfg->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for MCFG table\n");
+	tables_add(mcfg->len);
 
 	if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
 	if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
 
 	/* OEM table */
-	acpi_sdt_p oemn = (void *)((uintptr_t)((void *)mcfg + mcfg->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)oemn >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for OEM table\n");
-
+	acpi_sdt_p oemn = tables_next;
 	memset(oemn, 0, sizeof(*oemn) + 8);
 	memcpy(oemn->sig.s, "OEMN", 4);
 	oemn->revision = ACPI_REV;
@@ -731,6 +722,7 @@ static void update_acpi_tables(void)
 	oemn->creatorrev = 1;
 	oemn->len = offsetof(struct acpi_sdt, data) + escrow_populate(oemn->data);
 	oemn->checksum = -checksum(oemn, oemn->len);
+	tables_add(oemn->len);
 
 	if (rsdt) add_child(oemn, rsdt, 4);
 	if (xsdt) add_child(oemn, xsdt, 8);
@@ -742,11 +734,7 @@ static void update_acpi_tables(void)
 		if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
 			if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len)) {
 				/* Appending to existing DSDT or SSDT failed; construct new SSDT */
-				acpi_sdt_p ssdt = (void *)((uintptr_t)((void *)oemn + oemn->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-				if ((void *)ssdt >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-					fatal("No room for new SSDT table\n");
-
+				acpi_sdt_p ssdt = tables_next;
 				memset(ssdt, 0, sizeof(*ssdt) + 8);
 				memcpy(ssdt->sig.s, "SSDT", 4);
 				ssdt->revision = ACPI_REV;
@@ -758,6 +746,8 @@ static void update_acpi_tables(void)
 				memcpy(ssdt->data, extra, extra_len);
 				ssdt->len = offsetof(struct acpi_sdt, data) + extra_len;
 				ssdt->checksum = -checksum(ssdt, ssdt->len);
+				tables_add(ssdt->len);
+
 				bool failed = 0;
 
 				if (rsdt) failed |= add_child(ssdt, rsdt, 4);
