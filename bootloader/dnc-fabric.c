@@ -286,11 +286,9 @@ int dnc_check_lc3(int lc)
 int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
                  uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[])
 {
-	const char *linkname = _get_linkname(lc);
 	uint16_t expected_id = (nodeid | ((lc + 1) << 13));
 	uint32_t config2, error_count1, error_count2;
 	uint16_t chunk, offs;
-	printf("Initializing LC3%s...", linkname);
 
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count1) != 0)
 		return -1;
@@ -349,8 +347,6 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 		}
 	}
 
-	printf("done\n");
-
 	/* 3. Enable table routing */
 	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 1 << 14) != 0) /* ROUT_CTRL.rtype = 2'b01 (table routing) */
 		return -1;
@@ -359,7 +355,7 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 		return -1;
 
 	if (error_count1 != error_count2) {
-		warning("Errors while initializing LC3%s (%d != %d)", linkname, error_count1, error_count2);
+		printf(" error: %d != %d", error_count1, error_count2);
 		return -1;
 	}
 

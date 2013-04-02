@@ -143,8 +143,9 @@ int dnc_dimmtest(const int cdata, const int testmask, struct dimm_config *const 
 
 		if ((result & 3) != 3)
 			return -1;
+
+		printf("passed\n");
 	}
-	printf("passed\n");
 
 	if (testmask & (1 << 1)) {
 		printf("Test 2a: MAINT Memory Access incremental housenumbers at low addresses...");
