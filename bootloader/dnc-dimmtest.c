@@ -71,7 +71,7 @@ static int maint_rdmem_chk(int cdata, uint32_t addr, uint32_t chk)
 int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 {
 	uint32_t reg, tempa, tempb;
-	int i, j, tmp_cnt, result, loops;
+	int i, tmp_cnt;
 	int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 	int passes = 15;
 
@@ -111,7 +111,7 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 		dnc_write_csr(0xfff0, denalibase + (INT_ACK_ADDR << 2), reg | (1 << 7));
 		
 		reg = dnc_read_csr(0xfff0, denalibase + (BIST_RESULT_ADDR << 2));
-		result = (reg >> BIST_RESULT_OFFSET) & ((1 << BIST_RESULT_WIDTH) - 1);
+		int result = (reg >> BIST_RESULT_OFFSET) & ((1 << BIST_RESULT_WIDTH) - 1);
 
 		if (!(result & 1)) {
 			error("failed checking data:");
@@ -180,7 +180,7 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 
 		printf("Test 2b: MAINT Memory Access incremental address position...");
 		tmp_cnt = 0;
-		loops = dimm->mem_size + 29;
+		int loops = dimm->mem_size + 29;
 
 		for (i = 0; i < loops; i++) {
 			tempa = i ? 1 << (i - 1) : 0;
@@ -193,7 +193,7 @@ int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm)
 
 			tmp_cnt++;
 
-			for (j = 0; j < i; j++) {
+			for (int j = 0; j < i; j++) {
 				tempa = j ? 1 << (j - 1) : 0;
 				tempb = 1 << j;
 				if (maint_rdmem_chk(cdata, tempa, tempb) < 0) {
