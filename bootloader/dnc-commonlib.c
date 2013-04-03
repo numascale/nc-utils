@@ -25,6 +25,7 @@
 #include "dnc-access.h"
 #include "dnc-fabric.h"
 #include "dnc-config.h"
+#include "dnc-devices.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 
@@ -56,7 +57,7 @@ static bool ht_200mhz_only = 0;
 static bool ht_8bit_only = 0;
 static int ht_suppress = 0;
 static int ht_lockdelay = 0;
-bool handover_acpi;
+bool handover_acpi = 0;
 bool mem_offline = 0;
 uint64_t trace_buf = 0;
 uint32_t trace_buf_size = 0;
@@ -2353,6 +2354,10 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		return -1;
 
 	detect_southbridge();
+
+	/* SMI often assumes HT nodes are Northbridges, so handover early */
+	if (handover_acpi)
+		stop_acpi();
 
 	ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
 
