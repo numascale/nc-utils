@@ -34,6 +34,7 @@
 #define COL_RED       "\033[31m"
 #define COL_YELLOW    "\033[33m"
 #define BANNER        "\033\143\033[1m\033[37m"
+#define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
 
 #define assert(cond) do { if (!(cond)) {				\
 	printf(COL_RED "Error: assertion '%s' failed in %s at %s:%d\n",	\
@@ -160,7 +161,7 @@ void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);
 void enable_probefilter(const int nodes);
 void selftest_late_msrs(void);
-int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm);
+void dnc_dimmtest(const int testmask, struct dimm_config *const dimm);
 
 extern bool dnc_asic_mode;
 extern uint32_t dnc_chip_rev;

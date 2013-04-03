@@ -46,6 +46,13 @@ extern uint64_t dnc_csr_lim;
 #define SR56X0_MISC_TOM		0x16
 #define SR56X0_MISC_TOM3	0x4e
 
+#define RTC_SECONDS 0
+#define RTC_MINUTES 1
+#define RTC_HOURS 2
+#define RTC_DAY_OF_MONTH 3
+#define RTC_MONTH 4
+#define RTC_YEAR 6
+
 extern int lirq_nest;
 #define cli() if (lirq_nest++ == 0) { asm volatile("cli"); }
 #define sti() if (--lirq_nest == 0) { asm volatile("sti"); }
@@ -67,6 +74,7 @@ static inline uint32_t uint32_tbswap(uint32_t val)
 	return val;
 }
 
+uint8_t rtc_read(const int addr);
 void pmio_writeb(uint16_t offset, uint8_t val);
 void pmio_writel(uint16_t offset, uint32_t val);
 uint8_t pmio_readb(uint16_t offset);
