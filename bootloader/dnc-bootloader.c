@@ -2762,9 +2762,6 @@ static int unify_all_nodes(void)
 	/* If SMM is going to be disabled, do handover now */
 	if (disable_smm)
 		handover_legacy();
-	/* If Linux can't handover ACPI, we can */
-	else if (handover_acpi)
-		stop_acpi();
 
 	if (verbose > 0)
 		debug_acpi();
