@@ -53,6 +53,12 @@ int cht_config_use_extd_addressing = 0;
 uint64_t dnc_csr_base = DEF_DNC_CSR_BASE;
 uint64_t dnc_csr_lim = DEF_DNC_CSR_LIM;
 
+uint8_t rtc_read(const int addr)
+{
+	outb(addr, 0x70);
+	return inb(0x71);
+}
+
 uint8_t pmio_readb(uint16_t offset)
 {
 	outb(offset, PMIO_PORT /* PMIO index */);

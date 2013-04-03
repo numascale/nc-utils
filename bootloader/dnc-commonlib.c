@@ -66,7 +66,7 @@ uint32_t tsc_mhz = 0;
 uint32_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
-static int dimmtest = 6;
+static int dimmtest = 1;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 0;
 bool workaround_locks = 0;
@@ -534,17 +534,8 @@ int dnc_init_caches(void)
 	}
 
 	dnc_dram_initialise();
-
-	if (dimmtest) {
-		for (cdata = 0; cdata < 2; cdata++) {
-			dnc_dimmtest(cdata, dimmtest, &dimms[cdata]);
-
-			val = dnc_check_mctr_status(cdata);
-			assertf(!(val & 0x03c), "ECC errors detected in DIMM %d", cdata);
-		}
-
-		dnc_dram_initialise();
-	}
+	dnc_dimmtest(dimmtest, &dimms[cdata]);
+	dnc_dram_initialise();
 
 	printf("Setting RCache size to %dGB\n", 1 << dimms[1].mem_size);
 	/* Set the cache size in HReq and MIU */
