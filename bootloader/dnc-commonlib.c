@@ -2751,10 +2751,10 @@ static enum node_state setup_fabric(struct node_info *info)
 		else
 			/* SCI IDs may not correspond; load-balance route */
 			out += src & 1;
-#endif
 
 		printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
 		       info->sciid, cfg_nodelist[i].sciid, dim, out);
+#endif
 		_add_route(cfg_nodelist[i].sciid, 0, out);
 
 		for (lc = 1; lc <= 6; lc++) {
