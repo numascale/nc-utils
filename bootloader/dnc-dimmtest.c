@@ -261,8 +261,7 @@ void dnc_dimmtest(const int testmask, struct dimm_config *const dimm)
 		return;
 	}
 
-	int cdata, secs = rtc_read(RTC_MINUTES);
-
+	int cdata, hash = rtc_read(RTC_SECONDS);
 	if (testmask == 2) {
 		printf("Testing all memory segments...");
 		for (cdata = 0; cdata < 2; cdata++)
@@ -271,7 +270,7 @@ void dnc_dimmtest(const int testmask, struct dimm_config *const dimm)
 		printf("Testing memory segments");
 		for (cdata = 0; cdata < 2; cdata++) {
 			int segments = 1 << (31 + dimm->mem_size - DRAM_SEGMENT_SHIFT);
-			int segment = secs % segments; /* Caveat: Non-uniform */
+			int segment = hash % segments; /* Caveat: Non-uniform */
 			printf(" %d/%d", segment + 1, segments);
 			dnc_dimmtest_start(cdata, dimm, segment);
 		}
