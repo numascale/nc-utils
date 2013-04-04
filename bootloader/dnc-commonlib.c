@@ -469,7 +469,7 @@ int dnc_init_caches(void)
 				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR);
 				dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR, val);
 
-				printf(" done\n");
+				printf("done\n");
 			} else {
 				/* Controller has already been started, just check for interrupts */
 				(void)dnc_check_mctr_status(cdata);
