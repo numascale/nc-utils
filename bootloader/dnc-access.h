@@ -46,12 +46,14 @@ extern uint64_t dnc_csr_lim;
 #define SR56X0_MISC_TOM		0x16
 #define SR56X0_MISC_TOM3	0x4e
 
-#define RTC_SECONDS 0
-#define RTC_MINUTES 1
-#define RTC_HOURS 2
-#define RTC_DAY_OF_MONTH 3
-#define RTC_MONTH 4
-#define RTC_YEAR 6
+#define RTC_SECONDS		0
+#define RTC_SECONDS_ALARM	1
+#define RTC_MINUTES		2
+#define RTC_HOURS		4
+#define RTC_DAY_OF_WEEK		6
+#define RTC_DAY_OF_MONTH	7
+#define RTC_MONTH		8
+#define RTC_YEAR		9
 
 extern int lirq_nest;
 #define cli() if (lirq_nest++ == 0) { asm volatile("cli"); }
