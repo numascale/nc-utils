@@ -424,7 +424,7 @@ void dnc_dram_initialise(void)
 int dnc_init_caches(void)
 {
 	uint32_t val;
-	int cdata, ret = 0;
+	int cdata;
 
 	for (cdata = 0; cdata < 2; cdata++) {
 		const char *name = cdata ? "CData" : "MCTag";
@@ -549,7 +549,8 @@ int dnc_init_caches(void)
 	} else {
 		/* ASIC; initialize SRAM if disable_sram is unset */
 		if (!disable_sram) {
-			if ((ret = dnc_initialize_sram()) < 0)
+			int ret = dnc_initialize_sram();
+			if (ret < 0)
 				return ret;
 		} else {
 			printf("No SRAM will be initialized\n");
