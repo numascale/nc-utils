@@ -288,4 +288,7 @@ void dnc_dimmtest(const int testmask, struct dimm_config *const dimm)
 		uint32_t val = dnc_check_mctr_status(cdata);
 		assertf(!(val & 0x03c), "ECC errors detected in DIMM %d", cdata);
 	}
+
+	/* Reinitialise DRAM to clear it */
+	dnc_dram_initialise();
 }
