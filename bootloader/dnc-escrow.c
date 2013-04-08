@@ -31,11 +31,17 @@ int escrow_populate(void *data)
 	cur->global.size_x       = cfg_fabric.x_size;
 	cur->global.size_y       = cfg_fabric.y_size;
 	cur->global.size_z       = cfg_fabric.z_size;
-	cur->global.northbridges = nc_node[0].nc_ht_id;
+	cur->global.northbridges = dnc_master_ht_id;
 	cur->global.neigh_ht     = nc_neigh;
 	cur->global.neigh_link   = nc_neigh_link;
 	cur->global.symmetric    = 1;
 	cur->global.renumbering  = !nc_node[1].ht[0].cpuid;
+
+	if (verbose > 1)
+		printf("Escrow: numachip_rev=%d size=%d,%d,%d northbridges=%d neigh=%d,%d symmetric=%d renumbering=%d\n",
+			cur->global.numachip_rev, cur->global.size_x, cur->global.size_y, cur->global.size_z,
+			cur->global.northbridges, cur->global.neigh_ht, cur->global.neigh_link,
+			cur->global.symmetric, cur->global.renumbering);
 	cur++;
 
 	return (cur - start) * sizeof(cur[0]);
