@@ -2522,6 +2522,10 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		 * them to prevent interpreting false entries from application memory */
 		for (int reg = 0x90; reg <= 0x9c; reg += 4)
 			cht_write_conf(i, FUNC3_MISC, reg, 0);
+
+		/* Clear Machine Check address registers, since on some platforms they aren't initialised */
+		for (int reg = 0x50; reg <= 0x54; reg += 4)
+			cht_write_conf(i, FUNC3_MISC, reg, 0);
 	}
 
 	/* ====================== END ERRATA WORKAROUNDS ====================== */
