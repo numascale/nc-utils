@@ -37,7 +37,6 @@
 #include "dnc-masterlib.h"
 #include "dnc-devices.h"
 #include "dnc-mmio.h"
-#include "dnc-escrow.h"
 #include "dnc-version.h"
 
 #define PIC_MASTER_CMD          0x20
@@ -48,7 +47,6 @@
 #define MTRR_TYPE(x) (x) == 0 ? "uncacheable" : (x) == 1 ? "write-combining" : (x) == 4 ? "write-through" : (x) == 5 ? "write-protect" : (x) == 6 ? "write-back" : "unknown"
 
 #define TABLE_AREA_SIZE		256*1024
-#define TABLE_ALIGNMENT		64
 #define MIN_NODE_MEM		256*1024*1024
 
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
@@ -444,6 +442,42 @@ static void tables_add(const size_t len)
 	assert((char *)tables_next < (tables_relocated + TABLE_AREA_SIZE));
 }
 
+static void update_acpi_tables_early(void)
+{
+	/* Get table root points and check for space */
+	acpi_sdt_p rsdt = find_root("RSDT");
+	assert(rsdt);
+
+	acpi_sdt_p xsdt = find_root("XSDT");
+	assert(xsdt);
+
+	/* Find e820 entry with ACPI tables */
+	struct e820entry *e820 = orig_e820_map;
+	while (((uint32_t)rsdt < e820->base) || ((uint32_t)rsdt >= (e820->base + e820->length)))
+		e820++;
+
+	printf("Existing ACPI tables in e820 range %016llx - %016llx\n", e820->base, e820->base + e820->length);
+
+	acpi_sdt_p oemn = acpi_build_oemn();
+	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
+	if (!gap) {
+		warning("No space for OEMN table");
+		return;
+	}
+
+	printf("Adding OEMN at %08x with length %d\n", (uint32_t)gap, oemn->len);
+	memcpy((char *)gap, oemn, oemn->len);
+	free(oemn);
+
+	/* Fixed MTRRs may mark the RSDT and XSDT pointers r/o */
+	disable_fixed_mtrrs();
+
+	add_child(gap, rsdt, 4);
+	add_child(gap, xsdt, 8);
+
+	enable_fixed_mtrrs();
+}
+
 static void update_acpi_tables(void)
 {
 	acpi_sdt_p oroot;
@@ -709,23 +743,6 @@ static void update_acpi_tables(void)
 
 	if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
 	if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
-
-	/* OEM table */
-	acpi_sdt_p oemn = tables_next;
-	memset(oemn, 0, sizeof(*oemn) + 8);
-	memcpy(oemn->sig.s, "OEMN", 4);
-	oemn->revision = ACPI_REV;
-	memcpy(oemn->oemid, "NUMASC", 6);
-	memcpy(oemn->oemtableid, "N313NUMA", 8);
-	oemn->oemrev = 0;
-	memcpy(oemn->creatorid, "1B47", 4);
-	oemn->creatorrev = 1;
-	oemn->len = offsetof(struct acpi_sdt, data) + escrow_populate(oemn->data);
-	oemn->checksum = -checksum(oemn, oemn->len);
-	tables_add(oemn->len);
-
-	if (rsdt) add_child(oemn, rsdt, 4);
-	if (xsdt) add_child(oemn, xsdt, 8);
 
 	if (remote_io) {
 		uint32_t extra_len;
@@ -2763,9 +2780,6 @@ static int unify_all_nodes(void)
 	if (disable_smm)
 		handover_legacy();
 
-	if (verbose > 0)
-		debug_acpi();
-
 	update_acpi_tables();
 	update_mptable();
 
@@ -3100,6 +3114,12 @@ static int nc_start(void)
 	/* Must run after SCI is operational */
 	local_chipset_fixup(part->master == info->sciid);
 
+	if (verbose > 0)
+		debug_acpi();
+
+	load_orig_e820_map();
+	update_acpi_tables_early();
+
 	if (info->sync_only) {
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
@@ -3109,8 +3129,6 @@ static int nc_start(void)
 
 	if (dnc_init_caches() < 0)
 		return ERR_INIT_CACHES;
-
-	load_orig_e820_map();
 
 	if (!install_e820_handler())
 		return ERR_INSTALL_E820_HANDLER;
