@@ -16,9 +16,11 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "dnc-commonlib.h"
+#include "dnc-escrow.h"
 #include "dnc-acpi.h"
 
 static struct acpi_rsdp *rptr = NULL;
@@ -201,7 +203,95 @@ out:
 	return (uint32_t)next_table - (uint32_t)parent - parent->len;
 }
 
-int replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
+struct acpi_cache_ent {
+	uint32_t ptr, len;
+};
+
+#define ACPI_CACHE_MAX 32
+static struct acpi_cache_ent acpi_cache[ACPI_CACHE_MAX] = {{0,}};
+
+static void acpi_add(const acpi_sdt_p table, uint32_t limit)
+{
+	/* Ignore tables outside e820 range */
+	if ((uint32_t)table + table->len > limit)
+		return;
+
+	struct acpi_cache_ent *ent = acpi_cache;
+
+	/* Ignore duplicates */
+	while (ent->ptr) {
+		if (ent->ptr == (uint32_t)table)
+			return;
+		ent++;
+	}
+
+	assert(ent < acpi_cache + ACPI_CACHE_MAX);
+	ent->ptr = (uint32_t)table;
+	ent->len = table->len;
+}
+
+/* Sort with descending address */
+static void acpi_sort(void)
+{
+	struct acpi_cache_ent *ent1, *ent2;
+	struct acpi_cache_ent tmp;
+
+	for (ent1 = acpi_cache; ent1->ptr; ent1++) {
+		for (ent2 = acpi_cache; ent2->ptr; ent2++) {
+			if (ent1->ptr > ent2->ptr) {
+				/* Swap ent1 and ent2 data */
+				tmp.ptr = ent2->ptr;
+				tmp.len = ent2->len;
+				ent2->ptr = ent1->ptr;
+				ent2->len = ent1->len;
+				ent1->ptr = tmp.ptr;
+				ent1->len = tmp.len;
+			}
+		}
+	}
+}
+
+acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed)
+{
+	uint32_t gap, start, limit = e820->base + e820->length;
+	int i;
+
+	const acpi_sdt_p rsdt = (acpi_sdt_p)rptr->rsdt_addr;
+	const uint32_t *rsdt_entries = (uint32_t *)&(rsdt->data);
+	acpi_add(rsdt, limit);
+
+	for (i = 0; i * 4 + sizeof(*rsdt) < rsdt->len; i++)
+		acpi_add((acpi_sdt_p)rsdt_entries[i], limit);
+
+	assert(rptr->xsdt_addr < 0xffffffff);
+	const acpi_sdt_p xsdt = (acpi_sdt_p)(uint32_t)rptr->xsdt_addr;
+	const uint32_t *xsdt_entries = (uint32_t *)&(xsdt->data);
+	acpi_add(xsdt, limit);
+
+	for (i = 0; i * 8 + sizeof(*xsdt) < xsdt->len; i++)
+		acpi_add((acpi_sdt_p)xsdt_entries[i], limit);
+
+	acpi_sort();
+
+	struct acpi_cache_ent *ent = acpi_cache;
+	start = roundup(ent->ptr + ent->len, TABLE_ALIGNMENT);
+	gap = (e820->base + e820->length) - start;
+	if (gap > needed)
+		return (acpi_sdt_p)start;
+
+	/* Search backwards for gap; use space after X/RSDT last */
+	while ((ent + 1)->ptr) {
+		start = roundup((ent + 1)->ptr + (ent + 1)->len, TABLE_ALIGNMENT);
+		gap = ent->ptr - start;
+		if (gap > needed)
+			return (acpi_sdt_p)start;
+		ent++;
+	}
+
+	return NULL;
+}
+
+bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 {
 	uint64_t newp, childp;
 	acpi_sdt_p table;
@@ -307,7 +397,7 @@ acpi_sdt_p find_root(const char *sig)
 	return NULL;
 }
 
-int replace_root(const char *sig, acpi_sdt_p new)
+bool replace_root(const char *sig, acpi_sdt_p new)
 {
 	if (!rdsp_exists())
 		return 0;
@@ -617,5 +707,26 @@ void debug_acpi(void)
 			}
 		}
 	}
+}
+
+#define TABLE_MAX 16384
+
+acpi_sdt_p acpi_build_oemn(void)
+{
+	acpi_sdt_p oemn = malloc(TABLE_MAX);
+	assert(oemn);
+
+	memset(oemn, 0, sizeof(*oemn) + 8);
+	memcpy(oemn->sig.s, "OEMN", 4);
+	oemn->revision = ACPI_REV;
+	memcpy(oemn->oemid, "NUMASC", 6);
+	memcpy(oemn->oemtableid, "N313NUMA", 8);
+	oemn->oemrev = 0;
+	memcpy(oemn->creatorid, "1B47", 4);
+	oemn->creatorrev = 1;
+	oemn->len = offsetof(struct acpi_sdt, data) + escrow_populate(oemn->data);
+	oemn->checksum = -checksum(oemn, oemn->len);
+
+	return oemn;
 }
 
