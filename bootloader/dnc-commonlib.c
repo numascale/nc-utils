@@ -1740,9 +1740,10 @@ static uint32_t identify_eeprom(char p_type[16])
 	return read_eeprom_dword(0xfffc);
 }
 
-static void _pic_reset_ctrl(int val)
+static void _pic_reset_ctrl(void)
 {
-	dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, val);
+	/* Pulse reset */
+	dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, 1);
 	udelay(20000);
 	(void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC */
 	udelay(2000000);
@@ -1798,7 +1799,7 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 			val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 			printf("Oscillator set to %d\n", (val >> 24) & 3);
 			/* Trigger a HSS PLL reset */
-			_pic_reset_ctrl(1);
+			_pic_reset_ctrl();
 		}
 	} else
 		printf("Oscillator not set\n");
@@ -2118,7 +2119,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 	if (asic_mode && res == 0 && _is_pic_present(p_type)) {
 		printf("Testing fabric phys...");
 		/* Trigger a HSS PLL reset */
-		_pic_reset_ctrl(1);
+		_pic_reset_ctrl();
 
 		for (int phy = 0; phy < 6; phy++) {
 			/* 1. Check that the HSS PLL has locked */
@@ -2202,7 +2203,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		}
 
 		/* Trigger a HSS PLL reset */
-		_pic_reset_ctrl(1);
+		_pic_reset_ctrl();
 	}
 
 	printf("%s\n", res == 0 ? "passed" : "failed");
@@ -2916,57 +2917,7 @@ int dnc_check_fabric(struct node_info *info)
 	return res;
 }
 
-static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
-{
-	printf("Entering reset...");
-
-	if (0 && _is_pic_present(dnc_card_type)) {
-		int tries = 0;
-
-		/* Reset already held?  Toggle reset logic to ensure reset
-		 * reverts to know state */
-		while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) == 0) {
-			if (tries == 0) {
-				printf("HSSXA_STAT_1 is zero, toggling reset...\n");
-				_pic_reset_ctrl(2);
-			}
-
-			printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries);
-
-			if (tries++ > 16)
-				return RSP_PHY_NOT_TRAINED;
-
-			udelay(1000);
-		}
-
-		/* Hold reset */
-		_pic_reset_ctrl(2);
-		tries = 0;
-
-		while (dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) {
-			if (tries == 8) {
-				printf("HSSXA_STAT_1 is still one, toggling reset...\n");
-				_pic_reset_ctrl(2);
-			}
-
-			printf("Waiting for HSSXA_STAT_1 to leave one (try %d)...\n", tries);
-
-			if (tries++ > 16)
-				return RSP_PHY_NOT_TRAINED;
-
-			udelay(10000);
-		}
-	} else {
-		/* No external reset control, simply reset all phys to start training sequence */
-		for (int i = 0; i < 6; i++)
-			dnc_reset_phy(i);
-	}
-
-	printf("done\n");
-	return RSP_RESET_ACTIVE;
-}
-
-static int phy_check_status(int phy)
+static int phy_check_status(const int phy)
 {
 	uint32_t val;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
@@ -2992,7 +2943,7 @@ static int phy_check_status(int phy)
 	return (val != 0x1fff) << phy;
 }
 
-static void phy_print_error(int mask)
+static void phy_print_error(const int mask)
 {
 	int i;
 	error("Fabric phy training failure - check cables to ports");
@@ -3004,29 +2955,15 @@ static void phy_print_error(int mask)
 	printf("\n");
 }
 
-static enum node_state release_reset(struct node_info *info __attribute__((unused)))
+static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
 {
 	int pending, i;
-	printf("Releasing reset...");
 
-	if (0 && _is_pic_present(dnc_card_type)) {
-		/* Release reset */
-		_pic_reset_ctrl(2);
-		i = 0;
+	printf("Training fabric phys...");
 
-		while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) == 0) {
-			if (i++ > 20)
-				return RSP_PHY_NOT_TRAINED;
-
-			udelay(200);
-		}
-	} else {
-		/* No external reset control, check that the PLL has locked */
-		if ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) == 0) {
-			printf("HSSXA_STAT_1 is zero, PLL not locked ???...\n");
-			return RSP_PHY_NOT_TRAINED;
-		}
-	}
+	/* No external reset control, simply reset all phys to start training sequence */
+	for (i = 0; i < 6; i++)
+		dnc_reset_phy(i);
 
 	/* Verify that all relevant PHYs are training */
 	i = 0;
@@ -3061,6 +2998,9 @@ static enum node_state release_reset(struct node_info *info __attribute__((unuse
 
 		udelay(500);
 	}
+
+	printf("done\n");
+	return RSP_RINGS_OK;
 }
 
 static int lc_check_status(int lc, int dimidx)
@@ -3120,10 +3060,6 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	switch (cstate) {
 	case CMD_ENTER_RESET:
 		*rstate = enter_reset(info);
-		return 1;
-	case CMD_RELEASE_RESET:
-		udelay(2000);
-		*rstate = release_reset(info);
 		return 1;
 	case CMD_VALIDATE_RINGS:
 		*rstate = validate_rings(info);

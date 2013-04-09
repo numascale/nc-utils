@@ -2285,15 +2285,12 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		if (!ready_pending || do_restart) {
 			if (do_restart) {
 				cmd.state = CMD_ENTER_RESET;
-				waitfor = RSP_RESET_ACTIVE;
+				waitfor = RSP_RINGS_OK;
 				do_restart = 0;
 			} else if (cmd.state == CMD_STARTUP) {
 				cmd.state = CMD_ENTER_RESET;
-				waitfor = RSP_RESET_ACTIVE;
-			} else if (cmd.state == CMD_ENTER_RESET) {
-				cmd.state = CMD_RELEASE_RESET;
 				waitfor = RSP_PHY_TRAINED;
-			} else if (cmd.state == CMD_RELEASE_RESET) {
+			} else if (cmd.state == CMD_ENTER_RESET) {
 				cmd.state = CMD_VALIDATE_RINGS;
 				waitfor = RSP_RINGS_OK;
 			} else if (cmd.state == CMD_VALIDATE_RINGS) {
