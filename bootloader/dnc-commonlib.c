@@ -2113,23 +2113,22 @@ static int perform_selftest(int asic_mode, char p_type[16])
 
 		printf("-PASS%d", pass);
 	}
+	printf("\n");
 
 	if (asic_mode && res == 0 && _is_pic_present(p_type)) {
-		printf("\nPerforming High Speed Serdes self test: ");
+		printf("Testing fabric phys...");
 		/* Trigger a HSS PLL reset */
 		_pic_reset_ctrl(1);
-		printf("HSS");
 
 		for (int phy = 0; phy < 6; phy++) {
 			/* 1. Check that the HSS PLL has locked */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (!(val & (1 << 8))) {
+				printf(" error 1 on phy %d during TX", phy);
 				res = -1;
 				goto pll_err_out;
 			}
 
-			printf(" T");
 			/* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
 			/* 3. Allow 6500 bit times (2ns per bit = 13us, use 100 to be safe) */
@@ -2141,22 +2140,26 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xf0) {
+				printf(" error 2 on phy %d during TX", phy);
 				res = -1;
 				break;
 			}
+		}
 
-			/* Run test for 100msec */
-			udelay(100000);
+		/* Run test for 200msec */
+		udelay(200000);
+
+		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xf0) {
+				printf(" error 3 on phy %d during TX", phy);
 				res = -1;
 				break;
 			}
+		}
 
-			printf("R");
+		for (int phy = 0; phy < 6; phy++) {
 			/* 3. Activate FDDATAWRAPx (bit[3:0] of HSSxx_CTR_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val | 0xf);
@@ -2171,17 +2174,20 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the RXLBERRORx flag (bit[3:0] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xff) {
+				printf(" error 1 on phy %d during RX", phy);
 				res = -1;
 				break;
 			}
+		}
 
-			/* Run test for 100msec */
-			udelay(100000);
+		/* Run test for 200msec */
+		udelay(200000);
+
+		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xff) {
+				printf(" error 2 on phy %d during RX", phy);
 				res = -1;
 				break;
 			}
@@ -2193,14 +2199,13 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val & ~(0xf));
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00f0);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x0000);
-			printf("%s", _get_linkname(phy));
 		}
 
 		/* Trigger a HSS PLL reset */
 		_pic_reset_ctrl(1);
 	}
 
-	printf("\nSelftest %s\n", (res == 0) ? "passed" : "failed");
+	printf("%s\n", res == 0 ? "passed" : "failed");
 	return res;
 pll_err_out:
 	printf("\n");
