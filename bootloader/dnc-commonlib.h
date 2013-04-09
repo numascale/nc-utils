@@ -101,8 +101,6 @@
     state(CMD_STARTUP) \
     state(RSP_SLAVE_READY) \
     state(CMD_ENTER_RESET) \
-    state(RSP_RESET_ACTIVE) \
-    state(CMD_RELEASE_RESET) \
     state(RSP_PHY_TRAINED) \
     state(RSP_PHY_NOT_TRAINED) \
     state(CMD_VALIDATE_RINGS) \
