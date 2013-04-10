@@ -1306,7 +1306,7 @@ void mmio_range_print(const uint16_t sci, const int ht, uint8_t range)
 
 void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest)
 {
-	if (verbose)
+	if (verbose > 1)
 		printf("Adding MMIO range %d on SCI%03x#%x from 0x%llx to 0x%llx towards %d\n",
 			range, sci, ht, base, limit, dest);
 
@@ -1448,7 +1448,7 @@ static void dram_range(const uint16_t sci, const int ht, const int range, const 
 	assert(range < 8);
 	assert((dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) == 0);
 
-	if (verbose)
+	if (verbose > 1)
 		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x towards %d\n", sci, ht, range, base, limit, dest);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
