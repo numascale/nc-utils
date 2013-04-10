@@ -281,12 +281,8 @@ static bool tally_remote_node(uint16_t node)
 
 		if ((cur_node->ht[i].cpuid == 0) ||
 		    (cur_node->ht[i].cpuid == 0xffffffff) ||
-		    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid)) {
-			printf("Error: SCI%03x has CPUID %08x differing from master server CPUID %08x; skipping...\n", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
-			cur_node->ht[i].pdom = 0;
-			cur_node->ht[i].cpuid = 0;
-			continue;
-		}
+		    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid))
+			fatal("SCI%03x has CPUID %08x differing from master server CPUID %08x", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
 
 		cur_node->ht[i].pdom = ht_pdom_count++;
 
