@@ -191,7 +191,7 @@ static void load_orig_e820_map(void)
 	}
 
 	for (i = 0; i < len; i++) {
-		printf(" %016llx - %016llx (%016llx) [%x]\n",
+		printf(" %012llx - %012llx (%012llx) [%x]\n",
 		       e820_map[i].base, e820_map[i].base + e820_map[i].length,
 		       e820_map[i].length, e820_map[i].type);
 	}
@@ -370,7 +370,7 @@ static void update_e820_map(void)
 	printf("Updated E820 map:\n");
 
 	for (i = 0; i < *len; i++) {
-		printf(" %016llx - %016llx (%016llx) [%x]\n",
+		printf(" %012llx - %012llx (%012llx) [%x]\n",
 		       e820[i].base, e820[i].base + e820[i].length,
 		       e820[i].length, e820[i].type);
 	}
@@ -456,7 +456,7 @@ static void update_acpi_tables_early(void)
 	while (((uint32_t)rsdt < e820->base) || ((uint32_t)rsdt >= (e820->base + e820->length)))
 		e820++;
 
-	printf("Existing ACPI tables in e820 range %016llx - %016llx\n", e820->base, e820->base + e820->length);
+	printf("Existing ACPI tables in e820 range %012llx - %012llx\n", e820->base, e820->base + e820->length);
 
 	acpi_sdt_p oemn = acpi_build_oemn();
 	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
@@ -1307,7 +1307,7 @@ void mmio_range_print(const uint16_t sci, const int ht, uint8_t range)
 void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest)
 {
 	if (verbose > 1)
-		printf("Adding MMIO range %d on SCI%03x#%x from 0x%llx to 0x%llx towards %d\n",
+		printf("Adding MMIO range %d on SCI%03x#%x from 0x%012llx to 0x%012llx towards %d\n",
 			range, sci, ht, base, limit, dest);
 
 	if (family >= 0x15) {
@@ -1439,7 +1439,7 @@ static void dram_range_print(const uint16_t sci, const int ht, const int range)
 	assert(range < 8);
 
 	if (dram_range_read(sci, ht, range, &base, &limit, &dst))
-		printf("SCI%03x#%d DRAM range %d: 0x%016llx - 0x%016llx towards %d\n", sci, ht, range, base, limit, dst);
+		printf("SCI%03x#%d DRAM range %d: 0x%012llx - 0x%012llx towards %d\n", sci, ht, range, base, limit, dst);
 }
 
 static void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
@@ -3008,7 +3008,7 @@ static void selftest_late_memmap(void)
 
 		uint64_t start = e820[i].base;
 		uint64_t end = e820[i].base + e820[i].length;
-		printf("Testing memory permissions from %016llx to %016llx...", start, end - 1);
+		printf("Testing memory permissions from %012llx to %012llx...", start, end - 1);
 
 		uint64_t pos = start;
 		uint64_t mid = start + (end - start) / 2;

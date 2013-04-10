@@ -429,7 +429,7 @@ bool tally_all_remote_nodes(void)
 	for (node = 0; node < dnc_node_count; node++)
 		ret &= setup_remote_node_mmio(node);
 
-	printf("DRAM top is 0x%016" PRIx64 "; MMIO top is 0x%016" PRIx64 "\n",
+	printf("DRAM top is 0x%012" PRIx64 "; MMIO top is 0x%012" PRIx64 "\n",
 	       (uint64_t)dnc_top_of_dram << DRAM_MAP_SHIFT, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 	return ret;
 }
