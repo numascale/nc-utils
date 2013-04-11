@@ -33,7 +33,8 @@
 #define COL_DEFAULT   "\033[0m"
 #define COL_RED       "\033[31m"
 #define COL_YELLOW    "\033[33m"
-#define BANNER        "\033\143\033[1m\033[37m"
+#define CLEAR         "\033\143"
+#define BANNER        "\033[1m\033[37m"
 #define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
 
 #define assert(cond) do { if (!(cond)) {				\
