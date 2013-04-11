@@ -3202,8 +3202,7 @@ static int nc_start(void)
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 		} while (!(val & (1 << 31)));
 
-		printf("\n\n");
-		printf(BANNER "This server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'",
+		printf(BANNER "\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'",
 		       info->desc, cfg_nodes, get_master_name(part->master));
 
 		disable_smi();
@@ -3231,7 +3230,7 @@ int main(void)
 {
 	int ret;
 	openconsole(&dev_rawcon_r, &dev_stdcon_w);
-	printf(BANNER "NumaConnect system unification module " VER COL_DEFAULT "\n");
+	printf(CLEAR BANNER "NumaConnect system unification module " VER COL_DEFAULT "\n");
 
 	/* Enable CF8 extended access for first Northbridge; we do others for Linux later */
 	set_cf8extcfg_enable(0);
