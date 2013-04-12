@@ -126,42 +126,85 @@ uint16_t capability(const uint8_t cap, const int bus, const int dev, const int f
 	return PCI_CAP_NONE;
 }
 
+uint16_t extcapability(const uint8_t cap, const int bus, const int dev, const int fn)
+{
+	uint16_t offset = 0x100;
+	uint32_t val;
+
+	do {
+		val = dnc_read_conf(0xfff0, bus, dev, fn, offset);
+		if (val == 0xffffffff)
+			return PCI_CAP_NONE;
+		if (cap == (val & 0xffff))
+			return offset;
+
+		offset >>= 20;
+	} while (offset);
+
+	return PCI_CAP_NONE;
+}
+
 static void completion_timeout(const int bus, const int dev, const int fn)
 {
-	uint16_t cap = capability(PCI_CAP_PCIE, bus, dev, fn);
-	if (cap == PCI_CAP_NONE)
-		return;
-
+	uint32_t val;
+	uint16_t cap;
 	printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
 
-#ifdef FIXME
-/* Need to implement advanced capabilities */
-	uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
-	if (val && (val & (1 << 14))) {
-		printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
-
-		/* Ensure Completion Timeout is non-fatal */
-		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x0c, val & ~(1 << 14));
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
-		if (val & (1 << 14))
-			printf("Completion Timeout now non-fatal\n");
-		else
-			printf("Warning: Failed to set Completion Timeout as non-fatal\n");
-	}
-#endif
-
-	/* Ensure Device Control 2 Register is implemented */
-	uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
-	if (!(val & (1 << 4))) {
-		/* Disable Completion Timeout */
-		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, val | (1 << 4));
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+	cap = capability(PCI_CAP_PCIE, bus, dev, fn);
+	if (cap != PCI_CAP_NONE) {
+		/* Device Control */
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x8);
+		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x8, val | (1 << 4));
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x8);
 		if (val & (1 << 4))
-			printf("disabled Completion Timeout\n");
+			printf("Relaxed Ordering enabled");
 		else
-			printf("Warning: Failed to disable Completion Timeout\n");
+			printf("failed to enable Relaxed Ordering");
+
+		/* Root Control */
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x1c);
+		if (val & (1 << 1)) {
+			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x1c, val | (1 << 4));
+			printf("; disabled SERR on Non-Fatal");
+		} else
+			printf("; Non-Fatal doesn't trigger SERR");
+
+		/* Device Capabilities/Control 2 */
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x24);
+
+		/* Select Completion Timeout range D, else disable */
+		if (val & (1 << 3)) {
+			val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, (val & ~0xf) | 0xe);
+			printf("; Completion Timeout 17-64s");
+		} else {
+			if (val & (1 << 4)) {
+				/* Disable Completion Timeout instead */
+				val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+				dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, val | (1 << 4));
+				printf("; Completion Timeout disabled");
+			} else
+				printf("; Setting Completion Timeout unsupported");
+		}
 	} else
-		printf("Completion Timeout not enabled\n");
+		printf("no PCIe");
+
+	cap = extcapability(PCI_CAP_AER, bus, dev, fn);
+	if (cap != PCI_CAP_NONE) {
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+		if (val & (1 << 14)) {
+			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x0c, val & ~(1 << 14));
+			val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+			if (val & (1 << 14))
+				printf("; Completion Timeout now non-fatal");
+			else
+				printf("; failed to set Completion Timeout as non-fatal");
+		} else
+			printf("; Completion Timeout already non-fatal");
+	} else
+		printf("; no AER");
+
+	printf("\n");
 }
 
 static void stop_ohci(int bus, int dev, int fn)

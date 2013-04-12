@@ -76,6 +76,7 @@
 
 #define PCI_CAP_NONE					0x00
 #define PCI_CAP_PCIE					0x10
+#define PCI_CAP_AER						0x01
 
 #define PCI_CLASS_ANY					0xfffffffe
 #define PCI_CLASS_FINAL					0xffffffff
