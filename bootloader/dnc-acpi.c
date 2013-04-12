@@ -723,7 +723,7 @@ acpi_sdt_p acpi_build_oemn(void)
 	memcpy(oemn->oemtableid, "N313NUMA", 8);
 	oemn->oemrev = 0;
 	memcpy(oemn->creatorid, "1B47", 4);
-	oemn->creatorrev = 1;
+	oemn->creatorrev = ESCROW_REV;
 	oemn->len = offsetof(struct acpi_sdt, data) + escrow_populate(oemn->data);
 	oemn->checksum = -checksum(oemn, oemn->len);
 
