@@ -2952,7 +2952,7 @@ static void phy_print_error(const int mask)
 
 static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
 {
-	int pending, i;
+	int i;
 
 	printf("Training fabric phys...");
 
@@ -2964,7 +2964,7 @@ static enum node_state enter_reset(struct node_info *info __attribute__((unused)
 	i = 0;
 
 	while (1) {
-		pending = 0;
+		bool pending = 0;
 
 		if (cfg_fabric.x_size > 0) {
 			pending |= phy_check_status(0);
@@ -2993,9 +2993,6 @@ static enum node_state enter_reset(struct node_info *info __attribute__((unused)
 
 		udelay(500);
 	}
-
-	printf("done\n");
-	return RSP_RINGS_OK;
 }
 
 static int lc_check_status(int lc, int dimidx)

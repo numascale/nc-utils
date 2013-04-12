@@ -2285,7 +2285,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		if (!ready_pending || do_restart) {
 			if (do_restart) {
 				cmd.state = CMD_ENTER_RESET;
-				waitfor = RSP_RINGS_OK;
+				waitfor = RSP_PHY_TRAINED;
 				do_restart = 0;
 			} else if (cmd.state == CMD_STARTUP) {
 				cmd.state = CMD_ENTER_RESET;
