@@ -535,7 +535,7 @@ int dnc_init_caches(void)
 	}
 
 	dnc_dram_initialise();
-	dnc_dimmtest(dimmtest, &dimms[cdata]);
+	dnc_dimmtest(dimmtest, dimms);
 
 	printf("Setting RCache size to %dGB\n", 1 << dimms[1].mem_size);
 	/* Set the cache size in HReq and MIU */

@@ -68,7 +68,7 @@ static int maint_rdmem_chk(int cdata, uint32_t addr, uint32_t chk)
 	return 0;
 }
 
-static void dnc_dimmtest_start(const int cdata, struct dimm_config *const dimm, const int segment)
+static void dnc_dimmtest_start(const int cdata, const struct dimm_config *dimm, const int segment)
 {
 	uint32_t reg, memsize;
 	uint64_t start_addr;
@@ -158,7 +158,7 @@ static void dnc_dimmtest_wait(const int cdata)
 	dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR, reg | (1 << 12));
 }
 
-static void dnc_dimmtest_final(const int cdata, struct dimm_config *const dimm)
+static void dnc_dimmtest_final(const int cdata, const struct dimm_config *dimm)
 {
 	uint32_t tempa, tempb;
 	int i, tmp_cnt;
@@ -254,7 +254,7 @@ static void dnc_dimmtest_final(const int cdata, struct dimm_config *const dimm)
 	printf("passed\n");
 }
 
-void dnc_dimmtest(const int testmask, struct dimm_config *const dimm)
+void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2])
 {
 	if (!testmask) {
 		warning("Skipping memory testing");
@@ -265,14 +265,14 @@ void dnc_dimmtest(const int testmask, struct dimm_config *const dimm)
 	if (testmask == 2) {
 		printf("Testing all memory segments...");
 		for (cdata = 0; cdata < 2; cdata++)
-			dnc_dimmtest_start(cdata, dimm, -1);
+			dnc_dimmtest_start(cdata, &dimms[cdata], -1);
 	} else {
 		printf("Testing memory segments");
 		for (cdata = 0; cdata < 2; cdata++) {
-			int segments = 1 << (31 + dimm->mem_size - DRAM_SEGMENT_SHIFT);
+			int segments = 1 << (31 + dimms[cdata].mem_size - DRAM_SEGMENT_SHIFT);
 			int segment = hash % segments; /* Caveat: Non-uniform */
 			printf(" %d/%d", segment + 1, segments);
-			dnc_dimmtest_start(cdata, dimm, segment);
+			dnc_dimmtest_start(cdata, &dimms[cdata], segment);
 		}
 		printf("...");
 	}
@@ -282,7 +282,7 @@ void dnc_dimmtest(const int testmask, struct dimm_config *const dimm)
 	printf("passed\n");
 
 	for (cdata = 0; cdata < 2; cdata++)
-		dnc_dimmtest_final(cdata, dimm);
+		dnc_dimmtest_final(cdata, &dimms[cdata]);
 
 	for (cdata = 0; cdata < 2; cdata++) {
 		uint32_t val = dnc_check_mctr_status(cdata);
