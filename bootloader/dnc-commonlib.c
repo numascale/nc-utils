@@ -1742,27 +1742,11 @@ static uint32_t identify_eeprom(char p_type[16])
 
 static void _pic_reset_ctrl(void)
 {
-	uint32_t val;
-
-again:
 	/* Pulse reset */
 	dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, 1);
 	udelay(20000);
 	(void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC */
-
-	int tries = 5E6 / 100; /* 5 seconds */
-
-	/* Wait until all HSS PLLs lock */
-	for (int phy = 0; phy < 6; phy++) {
-		do {
-			udelay(100);
-			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (tries-- == 0) {
-				printf("phy %d's PLL failed to lock...retrying\n", phy);
-				goto again;
-			}
-		} while (!(val & (1 << 8)));
-	}
+	udelay(2000000);
 }
 
 static int _is_pic_present(char p_type[16])
@@ -2138,16 +2122,24 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		_pic_reset_ctrl();
 
 		for (int phy = 0; phy < 6; phy++) {
-			/* 1. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
+			/* 1. Check that the HSS PLL has locked */
+			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+			if (!(val & (1 << 8))) {
+				printf(" error 1 on phy %d during TX", phy);
+				res = -1;
+				goto pll_err_out;
+			}
+
+			/* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
-			/* 2. Allow 6500 bit times (2ns per bit = 13us, use 100 to be safe) */
+			/* 3. Allow 6500 bit times (2ns per bit = 13us, use 100 to be safe) */
 			udelay(100);
-			/* 3. Pulse TXLBRESETx to clear TXLBERRORx (bit[7:4] of HSSxx_CTR_8) */
+			/* 4. Pulse TXLBRESETx to clear TXLBERRORx (bit[7:4] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00ff);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
-			/* 4. Wait 8 bit times */
+			/* 5. Wait 8 bit times */
 			udelay(10);
-			/* 5. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
+			/* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
 			if (val & 0xf0) {
 				printf(" error 2 on phy %d during TX", phy);
@@ -2169,7 +2161,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		}
 
 		for (int phy = 0; phy < 6; phy++) {
-			/* 1. Activate FDDATAWRAPx (bit[3:0] of HSSxx_CTR_1) */
+			/* 3. Activate FDDATAWRAPx (bit[3:0] of HSSxx_CTR_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val | 0xf);
 			/* 2. Activate RXLBENABLEx (bit[3:0] of HSSxx_CTR_7) */
@@ -2215,6 +2207,19 @@ static int perform_selftest(int asic_mode, char p_type[16])
 	}
 
 	printf("%s\n", res == 0 ? "passed" : "failed");
+	return res;
+pll_err_out:
+	printf("\n");
+
+	for (pass = 0; pass < 3; pass++) {
+		for (int phy = 0; phy < 6; phy++) {
+			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
+			printf("HSS%s_STAT_1 = %x\n", _get_linkname(phy), val);
+		}
+
+		udelay(1000000);
+	}
+
 	return res;
 }
 
