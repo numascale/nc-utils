@@ -3068,6 +3068,32 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	}
 }
 
+void broadcast_error(const struct node_info *info, const char *msg, bool oneshot)
+{
+	char *packet = malloc(sizeof(struct state_bcast) + strlen(msg));
+	assert(packet);
+
+	struct state_bcast *rsp = (struct state_bcast *)packet;
+	rsp->state = RSP_ERROR;
+	rsp->uuid = info->uuid;
+	rsp->sciid = info->sciid;
+	rsp->tid = 0;
+
+	strcpy(packet + sizeof(struct state_bcast), msg);
+
+	int handle = udp_open();
+
+	while (1) {
+		udp_broadcast_state(handle, &rsp, sizeof rsp);
+		if (oneshot) {
+			free(packet);
+			return;
+		}
+
+		udelay(2000000); /* 0.5Hz */
+	}
+}
+
 void wait_for_master(struct node_info *info, struct part_info *part)
 {
 	struct state_bcast rsp, cmd;
