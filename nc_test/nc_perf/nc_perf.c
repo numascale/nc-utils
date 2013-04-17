@@ -342,7 +342,7 @@ void counter_stop_help() {
 
 }
 void usage () {
-    printf("./nc_perf <help>/<json_file>\n");
+    printf("./nc_perf <help \"cmd\" | \"cmd\">\nwhere \"cmd\" is:\n");
     printf("[-counter-select <node_index>|<'all'> <counterno> <mux value>]\n");
     printf("[-counter-mask <node_index>|<'all'> <counterno> <mask value> ]\n");
     printf("[-counter-stop <node_index>|<'all'> <counterno>]\n");
