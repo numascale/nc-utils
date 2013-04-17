@@ -68,31 +68,66 @@ struct numachip_device **numachip_get_device_list(int32_t *num, const char *file
 {
     struct numachip_device **l = NULL;
     int32_t i;
-
+	
     if (num)
-	*num = 0;
-
+		*num = 0;
+	
     pthread_mutex_lock(&device_list_lock);
-
+	
     if (!num_devices)
-	num_devices = numachip_init(&device_list, filename);
+		num_devices = numachip_init(&device_list, filename);
+	
 
     if (num_devices < 0) {
-	errno = -num_devices;
-	goto out;
+		errno = -num_devices;
+		goto out;
     }
-
+	
     l = calloc(num_devices + 1, sizeof (struct ibv_device *));
     if (!l) {
-	errno = ENOMEM;
-	goto out;
+		errno = ENOMEM;
+		goto out;
     }
-
+	
     for (i = 0; i < num_devices; ++i)
-	l[i] = device_list[i];
+		l[i] = device_list[i];
     if (num)
-	*num = num_devices;
+		*num = num_devices;
+	
+out:
+    pthread_mutex_unlock(&device_list_lock);
+    return l;
+}
 
+struct numachip_device **numachip_get_device_list_oem(int32_t *num)
+{
+    struct numachip_device **l = NULL;
+    int32_t i;
+	
+    if (num)
+		*num = 0;
+	
+    pthread_mutex_lock(&device_list_lock);
+	
+    if (!num_devices)
+	    num_devices = numachip_init_oem(&device_list);
+    
+    if (num_devices < 0) {
+	    errno = -num_devices;
+	    goto out;
+    }
+	
+    l = calloc(num_devices + 1, sizeof (struct ibv_device *));
+    if (!l) {
+	    errno = ENOMEM;
+	    goto out;
+    }
+    
+    for (i = 0; i < num_devices; ++i)
+	    l[i] = device_list[i];
+    if (num)
+	    *num = num_devices;
+    
 out:
     pthread_mutex_unlock(&device_list_lock);
     return l;

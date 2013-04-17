@@ -47,6 +47,7 @@ struct numachip_context {
 
 
 HIDDEN int32_t numachip_init(struct numachip_device ***list, const char *filename);
+HIDDEN int32_t numachip_init_oem(struct numachip_device ***list);
 
 /*
  * sysfs helper functions
