@@ -23,34 +23,44 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 
-static void pci_search(const struct devspec *list)
+static void pci_search(const struct devspec *list, const int bus)
 {
-	int bus, dev, fn;
 	const struct devspec *listp;
 
-	for (bus = 0; bus < 256; bus++) {
-		for (dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
-			for (fn = 0; fn < 8; fn++) {
-				uint32_t type = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
-				/* PCI device functions are not necessarily contiguous */
-				if (type == 0xffffffff)
-					continue;
+	for (int dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
+		for (int fn = 0; fn < 8; fn++) {
+			uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
+			/* PCI device functions are not necessarily contiguous */
+			if (val == 0xffffffff)
+				continue;
 
-				uint32_t ctlcap = dnc_read_conf(0xfff0, bus, dev, fn, 8);
+			uint8_t type = val >> 16;
+			uint32_t ctlcap = dnc_read_conf(0xfff0, bus, dev, fn, 8);
 
-				for (listp = list; listp->class != PCI_CLASS_FINAL; listp++)
-					if ((listp->class == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->class))
+			for (listp = list; listp->class != PCI_CLASS_FINAL; listp++)
+				if ((listp->class == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->class))
+					if ((listp->type == PCI_TYPE_ANY) || (listp->type == (type & 0x7f)))
 						listp->handler(bus, dev, fn);
 
-				/* If not multi-function, break out of function loop */
-				if (!fn && !(type & 0x800000))
-					break;
+			/* Recurse down bridges */
+			if ((type & 0x7f) == 0x01) {
+				int sec = (dnc_read_conf(0xfff0, bus, dev, fn, 0x18) >> 8) & 0xff;
+				pci_search(list, sec);
 			}
+
+			/* If not multi-function, break out of function loop */
+			if (!fn && !(type & 0x80))
+				break;
 		}
 	}
 }
 
-static void disable_device(int bus, int dev, int fn)
+static void pci_search_start(const struct devspec *list)
+{
+	pci_search(list, 0);
+}
+
+static void disable_device(const int bus, const int dev, const int fn)
 {
 	int i;
 	/* Disable I/O, memory, DMA and interrupts */
@@ -71,35 +81,11 @@ static void disable_device(int bus, int dev, int fn)
 
 void disable_dma_all(void)
 {
-	int bus, dev, fn;
-
-	for (bus = 0; bus < 256; bus++) {
-		for (dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
-			for (fn = 0; fn < 8; fn++) {
-				uint32_t type = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
-
-				/* PCI device functions are not necessarily contiguous */
-				if (type == 0xffffffff)
-					continue;
-
-				switch ((type >> 16) & 0x7f) {
-				case 0:
-					if (verbose > 1)
-						printf("device at %02x:%02x.%x: ", bus, dev, fn);
-					disable_device(bus, dev, fn);
-					break;
-				case 1:
-					if (verbose > 1)
-						printf("bridge at %02x:%02x.%x\n", bus, dev, fn);
-					break;
-				}
-
-				/* If not multi-function, break out of function loop */
-				if (!fn && !(type & 0x800000))
-					break;
-			}
-		}
-	}
+	const struct devspec devices[] = {
+		{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
+		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
+	};
+	pci_search_start(devices);
 }
 
 uint16_t capability(const uint8_t cap, const int bus, const int dev, const int fn)
@@ -433,22 +419,22 @@ void handover_legacy(void)
 	/* Stop ACPI first, as Linux requests ownership of this before other subsystems */
 	stop_acpi();
 	const struct devspec devices[] = {
-		{PCI_CLASS_SERIAL_USB_OHCI, 3, stop_ohci},
-		{PCI_CLASS_SERIAL_USB_EHCI, 3, stop_ehci},
-		{PCI_CLASS_SERIAL_USB_XHCI, 3, stop_xhci},
-		{PCI_CLASS_STORAGE_SATA, 2, stop_ahci},
-		{PCI_CLASS_STORAGE_RAID, 2, stop_ahci},
-		{PCI_CLASS_FINAL, 0, NULL}
+		{PCI_CLASS_SERIAL_USB_OHCI, 3, PCI_TYPE_ENDPOINT, stop_ohci},
+		{PCI_CLASS_SERIAL_USB_EHCI, 3, PCI_TYPE_ENDPOINT, stop_ehci},
+		{PCI_CLASS_SERIAL_USB_XHCI, 3, PCI_TYPE_ENDPOINT, stop_xhci},
+		{PCI_CLASS_STORAGE_SATA,    2, PCI_TYPE_ENDPOINT, stop_ahci},
+		{PCI_CLASS_STORAGE_RAID,    2, PCI_TYPE_ENDPOINT, stop_ahci},
+		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 	};
-	pci_search(devices);
+	pci_search_start(devices);
 }
 
 void pci_setup(void)
 {
 	const struct devspec devices[] = {
-		{PCI_CLASS_ANY, 0, completion_timeout},
-		{PCI_CLASS_FINAL, 0, NULL}
+		{PCI_CLASS_ANY, 0, PCI_TYPE_ANY, completion_timeout},
+		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 	};
-	pci_search(devices);
+	pci_search_start(devices);
 }
 
