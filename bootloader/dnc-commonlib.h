@@ -195,6 +195,7 @@ extern int force_probefilteroff;
 extern int force_probefilteron;
 extern uint64_t mem_gap;
 extern bool workaround_locks;
+extern int enable_nbwdt;
 
 extern const char *node_state_name[];
 
