@@ -1784,6 +1784,9 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 		udelay(10000);
 		val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 
+		/* Mask out bit7 of every byte because it's missing.. */
+		assertf(((val & 0x007f7f7f) == (0x0000b0e9 & 0x007f7f7f)), "External micro controller not working !\n");
+
 		/* On the RevC cards the micro controller isn't quite fast enough
 		 * to send bit7 of every byte correctly on the I2C bus when reading;
 		 * the bits we care about are bit[1:0] of the high order byte */
