@@ -1797,6 +1797,7 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 			dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
 			udelay(10000);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+			assertf(((val >> 24) & 3) == osc_setting, "Oscillator setting not set correctly! %08x", val);
 			printf("Oscillator set to %d\n", (val >> 24) & 3);
 			/* Trigger a HSS PLL reset */
 			_pic_reset_ctrl();
