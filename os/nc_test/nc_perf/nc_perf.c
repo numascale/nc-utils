@@ -11,7 +11,7 @@
 // Any unauthorized use, reproduction or transfer of the information
 // provided herein is strictly prohibited.
 // 
-// Copyright © 2008-2011
+// Copyright © 2008-2013
 // Numascale AS Oslo, Norway. 
 // All Rights Reserved.
 //
@@ -29,7 +29,8 @@
 #include "pcounter_test.h"
 #include "../../../interface/numachip-defines.h"
 
-#define DEBUG_STATEMENT(x) 
+#define DEBUG_STATEMENT(x)
+
 void print_involved() {
     printf("------------------------------------------\n");
     printf("INVOLVED REGISTERS:----------------------\n");
@@ -342,7 +343,7 @@ void counter_stop_help() {
 
 }
 void usage () {
-    printf("./nc_perf <help>/<json_file>\n");
+    printf("./nc_perf <help \"cmd\" | \"cmd\">\nwhere \"cmd\" is:\n");
     printf("[-counter-select <node_index>|<'all'> <counterno> <mux value>]\n");
     printf("[-counter-mask <node_index>|<'all'> <counterno> <mask value> ]\n");
     printf("[-counter-stop <node_index>|<'all'> <counterno>]\n");
@@ -377,256 +378,229 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes) {
 int main(int argc, char **argv)
 {
     struct numachip_device **devices;
-    //struct numachip_context *cntxt;
     struct numachip_context **cntxt;
     int counter=0, i=0;
     int num_devices; 
-    const char *filename = "fabric-loop-05.json";
     
-    if (argc<3) {
+    if (argc<2) {
         usage();
         return(-1);
     }
-
+	
     if (!strcmp(argv[1], "help")){
-
-	/* Get the parameters */
-	for (counter=2; (int)counter<argc; counter++) {
-	    printf("Argument %d: %s\n", counter, argv[counter]);
-	    
-	    if (!strcmp("-counter-select",argv[counter])) {	    
-		counter_select_help();
-		break;
-	    }
-	    else if (!strcmp("-counter-mask",argv[counter])) {	    
-		counter_mask_help();
-		break;
-	    }
-	    else if (!strcmp("-counter-clear",argv[counter])) {	    
-		counter_clear_help();
-		break;
-	    }
-	    else if (!strcmp("-counter-stop",argv[counter])) {	    
-		counter_stop_help();
-		break;
-	    }
-	    
-	    else if (!strcmp("-counter-read",argv[counter])) {	    
-		counter_read_help();
-		break;
-	    }
-	    
-	    else if (!strcmp("-counter-start",argv[counter])) {	    
-		counter_start_help();
-		break;
+		
+		/* Get the parameters */
+		for (counter=2; (int)counter<argc; counter++) {
+			printf("Argument %d: %s\n", counter, argv[counter]);
+			
+			if (!strcmp("-counter-select",argv[counter])) {	    
+				counter_select_help();
+				break;
+			}
+			else if (!strcmp("-counter-mask",argv[counter])) {	    
+				counter_mask_help();
+				break;
+			}
+			else if (!strcmp("-counter-clear",argv[counter])) {	    
+				counter_clear_help();
+				break;
+			}
+			else if (!strcmp("-counter-stop",argv[counter])) {	    
+				counter_stop_help();
+				break;
+			}			
+			else if (!strcmp("-counter-read",argv[counter])) {	    
+				counter_read_help();
+				break;
+			}
+			else if (!strcmp("-counter-start",argv[counter])) {	    
+				counter_start_help();
+				break;
+			} else {
+				printf("Wrong parameters\n");
+				usage();
+				break;
+			}
+			
+		}
+		counter=0;
+		return(0);
+		
+    } 
 	
-	    } else {
-		printf("Wrong parameters\n");
+    if (argc<2) {
 		usage();
-		break;
-	    }
-	    
-	}
-	counter=0;
-	return(0);
+    }
 	
-    }
-
-    if (argc<3) {
-	usage();
-    }
-
-
-    devices = numachip_get_device_list(&num_devices, filename);
+	
+    devices = numachip_get_device_list_oem(&num_devices);
     DEBUG_STATEMENT(printf("Found %d NumaChip devices\n", num_devices));
     
     if (!devices)
-	return -1;
-
+		return -1;
+	
     DEBUG_STATEMENT(printf("sizeof(struct numachip_context *) %ld\n", sizeof(struct numachip_context *)));
     cntxt = malloc(num_devices * sizeof(struct numachip_context *));
-
+	
     for(i=0; i<num_devices; i++) {
-	cntxt[i] = numachip_open_device(devices[i]);
+		cntxt[i] = numachip_open_device(devices[i]);
     }
     
     numachip_free_device_list(devices);
 	
     
     if (!cntxt[0])
-	return -1;
-
-
-     /* Get the parameters */
-    for (counter=2; (int)counter<argc; counter++) {
-	uint32_t nodeix = 0,counterno = 0, val= 0, val2 = 0; 
-//	printf("Get the parameters counter %d argc %d argv[counter] %s\n",counter, argc, argv[counter]);
-
-	if (argc>counter+2) {	    
-	    counterno = strtol(argv[counter+2],(char **) NULL,10);
-	    DEBUG_STATEMENT(printf ("Counterno %d\n", counterno));
-	    
-	} else {
-	    printf("Wrong parameters\n");
-	    usage();
-	    break;
-	}
-	DEBUG_STATEMENT(printf ("Counter print argv[counter+1]  %s\n", argv[counter+1]));    
-	if (argc>counter+3) {
-	    val = strtol(argv[counter+3],(char **) NULL,10);
-	}
-	DEBUG_STATEMENT(printf ("Counter print argv[counter+1]  %s\n", argv[counter+1]));
-	if (argc>counter+4) {
-	    val2 = strtol(argv[counter+4],(char **) NULL,10);
-	}
-	if (!strcmp("all",argv[counter+1])) {
-	    
-	    DEBUG_STATEMENT(printf ("Counter print all1 %d\n", num_devices));
-	    if (!strcmp("-counter-select",argv[counter])) {
-		if (!(argc>=counter+3)) {
-		   printf("Wrong parameters\n");
-		   usage();
-		   break; 
-		}
-		if (counter_select_all(cntxt,num_devices,counterno,val) == NUMACHIP_ERR_BUSY)
-		{
-		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
-		}
-		break;
-	    }
-	    else if (!strcmp("-counter-mask",argv[counter])) {
-		if (!(argc>=counter+3)) {
-		   printf("Wrong parameters\n");
-		   usage();
-		   break; 
-		}
-		if (counter_mask_all(cntxt,num_devices,counterno,val) == NUMACHIP_ERR_BUSY)
-		{
-		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
-		} 
-		break;
-	    }
-
-	    else if (!strcmp("-counter-clear",argv[counter])) {
-		counter_clear_all(cntxt,num_devices,counterno);
-		break;
-	    }
+		return -1;
 	
-	    else if (!strcmp("-counter-read",argv[counter])) {
-		DEBUG_STATEMENT(printf ("Counter print all %d\n", num_devices));
-		counter_print_all(cntxt,num_devices,counterno);
-		break;
-	    }
-	    else if (!strcmp("-counter-stop",argv[counter])) {	    
-		counter_stop_all(cntxt,num_devices,counterno);
-		break;
-	    }
-
-	    else if (!strcmp("-counter-start",argv[counter])) {
-		if (!(argc>counter+4)) {
-		   printf("Wrong parameters\n");
-		   usage();
-		   break; 
-		}
-		printf("Calling counter_start_all(cntxt,%d,%d,%d,%d);\n",num_devices, counterno, val, val2);
-		counter_start_all(cntxt,num_devices,counterno,val,val2);
-	    	break;
-	    }
-	    
-	} else {
-
-	    if (argc>counter+1) {	    
-		nodeix = strtol(argv[counter+1],(char **) NULL,10);
-		DEBUG_STATEMENT(printf ("node %d\n", nodeix));
-		if (nodeix >= num_devices) {
-		    printf("Cannot access nodeix %d. Number of nodes are %d\n", nodeix,num_devices);
-		    usage();
-		    break;
-		}
-	    } else {
-		printf("Wrong parameters\n");
-		usage();
-		break;
-	    }
-	    
-
-	    if (!strcmp("-counter-select",argv[counter])) {
-		if (!(argc>counter+3)) {
-		    printf("Wrong parameters\n");
-		    usage();
-		    break; 
-		}
-		DEBUG_STATEMENT(printf("Node %d counterno %d value %d\n",nodeix,counterno,val));
-		if (counter_select(cntxt[nodeix],counterno,val) == NUMACHIP_ERR_BUSY)
-		{
-		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
-		}
-		break;
-	    }
-	    
-	    else if (!strcmp("-counter-mask",argv[counter])) {
-		if (!(argc>counter+3)) {
-		    printf("Wrong parameters\n");
-		    usage();
-		    break; 
-		}
-		DEBUG_STATEMENT(printf("Masking counter node %d counterno %d mask 0x%x\n",
-				       nodeix, counterno, val));
-		if (counter_mask(cntxt[nodeix], counterno,val) == NUMACHIP_ERR_BUSY)
-		{
-		    printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
-		}
-		break;
-	    }
-	    
-	    else if (!strcmp("-counter-clear",argv[counter])) {
-		counter_clear(cntxt[nodeix],counterno);
-		break;
-	    }
-	
-	    else if (!strcmp("-counter-read",argv[counter])) {	    
-		printf("Reading counter node %d counterno %d = %lld \n",
-		       nodeix, counterno, (unsigned long long)
-		       counter_read(cntxt[nodeix],counterno));
-		break;
-	    }
-	    else if (!strcmp("-counter-stop",argv[counter])) {	    
-		counter_stop(cntxt[nodeix],counterno);
-		break;
-	    }
-
-	    else if (!strcmp("-counter-start",argv[counter])) {	    
-		counter_start(cntxt[nodeix],counterno,val,val2);
-	    	break;
-	    } else {
-		printf("Wrong parameters\n");
-		usage();
-	    }
+	/* Get the parameters */
+    for (counter=1; (int)counter<argc; counter++) {
+		uint32_t nodeix = 0,counterno = 0, val= 0, val2 = 0; 
+		DEBUG_STATEMENT(printf("Get the parameters counter %d argc %d argv[counter] %s\n",counter, argc, argv[counter]));
 		
-
-	}
-		    
+		if (argc>counter+2) {	    
+			counterno = strtol(argv[counter+2],(char **) NULL,10);
+			DEBUG_STATEMENT(printf ("Counterno %d\n", counterno));
+			
+		} else {
+			printf("Wrong parameters\n");
+			usage();
+			break;
+		}
+		DEBUG_STATEMENT(printf ("Counter print argv[counter+1]  %s\n", argv[counter+1]));    
+		if (argc>counter+3) {
+			val = strtol(argv[counter+3],(char **) NULL,10);
+		}
+		DEBUG_STATEMENT(printf ("Counter print argv[counter+1]  %s\n", argv[counter+1]));
+		if (argc>counter+4) {
+			val2 = strtol(argv[counter+4],(char **) NULL,10);
+		}
+		if (!strcmp("all",argv[counter+1])) {
+			DEBUG_STATEMENT(printf ("Counter print all %d counterno %d val %d\n", num_devices,counterno, val));
+			if (!strcmp("-counter-select",argv[counter])) {
+				if (!(argc>=counter+2)) {
+					printf("Wrong parameters\n");
+					usage();
+					break; 
+				}
+				if (counter_select_all(cntxt,num_devices,counterno,val) == NUMACHIP_ERR_BUSY)
+				{
+					printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+				}
+				break;
+			}
+			else if (!strcmp("-counter-mask",argv[counter])) {
+				if (!(argc>=counter+2)) {
+					printf("Wrong parameters\n");
+					usage();
+					break; 
+				}
+				if (counter_mask_all(cntxt,num_devices,counterno,val) == NUMACHIP_ERR_BUSY)
+				{
+					printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+				} 
+				break;
+			}
+			else if (!strcmp("-counter-clear",argv[counter])) {
+				printf("counter_clear_all\n");
+				counter_clear_all(cntxt,num_devices,counterno);
+				break;
+			}
+			else if (!strcmp("-counter-read",argv[counter])) {
+				DEBUG_STATEMENT(printf ("Counter print all %d\n", num_devices));
+				counter_print_all(cntxt,num_devices,counterno);
+				break;
+			}
+			else if (!strcmp("-counter-stop",argv[counter])) {	    
+				counter_stop_all(cntxt,num_devices,counterno);
+				break;
+			}
+			
+			else if (!strcmp("-counter-start",argv[counter])) {
+				if (!(argc>counter+3)) {
+					printf("Wrong parameters\n");
+					usage();
+					break; 
+				}
+				DEBUG_STATEMENT(printf("Calling counter_start_all(cntxt,%d,%d,%d,%d);\n",num_devices, counterno, val, val2));
+				counter_start_all(cntxt,num_devices,counterno,val,val2);
+				break;
+			}
+			
+		} else {
+			
+			if (argc>counter+1) {	    
+				nodeix = strtol(argv[counter+1],(char **) NULL,10);
+				DEBUG_STATEMENT(printf ("node %d\n", nodeix));
+				if (nodeix >= num_devices) {
+					printf("Cannot access nodeix %d. Number of nodes are %d\n", nodeix,num_devices);
+					usage();
+					break;
+				}
+			} else {
+				printf("Wrong parameters\n");
+				usage();
+				break;
+			}
+			
+			if (!strcmp("-counter-select",argv[counter])) {
+				if (!(argc>counter+2)) {
+					printf("Wrong parameters\n");
+					usage();
+					break; 
+				}
+				DEBUG_STATEMENT(printf("Node %d counterno %d value %d\n",nodeix,counterno,val));
+				if (counter_select(cntxt[nodeix],counterno,val) == NUMACHIP_ERR_BUSY)
+				{
+					printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+				}
+				break;
+			}
+			else if (!strcmp("-counter-mask",argv[counter])) {
+				if (!(argc>counter+2)) {
+					printf("Wrong parameters\n");
+					usage();
+					break; 
+				}
+				DEBUG_STATEMENT(printf("Masking counter node %d counterno %d mask 0x%x\n",
+									   nodeix, counterno, val));
+				if (counter_mask(cntxt[nodeix], counterno,val) == NUMACHIP_ERR_BUSY)
+				{
+					printf("NOTE: In order to be able to modify a counter that is already in use you first have to call -counter-clear\n");
+				}
+				break;
+			}
+			else if (!strcmp("-counter-clear",argv[counter])) {
+				counter_clear(cntxt[nodeix],counterno);
+				break;
+			}
+			
+			else if (!strcmp("-counter-read",argv[counter])) {	    
+				printf("Reading counter node %d counterno %d = %lld \n",
+					   nodeix, counterno, (unsigned long long)
+					   counter_read(cntxt[nodeix],counterno));
+				break;
+			}
+			else if (!strcmp("-counter-stop",argv[counter])) {	    
+				counter_stop(cntxt[nodeix],counterno);
+				break;
+			}
+			
+			else if (!strcmp("-counter-start",argv[counter])) {	    
+				counter_start(cntxt[nodeix],counterno,val,val2);
+				break;
+			} else {
+				printf("Wrong parameters !! argv[counter] = %s\n", argv[counter]);
+				usage();
+			}
+			
+			
+		}
 		
-        /*
-	if (!strcmp("-count-stop",argv[counter])) {	    
-	    count_api_stop(cntxt, num_devices);
-	    continue;
-	}
-	
-	if (!strcmp("-count-rate",argv[counter])) {
-	    count_api_stop(cntxt, num_devices);
-	    count_api_start(cntxt, num_devices);
-	    count_rate(cntxt, num_devices);
-	    
-	    continue;
-	}
-	*/
-
     }
-
+	
     
     for(i=0; i<num_devices; i++) {
-	close_device(cntxt[i]);
+		close_device(cntxt[i]);
     }
     free(cntxt);
     

@@ -30,7 +30,7 @@
 #include "numachip_lib.h"
 #include "numachip_user.h"
 #include "pcounter_test.h"
-#define DEBUG_STATEMENT(x) 
+#define DEBUG_STATEMENT(x)
 
 
 nc_error_t count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) {
@@ -170,6 +170,9 @@ nc_error_t counter_clear_all(struct numachip_context **cntxt, uint32_t num_nodes
     uint32_t node=0;
     nc_error_t retval = NUMACHIP_ERR_OK;
     for(node=0; node<num_nodes; node++) {
+	    DEBUG_STATEMENT(
+	    printf("node %d counter %d: \n",node, counterno));
+	    
 	retval=counter_clear(cntxt[node],counterno);
 	if (retval != NUMACHIP_ERR_OK)  return retval;
     }

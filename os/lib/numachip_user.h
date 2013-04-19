@@ -76,6 +76,8 @@ struct numachip_context;
  */
 struct numachip_device **numachip_get_device_list(int32_t *num_devices, const char *filename);
 
+struct numachip_device **numachip_get_device_list_oem(int32_t *num_devices);
+
 /**
  * numachip_free_device_list - Free list from numachip_get_device_list()
  *

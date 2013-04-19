@@ -500,20 +500,13 @@ int main(int argc, char* argv[]) {
 	
     } devices; 
 
-    /*
-     * Real files are found in /var/lib/tftpboot/nc-config
-     * const char *filename = "/net/numastore/storage/home/av/handy/nc-config/fabric-loop-05.json";
-     * const char *filename = "fabric-narya-2d.json";
-     * const char *filename = "fabric-loop-05.json";
-     */
-    const char *filename = "fabric-loop-05.json";
     if( argc < 2 ) {
         fprintf(stderr,"error, no port provided\n");
         exit(1);
     }
 
    
-    nc_devices = numachip_get_device_list(&num_devices, filename);
+    nc_devices = numachip_get_device_list_oem(&num_devices);
     msgsize = num_devices*sizeof(struct msgstats_t);
     countstat = malloc (num_devices * sizeof(struct msgstats_t));
     init_numachip_counters(num_devices, countstat);

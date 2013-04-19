@@ -1026,7 +1026,9 @@ static void setup_other_cores(void)
 	       (uint32_t)apic, apic[0x20 / 4], (uint32_t)icr, *icr);
 
 	/* Set core watchdog timer to 21s */
-	msr = (9 << 3) | 1;
+	msr = (9 << 3);
+	if (enable_nbwdt > 0)
+		msr |= 1;
 	wrmsr(MSR_CPUWDT, msr);
 	*REL64(new_cpuwdt_msr) = msr;
 
