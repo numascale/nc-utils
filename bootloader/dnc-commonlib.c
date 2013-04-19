@@ -2354,6 +2354,88 @@ void selftest_late_msrs(void)
 	}
 }
 
+struct smbios_header {
+	uint8_t type;
+	uint8_t length;
+	uint16_t handle;
+	uint8_t *data;
+};
+
+static const char *smbios_string(const char *table, uint8_t index) {
+	while (--index)
+		table += strlen(table) + 1;
+	return table;
+}
+
+static void smbios_parse(const char *buf, const uint16_t len, const uint16_t num, const char **biosver, const char **biosdate, const char **manuf, const char **product) {
+	const char *data = buf;
+	int i = 0;
+
+	while (i < num && data + 4 <= buf + len) {
+		const char *next;
+		struct smbios_header *h = (struct smbios_header *)data;
+
+		assert(h->length >= 4);
+		if (h->type == 127)
+			break;
+
+		next = data + h->length;
+
+		if (h->type == 0) {
+			*biosver = smbios_string(next, data[5]);
+			*biosdate = smbios_string(next, data[8]);
+		} else if (h->type == 1) {
+			*manuf = smbios_string(next, data[4]);
+			*product = smbios_string(next, data[5]);
+		}
+
+		while (next - buf + 1 < len && (next[0] != 0 || next[1] != 0))
+			next++;
+		next += 2;
+		data = next;
+		i++;
+	}
+}
+
+static void platform_quirks(void)
+{
+	const char *buf = (const char *)0xf0000;
+	size_t fp;
+
+	/* Search for signature */
+	for (fp = 0; fp <= 0xfff0; fp += 16)
+		if (!memcmp(buf + fp, "_SM_", 4))
+			break;
+
+	assertf(fp != 0x10000, "Failed to find SMBIOS signature");
+
+	uint16_t len = *(uint16_t *)(buf + fp + 0x16);
+	uint16_t num = *(uint16_t *)(buf + fp + 0x1c);
+	fp = *(uint32_t *)(buf + fp + 0x18);
+
+	const char *manuf = NULL, *product = NULL, *biosver = NULL, *biosdate = NULL;
+	smbios_parse((const char *)fp, len, num, &biosver, &biosdate, &manuf, &product);
+	assert(biosver && biosdate && manuf && product);
+	printf("Platform is %s %s with BIOS %s %s", manuf, product, biosver, biosdate);
+
+	/* Skip if already set */
+	if (handover_acpi)
+		return;
+
+	/* Systems where ACPI must be handed off early */
+	const char *acpi_blacklist[] = {"H8QGL", NULL};
+
+	for (unsigned int i = 0; i < (sizeof acpi_blacklist / sizeof acpi_blacklist[0]); i++) {
+		if (!strcmp(product, acpi_blacklist[i])) {
+			printf(" (blacklisted)");
+			handover_acpi = 1;
+			break;
+		}
+	}
+
+	printf("\n");
+}
+
 int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode, const char *cmdline)
 {
 	uint32_t uuid, val, chip_rev;
@@ -2363,6 +2445,7 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 	if (parse_cmdline(cmdline) < 0)
 		return -1;
 
+	platform_quirks();
 	detect_southbridge();
 
 	/* SMI often assumes HT nodes are Northbridges, so handover early */
