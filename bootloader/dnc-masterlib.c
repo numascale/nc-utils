@@ -213,6 +213,7 @@ void tally_local_node(void)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 
 	dnc_node_count++;
+	assert(dnc_node_count < 128);
 }
 
 static bool tally_remote_node(uint16_t node)
