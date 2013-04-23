@@ -35,7 +35,7 @@ int escrow_populate(void *data)
 	cur->global.neigh_ht     = nc_neigh;
 	cur->global.neigh_link   = nc_neigh_link;
 	cur->global.symmetric    = 1;
-	cur->global.renumbering  = !nc_node[1].ht[0].cpuid;
+	cur->global.renumbering  = !!renumber_bsp;
 	cur->global.remote_io    = !!remote_io;
 
 	if (verbose > 1)
