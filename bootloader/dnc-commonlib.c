@@ -28,6 +28,7 @@
 #include "dnc-devices.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
+#include "ddr_spd.h"
 
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
@@ -123,9 +124,9 @@ void wait_key(void)
 static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 {
 	uint16_t spd_addr;
-	uint32_t reg;
 	uint8_t addr_bits;
-	uint8_t mdata[20];
+	ddr2_spd_eeprom_t *spd = &dimm->spd;
+	uint32_t *dataw = (uint32_t *)spd;
 
 	/* On N313025 and N323024, the SPD addresses are reversed */
 	if ((strncmp("N313025", p_type, 7) == 0) ||
@@ -134,53 +135,53 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	else
 		spd_addr = cdata ? 1 : 0;
 
-	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) +  0); /* Read SPD location 0, 1, 2, 3 */
+	/* Read entire SPD */
+	for (uint32_t i = 0; i < sizeof(ddr2_spd_eeprom_t)/sizeof(uint32_t); i++)
+		dataw[i] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + (i<<2)));
 
-	if (((reg >> 8) & 0xff) != 0x08) {
-		error("Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller",
+	/* Check SPD validity */
+	if (ddr2_spd_check(spd) < 0) {
+		error("Couldn't find a valid DDR2 SDRAM memory module attached to the %s memory controller",
 		       cdata ? "CData" : "MCTag");
 		return -1;
 	}
 
-	dimm->addr_pins = 16 - (reg & 0xf); /* Number of Row address bits (max 16) */
-	addr_bits = (reg & 0xf);
-	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) +  4); /* Read SPD location 4, 5, 6, 7 */
-	dimm->column_size = 13 - ((reg >> 24) & 0xf); /* Number of Column address bits (max 13) */
-	dimm->cs_map = ((reg >> 16) & 1) ? 3 : 1; /* Single or Dual rank */
-	addr_bits = addr_bits + ((reg >> 24) & 0xf) + ((reg >> 16) & 1);
-	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) +  8); /* Read SPD location 8, 9, 10, 11 */
-
-	if (!(reg & 2)) {
+	if (!(spd->config & 2)) {
 		error("Unsupported non-ECC %s DIMM", cdata ? "CData" : "MCTag");
 		return -1;
 	}
 
-	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 12); /* Read SPD location 12, 13, 14, 15 */
-	dimm->width = (reg >> 8) & 0xff;
-
-	if ((dimm->width != 4) && (dimm->width != 8)) {
-		error("Unsupported %s SDRAM width %d", cdata ? "CData" : "MCTag", dimm->width);
-		return -1;
-	}
-
-	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 16); // Read SPD location 16, 17, 18, 19
-	dimm->eight_bank = ((reg >> 16) & 0xff) == 8;
-	addr_bits = addr_bits + (dimm->eight_bank ? 3 : 2);
-	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 20); /* Read SPD location 20, 21, 22, 23 */
-
-	if (!(reg & 0x11000000)) {
+	if (!(spd->dimm_type & 0x11)) {
 		error("Unsupported non-Registered %s DIMM", cdata ? "CData" : "MCTag");
 		return -1;
 	}
 
-	uint32_t *mdataw = (uint32_t *)mdata;
-	mdataw[0] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 72)); /* Read SPD location 72, 73, 74, 75 */
-	mdataw[1] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 76)); /* Read SPD location 76, 77, 78, 79 */
-	mdataw[2] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 80)); /* Read SPD location 80, 81, 82, 83 */
-	mdataw[3] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 84)); /* Read SPD location 84, 85, 86, 87 */
-	mdataw[4] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 88)); /* Read SPD location 88, 89, 90, 91 */
-	mdata[19] = 0;
-	printf("%s is a x%d %dMB module (%s)\n", cdata ? "CData" : "MCTag", dimm->width, 1 << (addr_bits - 17), mdata[1] ? (char *)&mdata[1] : "unknown");
+	if ((spd->mod_ranks & 7) > 1) {
+		error("Unsupported %s rank count %d", cdata ? "CData" : "MCTag", (spd->mod_ranks & 7) + 1);
+		return -1;
+	}
+
+	if ((spd->primw != 4) && (spd->primw != 8)) {
+		error("Unsupported %s SDRAM component width %d", cdata ? "CData" : "MCTag", spd->primw);
+		return -1;
+	}
+
+	dimm->addr_pins = 16 - (spd->nrow_addr & 0xf); /* Number of Row address bits (max 16) */
+	dimm->column_size = 13 - (spd->ncol_addr & 0xf); /* Number of Column address bits (max 13) */
+	dimm->cs_map = (spd->mod_ranks & 1) ? 3 : 1; /* Single or Dual rank */
+	dimm->width = spd->primw;
+	dimm->eight_bank = (spd->nbanks == 8);
+
+	addr_bits = (spd->nrow_addr & 0xf) + (spd->ncol_addr & 0xf) + (spd->mod_ranks & 1) + ((spd->nbanks == 8) ? 3 : 2);
+
+	// Make sure manufacturer's part-number is null-terminated
+	if (spd->mpart[17])
+		spd->mpart[17] = 0;
+	
+	printf("%s is a x%d %dMB %s-rank module (%s)\n", cdata ? "CData" : "MCTag",
+	       dimm->width, 1 << (addr_bits - 17),
+	       (spd->mod_ranks & 1) ? "dual" : "single",
+	       spd->mpart[0] ? (char *)spd->mpart : "unknown");
 
 	switch (addr_bits) {
 	case 31:

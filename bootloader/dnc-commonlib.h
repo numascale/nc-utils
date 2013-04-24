@@ -22,6 +22,7 @@
 #include <stdbool.h>
 
 #include "dnc-config.h"
+#include "ddr_spd.h"
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -131,6 +132,7 @@ struct state_bcast {
 
 /* Structs to hold DIMM configuration from SPD readout */
 struct dimm_config {
+	ddr2_spd_eeprom_t spd;
 	uint8_t addr_pins;
 	uint8_t column_size;
 	uint8_t cs_map;
