@@ -56,7 +56,15 @@ uint64_t dnc_csr_lim = DEF_DNC_CSR_LIM;
 uint8_t rtc_read(const int addr)
 {
 	outb(addr, 0x70);
-	return inb(0x71);
+	uint8_t val = inb(0x71);
+
+	/* Convert from BCD if needed */
+	outb(RTC_SETTINGS, 0x70);
+	uint8_t settings = inb(0x71);
+	if (!(settings & 4))
+		return (val & 0xf) + (val / 16) * 10;
+
+	return val;
 }
 
 uint8_t pmio_readb(uint16_t offset)

@@ -2911,7 +2911,9 @@ static void start_user_os(void)
 	rm.eax.w[0] = 0x0003;
 	rm.ebx.w[0] = OFFS(__com32.cs_bounce);
 	rm.es = SEG(__com32.cs_bounce);
-	printf("Unification succeeded; loading %s...\n", next_label);
+	printf(BANNER "Unification succeeded at 20%02d-%02d-%02d %02d:%02d:%02d; loading %s..." COL_DEFAULT "\n",
+		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
+		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS), next_label);
 
 	if (boot_wait)
 		wait_key();
@@ -3239,7 +3241,9 @@ int main(void)
 {
 	int ret;
 	openconsole(&dev_rawcon_r, &dev_stdcon_w);
-	printf(CLEAR BANNER "NumaConnect system unification module " VER COL_DEFAULT "\n");
+	printf(CLEAR BANNER "NumaConnect system unification module " VER " at 20%02d-%02d-%02d %02d:%02d:%02d" COL_DEFAULT "\n",
+		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
+		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS));
 
 	/* Enable CF8 extended access for first Northbridge; we do others for Linux later */
 	set_cf8extcfg_enable(0);
