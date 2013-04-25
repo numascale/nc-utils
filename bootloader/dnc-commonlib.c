@@ -18,6 +18,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <inttypes.h>
 
 #include "dnc-regs.h"
@@ -75,8 +76,6 @@ bool workaround_locks = 0;
 uint64_t mem_gap = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
-
-int nc_neigh = -1, nc_neigh_link = -1;
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
 
 /* Return string pointer using rotated static buffer to avoid heap */
@@ -847,8 +846,8 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	while ((2U << link) < rqrt)
 		link ++;
 
-	nc_neigh = neigh;
-	nc_neigh_link = link;
+	local_node.nc_neigh = neigh;
+	local_node.nc_neigh_link = link;
 	ganged = cht_read_conf(neigh, 0, 0x170 + link * 4) & 1;
 	printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
 	printf("Checking HT width/freq");
@@ -2130,7 +2129,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			/* 1. Check that the HSS PLL has locked */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
 			if (!(val & (1 << 8))) {
-				printf(" error 1 on phy %d during TX", phy);
+				printf("error 1 on phy %d during transmit", phy);
 				res = -1;
 				goto pll_err_out;
 			}
@@ -2147,9 +2146,9 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			/* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
 			if (val & 0xf0) {
-				printf(" error 2 on phy %d during TX", phy);
+				printf("error 2 on phy %d during transmit", phy);
 				res = -1;
-				break;
+				goto pll_err_out;
 			}
 		}
 
@@ -2159,9 +2158,9 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
 			if (val & 0xf0) {
-				printf(" error 3 on phy %d during TX", phy);
+				printf("error 3 on phy %d during transmit", phy);
 				res = -1;
-				break;
+				goto pll_err_out;
 			}
 		}
 
@@ -2181,9 +2180,9 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			/* 6. Monitor the RXLBERRORx flag (bit[3:0] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
 			if (val & 0xff) {
-				printf(" error 1 on phy %d during RX", phy);
+				printf("error 1 on phy %d during receive", phy);
 				res = -1;
-				break;
+				goto pll_err_out;
 			}
 		}
 
@@ -2193,9 +2192,9 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
 			if (val & 0xff) {
-				printf(" error 2 on phy %d during RX", phy);
+				printf("error 2 on phy %d during receive", phy);
 				res = -1;
-				break;
+				goto pll_err_out;
 			}
 
 			/* Stop BIST test */
@@ -2455,9 +2454,6 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 
 	ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
 
-	if (verbose > 1)
-		dump_northbridge_regs(ht_id);
-
 	/* Indicate immediate jump to next-label (-2) if init-only is also given */
 	if ((disable_nc > 0) && init_only)
 		return -2;
@@ -2468,6 +2464,9 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 
 	if (ht_id < 0)
 		return -1;
+
+	if (verbose > 1)
+		dump_northbridge_regs(ht_id);
 
 	/* ====================== START ERRATA WORKAROUNDS ====================== */
 
@@ -3161,42 +3160,65 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	}
 }
 
-void broadcast_error(const struct node_info *info, const char *msg, bool oneshot)
+void broadcast_error(const bool persistent, const char *format, ...)
 {
-	char *packet = malloc(sizeof(struct state_bcast) + strlen(msg));
-	assert(packet);
+	char buf[UDP_MAXLEN];
+	struct state_bcast *rsp = (struct state_bcast *)buf;
+	char *msg = buf + sizeof(struct state_bcast);
 
-	struct state_bcast *rsp = (struct state_bcast *)packet;
+	va_list args;
+	va_start(args, format);
+	vsnprintf(msg, sizeof buf - sizeof(struct state_bcast), format, args);
+	va_end(args);
+
+	int len = sizeof(struct state_bcast) + strlen(msg) + 1;
+
+	rsp->sig = UDP_SIG;
 	rsp->state = RSP_ERROR;
-	rsp->uuid = info->uuid;
-	rsp->sciid = info->sciid;
+	rsp->uuid = local_info->uuid;
+	rsp->sciid = local_info->sciid;
 	rsp->tid = 0;
 
-	strcpy(packet + sizeof(struct state_bcast), msg);
+	do {
+		udp_broadcast_state(rsp, len);
+		udelay(5000000);
+	} while (persistent);
+}
 
-	int handle = udp_open();
+void check_error(void)
+{
+	char buf[UDP_MAXLEN];
+	size_t len = udp_read_state(buf, sizeof buf);
+	if (!len)
+		return;
 
-	while (1) {
-		udp_broadcast_state(handle, &rsp, sizeof rsp);
-		if (oneshot) {
-			free(packet);
+	struct state_bcast *rsp = (struct state_bcast *)buf;
+	if (len < sizeof(struct state_bcast) || rsp->sig != UDP_SIG)
+		return;
+
+	if (rsp->state != RSP_ERROR)
+		return;
+
+	for (int i = 0; i < cfg_nodes; i++) {
+		if ((!name_matching && (cfg_nodelist[i].uuid == rsp->uuid)) ||
+		    ( name_matching && (cfg_nodelist[i].sciid == rsp->sciid))) {
+			error_remote(rsp->sciid, cfg_nodelist[i].desc, buf + sizeof(struct state_bcast));
 			return;
 		}
-
-		udelay(2000000); /* 0.5Hz */
 	}
 }
 
 void wait_for_master(struct node_info *info, struct part_info *part)
 {
 	struct state_bcast rsp, cmd;
-	int count, backoff;
+	int count, backoff, i;
 	int go_ahead = 0;
 	uint32_t last_cmd = ~0;
 	uint32_t builduuid = ~0;
-	int handle;
-	int i;
-	handle = udp_open();
+
+	udp_open();
+
+	rsp.sig = UDP_SIG;
 	rsp.state = RSP_SLAVE_READY;
 	rsp.uuid  = info->uuid;
 	rsp.sciid = info->sciid;
@@ -3217,7 +3239,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 			else
 				printf("Broadcasting state: %s (sciid 0x%03x, uuid %08X, tid %d)\n",
 				       node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
-			udp_broadcast_state(handle, &rsp, sizeof(rsp));
+			udp_broadcast_state(&rsp, sizeof(rsp));
 			udelay(100 * backoff);
 
 			if (backoff < 32)
@@ -3231,12 +3253,12 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 		/* In order to avoid jamming, broadcast own status at least
 		 * once every 2*cfg_nodes packet seen */
 		for (i = 0; i < 2 * cfg_nodes; i++) {
-			len = udp_read_state(handle, &cmd, sizeof(cmd));
+			len = udp_read_state(&cmd, sizeof(cmd));
 
 			if (!len)
 				break;
 
-			if (len != sizeof(cmd))
+			if (len != sizeof(cmd) || cmd.sig != UDP_SIG)
 				continue;
 
 			/* printf("Got cmd packet (state %d, sciid %03x, uuid %08X, tid %d)\n",
@@ -3257,7 +3279,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 				} else if (cmd.state == CMD_CONTINUE) {
 					printf("Master signalled go-ahead\n");
 					/* Belt and suspenders: slaves re-broadcast go-ahead command */
-					udp_broadcast_state(handle, &cmd, sizeof(cmd));
+					udp_broadcast_state(&cmd, sizeof(cmd));
 					go_ahead = 1;
 					break;
 				}

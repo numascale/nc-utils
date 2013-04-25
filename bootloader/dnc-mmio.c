@@ -271,7 +271,7 @@ bool setup_remote_node_mmio(uint16_t node)
 
 	/* Remote MMIO below this server's local MMIO */
 	if (nc_node[node].mmio_base > dnc_top_of_dram)
-		ret &= mmio_range_add(sci, dnc_top_of_dram, nc_node[node].mmio_base, ht, nc_neigh_link, 0);
+		ret &= mmio_range_add(sci, dnc_top_of_dram, nc_node[node].mmio_base, ht, local_node.nc_neigh_link, 0);
 
 	/* For root node, use top of DRAM */
 	if (nc_node[node].mmio_end)
@@ -281,7 +281,7 @@ bool setup_remote_node_mmio(uint16_t node)
 
 	/* Remote MMIO above this server's local MMIO */
 	if (top < dnc_top_of_mem)
-		ret &= mmio_range_add(sci, top, dnc_top_of_mem, ht, nc_neigh_link, 0);
+		ret &= mmio_range_add(sci, top, dnc_top_of_mem, ht, local_node.nc_neigh_link, 0);
 
 	return ret;
 }

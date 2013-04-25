@@ -42,21 +42,22 @@
 	printf(COL_RED "Error: assertion '%s' failed in %s at %s:%d\n",	\
 	    #cond, __FUNCTION__, __FILE__, __LINE__);			\
 	printf(COL_DEFAULT);					\
-	while (1) cpu_relax();						\
+	broadcast_error(1, "Assertion '%s' failed in %s at %s:%d", \
+	    #cond, __FUNCTION__, __FILE__, __LINE__); \
     } } while (0)
 
 #define assertf(cond, format, args...) do { if (!(cond)) {			\
 	printf(COL_RED "Error: ");						\
 	printf(format, ## args);					\
 	printf(COL_DEFAULT);					\
-	while (1) cpu_relax();						\
+	broadcast_error(1, format, ## args); \
     } } while(0)
 
 #define fatal(format, args...) do {						\
 	printf(COL_RED "Error: ");						\
 	printf(format, ## args);					\
 	printf(COL_DEFAULT);					\
-	while (1) cpu_relax();						\
+	broadcast_error(1, format, ## args); \
    } while (0)
 
 #define fatal_reboot(format, args...) do {						\
@@ -64,6 +65,7 @@
 	printf(format, ## args);					\
 	printf("; rebooting in 15s...");		\
 	printf(COL_DEFAULT);					\
+	broadcast_error(0, format, ## args); \
 	udelay(15000000);						\
 	reset_cf9(0xa, 0);						\
    } while (0)
@@ -77,7 +79,12 @@
 #define error(format, args...) do {						\
 	printf(COL_RED "Error: ");						\
 	printf(format, ## args);					\
-	printf("\n");					\
+	printf(COL_DEFAULT "\n");					\
+	broadcast_error(0, format, ## args); \
+   } while (0)
+
+#define error_remote(sci, name, msg) do { \
+	printf(COL_RED "Error on SCI%03x (%s): %s" COL_DEFAULT "\n", sci, name, msg); \
    } while (0)
 
 #ifdef __i386__
@@ -120,10 +127,13 @@
 
 #define ENUM_DEF(state) state,
 #define ENUM_NAMES(state) #state,
+#define UDP_SIG 0xdeafcafe
+#define UDP_MAXLEN 256
 
 enum node_state { NODE_SYNC_STATES(ENUM_DEF) };
 
 struct state_bcast {
+	uint32_t sig;
 	enum node_state state;
 	uint32_t uuid;
 	uint32_t sciid;
@@ -159,6 +169,8 @@ void dnc_dram_initialise(void);
 int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
                    struct node_info *info, struct part_info *part);
+void broadcast_error(const bool persistent, const char *format, ...);
+void check_error(void);
 void wait_for_master(struct node_info *info, struct part_info *part);
 void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);

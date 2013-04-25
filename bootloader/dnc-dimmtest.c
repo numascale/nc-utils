@@ -24,6 +24,7 @@
 #include "dnc-defs.h"
 #include "dnc-access.h"
 #include "dnc-commonlib.h"
+#include "dnc-bootloader.h"
 
 #include "../interface/mctr_define_register_C.h"
 

@@ -49,12 +49,13 @@
 #define TABLE_AREA_SIZE		256*1024
 #define MIN_NODE_MEM		256*1024*1024
 
-int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
 bool dnc_asic_mode;
 uint32_t dnc_chip_rev;
 char dnc_card_type[16];
 uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
+nc_node_info_t local_node;
+struct node_info *local_info;
 uint16_t ht_pdom_count = 0;
 uint16_t apic_per_node;
 uint16_t ht_next_apic;
@@ -939,9 +940,9 @@ static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
 				lim = 0;
 			}
 
-			cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-			cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
-			cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
+			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
 		}
 	}
 }
@@ -971,8 +972,8 @@ static void disable_smm_handler(uint64_t smm_base)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 	node = (val >> 16) & 0xfff;
 
-	for (i = 0; i < dnc_master_ht_id; i++)
-		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
+	for (i = 0; i < local_node.nc_ht_id; i++)
+		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, local_node.nc_ht_id);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -1002,7 +1003,7 @@ static void disable_smm_handler(uint64_t smm_base)
 
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
-	for (i = 0; i < dnc_master_ht_id; i++)
+	for (i = 0; i < local_node.nc_ht_id; i++)
 		mmio_range_del(0xfff0, i, 10);
 }
 
@@ -1486,7 +1487,8 @@ static void setup_remote_cores(const uint16_t num)
 	printf("Checking if SCI%03x is ready\n", node);
 
 	do {
-		udelay(200);
+		check_error();
+		udelay(100000);
 		val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
 	} while (!(val & 0x40000000UL));
 
@@ -1787,9 +1789,9 @@ static void setup_local_mmio_maps(void)
 
 	/* Apply default maps so we can bail without losing all hope */
 	for (i = 0; i < 8; i++) {
-		cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-		cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 	}
 
 	for (i = 0; i < 8; i++) {
@@ -1888,9 +1890,9 @@ static void setup_local_mmio_maps(void)
 	if (verbose > 0)
 		for (i = 0; i < 8; i++) {
 			printf("NC MMIO region #%d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
-			cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-			cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-			cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 		}
 }
 
@@ -2101,7 +2103,7 @@ static int pxeapi_call(int func, uint8_t *buf)
 	return outargs.eax.w[0] == PXENV_EXIT_SUCCESS;
 }
 
-int udp_open(void)
+void udp_open(void)
 {
 	t_PXENV_TFTP_CLOSE *tftp_close_param;
 	t_PXENV_UDP_OPEN *pxe_open_param;
@@ -2115,12 +2117,12 @@ int udp_open(void)
 	pxe_open_param->src_ip = myip.s_addr;
 	pxeapi_call(PXENV_UDP_OPEN, (uint8_t *)pxe_open_param);
 	printf("PXE UDP open returns: %d\n", pxe_open_param->status);
-	return 1;
 }
 
-void udp_broadcast_state(int handle __attribute__((unused)),
-                         void *buf, int len)
+void udp_broadcast_state(const void *buf, const size_t len)
 {
+	assert(len >= sizeof(struct state_bcast));
+
 	t_PXENV_UDP_WRITE *pxe_write_param;
 	char *buf_reloc;
 	pxe_write_param = __com32.cs_bounce;
@@ -2133,11 +2135,11 @@ void udp_broadcast_state(int handle __attribute__((unused)),
 	pxe_write_param->buffer.offs = OFFS(buf_reloc);
 	memcpy(buf_reloc, buf, len);
 	pxe_write_param->buffer_size = len;
+
 	pxeapi_call(PXENV_UDP_WRITE, (uint8_t *)pxe_write_param);
 }
 
-int udp_read_state(int handle __attribute__((unused)),
-                   void *buf, int len)
+int udp_read_state(void *buf, const size_t len)
 {
 	t_PXENV_UDP_READ *pxe_read_param;
 	char *buf_reloc;
@@ -2155,9 +2157,9 @@ int udp_read_state(int handle __attribute__((unused)),
 	    (pxe_read_param->s_port == htons(4711))) {
 		memcpy(buf, buf_reloc, pxe_read_param->buffer_size);
 		return pxe_read_param->buffer_size;
-	} else {
-		return 0;
 	}
+
+	return 0;
 }
 
 static void wait_status(struct node_info *info)
@@ -2178,15 +2180,19 @@ static void wait_status(struct node_info *info)
 
 static void wait_for_slaves(struct node_info *info, struct part_info *part)
 {
-	struct state_bcast cmd, rsp;
+	struct state_bcast cmd;
 	bool ready_pending = 1;
-	int count, backoff, last_stat;
+	int count, backoff, last_stat, i;
 	bool do_restart = 0;
 	enum node_state waitfor, own_state;
 	uint32_t last_cmd = ~0;
-	int len, i;
-	int handle;
-	handle = udp_open();
+	size_t len;
+	char buf[UDP_MAXLEN];
+	struct state_bcast *rsp = (void *)buf;
+
+	udp_open();
+
+	cmd.sig = UDP_SIG;
 	cmd.state = CMD_STARTUP;
 	cmd.uuid  = info->uuid;
 	cmd.sciid = info->sciid;
@@ -2199,7 +2205,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 	while (1) {
 		if (++count >= backoff) {
-			udp_broadcast_state(handle, &cmd, sizeof(cmd));
+			udp_broadcast_state(&cmd, sizeof(cmd));
 
 			udelay(100 * backoff);
 			last_stat += backoff;
@@ -2227,8 +2233,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		}
 
 		if (cfg_nodes > 1) {
-			len = udp_read_state(handle, &rsp, sizeof(rsp));
-
+			len = udp_read_state(rsp, UDP_MAXLEN);
 			if (!len && !do_restart) {
 				if (last_stat > 64) {
 					last_stat = 0;
@@ -2240,35 +2245,36 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		} else
 			len = 0;
 
-		if (len == sizeof(rsp)) {
-			int ours = 0;
+		if (len >= sizeof(rsp) && rsp->sig == UDP_SIG) {
+			bool ours = 0;
 
 			for (i = 0; i < cfg_nodes; i++)
-				if ((!name_matching && (cfg_nodelist[i].uuid == rsp.uuid)) ||
-				    ( name_matching && (cfg_nodelist[i].sciid == rsp.sciid))) {
+				if ((!name_matching && (cfg_nodelist[i].uuid == rsp->uuid)) ||
+				    ( name_matching && (cfg_nodelist[i].sciid == rsp->sciid))) {
 					ours = 1;
 					break;
 				}
 
 			if (ours) {
-				if ((rsp.state == waitfor) && (rsp.tid == cmd.tid)) {
-					if (nodedata[rsp.sciid] != 0x80) {
+				if ((rsp->state == waitfor) && (rsp->tid == cmd.tid)) {
+					if (nodedata[rsp->sciid] != 0x80) {
 						printf("SCI%03x (%s) entered %s\n",
-						       rsp.sciid, cfg_nodelist[i].desc,
+						       rsp->sciid, cfg_nodelist[i].desc,
 						       node_state_name[waitfor]);
-						nodedata[rsp.sciid] = 0x80;
+						nodedata[rsp->sciid] = 0x80;
 					}
-				} else if ((rsp.state == RSP_PHY_NOT_TRAINED) ||
-				           (rsp.state == RSP_RINGS_NOT_OK) ||
-				           (rsp.state == RSP_FABRIC_NOT_READY) ||
-				           (rsp.state == RSP_FABRIC_NOT_OK)) {
-					if (nodedata[rsp.sciid] != 0x80) {
+				} else if ((rsp->state == RSP_PHY_NOT_TRAINED) ||
+				           (rsp->state == RSP_RINGS_NOT_OK) ||
+				           (rsp->state == RSP_FABRIC_NOT_READY) ||
+				           (rsp->state == RSP_FABRIC_NOT_OK)) {
+					if (nodedata[rsp->sciid] != 0x80) {
 						printf("SCI%03x (%s) aborted with state %d; restarting process...\n",
-						       rsp.sciid, cfg_nodelist[i].desc, rsp.state);
+						       rsp->sciid, cfg_nodelist[i].desc, rsp->state);
 						do_restart = 1;
-						nodedata[rsp.sciid] = 0x80;
+						nodedata[rsp->sciid] = 0x80;
 					}
-				}
+				} else if (rsp->state == RSP_ERROR)
+					error_remote(rsp->sciid, cfg_nodelist[i].desc, (char *)rsp + sizeof(struct state_bcast));
 			}
 		}
 
@@ -2413,7 +2419,7 @@ static void lvt_setup(void)
 {
 	uint32_t val;
 
-	for (int ht = 0; ht < dnc_master_ht_id; ht++) {
+	for (int ht = 0; ht < local_node.nc_ht_id; ht++) {
 		val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
 		if (((val >> 14) & 3) == 2) {
 			printf("- disabling ECC error SMI on HT#%d\n", ht);
@@ -2470,8 +2476,8 @@ static void local_chipset_fixup(bool master)
 		val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 		node = (val >> 16) & 0xfff;
 
-		for (i = 0; i < dnc_master_ht_id; i++)
-			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, dnc_master_ht_id);
+		for (i = 0; i < local_node.nc_ht_id; i++)
+			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, local_node.nc_ht_id);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -2490,7 +2496,7 @@ static void local_chipset_fixup(bool master)
 		printf("MEM %llx: %08x\n", addr, val);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
-		for (i = 0; i < dnc_master_ht_id; i++)
+		for (i = 0; i < local_node.nc_ht_id; i++)
 			mmio_range_del(0xfff0, i, 10);
 	}
 
@@ -2695,28 +2701,28 @@ static int unify_all_nodes(void)
 	}
 
 	/* Set up local mapping registers etc from 0 - master node max */
-	for (i = 0; i < dnc_master_ht_id; i++) {
-		cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
+	for (i = 0; i < local_node.nc_ht_id; i++) {
+		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
 		               ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
-		cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
+		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
 		               (nc_node[0].ht[i].base << 8) | 3);
 	}
 
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
-	for (i = 0; i < dnc_master_ht_id; i++) {
+	for (i = 0; i < local_node.nc_ht_id; i++) {
 		assert(cht_read_conf(i, FUNC1_MAPS, 0x78) == 0);
 		int range = dram_range_unused(0xfff0, i);
 
 		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
 		if (nc_node[1].dram_base > nc_node[0].dram_base)
-			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
+			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, local_node.nc_ht_id);
 	}
 
 	if (verbose > 0) {
 		printf("DRAM and MMIO ranges:\n");
-		for (i = 0; i < dnc_master_ht_id; i++) {
+		for (i = 0; i < local_node.nc_ht_id; i++) {
 			for (int j = 0; j < 8; j++)
 				dram_range_print(0xfff0, i, j);
 
@@ -3035,7 +3041,6 @@ static void selftest_late_memmap(void)
 static int nc_start(void)
 {
 	uint32_t uuid;
-	struct node_info *info;
 	struct part_info *part;
 	int i;
 
@@ -3044,14 +3049,15 @@ static int nc_start(void)
 
 	constants();
 	get_hostname();
-	dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_chip_rev, dnc_card_type, &dnc_asic_mode,
+	int rc = dnc_init_bootloader(&uuid, &dnc_chip_rev, dnc_card_type, &dnc_asic_mode,
 	                                       __com32.cs_cmdline);
-
-	if (dnc_master_ht_id == -2)
+	if (rc == -2)
 		start_user_os();
 
-	if (dnc_master_ht_id < 0)
+	if (rc < 0)
 		return ERR_MASTER_HT_ID;
+
+	local_node.nc_ht_id = rc;
 
 	if (singleton) {
 		make_singleton_config(uuid);
@@ -3060,19 +3066,20 @@ static int nc_start(void)
 			return ERR_NODE_CONFIG;
 	}
 
-	info = get_node_config(uuid);
-
-	if (!info)
+	local_info = get_node_config(uuid);
+	if (!local_info)
 		return ERR_NODE_CONFIG;
+
+	local_node.sci_id = local_info->sciid;
 
 	if (name_matching)
 		printf("Node: <%s> sciid: 0x%03x, partition: %d, osc: %d\n",
-		       info->desc, info->sciid, info->partition, info->osc);
+		       local_info->desc, local_info->sciid, local_info->partition, local_info->osc);
 	else
 		printf("Node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
-		       info->desc, info->uuid, info->sciid, info->partition, info->osc);
-	part = get_partition_config(info->partition);
+		       local_info->desc, local_info->uuid, local_info->sciid, local_info->partition, local_info->osc);
 
+	part = get_partition_config(local_info->partition);
 	if (!part)
 		return ERR_PARTITION_CONFIG;
 
@@ -3099,19 +3106,19 @@ static int nc_start(void)
 			       cfg_nodelist[i].osc);
 	}
 
-	if (adjust_oscillator(dnc_card_type, info->osc) < 0)
+	if (adjust_oscillator(dnc_card_type, local_info->osc) < 0)
 		return -1;
 
 	/* Copy this into NC ram so its available remotely */
 	load_existing_apic_map();
 
-	if (part->builder == info->sciid)
-		wait_for_slaves(info, part);
+	if (part->builder == local_info->sciid)
+		wait_for_slaves(local_info, part);
 	else
-		wait_for_master(info, part);
+		wait_for_master(local_info, part);
 
 	/* Must run after SCI is operational */
-	local_chipset_fixup(part->master == info->sciid);
+	local_chipset_fixup(part->master == local_info->sciid);
 
 	if (verbose > 0)
 		debug_acpi();
@@ -3119,7 +3126,7 @@ static int nc_start(void)
 	load_orig_e820_map();
 	update_acpi_tables_early();
 
-	if (info->sync_only) {
+	if (local_info->sync_only) {
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
 		free(cfg_partlist);
@@ -3133,11 +3140,11 @@ static int nc_start(void)
 		return ERR_INSTALL_E820_HANDLER;
 
 	if (force_probefilteron && !force_probefilteroff) {
-		enable_probefilter(dnc_master_ht_id - 1);
-		probefilter_tokens(dnc_master_ht_id - 1);
+		enable_probefilter(local_node.nc_ht_id - 1);
+		probefilter_tokens(local_node.nc_ht_id - 1);
 	}
 
-	if (part->master == info->sciid) {
+	if (part->master == local_info->sciid) {
 		int i;
 
 		/* Master */
@@ -3145,7 +3152,7 @@ static int nc_start(void)
 			if (config_local(&cfg_nodelist[i], uuid))
 				continue;
 
-			if (cfg_nodelist[i].partition != info->partition)
+			if (cfg_nodelist[i].partition != local_info->partition)
 				continue;
 
 			nodedata[cfg_nodelist[i].sciid] = 0x80;
@@ -3193,7 +3200,7 @@ static int nc_start(void)
 		do {
 			if (((dnc_check_mctr_status(0) & 0xfbc) != 0) ||
 			    ((dnc_check_mctr_status(1) & 0xfbc) != 0) ||
-			    (!dnc_check_fabric(info))) {
+			    (!dnc_check_fabric(local_info))) {
 				printf("\nErrors detected, halting!\n");
 				while (1) {
 					cli();
@@ -3205,7 +3212,7 @@ static int nc_start(void)
 		} while (!(val & (1 << 31)));
 
 		printf(BANNER "\n\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'",
-		       info->desc, cfg_nodes, get_master_name(part->master));
+		       local_info->desc, cfg_nodes, get_master_name(part->master));
 
 		disable_smi();
 		disable_dma_all(); /* disables VGA refresh */

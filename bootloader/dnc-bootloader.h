@@ -82,17 +82,19 @@ typedef struct nc_node_info {
 	uint32_t mmio_end;
 	ht_node_info_t ht[8];
 	uint16_t sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
-	uint16_t nc_ht_id;	/* HT id of dnc node dnc controller on local system */
 	uint16_t apic_offset;	/* Offset to shift APIC ids by when unifying */
-	uint8_t nc_neigh;	/* Our nearest neighbour HT node on local system */
+	uint8_t nc_ht_id : 3;	/* HT id of dnc node dnc controller on local system */
+	uint8_t nc_neigh : 3;	/* Our nearest neighbour HT node on local system */
+	uint8_t nc_neigh_link : 2;
 } nc_node_info_t;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 extern uint8_t nodedata[4096];
 extern uint8_t post_apic_mapping[256];
 extern uint16_t dnc_node_count;
-extern int dnc_master_ht_id;     /* HT id of NC on master node, equivalent to dnc_node_ht_id[0] */
 extern nc_node_info_t nc_node[128];
+extern nc_node_info_t local_node;
+extern struct node_info *local_info;
 extern uint16_t ht_pdom_count;
 extern uint16_t apic_per_node;
 extern uint16_t ht_next_apic;
@@ -105,9 +107,9 @@ extern uint64_t ht_base;
 
 void set_cf8extcfg_enable(const int ht);
 int read_config_file(char *file_name);
-int udp_open(void);
-void udp_broadcast_state(int handle, void *buf, int len);
-int udp_read_state(int handle, void *buf, int len);
+void udp_open(void);
+void udp_broadcast_state(const void *buf, const size_t len);
+int udp_read_state(void *buf, const size_t len);
 void mtrr_range(const uint64_t base, const uint64_t limit, const int type);
 void mmio_range_print(const uint16_t sci, const int ht, uint8_t range);
 void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const int dest);
