@@ -77,8 +77,8 @@ void tally_local_node(void)
 	nc_node[0].node_mem = 0;
 	tot_cores = 0;
 	nc_node[0].sci_id = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	nc_node[0].nc_ht_id = dnc_master_ht_id;
-	nc_node[0].nc_neigh = nc_neigh;
+	nc_node[0].nc_ht_id = local_node.nc_ht_id;
+	nc_node[0].nc_neigh = local_node.nc_neigh;
 	nc_node[0].dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	max_ht_node = (val >> 4) & 7;
@@ -93,7 +93,7 @@ void tally_local_node(void)
 	printf("Examining SCI%03x...", nc_node[0].sci_id);
 
 	for (i = 0; i <= max_ht_node; i++) {
-		if (i == dnc_master_ht_id)
+		if (i == local_node.nc_ht_id)
 			continue;
 
 		nc_node[0].ht[i].cores = 0;
@@ -143,7 +143,7 @@ void tally_local_node(void)
 				asm volatile("wbinvd" ::: "memory");
 
 				for (j = 0; j <= max_ht_node; j++) {
-					if (j == dnc_master_ht_id)
+					if (j == local_node.nc_ht_id)
 						continue;
 
 					if (!nc_node[0].ht[j].cpuid)
@@ -249,7 +249,7 @@ static bool tally_remote_node(uint16_t node)
 	tot_cores = 0;
 	cur_node->sci_id = node;
 	cur_node->nc_ht_id = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
-	cur_node->nc_neigh = nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
+	cur_node->nc_neigh = local_node.nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
 	/* Ensure that all nodes start out on 1G boundaries
 	   FIXME: Add IO holes to cover address space discontinuity? */
 	dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
