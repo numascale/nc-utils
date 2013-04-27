@@ -63,10 +63,10 @@
 #define fatal_reboot(format, args...) do {						\
 	printf(COL_RED "Error: ");						\
 	printf(format, ## args);					\
-	printf("; rebooting in 15s...");		\
+	printf("; rebooting in 5s...");		\
 	printf(COL_DEFAULT);					\
 	broadcast_error(0, format, ## args); \
-	udelay(15000000);						\
+	udelay(5000000);						\
 	reset_cf9(0xa, 0);						\
    } while (0)
 
