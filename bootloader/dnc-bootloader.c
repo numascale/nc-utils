@@ -2246,6 +2246,11 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			len = 0;
 
 		if (len >= sizeof(rsp) && rsp->sig == UDP_SIG) {
+			if (rsp->uuid == 0xffffffff) {
+					error_remote(rsp->sciid, "unknown remote", (char *)rsp + sizeof(struct state_bcast));
+					continue;
+			}
+
 			bool ours = 0;
 
 			for (i = 0; i < cfg_nodes; i++)
@@ -3046,6 +3051,11 @@ static int nc_start(void)
 	struct part_info *part;
 	int i;
 
+	/* Set local info for early error reporting */
+	local_info = malloc(sizeof local_info);
+	assert(local_info);
+	memset(local_info, 0xff, sizeof local_info);
+
 	if (check_api_version() < 0)
 		return ERR_API_VERSION;
 
@@ -3068,6 +3078,7 @@ static int nc_start(void)
 			return ERR_NODE_CONFIG;
 	}
 
+	free(local_info); /* Was allocated earlier */
 	local_info = get_node_config(uuid);
 	if (!local_info)
 		return ERR_NODE_CONFIG;
