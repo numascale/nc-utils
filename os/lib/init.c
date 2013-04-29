@@ -29,7 +29,7 @@
 
 #define NUMASCALE_VENDOR_ID   0x1B47
 #define NUMACHIP_DEVICE_ID    0x0601
-#define DEBUG_STATEMENT(x) 
+#define DEBUG_STATEMENT(x)
 
 struct acpi_sdt {
 	union {
@@ -160,11 +160,13 @@ HIDDEN int32_t numachip_init_oem(struct numachip_device ***list)
 						   cur->global.numachip_rev, cur->global.size_x, cur->global.size_y, cur->global.size_z,
 						   cur->global.northbridges, cur->global.neigh_ht, cur->global.neigh_link,
 						   cur->global.symmetric, cur->global.renumbering));
+
+	if (!cur->global.size_z) cur->global.size_z=1;
+	if (!cur->global.size_y) cur->global.size_y=1;
+	if (!cur->global.size_x) cur->global.size_x=1; 
     
-    
-    
-    for (z = 0; z < (cur->global.size_z+1); z++) {
-	    for (y = 0; y < (cur->global.size_y+1); y++) {
+    for (z = 0; z < (cur->global.size_z); z++) {
+	    for (y = 0; y < (cur->global.size_y); y++) {
 		    for (x = 0; x < (cur->global.size_x); x++) {
 				
 			    sciid= (z<<8) + (y << 4) + x;
