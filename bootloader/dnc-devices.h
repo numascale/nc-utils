@@ -76,6 +76,7 @@
 
 #define PCI_CAP_NONE					0x00
 #define PCI_CAP_PCIE					0x10
+#define PCI_CAP_AER						0x01
 
 #define PCI_CLASS_ANY					0xfffffffe
 #define PCI_CLASS_FINAL					0xffffffff
@@ -91,9 +92,14 @@
 #define PCI_CLASS_STORAGE_RAID          0x0104
 #define PCI_CLASS_STORAGE_SATA          0x0106
 
+#define PCI_TYPE_ENDPOINT               0x0
+#define PCI_TYPE_BRIDGE                 0x1
+#define PCI_TYPE_ANY                    0xff
+
 struct devspec {
 	uint32_t class;
 	uint8_t classlen;
+	uint8_t type;
 	void (*handler)(int, int, int);
 };
 

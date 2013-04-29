@@ -50,10 +50,9 @@ static int _raw_write(uint32_t dest, int geo, uint32_t addr, uint32_t val)
 	uint32_t ctrl;
 	uint32_t cmd;
 	int ret = 0;
+
 	cmd = (addr & 0xc) | 0x13; // writesb
 	ownnodeid = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
-	udelay(100);
 	_setrawentry(0, (0x1fULL << 48) | (((uint64_t)dest & 0xffffULL) << 32) | ((uint64_t)cmd << 16) | ownnodeid);
 
 	if (geo)
@@ -64,25 +63,32 @@ static int _raw_write(uint32_t dest, int geo, uint32_t addr, uint32_t val)
 	_setrawentry(2, ((uint64_t)val << 32) | val);
 	_setrawentry(3, ((uint64_t)val << 32) | val);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x4); /* Start RAW access */
-	udelay(100);
-	ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
 
-	if ((ctrl & 0xc00) != 0) {
-		printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
-		ret = -1;
-	} else {
-		if (((ctrl >> 5) & 0xf) != 2) {
-			printf("Wrong response packet size : %08x\n", ctrl);
-			printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
-			printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
-			printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
-			printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
-			ret = -1;
+	int tries = 0;
+	do {
+		udelay(1);
+		ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
+
+		if (++tries > 10000) { /* >10ms */
+			printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
+			goto reset;
 		}
+	} while (ctrl & 0xc00);
+
+	if (((ctrl >> 5) & 0xf) != 2) {
+		printf("Wrong response packet size : %08x\n", ctrl);
+		printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
+		printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
+		printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
+		printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
+		goto reset;
 	}
 
-	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
 	return ret;
+
+reset:
+	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
+	return -1;
 }
 
 static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
@@ -93,8 +99,6 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
 	int ret = 0;
 	cmd = (addr & 0xc) | 0x3; /* readsb */
 	ownnodeid = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
-	udelay(100);
 	_setrawentry(0, (0x1fULL << 48) | (((uint64_t)dest & 0xffffULL) << 32) | ((uint64_t)cmd << 16) | ownnodeid);
 
 	if (geo)
@@ -103,42 +107,49 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
 		_setrawentry(1, (0x1fULL << 48) | (0xfffffULL << 28) | (addr & 0x0ffc));
 
 	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x2); /* Start RAW access */
-	udelay(100);
-	ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
 
-	if ((ctrl & 0xc00) != 0) {
-		printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
-		*val = 0xffffffff;
-		ret = -1;
-	} else {
-		if (((ctrl >> 5) & 0xf) != 4) {
-			printf("Wrong response packet size : %08x\n", ctrl);
-			printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
-			printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
-			printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
-			printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
-			*val = 0xffffffff;
-			ret = -1;
-		} else {
-			switch (addr & 0xc) {
-			case 0x0:
-				*val = _getrawentry(2) >> 32;
-				break;
-			case 0x4:
-				*val = _getrawentry(2) & 0xffffffff;
-				break;
-			case 0x8:
-				*val = _getrawentry(3) >> 32;
-				break;
-			case 0xc:
-				*val = _getrawentry(3) & 0xffffffff;
-				break;
-			}
+	int tries = 0;
+	do {
+		udelay(1);
+		ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
+
+		if (++tries > 10000) { /* >10ms */
+			printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
+			goto reset;
 		}
+	} while (ctrl & 0xc00);
+
+	if (((ctrl >> 5) & 0xf) != 4) {
+		printf("Wrong response packet size : %08x\n", ctrl);
+		printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
+		printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
+		printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
+		printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
+		goto reset;
 	}
 
-	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
+	switch (addr & 0xc) {
+	case 0x0:
+		*val = _getrawentry(2) >> 32;
+		break;
+	case 0x4:
+		*val = _getrawentry(2) & 0xffffffff;
+		break;
+	case 0x8:
+		*val = _getrawentry(3) >> 32;
+		break;
+	case 0xc:
+		*val = _getrawentry(3) & 0xffffffff;
+		break;
+	}
+
 	return ret;
+
+reset:
+	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
+	udelay(100);
+	*val = 0xffffffff;
+	return -1;
 }
 
 int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val)
@@ -252,7 +263,7 @@ int dnc_check_lc3(int lc)
 		return -1;
 
 	if ((((initst & 7) != 2) && ((initst & 7) != 4))) {
-		printf("LC3%s INIT_STATE 0x%x\n", linkname, initst);
+		warning("LC3%s INIT_STATE 0x%x", linkname, initst);
 		return -1;
 	}
 
@@ -274,7 +285,7 @@ int dnc_check_lc3(int lc)
 		if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0) != 0)
 			return -1;
 
-		printf("LC3%s ERROR_COUNT %d, ELOG0 0x%04x, ELOG1 0x%04x\n", linkname, error_count, elog0, elog1);
+		warning("LC3%s ERROR_COUNT %d, ELOG0 0x%04x, ELOG1 0x%04x", linkname, error_count, elog0, elog1);
 
 		if ((elog0 & fatal_mask0) || (elog1 & fatal_mask1))
 			return -1;
@@ -286,11 +297,9 @@ int dnc_check_lc3(int lc)
 int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
                  uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[])
 {
-	const char *linkname = _get_linkname(lc);
 	uint16_t expected_id = (nodeid | ((lc + 1) << 13));
 	uint32_t config2, error_count1, error_count2;
 	uint16_t chunk, offs;
-	printf("Initializing LC3%s...", linkname);
 
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count1) != 0)
 		return -1;
@@ -349,8 +358,6 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 		}
 	}
 
-	printf("done\n");
-
 	/* 3. Enable table routing */
 	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 1 << 14) != 0) /* ROUT_CTRL.rtype = 2'b01 (table routing) */
 		return -1;
@@ -359,8 +366,7 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 		return -1;
 
 	if (error_count1 != error_count2) {
-		printf("Errors while initializing LC3%s (%d != %d)\n",
-		       linkname, error_count1, error_count2);
+		printf(" error: %d != %d", error_count1, error_count2);
 		return -1;
 	}
 

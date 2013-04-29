@@ -46,6 +46,15 @@ extern uint64_t dnc_csr_lim;
 #define SR56X0_MISC_TOM		0x16
 #define SR56X0_MISC_TOM3	0x4e
 
+#define RTC_SECONDS		0
+#define RTC_SECONDS_ALARM	1
+#define RTC_MINUTES		2
+#define RTC_HOURS		4
+#define RTC_DAY_OF_WEEK		6
+#define RTC_DAY_OF_MONTH	7
+#define RTC_MONTH		8
+#define RTC_YEAR		9
+
 extern int lirq_nest;
 #define cli() if (lirq_nest++ == 0) { asm volatile("cli"); }
 #define sti() if (--lirq_nest == 0) { asm volatile("sti"); }
@@ -67,6 +76,7 @@ static inline uint32_t uint32_tbswap(uint32_t val)
 	return val;
 }
 
+uint8_t rtc_read(const int addr);
 void pmio_writeb(uint16_t offset, uint8_t val);
 void pmio_writel(uint16_t offset, uint32_t val);
 uint8_t pmio_readb(uint16_t offset);
@@ -99,7 +109,7 @@ uint32_t  dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr);
 void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val);
 uint32_t  dnc_read_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg);
 void dnc_write_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg, uint32_t val);
-uint64_t dnc_rdmsr(uint32_t msr);
-void dnc_wrmsr(uint32_t msr, uint64_t v);
+uint64_t rdmsr(uint32_t msr);
+void wrmsr(uint32_t msr, uint64_t v);
 
 #endif

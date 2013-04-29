@@ -29,8 +29,6 @@
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
 
-#include "hw-config.h"
-
 #include "../interface/numachip-mseq.h"
 
 void load_scc_microcode(uint16_t node)
@@ -106,7 +104,7 @@ void tally_local_node(void)
 		if ((nc_node[0].ht[i].cpuid == 0) ||
 		    (nc_node[0].ht[i].cpuid == 0xffffffff) ||
 		    (nc_node[0].ht[i].cpuid != nc_node[0].ht[0].cpuid)) {
-			printf("Error: Master server has mix of CPUIDs %08x and %08x, skipping...\n", nc_node[0].ht[0].cpuid, nc_node[0].ht[i].cpuid);
+			fatal("Master server has mixed processor models with CPUIDs %08x and %08x", nc_node[0].ht[0].cpuid, nc_node[0].ht[i].cpuid);
 			nc_node[0].ht[i].cpuid = 0;
 			nc_node[0].ht[i].pdom = 0;
 			continue;
@@ -257,10 +255,7 @@ static bool tally_remote_node(uint16_t node)
 	cur_node->dram_base = dnc_top_of_mem;
 	val = dnc_read_conf(node, 0, 24, FUNC0_HT, 0x60);
 
-	if (val == 0xffffffff) {
-		printf("Error: Can't access config space on SCI%03x\n", node);
-		return 1; /* Ignore node */
-	}
+	assertf(val != 0xffffffff, "Failed to access config space on SCI%03x", node);
 
 	max_ht_node = (val >> 4) & 7;
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
@@ -286,12 +281,8 @@ static bool tally_remote_node(uint16_t node)
 
 		if ((cur_node->ht[i].cpuid == 0) ||
 		    (cur_node->ht[i].cpuid == 0xffffffff) ||
-		    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid)) {
-			printf("Error: SCI%03x has CPUID %08x differing from master server CPUID %08x; skipping...\n", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
-			cur_node->ht[i].pdom = 0;
-			cur_node->ht[i].cpuid = 0;
-			continue;
-		}
+		    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid))
+			fatal("SCI%03x has CPUID %08x differing from master server CPUID %08x", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
 
 		cur_node->ht[i].pdom = ht_pdom_count++;
 
@@ -434,7 +425,7 @@ bool tally_all_remote_nodes(void)
 	for (node = 0; node < dnc_node_count; node++)
 		ret &= setup_remote_node_mmio(node);
 
-	printf("DRAM top is 0x%016" PRIx64 "; MMIO top is 0x%016" PRIx64 "\n",
+	printf("DRAM top is 0x%012" PRIx64 "; MMIO top is 0x%012" PRIx64 "\n",
 	       (uint64_t)dnc_top_of_dram << DRAM_MAP_SHIFT, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 	return ret;
 }

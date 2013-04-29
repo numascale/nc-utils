@@ -49,7 +49,7 @@ static void mmio_range_read_fam10(uint16_t sci, int range, uint64_t *base, uint6
 	*flags = 0; /* FIXME */
 
 	if (verbose)
-		printf("SCI%03x: MMIO range %d base=0x%016" PRIx64 " mask=0x%08x\n", sci, range, *base, mask);
+		printf("SCI%03x: MMIO range %d base=0x%012" PRIx64 " mask=0x%08x\n", sci, range, *base, mask);
 }
 
 static void mmio_range_read(uint16_t sci, int range, uint64_t *base, uint64_t *limit, int *flags)
@@ -74,7 +74,7 @@ static void mmio_range_read(uint16_t sci, int range, uint64_t *base, uint64_t *l
 	}
 
 	if (verbose)
-		printf("SCI%03x: MMIO range %d @ 0x%016" PRIx64 "-0x%016" PRIx64 ", flags 0x%x\n",
+		printf("SCI%03x: MMIO range %d @ 0x%012" PRIx64 "-0x%012" PRIx64 ", flags 0x%x\n",
 		       sci, range, *base, *limit, *flags);
 }
 
@@ -83,7 +83,7 @@ void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, in
 	assert(range < MMIO_RANGES);
 
 	if (verbose)
-		printf("SCI%03x: adding MMIO range %d @ 0x%016" PRIx64 "-0x%016" PRIx64 " -> HT %d:%d.%d\n",
+		printf("SCI%03x: adding MMIO range %d @ 0x%012" PRIx64 "-0x%012" PRIx64 " -> HT %d:%d.%d\n",
 		       sci, range, base << DRAM_MAP_SHIFT, limit << DRAM_MAP_SHIFT, ht, link, sublink);
 
 	uint32_t base_low = (((base << DRAM_MAP_SHIFT) & 0xffffff0000ULL) >> 8);
@@ -134,7 +134,7 @@ void dram_show(uint16_t sci)
 		uint32_t limit_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x144 + i * 8);
 		uint64_t base = (((uint64_t)base_low & 0xffff0000) << 8) | (((uint64_t)base_high & 0xff) << 40);
 		uint64_t limit = (((uint64_t)limit_low & 0xffff0000) << 8) | (((uint64_t)limit_high & 0xff) << 40) | 0xffffff;
-		printf("SCI%03x: DRAM range=%d base=0x%016" PRIx64 "limit=0x%016" PRIx64 " r=%d w=%d node=%d intl=%d\n", sci, i, base, limit,
+		printf("SCI%03x: DRAM range=%d base=0x%012" PRIx64 "limit=0x%012" PRIx64 " r=%d w=%d node=%d intl=%d\n", sci, i, base, limit,
 		       base_low & 1, !!(base_low & 2), limit_low & 3, (limit_low >> 8) & 7);
 	}
 }
@@ -224,7 +224,7 @@ void tally_remote_node_mmio(uint16_t node)
 			continue;
 
 		if (verbose)
-			printf("Node %d: existing MMIO range %d from 0x%016" PRIx64 "-0x%016" PRIx64 " %s %s %s %s HT=%d link=%d sublink=%d flags=0x%08x\n",
+			printf("Node %d: existing MMIO range %d from 0x%012" PRIx64 "-0x%012" PRIx64 " %s %s %s %s HT=%d link=%d sublink=%d flags=0x%08x\n",
 			       node, i, base << DRAM_MAP_SHIFT, limit << DRAM_MAP_SHIFT,
 			       (flags & 1) ? "R" : "", (flags & 2) ? "W" : "", (flags & 8) ? "L" : "",
 			       (flags & 0x8000) ? "NP" : "P", (flags >> 8) & 7, (flags >> 12) & 3, (flags >> 14) & 1, flags);
@@ -347,7 +347,7 @@ static void disable_bars(uint16_t sci, int bus, int dev, int fun, int count)
 		}
 
 		len = bar_size(sci, bus, dev, fun, bar, mmio, s64);
-		printf(" - BAR%d: %s %s @ 0x%016" PRIx64 " len %s ",
+		printf(" - BAR%d: %s %s @ 0x%012" PRIx64 " len %s ",
 		       bar, s64 ? "64bit" : "32bit", mmio ? "MMIO" : "I/O", addr, pr_size(len));
 
 		if (mmio) {

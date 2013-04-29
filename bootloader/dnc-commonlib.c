@@ -25,9 +25,9 @@
 #include "dnc-access.h"
 #include "dnc-fabric.h"
 #include "dnc-config.h"
+#include "dnc-devices.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
-#include "hw-config.h"
 
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
@@ -39,7 +39,7 @@ char *microcode_path = "";
 static bool init_only = 0;
 static bool route_only = 0;
 static int enable_nbmce = -1;
-static int enable_nbwdt = 0;
+int enable_nbwdt = 0;
 static bool disable_sram = 0;
 int force_probefilteroff = 0;
 int force_probefilteron = 0;
@@ -55,9 +55,9 @@ bool enable_relfreq = 0;
 bool singleton = 0;
 static bool ht_200mhz_only = 0;
 static bool ht_8bit_only = 0;
-static int ht_suppress = 0;
+static int ht_suppress = 0xffff;
 static int ht_lockdelay = 0;
-bool handover_acpi;
+bool handover_acpi = 0;
 bool mem_offline = 0;
 uint64_t trace_buf = 0;
 uint32_t trace_buf_size = 0;
@@ -67,7 +67,7 @@ uint32_t tsc_mhz = 0;
 uint32_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
-static int dimmtest = 0;
+static int dimmtest = 1;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 0;
 bool workaround_locks = 0;
@@ -137,7 +137,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) +  0); /* Read SPD location 0, 1, 2, 3 */
 
 	if (((reg >> 8) & 0xff) != 0x08) {
-		printf("Error: Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller\n",
+		error("Couldn't find a DDR2 SDRAM memory module attached to the %s memory controller",
 		       cdata ? "CData" : "MCTag");
 		return -1;
 	}
@@ -151,7 +151,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) +  8); /* Read SPD location 8, 9, 10, 11 */
 
 	if (!(reg & 2)) {
-		printf("Error: Unsupported non-ECC %s DIMM\n", cdata ? "CData" : "MCTag");
+		error("Unsupported non-ECC %s DIMM", cdata ? "CData" : "MCTag");
 		return -1;
 	}
 
@@ -159,7 +159,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	dimm->width = (reg >> 8) & 0xff;
 
 	if ((dimm->width != 4) && (dimm->width != 8)) {
-		printf("Error: Unsupported %s SDRAM width %d\n", cdata ? "CData" : "MCTag", dimm->width);
+		error("Unsupported %s SDRAM width %d", cdata ? "CData" : "MCTag", dimm->width);
 		return -1;
 	}
 
@@ -169,7 +169,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	reg = dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + 20); /* Read SPD location 20, 21, 22, 23 */
 
 	if (!(reg & 0x11000000)) {
-		printf("Error: Unsupported non-Registered %s DIMM\n", cdata ? "CData" : "MCTag");
+		error("Unsupported non-Registered %s DIMM", cdata ? "CData" : "MCTag");
 		return -1;
 	}
 
@@ -200,8 +200,7 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 		break; /*  1G */
 	default:
 		dimm->mem_size = 0;
-		printf("Error: Unsupported %s DIMM size of %dMB\n",
-		       cdata ? "CData" : "MCTag", 1 << (addr_bits - 17));
+		error("Unsupported %s DIMM size of %dMB", cdata ? "CData" : "MCTag", 1 << (addr_bits - 17));
 		return -1;
 	}
 
@@ -311,39 +310,39 @@ uint32_t dnc_check_mctr_status(int cdata)
 #ifdef BROKEN
 
 	if (val & 0x001) {
-		printf("Error: %s single access outside the defined Physical memory space detected\n", me);
+		error("%s single access outside the defined Physical memory space detected", me);
 		ack |= 0x001;
 	}
 
 	if (val & 0x002) {
-		printf("Error: %s multiple access outside the defined Physical memory space detected\n", me);
+		error("%s multiple access outside the defined Physical memory space detected", me);
 		ack |= 0x002;
 	}
 
 #endif
 
 	if (val & 0x004) {
-		printf("Error: %s single correctable ECC event detected\n", me);
+		error("%s single correctable ECC event detected", me);
 		ack |= 0x004;
 	}
 
 	if (val & 0x008) {
-		printf("Error: %s multiple correctable ECC event detected\n", me);
+		error("%s multiple correctable ECC event detected", me);
 		ack |= 0x008;
 	}
 
 	if (val & 0x010) {
-		printf("Error: %s single uncorrectable ECC event detected\n", me);
+		error("%s single uncorrectable ECC event detected", me);
 		ack |= 0x010;
 	}
 
 	if (val & 0x020) {
-		printf("Error: %s multiple uncorrectable ECC event detected\n", me);
+		error("%s multiple uncorrectable ECC event detected", me);
 		ack |= 0x020;
 	}
 
 	if (val & 0xf80) {
-		printf("Error: %s error interrupts detected INT_STATUS=%03x\n", me, val & 0xfff);
+		error("%s error interrupts detected INT_STATUS=%03x", me, val & 0xfff);
 		ack |= (val & 0xf80);
 	}
 
@@ -397,14 +396,38 @@ static int dnc_initialize_sram(void)
 	return 0;
 }
 
+void dnc_dram_initialise(void)
+{
+	int cdata;
+	uint32_t val;
+
+	printf("Initialising DIMMs...");
+	for (cdata = 0; cdata < 2; cdata++) {
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
+		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
+	}
+
+	for (cdata = 0; cdata < 2; cdata++) {
+		do {
+			udelay(100);
+			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
+		} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
+
+		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
+	}
+	printf("done\n");
+}
+
 int dnc_init_caches(void)
 {
 	uint32_t val;
-	int cdata, ret = 0;
+	int cdata;
 
 	for (cdata = 0; cdata < 2; cdata++) {
 		const char *name = cdata ? "CData" : "MCTag";
-		int mem_size = dimms[cdata].mem_size;
 
 		if (!dnc_asic_mode) {
 			/* On FPGA, just check that the phy is initialized */
@@ -446,7 +469,7 @@ int dnc_init_caches(void)
 				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR);
 				dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_ERROR_STATR : H2S_CSR_G4_MCTAG_ERROR_STATR, val);
 
-				printf(" done\n");
+				printf("done\n");
 			} else {
 				/* Controller has already been started, just check for interrupts */
 				(void)dnc_check_mctr_status(cdata);
@@ -454,7 +477,7 @@ int dnc_init_caches(void)
 		}
 
 		if ((dnc_asic_mode && dnc_chip_rev >= 2) || !dnc_asic_mode) {
-			int tmp = mem_size;
+			int tmp = dimms[cdata].mem_size;
 
 			/* New RevC MCTag setting for supporting larger local memory */
 			if (!cdata) {
@@ -475,7 +498,7 @@ int dnc_init_caches(void)
 				} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
 					tmp = 7;
 				} else {
-					printf("Error: Unsupported MCTag/CData combination (%d/%dGB)\n",
+					error("Unsupported MCTag/CData combination (%d/%dGB)",
 					       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size));
 					return -1;
 				}
@@ -493,9 +516,8 @@ int dnc_init_caches(void)
 			              (val & ~7) | (1 << 12) | ((tmp & 7) << 4)); /* DRAM_AVAILABLE, MEMSIZE[2:0] */
 		} else { /* Older than Rev2 */
 			/* On Rev1 and older there's a direct relationship between the MTag size and RCache size */
-			if (cdata && mem_size == 0) {
-				printf("Error: Unsupported CData size of %dGB\n",
-				       (1 << mem_size));
+			if (cdata && dimms[cdata].mem_size == 0) {
+				error("Unsupported CData size of %dGB", (1 << dimms[cdata].mem_size));
 				return -1;
 			}
 
@@ -508,62 +530,18 @@ int dnc_init_caches(void)
 
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
 			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
-			              (val & ~7) | (1 << 12) | (1 << 7) | ((mem_size & 7) << 4)); /* DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0] */
-		}
-
-		/* Initialize DRAM */
-		printf("Initializing %dGB %s...\n", 1 << mem_size, name);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
-		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
-
-		do {
-			udelay(100);
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
-		} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
-
-		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
-
-		if (dimmtest != 0) {
-			/* Do DRAM test */
-			if (dnc_dimmtest(cdata, dimmtest, &dimms[cdata]) < 0)
-				ret = -1;
-
-			/* Check what the interrupt bits say, if we get ECC errors, correctable or not; Abort */
-			val = dnc_check_mctr_status(cdata);
-			if (val & 0x03c)
-				ret = -1;
-
-			/* AOK, re-initialize DRAM after test */
-			printf("Re-initializing %dGB %s...\n", 1 << mem_size, name);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_SCRUBBER_ADDR : H2S_CSR_G4_MCTAG_SCRUBBER_ADDR, 0);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR, (1 << 1)); /* Clear INI_FINISHED flag */
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val | (1 << 4)); /* Set MEM_INI_ENABLE */
-
-			do {
-				udelay(100);
-				val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
-			} while (!(val & (1 << 1))); /* Wait for INI_FINISHED flag */
-
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_MAINTR : H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 4)); /* Clear MEM_INI_ENABLE */
-		}
-
-		if (cdata) {
-			printf("Setting RCache size to %dGB\n", 1 << mem_size);
-			/* Set the cache size in HReq and MIU */
-			val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-			dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3 << 26)) | ((mem_size - 1) << 26)); /* [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB */
-			dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, mem_size + 1); /* ((2 ^ (N - 1)) * 1GB) */
+			              (val & ~7) | (1 << 12) | (1 << 7) | ((dimms[cdata].mem_size & 7) << 4)); /* DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0] */
 		}
 	}
 
-	/* If ret is different from zero here, it means we should stop */
-	if (ret != 0)
-		return ret;
+	dnc_dram_initialise();
+	dnc_dimmtest(dimmtest, dimms);
+
+	printf("Setting RCache size to %dGB\n", 1 << dimms[1].mem_size);
+	/* Set the cache size in HReq and MIU */
+	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3 << 26)) | ((dimms[1].mem_size - 1) << 26)); /* [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, dimms[1].mem_size + 1); /* ((2 ^ (N - 1)) * 1GB) */
 
 	/* Initialize SRAM */
 	if (!dnc_asic_mode) { /* Special FPGA considerations for Ftag SRAM */
@@ -571,7 +549,8 @@ int dnc_init_caches(void)
 	} else {
 		/* ASIC; initialize SRAM if disable_sram is unset */
 		if (!disable_sram) {
-			if ((ret = dnc_initialize_sram()) < 0)
+			int ret = dnc_initialize_sram();
+			if (ret < 0)
 				return ret;
 		} else {
 			printf("No SRAM will be initialized\n");
@@ -639,7 +618,7 @@ static void reorganize_mmio(int nc)
 	uint64_t mmio_start;
 	uint64_t base, lim;
 	int i;
-	tom = dnc_rdmsr(MSR_TOPMEM);
+	tom = rdmsr(MSR_TOPMEM);
 	mmio_start = ~0;
 	printf("MSR_TOPMEM : %llx\n", tom);
 
@@ -764,13 +743,10 @@ static void cht_print(int neigh, int link)
 	printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
 
 	if (rtt == 0) {
-		if (workaround_rtt) {
-			printf("Warning: Hypertransport interface phy calibration failure\n");
-		} else {
-			printf("Error: Hypertransport interface phy calibration failure; rebooting in 15s...");
-			udelay(15000000);
-			reset_cf9(0xa, 0);
-		}
+		if (workaround_rtt)
+			warning("Hypertransport interface phy calibration failure");
+		else
+			fatal_reboot("Hypertransport interface phy calibration failure");
 	}
 
 	if (!(ht_testmode & HT_TESTMODE_PRINT))
@@ -816,7 +792,6 @@ void probefilter_tokens(int nodes)
 			if ((!(val & 1)) || (val & 4))
 				continue;
 
-			val = cht_read_conf(i, FUNC0_HT, 0x170 + i * 4);
 			/* Same buffer counts for ganged and unganged */
 			val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
 			cht_write_conf(i, FUNC0_HT, 0x90 + j * 0x20, val | (1 << 31));
@@ -1129,7 +1104,7 @@ void wake_core_local(const int apicid, const int vector)
 {
 	assert(apicid < 0xff);
 
-	uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
+	uint64_t val = rdmsr(MSR_APIC_BAR);
 	volatile uint32_t *const apic = (void * const)((uint32_t)val & ~0xfff);
 	volatile uint32_t *const icr = &apic[0x300 / 4];
 
@@ -1221,15 +1196,15 @@ void enable_probefilter(const int nodes)
 
 	/* 3. Ensure CD bit is shared amongst cores */
 	if (family >= 0x15) {
-		val6 = dnc_rdmsr(MSR_CU_CFG3);
-		dnc_wrmsr(MSR_CU_CFG3, val6 | (1ULL << 49));
+		val6 = rdmsr(MSR_CU_CFG3);
+		wrmsr(MSR_CU_CFG3, val6 | (1ULL << 49));
 	}
 
 	/* 4.  Issue WBINVD on all active cores in the system */
 	disable_cache();
 	/* 5. Enable Probe Filter support */
-	val6 = dnc_rdmsr(MSR_CU_CFG2);
-	dnc_wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
+	val6 = rdmsr(MSR_CU_CFG2);
+	wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
 
 	if (family >= 0x15)
 		wake_cores_local(VECTOR_PROBEFILTER_EARLY_f15);
@@ -1346,7 +1321,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	}
 
 	if (use) {
-		printf("Error: No unrouted coherent links found\n");
+		error("No unrouted coherent links found");
 		return -1;
 	}
 
@@ -1387,7 +1362,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	val = cht_read_conf(nc, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
 
 	if (val != 0x06011b47) {
-		printf("Error: Unrouted coherent device %08x is not NumaChip\n", val);
+		error("Unrouted coherent device %08x is not NumaChip", val);
 		return -1;
 	}
 
@@ -1531,6 +1506,9 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	uint32_t val;
 	uint8_t node;
 	int dnc_ht_id;
+
+	/* Ensure SMIs are invoked when accessing config space */
+	assert(!rdmsr(MSR_TRAP_CTL));
 
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	dnc_ht_id = (val >> 4) & 7;
@@ -1762,9 +1740,10 @@ static uint32_t identify_eeprom(char p_type[16])
 	return read_eeprom_dword(0xfffc);
 }
 
-static void _pic_reset_ctrl(int val)
+static void _pic_reset_ctrl(void)
 {
-	dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, val);
+	/* Pulse reset */
+	dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_RESET_CTRL, 1);
 	udelay(20000);
 	(void)dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ); /* Use a read operation to terminate the current i2c transaction, to avoid a bug in the uC */
 	udelay(2000000);
@@ -1805,6 +1784,9 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 		udelay(10000);
 		val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 
+		/* Mask out bit7 of every byte because it's missing.. */
+		assertf(((val & 0x007f7f7f) == (0x0000b0e9 & 0x007f7f7f)), "External micro controller not working !\n");
+
 		/* On the RevC cards the micro controller isn't quite fast enough
 		 * to send bit7 of every byte correctly on the I2C bus when reading;
 		 * the bits we care about are bit[1:0] of the high order byte */
@@ -1818,9 +1800,10 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 			dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
 			udelay(10000);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+			assertf(((val >> 24) & 3) == osc_setting, "Oscillator setting not set correctly! %08x", val);
 			printf("Oscillator set to %d\n", (val >> 24) & 3);
 			/* Trigger a HSS PLL reset */
-			_pic_reset_ctrl(1);
+			_pic_reset_ctrl();
 		}
 	} else
 		printf("Oscillator not set\n");
@@ -1997,7 +1980,8 @@ static int parse_cmdline(const char *cmdline)
 			if (i == (int)(sizeof(options) / sizeof(options[0]))) {
 				/* Terminate current arg */
 				*strchr(&cmdline[lstart], ' ') = '\0';
-				printf("\nError: invalid option '%s'\n", &cmdline[lstart]);
+				printf("\n");
+				error("Invalid option '%s'", &cmdline[lstart]);
 				wait_key();
 			}
 		}
@@ -2134,23 +2118,22 @@ static int perform_selftest(int asic_mode, char p_type[16])
 
 		printf("-PASS%d", pass);
 	}
+	printf("\n");
 
 	if (asic_mode && res == 0 && _is_pic_present(p_type)) {
-		printf("\nPerforming High Speed Serdes self test: ");
+		printf("Testing fabric phys...");
 		/* Trigger a HSS PLL reset */
-		_pic_reset_ctrl(1);
-		printf("HSS");
+		_pic_reset_ctrl();
 
 		for (int phy = 0; phy < 6; phy++) {
 			/* 1. Check that the HSS PLL has locked */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (!(val & (1 << 8))) {
+				printf(" error 1 on phy %d during TX", phy);
 				res = -1;
 				goto pll_err_out;
 			}
 
-			printf(" T");
 			/* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
 			/* 3. Allow 6500 bit times (2ns per bit = 13us, use 100 to be safe) */
@@ -2162,22 +2145,26 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xf0) {
+				printf(" error 2 on phy %d during TX", phy);
 				res = -1;
 				break;
 			}
+		}
 
-			/* Run test for 100msec */
-			udelay(100000);
+		/* Run test for 200msec */
+		udelay(200000);
+
+		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xf0) {
+				printf(" error 3 on phy %d during TX", phy);
 				res = -1;
 				break;
 			}
+		}
 
-			printf("R");
+		for (int phy = 0; phy < 6; phy++) {
 			/* 3. Activate FDDATAWRAPx (bit[3:0] of HSSxx_CTR_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val | 0xf);
@@ -2192,17 +2179,20 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the RXLBERRORx flag (bit[3:0] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xff) {
+				printf(" error 1 on phy %d during RX", phy);
 				res = -1;
 				break;
 			}
+		}
 
-			/* Run test for 100msec */
-			udelay(100000);
+		/* Run test for 200msec */
+		udelay(200000);
+
+		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-
 			if (val & 0xff) {
+				printf(" error 2 on phy %d during RX", phy);
 				res = -1;
 				break;
 			}
@@ -2214,14 +2204,13 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_1 + 0x40 * phy, val & ~(0xf));
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x00f0);
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x0000);
-			printf("%s", _get_linkname(phy));
 		}
 
 		/* Trigger a HSS PLL reset */
-		_pic_reset_ctrl(1);
+		_pic_reset_ctrl();
 	}
 
-	printf("\nSelftest %s\n", (res == 0) ? "passed" : "failed");
+	printf("%s\n", res == 0 ? "passed" : "failed");
 	return res;
 pll_err_out:
 	printf("\n");
@@ -2250,7 +2239,7 @@ static const uint32_t msrs_f10[] = {
 	0x00000269, 0x0000026a, 0x0000026b, 0x0000026c, 0x0000026d, 0x0000026e, 0x0000026f, 0x00000277,
 	0x000002ff, 0x00000400, 0x00000401, 0x00000402, 0x00000403, 0x00000404, 0x00000405, 0x00000406,
 	0x00000407, 0x00000408, 0x00000409, 0x0000040a, 0x0000040b, 0x0000040c, 0x0000040d, 0x0000040e,
-	0x0000040f, /* V 0x00000410,*/ 0x00000411, 0x00000412, 0x00000413, 0x00000414, 0x00000415, 0x00000416,
+	0x0000040f, /* V 0x00000410,*/ 0x00000411, /* V 0x00000412 ,*/ 0x00000413, 0x00000414, 0x00000415, 0x00000416,
 	0x00000417, 0xc0000080, 0xc0000081, 0xc0000082, 0xc0000083, 0xc0000084, 0xc0000100, 0xc0000101,
 	0xc0000102, 0xc0000103, /* V 0xc0000408, 0xc0000409,*/ 0xc000040a, 0xc000040b, 0xc000040c, 0xc000040d,
 	0xc000040e, 0xc000040f, /* V 0xc0010000, V 0xc0010001, V 0xc0010002, V 0xc0010003, V 0xc0010004, V 0xc0010005,*/
@@ -2314,7 +2303,7 @@ static void dump_northbridge_regs(int ht_id)
 	uint32_t msr;
 
 	for (offset = 0; (msr = get_msr(offset)) != 0xffffffff; offset++)
-		printf("MSR 0x%08x: %016" PRIx64 "\n", msr, dnc_rdmsr(msr));
+		printf("MSR 0x%08x: %016" PRIx64 "\n", msr, rdmsr(msr));
 }
 
 void selftest_late_msrs(void)
@@ -2325,7 +2314,7 @@ void selftest_late_msrs(void)
 
 	for (offset = 0; (msr = get_msr(offset)) != 0xffffffff; offset++) {
 		bool printed = false;
-		uint64_t val0 = dnc_rdmsr(msr);
+		uint64_t val0 = rdmsr(msr);
 
 		for (int node = 0; node < dnc_node_count; node++) {
 			for (int ht = 0; ht < 8; ht++) {
@@ -2365,6 +2354,88 @@ void selftest_late_msrs(void)
 	}
 }
 
+struct smbios_header {
+	uint8_t type;
+	uint8_t length;
+	uint16_t handle;
+	uint8_t *data;
+};
+
+static const char *smbios_string(const char *table, uint8_t index) {
+	while (--index)
+		table += strlen(table) + 1;
+	return table;
+}
+
+static void smbios_parse(const char *buf, const uint16_t len, const uint16_t num, const char **biosver, const char **biosdate, const char **manuf, const char **product) {
+	const char *data = buf;
+	int i = 0;
+
+	while (i < num && data + 4 <= buf + len) {
+		const char *next;
+		struct smbios_header *h = (struct smbios_header *)data;
+
+		assert(h->length >= 4);
+		if (h->type == 127)
+			break;
+
+		next = data + h->length;
+
+		if (h->type == 0) {
+			*biosver = smbios_string(next, data[5]);
+			*biosdate = smbios_string(next, data[8]);
+		} else if (h->type == 1) {
+			*manuf = smbios_string(next, data[4]);
+			*product = smbios_string(next, data[5]);
+		}
+
+		while (next - buf + 1 < len && (next[0] != 0 || next[1] != 0))
+			next++;
+		next += 2;
+		data = next;
+		i++;
+	}
+}
+
+static void platform_quirks(void)
+{
+	const char *buf = (const char *)0xf0000;
+	size_t fp;
+
+	/* Search for signature */
+	for (fp = 0; fp <= 0xfff0; fp += 16)
+		if (!memcmp(buf + fp, "_SM_", 4))
+			break;
+
+	assertf(fp != 0x10000, "Failed to find SMBIOS signature");
+
+	uint16_t len = *(uint16_t *)(buf + fp + 0x16);
+	uint16_t num = *(uint16_t *)(buf + fp + 0x1c);
+	fp = *(uint32_t *)(buf + fp + 0x18);
+
+	const char *manuf = NULL, *product = NULL, *biosver = NULL, *biosdate = NULL;
+	smbios_parse((const char *)fp, len, num, &biosver, &biosdate, &manuf, &product);
+	assert(biosver && biosdate && manuf && product);
+	printf("Platform is %s %s with BIOS %s %s", manuf, product, biosver, biosdate);
+
+	/* Skip if already set */
+	if (handover_acpi)
+		return;
+
+	/* Systems where ACPI must be handed off early */
+	const char *acpi_blacklist[] = {"H8QGL", NULL};
+
+	for (unsigned int i = 0; i < (sizeof acpi_blacklist / sizeof acpi_blacklist[0]); i++) {
+		if (!strcmp(product, acpi_blacklist[i])) {
+			printf(" (blacklisted)");
+			handover_acpi = 1;
+			break;
+		}
+	}
+
+	printf("\n");
+}
+
 int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode, const char *cmdline)
 {
 	uint32_t uuid, val, chip_rev;
@@ -2374,7 +2445,12 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 	if (parse_cmdline(cmdline) < 0)
 		return -1;
 
+	platform_quirks();
 	detect_southbridge();
+
+	/* SMI often assumes HT nodes are Northbridges, so handover early */
+	if (handover_acpi)
+		stop_acpi();
 
 	ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
 
@@ -2539,6 +2615,10 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 		 * them to prevent interpreting false entries from application memory */
 		for (int reg = 0x90; reg <= 0x9c; reg += 4)
 			cht_write_conf(i, FUNC3_MISC, reg, 0);
+
+		/* Clear Machine Check address registers, since on some platforms they aren't initialised */
+		for (int reg = 0x50; reg <= 0x54; reg += 4)
+			cht_write_conf(i, FUNC3_MISC, reg, 0);
 	}
 
 	/* ====================== END ERRATA WORKAROUNDS ====================== */
@@ -2660,7 +2740,7 @@ static int _check_dim(int dim)
 	ok &= (dnc_check_phy(linkidb) == 0);
 
 	if (!ok) {
-		printf("Errors detected on PHY%s and PHY%s; resetting\n",
+		warning("Errors detected on PHY%s and PHY%s; resetting",
 		       _get_linkname(linkida), _get_linkname(linkidb));
 		/* Counter-rotating rings, reset both phys */
 		dnc_reset_phy(linkida);
@@ -2670,7 +2750,7 @@ static int _check_dim(int dim)
 		ok &= (dnc_check_phy(linkidb) == 0);
 
 		if (!ok) {
-			printf("Errors still present on PHY%s and PHY%s\n",
+			warning("Errors still present on PHY%s and PHY%s",
 			       _get_linkname(linkida), _get_linkname(linkidb));
 			return -1;
 		}
@@ -2680,7 +2760,7 @@ static int _check_dim(int dim)
 	ok &= (dnc_check_lc3(linkidb) == 0);
 
 	if (!ok) {
-		printf("LC3 errors detected on LC3%s and LC3%s; resetting\n",
+		warning("LC3 errors detected on LC3%s and LC3%s; resetting",
 		       _get_linkname(linkida), _get_linkname(linkidb));
 		/* Counter-rotating rings, reset both phys */
 		dnc_reset_phy(linkida);
@@ -2692,7 +2772,7 @@ static int _check_dim(int dim)
 		ok &= (dnc_check_lc3(linkidb) == 0);
 
 		if (!ok) {
-			printf("LC3 reset not successful\n");
+			error("LC3 reset not successful");
 			return -1;
 		}
 	}
@@ -2768,10 +2848,10 @@ static enum node_state setup_fabric(struct node_info *info)
 		else
 			/* SCI IDs may not correspond; load-balance route */
 			out += src & 1;
-#endif
 
 		printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
 		       info->sciid, cfg_nodelist[i].sciid, dim, out);
+#endif
 		_add_route(cfg_nodelist[i].sciid, 0, out);
 
 		for (lc = 1; lc <= 6; lc++) {
@@ -2785,6 +2865,7 @@ static enum node_state setup_fabric(struct node_info *info)
 	save_scc_routing(shadow_rtbll[0], shadow_rtblm[0], shadow_rtblh[0]);
 	/* Make sure all necessary links are up and working */
 	int res = 1;
+	printf("Initialising LC3s:");
 
 	if (cfg_fabric.x_size > 0) {
 		if (_check_dim(0) != 0)
@@ -2793,9 +2874,11 @@ static enum node_state setup_fabric(struct node_info *info)
 		res = (0 == dnc_init_lc3(info->sciid, 0, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[1], shadow_rtblm[1],
 		                         shadow_rtblh[1], shadow_ltbl[1])) && res;
+		printf(" XA");
 		res = (0 == dnc_init_lc3(info->sciid, 1, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[2], shadow_rtblm[2],
 		                         shadow_rtblh[2], shadow_ltbl[2])) && res;
+		printf(" XB");
 	}
 
 	if (cfg_fabric.y_size > 0) {
@@ -2805,9 +2888,11 @@ static enum node_state setup_fabric(struct node_info *info)
 		res = (0 == dnc_init_lc3(info->sciid, 2, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[3], shadow_rtblm[3],
 		                         shadow_rtblh[3], shadow_ltbl[3])) && res;
+		printf(" YA");
 		res = (0 == dnc_init_lc3(info->sciid, 3, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[4], shadow_rtblm[4],
 		                         shadow_rtblh[4], shadow_ltbl[4])) && res;
+		printf(" YB");
 	}
 
 	if (cfg_fabric.z_size > 0) {
@@ -2817,13 +2902,15 @@ static enum node_state setup_fabric(struct node_info *info)
 		res = (0 == dnc_init_lc3(info->sciid, 4, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[5], shadow_rtblm[5],
 		                         shadow_rtblh[5], shadow_ltbl[5])) && res;
+		printf(" ZA");
 		res = (0 == dnc_init_lc3(info->sciid, 5, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[6], shadow_rtblm[6],
 		                         shadow_rtblh[6], shadow_ltbl[6])) && res;
+		printf(" ZB");
 	}
 
-	printf("Done with fabric setup\n");
-	return (res) ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
+	printf("\n");
+	return res ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
 }
 
 static enum node_state validate_fabric(struct node_info *info, struct part_info *part)
@@ -2917,57 +3004,7 @@ int dnc_check_fabric(struct node_info *info)
 	return res;
 }
 
-static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
-{
-	printf("Entering reset\n");
-
-	if (0 && _is_pic_present(dnc_card_type)) {
-		int tries = 0;
-
-		/* Reset already held?  Toggle reset logic to ensure reset
-		 * reverts to know state */
-		while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) == 0) {
-			if (tries == 0) {
-				printf("HSSXA_STAT_1 is zero, toggling reset...\n");
-				_pic_reset_ctrl(2);
-			}
-
-			printf("Waiting for HSSXA_STAT_1 to leave zero (try %d)...\n", tries);
-
-			if (tries++ > 16)
-				return RSP_PHY_NOT_TRAINED;
-
-			udelay(1000);
-		}
-
-		/* Hold reset */
-		_pic_reset_ctrl(2);
-		tries = 0;
-
-		while (dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) {
-			if (tries == 8) {
-				printf("HSSXA_STAT_1 is still one, toggling reset...\n");
-				_pic_reset_ctrl(2);
-			}
-
-			printf("Waiting for HSSXA_STAT_1 to leave one (try %d)...\n", tries);
-
-			if (tries++ > 16)
-				return RSP_PHY_NOT_TRAINED;
-
-			udelay(10000);
-		}
-	} else {
-		/* No external reset control, simply reset all phys to start training sequence */
-		for (int i = 0; i < 6; i++)
-			dnc_reset_phy(i);
-	}
-
-	printf("In reset\n");
-	return RSP_RESET_ACTIVE;
-}
-
-static int phy_check_status(int phy)
+static int phy_check_status(const int phy)
 {
 	uint32_t val;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
@@ -2993,10 +3030,10 @@ static int phy_check_status(int phy)
 	return (val != 0x1fff) << phy;
 }
 
-static void phy_print_error(int mask)
+static void phy_print_error(const int mask)
 {
 	int i;
-	printf("Error: Fabric phy training failure - check cables to ports");
+	error("Fabric phy training failure - check cables to ports");
 
 	for (i = 0; i < 6; i++)
 		if (mask & (1 << i))
@@ -3005,35 +3042,21 @@ static void phy_print_error(int mask)
 	printf("\n");
 }
 
-static enum node_state release_reset(struct node_info *info __attribute__((unused)))
+static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
 {
-	int pending, i;
-	printf("Releasing reset...");
+	int i;
 
-	if (0 && _is_pic_present(dnc_card_type)) {
-		/* Release reset */
-		_pic_reset_ctrl(2);
-		i = 0;
+	printf("Training fabric phys...");
 
-		while ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) == 0) {
-			if (i++ > 20)
-				return RSP_PHY_NOT_TRAINED;
-
-			udelay(200);
-		}
-	} else {
-		/* No external reset control, check that the PLL has locked */
-		if ((dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1) & (1 << 8)) == 0) {
-			printf("HSSXA_STAT_1 is zero, PLL not locked ???...\n");
-			return RSP_PHY_NOT_TRAINED;
-		}
-	}
+	/* No external reset control, simply reset all phys to start training sequence */
+	for (i = 0; i < 6; i++)
+		dnc_reset_phy(i);
 
 	/* Verify that all relevant PHYs are training */
 	i = 0;
 
 	while (1) {
-		pending = 0;
+		bool pending = 0;
 
 		if (cfg_fabric.x_size > 0) {
 			pending |= phy_check_status(0);
@@ -3122,10 +3145,6 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 	case CMD_ENTER_RESET:
 		*rstate = enter_reset(info);
 		return 1;
-	case CMD_RELEASE_RESET:
-		udelay(2000);
-		*rstate = release_reset(info);
-		return 1;
 	case CMD_VALIDATE_RINGS:
 		*rstate = validate_rings(info);
 		return 1;
@@ -3138,6 +3157,32 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
 		return 1;
 	default:
 		return 0;
+	}
+}
+
+void broadcast_error(const struct node_info *info, const char *msg, bool oneshot)
+{
+	char *packet = malloc(sizeof(struct state_bcast) + strlen(msg));
+	assert(packet);
+
+	struct state_bcast *rsp = (struct state_bcast *)packet;
+	rsp->state = RSP_ERROR;
+	rsp->uuid = info->uuid;
+	rsp->sciid = info->sciid;
+	rsp->tid = 0;
+
+	strcpy(packet + sizeof(struct state_bcast), msg);
+
+	int handle = udp_open();
+
+	while (1) {
+		udp_broadcast_state(handle, &rsp, sizeof rsp);
+		if (oneshot) {
+			free(packet);
+			return;
+		}
+
+		udelay(2000000); /* 0.5Hz */
 	}
 }
 

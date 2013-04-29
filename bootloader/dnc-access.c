@@ -53,6 +53,12 @@ int cht_config_use_extd_addressing = 0;
 uint64_t dnc_csr_base = DEF_DNC_CSR_BASE;
 uint64_t dnc_csr_lim = DEF_DNC_CSR_LIM;
 
+uint8_t rtc_read(const int addr)
+{
+	outb(addr, 0x70);
+	return inb(0x71);
+}
+
 uint8_t pmio_readb(uint16_t offset)
 {
 	outb(offset, PMIO_PORT /* PMIO index */);
@@ -551,7 +557,7 @@ void dnc_write_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, ui
 	}
 }
 
-uint64_t dnc_rdmsr(uint32_t msr)
+uint64_t rdmsr(uint32_t msr)
 {
 	union {
 		uint32_t dw[2];
@@ -562,7 +568,7 @@ uint64_t dnc_rdmsr(uint32_t msr)
 }
 
 
-void dnc_wrmsr(uint32_t msr, uint64_t v)
+void wrmsr(uint32_t msr, uint64_t v)
 {
 	union {
 		uint32_t dw[2];
@@ -572,7 +578,7 @@ void dnc_wrmsr(uint32_t msr, uint64_t v)
 	asm volatile("wrmsr" :: "d"(val.dw[1]), "a"(val.dw[0]), "c"(msr));
 
 	if (verbose > 2) {
-		uint64_t v2 = dnc_rdmsr(msr);
+		uint64_t v2 = rdmsr(msr);
 
 		if (v2 != v)
 			printf("Warning: MSR 0x%08x readback (0x%016llx) differs from write (0x%016llx)\n", msr, v2, v);

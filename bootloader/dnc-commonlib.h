@@ -23,24 +23,60 @@
 
 #include "dnc-config.h"
 
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
 #define cpu_relax() asm volatile("pause" ::: "memory")
+#define PRInode "node 0x%03x (%s)"
+#define nodestr_offset(x) cfg_nodelist[x].sciid, cfg_nodelist[x].desc
+
+#define COL_DEFAULT   "\033[0m"
+#define COL_RED       "\033[31m"
+#define COL_YELLOW    "\033[33m"
+#define CLEAR         "\033\143"
+#define BANNER        "\033[1m\033[37m"
+#define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
 
 #define assert(cond) do { if (!(cond)) {				\
-	printf("\nError: assertion '%s' failed in %s at %s:%d\n",	\
+	printf(COL_RED "Error: assertion '%s' failed in %s at %s:%d\n",	\
 	    #cond, __FUNCTION__, __FILE__, __LINE__);			\
+	printf(COL_DEFAULT);					\
 	while (1) cpu_relax();						\
     } } while (0)
 
-#define assertf(cond, format, ...) do { if (!(cond)) {			\
-	printf("\nError: ");						\
-	printf(format, __VA_ARGS__);					\
+#define assertf(cond, format, args...) do { if (!(cond)) {			\
+	printf(COL_RED "Error: ");						\
+	printf(format, ## args);					\
+	printf(COL_DEFAULT);					\
 	while (1) cpu_relax();						\
     } } while(0)
 
 #define fatal(format, args...) do {						\
-	printf("\nError: ");						\
+	printf(COL_RED "Error: ");						\
 	printf(format, ## args);					\
+	printf(COL_DEFAULT);					\
 	while (1) cpu_relax();						\
+   } while (0)
+
+#define fatal_reboot(format, args...) do {						\
+	printf(COL_RED "Error: ");						\
+	printf(format, ## args);					\
+	printf("; rebooting in 15s...");		\
+	printf(COL_DEFAULT);					\
+	udelay(15000000);						\
+	reset_cf9(0xa, 0);						\
+   } while (0)
+
+#define warning(format, args...) do {						\
+	printf(COL_YELLOW "Warning: ");						\
+	printf(format, ## args);					\
+	printf(COL_DEFAULT "\n");					\
+   } while (0)
+
+#define error(format, args...) do {						\
+	printf(COL_RED "Error: ");						\
+	printf(format, ## args);					\
+	printf("\n");					\
    } while (0)
 
 #ifdef __i386__
@@ -60,20 +96,12 @@
 	} while (0)
 #endif
 
-#define min(a, b) (((a) < (b)) ? (a) : (b))
-#define max(a, b) (((a) > (b)) ? (a) : (b))
-
-#define PRInode "node 0x%03x (%s)"
-#define nodestr_offset(x) cfg_nodelist[x].sciid, cfg_nodelist[x].desc
-
 #define DRAM_MAP_SHIFT 24ULL
 
 #define NODE_SYNC_STATES(state) \
     state(CMD_STARTUP) \
     state(RSP_SLAVE_READY) \
     state(CMD_ENTER_RESET) \
-    state(RSP_RESET_ACTIVE) \
-    state(CMD_RELEASE_RESET) \
     state(RSP_PHY_TRAINED) \
     state(RSP_PHY_NOT_TRAINED) \
     state(CMD_VALIDATE_RINGS) \
@@ -86,6 +114,7 @@
     state(RSP_FABRIC_OK) \
     state(RSP_FABRIC_NOT_OK) \
     state(CMD_CONTINUE) \
+    state(RSP_ERROR) \
     state(RSP_NONE)
 
 #define ENUM_DEF(state) state,
@@ -124,6 +153,7 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting);
 int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode, const char *cmdline);
 int dnc_check_fabric(struct node_info *info);
 uint32_t dnc_check_mctr_status(int cdata);
+void dnc_dram_initialise(void);
 int dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
                    struct node_info *info, struct part_info *part);
@@ -132,7 +162,7 @@ void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);
 void enable_probefilter(const int nodes);
 void selftest_late_msrs(void);
-int dnc_dimmtest(int cdata, int testmask, struct dimm_config *dimm);
+void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2]);
 
 extern bool dnc_asic_mode;
 extern uint32_t dnc_chip_rev;
@@ -165,6 +195,7 @@ extern int force_probefilteroff;
 extern int force_probefilteron;
 extern uint64_t mem_gap;
 extern bool workaround_locks;
+extern int enable_nbwdt;
 
 extern const char *node_state_name[];
 

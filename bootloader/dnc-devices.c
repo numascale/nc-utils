@@ -23,34 +23,44 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 
-static void pci_search(const struct devspec *list)
+static void pci_search(const struct devspec *list, const int bus)
 {
-	int bus, dev, fn;
 	const struct devspec *listp;
 
-	for (bus = 0; bus < 256; bus++) {
-		for (dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
-			for (fn = 0; fn < 8; fn++) {
-				uint32_t type = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
-				/* PCI device functions are not necessarily contiguous */
-				if (type == 0xffffffff)
-					continue;
+	for (int dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
+		for (int fn = 0; fn < 8; fn++) {
+			uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
+			/* PCI device functions are not necessarily contiguous */
+			if (val == 0xffffffff)
+				continue;
 
-				uint32_t ctlcap = dnc_read_conf(0xfff0, bus, dev, fn, 8);
+			uint8_t type = val >> 16;
+			uint32_t ctlcap = dnc_read_conf(0xfff0, bus, dev, fn, 8);
 
-				for (listp = list; listp->class != PCI_CLASS_FINAL; listp++)
-					if ((listp->class == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->class))
+			for (listp = list; listp->class != PCI_CLASS_FINAL; listp++)
+				if ((listp->class == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->class))
+					if ((listp->type == PCI_TYPE_ANY) || (listp->type == (type & 0x7f)))
 						listp->handler(bus, dev, fn);
 
-				/* If not multi-function, break out of function loop */
-				if (!fn && !(type & 0x800000))
-					break;
+			/* Recurse down bridges */
+			if ((type & 0x7f) == 0x01) {
+				int sec = (dnc_read_conf(0xfff0, bus, dev, fn, 0x18) >> 8) & 0xff;
+				pci_search(list, sec);
 			}
+
+			/* If not multi-function, break out of function loop */
+			if (!fn && !(type & 0x80))
+				break;
 		}
 	}
 }
 
-static void disable_device(int bus, int dev, int fn)
+static void pci_search_start(const struct devspec *list)
+{
+	pci_search(list, 0);
+}
+
+static void disable_device(const int bus, const int dev, const int fn)
 {
 	int i;
 	/* Disable I/O, memory, DMA and interrupts */
@@ -71,35 +81,11 @@ static void disable_device(int bus, int dev, int fn)
 
 void disable_dma_all(void)
 {
-	int bus, dev, fn;
-
-	for (bus = 0; bus < 256; bus++) {
-		for (dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
-			for (fn = 0; fn < 8; fn++) {
-				uint32_t type = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
-
-				/* PCI device functions are not necessarily contiguous */
-				if (type == 0xffffffff)
-					continue;
-
-				switch ((type >> 16) & 0x7f) {
-				case 0:
-					if (verbose > 1)
-						printf("device at %02x:%02x.%x: ", bus, dev, fn);
-					disable_device(bus, dev, fn);
-					break;
-				case 1:
-					if (verbose > 1)
-						printf("bridge at %02x:%02x.%x\n", bus, dev, fn);
-					break;
-				}
-
-				/* If not multi-function, break out of function loop */
-				if (!fn && !(type & 0x800000))
-					break;
-			}
-		}
-	}
+	const struct devspec devices[] = {
+		{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
+		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
+	};
+	pci_search_start(devices);
 }
 
 uint16_t capability(const uint8_t cap, const int bus, const int dev, const int fn)
@@ -126,42 +112,85 @@ uint16_t capability(const uint8_t cap, const int bus, const int dev, const int f
 	return PCI_CAP_NONE;
 }
 
+uint16_t extcapability(const uint8_t cap, const int bus, const int dev, const int fn)
+{
+	uint16_t offset = 0x100;
+	uint32_t val;
+
+	do {
+		val = dnc_read_conf(0xfff0, bus, dev, fn, offset);
+		if (val == 0xffffffff)
+			return PCI_CAP_NONE;
+		if (cap == (val & 0xffff))
+			return offset;
+
+		offset >>= 20;
+	} while (offset);
+
+	return PCI_CAP_NONE;
+}
+
 static void completion_timeout(const int bus, const int dev, const int fn)
 {
-	uint16_t cap = capability(PCI_CAP_PCIE, bus, dev, fn);
-	if (cap == PCI_CAP_NONE)
-		return;
-
+	uint32_t val;
+	uint16_t cap;
 	printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
 
-#ifdef FIXME
-/* Need to implement advanced capabilities */
-	uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
-	if (val && (val & (1 << 14))) {
-		printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
-
-		/* Ensure Completion Timeout is non-fatal */
-		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x0c, val & ~(1 << 14));
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
-		if (val & (1 << 14))
-			printf("Completion Timeout now non-fatal\n");
-		else
-			printf("Warning: Failed to set Completion Timeout as non-fatal\n");
-	}
-#endif
-
-	/* Ensure Device Control 2 Register is implemented */
-	uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
-	if (!(val & (1 << 4))) {
-		/* Disable Completion Timeout */
-		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, val | (1 << 4));
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+	cap = capability(PCI_CAP_PCIE, bus, dev, fn);
+	if (cap != PCI_CAP_NONE) {
+		/* Device Control */
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x8);
+		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x8, val | (1 << 4));
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x8);
 		if (val & (1 << 4))
-			printf("disabled Completion Timeout\n");
+			printf("Relaxed Ordering enabled");
 		else
-			printf("Warning: Failed to disable Completion Timeout\n");
+			printf("failed to enable Relaxed Ordering");
+
+		/* Root Control */
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x1c);
+		if (val & (1 << 1)) {
+			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x1c, val | (1 << 4));
+			printf("; disabled SERR on Non-Fatal");
+		} else
+			printf("; Non-Fatal doesn't trigger SERR");
+
+		/* Device Capabilities/Control 2 */
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x24);
+
+		/* Select Completion Timeout range D, else disable */
+		if (val & (1 << 3)) {
+			val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, (val & ~0xf) | 0xe);
+			printf("; Completion Timeout 17-64s");
+		} else {
+			if (val & (1 << 4)) {
+				/* Disable Completion Timeout instead */
+				val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
+				dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, val | (1 << 4));
+				printf("; Completion Timeout disabled");
+			} else
+				printf("; Setting Completion Timeout unsupported");
+		}
 	} else
-		printf("Completion Timeout not enabled\n");
+		printf("no PCIe");
+
+	cap = extcapability(PCI_CAP_AER, bus, dev, fn);
+	if (cap != PCI_CAP_NONE) {
+		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+		if (val & (1 << 14)) {
+			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x0c, val & ~(1 << 14));
+			val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+			if (val & (1 << 14))
+				printf("; Completion Timeout now non-fatal");
+			else
+				printf("; failed to set Completion Timeout as non-fatal");
+		} else
+			printf("; Completion Timeout already non-fatal");
+	} else
+		printf("; no AER");
+
+	printf("\n");
 }
 
 static void stop_ohci(int bus, int dev, int fn)
@@ -169,15 +198,12 @@ static void stop_ohci(int bus, int dev, int fn)
 	uint32_t val, bar0;
 	printf("OHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
 	bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
-
 	if ((bar0 == 0xffffffff) || (bar0 == 0)) {
 		printf("BAR not configured\n");
 		return;
 	}
 
-	val = mem64_read32(bar0 + HcHCCA);
 	val = mem64_read32(bar0 + HcControl);
-
 	if (val & OHCI_CTRL_IR) { /* Interrupt routing enabled, we must request change of ownership */
 		uint32_t temp;
 		/* This timeout is arbitrary.  we make it long, so systems
@@ -393,22 +419,22 @@ void handover_legacy(void)
 	/* Stop ACPI first, as Linux requests ownership of this before other subsystems */
 	stop_acpi();
 	const struct devspec devices[] = {
-		{PCI_CLASS_SERIAL_USB_OHCI, 3, stop_ohci},
-		{PCI_CLASS_SERIAL_USB_EHCI, 3, stop_ehci},
-		{PCI_CLASS_SERIAL_USB_XHCI, 3, stop_xhci},
-		{PCI_CLASS_STORAGE_SATA, 2, stop_ahci},
-		{PCI_CLASS_STORAGE_RAID, 2, stop_ahci},
-		{PCI_CLASS_FINAL, 0, NULL}
+		{PCI_CLASS_SERIAL_USB_OHCI, 3, PCI_TYPE_ENDPOINT, stop_ohci},
+		{PCI_CLASS_SERIAL_USB_EHCI, 3, PCI_TYPE_ENDPOINT, stop_ehci},
+		{PCI_CLASS_SERIAL_USB_XHCI, 3, PCI_TYPE_ENDPOINT, stop_xhci},
+		{PCI_CLASS_STORAGE_SATA,    2, PCI_TYPE_ENDPOINT, stop_ahci},
+		{PCI_CLASS_STORAGE_RAID,    2, PCI_TYPE_ENDPOINT, stop_ahci},
+		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 	};
-	pci_search(devices);
+	pci_search_start(devices);
 }
 
 void pci_setup(void)
 {
 	const struct devspec devices[] = {
-		{PCI_CLASS_ANY, 0, completion_timeout},
-		{PCI_CLASS_FINAL, 0, NULL}
+		{PCI_CLASS_ANY, 0, PCI_TYPE_ANY, completion_timeout},
+		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 	};
-	pci_search(devices);
+	pci_search_start(devices);
 }
 

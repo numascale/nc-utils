@@ -39,8 +39,6 @@
 #include "dnc-mmio.h"
 #include "dnc-version.h"
 
-#include "hw-config.h"
-
 #define PIC_MASTER_CMD          0x20
 #define PIC_MASTER_IMR          0x21
 #define PIC_SLAVE_CMD           0xa0
@@ -48,8 +46,7 @@
 
 #define MTRR_TYPE(x) (x) == 0 ? "uncacheable" : (x) == 1 ? "write-combining" : (x) == 4 ? "write-through" : (x) == 5 ? "write-protect" : (x) == 6 ? "write-back" : "unknown"
 
-#define TABLE_AREA_SIZE		1024*1024
-#define TABLE_ALIGNMENT		64
+#define TABLE_AREA_SIZE		256*1024
 #define MIN_NODE_MEM		256*1024*1024
 
 int dnc_master_ht_id;     /* HT id of NC on master node, equivalent nc_node[0].nc_ht_id */
@@ -73,6 +70,7 @@ uint8_t nodedata[4096];
 
 char *asm_relocated;
 static char *tables_relocated;
+void *tables_next;
 
 IMPORT_RELOCATED(new_e820_handler);
 IMPORT_RELOCATED(old_int15_vec);
@@ -122,20 +120,20 @@ void set_cf8extcfg_enable(const int ht)
 
 static void set_wrap32_disable(void)
 {
-	uint64_t val = dnc_rdmsr(MSR_HWCR);
-	dnc_wrmsr(MSR_HWCR, val | (1ULL << 17));
+	uint64_t val = rdmsr(MSR_HWCR);
+	wrmsr(MSR_HWCR, val | (1ULL << 17));
 }
 
 static void set_wrap32_enable(void)
 {
-	uint64_t val = dnc_rdmsr(MSR_HWCR);
-	dnc_wrmsr(MSR_HWCR, val & ~(1ULL << 17));
+	uint64_t val = rdmsr(MSR_HWCR);
+	wrmsr(MSR_HWCR, val & ~(1ULL << 17));
 }
 
 static void clear_bsp_flag(void)
 {
-	uint64_t val = dnc_rdmsr(MSR_APIC_BAR);
-	dnc_wrmsr(MSR_APIC_BAR, val & ~(1ULL << 8));
+	uint64_t val = rdmsr(MSR_APIC_BAR);
+	wrmsr(MSR_APIC_BAR, val & ~(1ULL << 8));
 }
 
 static void disable_xtpic(void)
@@ -193,7 +191,7 @@ static void load_orig_e820_map(void)
 	}
 
 	for (i = 0; i < len; i++) {
-		printf(" %016llx - %016llx (%016llx) [%x]\n",
+		printf(" %012llx - %012llx (%012llx) [%x]\n",
 		       e820_map[i].base, e820_map[i].base + e820_map[i].length,
 		       e820_map[i].length, e820_map[i].type);
 	}
@@ -282,12 +280,13 @@ static int install_e820_handler(void)
 	*REL32(old_int15_vec) = int_vecs[0x15];
 
 	if (last_32b < 0) {
-		printf("Error: Unable to allocate room for ACPI tables\n");
+		error("Unable to allocate room for ACPI tables");
 		return 0;
     }
 
 	e820[last_32b].length -= TABLE_AREA_SIZE;
 	tables_relocated = (void *)(long)e820[last_32b].base + (long)e820[last_32b].length;
+	tables_next = tables_relocated;
 	int_vecs[0x15] = (((uint32_t)asm_relocated) << 12) |
 	                 ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
 	printf("Persistent code relocated to %p\n", asm_relocated);
@@ -371,7 +370,7 @@ static void update_e820_map(void)
 	printf("Updated E820 map:\n");
 
 	for (i = 0; i < *len; i++) {
-		printf(" %016llx - %016llx (%016llx) [%x]\n",
+		printf(" %012llx - %012llx (%012llx) [%x]\n",
 		       e820[i].base, e820[i].base + e820[i].length,
 		       e820[i].length, e820[i].type);
 	}
@@ -426,24 +425,62 @@ static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
 static void disable_fixed_mtrrs(void)
 {
 	disable_cache();
-	dnc_wrmsr(MSR_MTRR_DEFAULT, dnc_rdmsr(MSR_MTRR_DEFAULT) & ~(1 << 10));
+	wrmsr(MSR_MTRR_DEFAULT, rdmsr(MSR_MTRR_DEFAULT) & ~(1 << 10));
 	enable_cache();
 }
 
 static void enable_fixed_mtrrs(void)
 {
 	disable_cache();
-	dnc_wrmsr(MSR_MTRR_DEFAULT, dnc_rdmsr(MSR_MTRR_DEFAULT) | (1 << 10));
+	wrmsr(MSR_MTRR_DEFAULT, rdmsr(MSR_MTRR_DEFAULT) | (1 << 10));
 	enable_cache();
+}
+
+static void tables_add(const size_t len)
+{
+	tables_next += roundup(len, TABLE_ALIGNMENT);
+	assert((char *)tables_next < (tables_relocated + TABLE_AREA_SIZE));
+}
+
+static void update_acpi_tables_early(void)
+{
+	/* Get table root points and check for space */
+	acpi_sdt_p rsdt = find_root("RSDT");
+	assert(rsdt);
+
+	acpi_sdt_p xsdt = find_root("XSDT");
+	assert(xsdt);
+
+	/* Find e820 entry with ACPI tables */
+	struct e820entry *e820 = orig_e820_map;
+	while (((uint32_t)rsdt < e820->base) || ((uint32_t)rsdt >= (e820->base + e820->length)))
+		e820++;
+
+	printf("Existing ACPI tables in e820 range %012llx - %012llx\n", e820->base, e820->base + e820->length);
+
+	acpi_sdt_p oemn = acpi_build_oemn();
+	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
+	if (!gap) {
+		warning("No space for OEMN table");
+		return;
+	}
+
+	printf("Adding OEMN at %08x with length %d\n", (uint32_t)gap, oemn->len);
+	memcpy((char *)gap, oemn, oemn->len);
+	free(oemn);
+
+	/* Fixed MTRRs may mark the RSDT and XSDT pointers r/o */
+	disable_fixed_mtrrs();
+
+	add_child(gap, rsdt, 4);
+	add_child(gap, xsdt, 8);
+
+	enable_fixed_mtrrs();
 }
 
 static void update_acpi_tables(void)
 {
 	acpi_sdt_p oroot;
-	acpi_sdt_p osrat = find_sdt("SRAT");
-	acpi_sdt_p oapic = find_sdt("APIC");
-	acpi_sdt_p rsdt = (void *)tables_relocated;
-	acpi_sdt_p xsdt = (void *)tables_relocated + 4096;
 	uint8_t *dist;
 	unsigned int i, j, apicid, pnum;
 	unsigned int node, ht;
@@ -454,8 +491,12 @@ static void update_acpi_tables(void)
 	/* replace_root may fail if rptr is r/o, so we read the pointers
 	 * back. In case of failure, we'll assume the existing rsdt/xsdt
 	 * tables can be extended where they are */
-	oroot = find_root("RSDT");
+	acpi_sdt_p rsdt = tables_next;
+	tables_add(RSDT_MAX);
+	acpi_sdt_p xsdt = tables_next;
+	tables_add(RSDT_MAX);
 
+	oroot = find_root("RSDT");
 	if (oroot) {
 		memcpy(rsdt, oroot, oroot->len);
 		replace_root("RSDT", rsdt);
@@ -464,7 +505,6 @@ static void update_acpi_tables(void)
 		rsdt = NULL;
 
 	oroot = find_root("XSDT");
-
 	if (oroot) {
 		memcpy(xsdt, oroot, oroot->len);
 		replace_root("XSDT", xsdt);
@@ -477,16 +517,17 @@ static void update_acpi_tables(void)
 		return;
 	}
 
+	acpi_sdt_p oapic = find_sdt("APIC");
 	if (!oapic) {
 		printf("Default ACPI APIC table not found\n");
 		return;
 	}
 
 	/* With APIC we reuse the old info and add our new entries */
-	acpi_sdt_p apic = (void *)tables_relocated + 8192;
+	acpi_sdt_p apic = tables_next;
 	memcpy(apic, oapic, oapic->len);
 	memcpy(apic->oemid, "NUMASC", 6);
-	apic->len = 44;
+	apic->len = offsetof(struct acpi_sdt, data) + 8; /* Count 'Local Interrupt Controller' and 'Flags' fields */
 
 	/* Apply enable mask to existing APICs, find first unused ACPI ProcessorId */
 	pnum = 0;
@@ -501,7 +542,7 @@ static void update_acpi_tables(void)
 		}
 
 		if (lapic->len == 0) {
-			printf("APIC entry at %p (offset %d) reports len 0, aborting!\n",
+			printf("APIC entry at %p (offset %u) reports len 0, aborting!\n",
 			       lapic, i);
 			break;
 		}
@@ -543,20 +584,15 @@ static void update_acpi_tables(void)
 	}
 
 	apic->checksum -= checksum(apic, apic->len);
-	if (((void *)apic + apic->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for APIC table\n");
+	tables_add(apic->len);
 
 	if (rsdt) replace_child("APIC", apic, rsdt, 4);
 	if (xsdt) replace_child("APIC", apic, xsdt, 8);
 
 	/* Make SLIT info from scratch (ie replace existing table if any) */
-	acpi_sdt_p slit = (void *)((uintptr_t)((void *)apic + apic->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)slit >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for SLIT table\n");
+	acpi_sdt_p slit = tables_next;
 
 	memcpy(slit->sig.s, "SLIT", 4);
-	slit->len = 0;
 	slit->revision = ACPI_REV;
 	memcpy(slit->oemid, "NUMASC", 6);
 	memcpy(slit->oemtableid, "N313NUMA", 8);
@@ -585,8 +621,7 @@ static void update_acpi_tables(void)
 	memcpy(slit->data, &ht_pdom_count, sizeof(ht_pdom_count));
 	slit->len = 44 + ht_pdom_count * ht_pdom_count;
 	slit->checksum -= checksum(slit, slit->len);
-	if (((void *)slit + slit->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for SLIT table\n");
+	tables_add(slit->len);
 
 	if (rsdt) {
 		/* If original bios doesn't have room/entry for SLIT table
@@ -603,15 +638,13 @@ static void update_acpi_tables(void)
 	}
 
 	/* With SRAT we reuse the old info and add our new entries */
+	acpi_sdt_p osrat = find_sdt("SRAT");
 	if (!osrat) {
 		printf("Default ACPI SRAT table not found\n");
 		return;
 	}
 
-	acpi_sdt_p srat = (void *)((uintptr_t)((void *)slit + slit->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)srat >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for SRAT table\n");
+	acpi_sdt_p srat = tables_next;
 
 	memcpy(srat, osrat, osrat->len);
 	memcpy(srat->oemid, "NUMASC", 6);
@@ -677,21 +710,16 @@ static void update_acpi_tables(void)
 	}
 
 	srat->checksum -= checksum(srat, srat->len);
-	if (((void *)srat + srat->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for SRAT table\n");
+	tables_add(srat->len);
 
 	if (rsdt) replace_child("SRAT", srat, rsdt, 4);
 	if (xsdt) replace_child("SRAT", srat, xsdt, 8);
 
 	/* MCFG table */
-	acpi_sdt_p mcfg = (void *)((uintptr_t)((void *)srat + srat->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)mcfg >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for MCFG table\n");
-
+	acpi_sdt_p mcfg = tables_next;
 	memset(mcfg, 0, sizeof(*mcfg) + 8);
 	memcpy(mcfg->sig.s, "MCFG", 4);
-	mcfg->len = 44;
+	mcfg->len = offsetof(struct acpi_sdt, data) + 8 ; /* Count 'reserved' field */
 	mcfg->revision = ACPI_REV;
 	memcpy(mcfg->oemid, "NUMASC", 6);
 	memcpy(mcfg->oemtableid, "N313NUMA", 8);
@@ -711,32 +739,10 @@ static void update_acpi_tables(void)
 	}
 
 	mcfg->checksum = -checksum(mcfg, mcfg->len);
-	if (((void *)mcfg + mcfg->len) > ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("Ran out of table area for MCFG table\n");
+	tables_add(mcfg->len);
 
 	if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
 	if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
-
-	/* OEM table */
-	acpi_sdt_p oemn = (void *)((uintptr_t)((void *)mcfg + mcfg->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-	if ((void *)oemn >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-		fatal("No room for OEM table\n");
-
-	memset(oemn, 0, sizeof(*oemn) + 8);
-	memcpy(oemn->sig.s, "OEMN", 4);
-	oemn->len = 44;
-	oemn->revision = ACPI_REV;
-	memcpy(oemn->oemid, "NUMASC", 6);
-	memcpy(oemn->oemtableid, "N313NUMA", 8);
-	oemn->oemrev = 0;
-	memcpy(oemn->creatorid, "1B47", 4);
-	oemn->creatorrev = 1;
-	/* XXX: No Data yet */
-	oemn->checksum = -checksum(oemn, oemn->len);
-
-	if (rsdt) add_child(oemn, rsdt, 4);
-	if (xsdt) add_child(oemn, xsdt, 8);
 
 	if (remote_io) {
 		uint32_t extra_len;
@@ -745,14 +751,9 @@ static void update_acpi_tables(void)
 		if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
 			if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len)) {
 				/* Appending to existing DSDT or SSDT failed; construct new SSDT */
-				acpi_sdt_p ssdt = (void *)((uintptr_t)((void *)oemn + oemn->len + TABLE_ALIGNMENT - 1) & ~(TABLE_ALIGNMENT - 1));
-
-				if ((void *)ssdt >= ((void *)tables_relocated + TABLE_AREA_SIZE))
-					fatal("No room for new SSDT table\n");
-
+				acpi_sdt_p ssdt = tables_next;
 				memset(ssdt, 0, sizeof(*ssdt) + 8);
 				memcpy(ssdt->sig.s, "SSDT", 4);
-				ssdt->len = 44;
 				ssdt->revision = ACPI_REV;
 				memcpy(ssdt->oemid, "NUMASC", 6);
 				memcpy(ssdt->oemtableid, "N313NUMA", 8);
@@ -760,8 +761,10 @@ static void update_acpi_tables(void)
 				memcpy(ssdt->creatorid, "1B47", 4);
 				ssdt->creatorrev = 1;
 				memcpy(ssdt->data, extra, extra_len);
-				ssdt->len += extra_len;
+				ssdt->len = offsetof(struct acpi_sdt, data) + extra_len;
 				ssdt->checksum = -checksum(ssdt, ssdt->len);
+				tables_add(ssdt->len);
+
 				bool failed = 0;
 
 				if (rsdt) failed |= add_child(ssdt, rsdt, 4);
@@ -1015,7 +1018,7 @@ static void setup_other_cores(void)
 	printf("Setting SCI%03x H2S_Init...\n", node);
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 12));
-	msr = dnc_rdmsr(MSR_APIC_BAR);
+	msr = rdmsr(MSR_APIC_BAR);
 	printf("MSR APIC_BAR: %012llx\n", msr);
 	apic = (void *)((uint32_t)msr & ~0xfff);
 	icr = &apic[0x300 / 4];
@@ -1023,8 +1026,10 @@ static void setup_other_cores(void)
 	       (uint32_t)apic, apic[0x20 / 4], (uint32_t)icr, *icr);
 
 	/* Set core watchdog timer to 21s */
-	msr = (9 << 3) | 1;
-	dnc_wrmsr(MSR_CPUWDT, msr);
+	msr = (9 << 3);
+	if (enable_nbwdt > 0)
+		msr |= 1;
+	wrmsr(MSR_CPUWDT, msr);
 	*REL64(new_cpuwdt_msr) = msr;
 
 	/* ERRATA #N28: Disable HT Lock mechanism on Fam10h
@@ -1033,19 +1038,19 @@ static void setup_other_cores(void)
 	 * but it isn't "productized" due to a very rare potential for live lock if turned on.
 	 * Given that HUGE caveat, here is the information that I got from a good source:
 	 * LSCFG[44] =1 will disable it. MSR number is C001_1020 */
-	msr = dnc_rdmsr(MSR_LSCFG);
+	msr = rdmsr(MSR_LSCFG);
 	if (family == 0x10) {
 		msr |= 1ULL << 44;
-		dnc_wrmsr(MSR_LSCFG, msr);
+		wrmsr(MSR_LSCFG, msr);
 	}
 	*REL64(new_lscfg_msr) = msr;
 
 	/* AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
 	 * Suggested Workaround: BIOS should set MSRC001_102A[27] = 1b */
-	msr = dnc_rdmsr(MSR_CU_CFG2);
+	msr = rdmsr(MSR_CU_CFG2);
 	if (family >= 0x15) {
 		msr |= 1ULL << 27;
-		dnc_wrmsr(MSR_CU_CFG2, msr);
+		wrmsr(MSR_CU_CFG2, msr);
 	}
 	*REL64(new_cucfg2_msr) = msr;
 
@@ -1112,7 +1117,7 @@ static void renumber_remote_bsp(const uint16_t num)
 	for (i = 0; i < maxnode; i++) {
 		val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x0);
 		if ((val != 0x12001022) && (val != 0x16001022)) {
-			printf("Error: F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x\n",
+			error("F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x",
 			       val, node, i);
 			return;
 		}
@@ -1201,7 +1206,7 @@ static void renumber_remote_bsp(const uint16_t num)
 		val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x00);
 
 		if ((val != 0x12001022) && (val != 0x16001022)) {
-			printf("Error: F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x\n",
+			error("F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x",
 			       i, val, node);
 			return;
 		}
@@ -1303,8 +1308,8 @@ void mmio_range_print(const uint16_t sci, const int ht, uint8_t range)
 
 void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest)
 {
-	if (verbose)
-		printf("Adding MMIO range %d on SCI%03x#%x from 0x%llx to 0x%llx towards %d\n",
+	if (verbose > 1)
+		printf("Adding MMIO range %d on SCI%03x#%x from 0x%012llx to 0x%012llx towards %d\n",
 			range, sci, ht, base, limit, dest);
 
 	if (family >= 0x15) {
@@ -1436,13 +1441,17 @@ static void dram_range_print(const uint16_t sci, const int ht, const int range)
 	assert(range < 8);
 
 	if (dram_range_read(sci, ht, range, &base, &limit, &dst))
-		printf("SCI%03x#%d DRAM range %d: 0x%016llx - 0x%016llx towards %d\n", sci, ht, range, base, limit, dst);
+		printf("SCI%03x#%d DRAM range %d: 0x%012llx - 0x%012llx towards %d\n", sci, ht, range, base, limit, dst);
 }
 
 static void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
 {
+	assert(dest < 8);
 	assert(range < 8);
 	assert((dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) == 0);
+
+	if (verbose > 1)
+		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x towards %d\n", sci, ht, range, base, limit, dest);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
@@ -1543,14 +1552,14 @@ static void setup_remote_cores(const uint16_t num)
 
 	/* Check additional IO range registers */
 	for (i = 0; i < 2; i++) {
-		uint64_t qval = dnc_rdmsr(MSR_IORR_PHYS_MASK0 + i * 2);
+		uint64_t qval = rdmsr(MSR_IORR_PHYS_MASK0 + i * 2);
 
 		if (qval & (1 << 11))
-			printf("Warning: IO range 0x%llx is enabled\n", dnc_rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
+			printf("Warning: IO range 0x%llx is enabled\n", rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
 	}
 
 	/* Insert coverall MMIO maps */
-	tom = dnc_rdmsr(MSR_TOPMEM) >> 8;
+	tom = rdmsr(MSR_TOPMEM) >> 8;
 	printf("Inserting coverall MMIO maps on SCI%03x\n", node);
 
 	for (i = 0; i < 8; i++) {
@@ -1760,7 +1769,7 @@ static void setup_local_mmio_maps(void)
 	uint32_t curbase, curlim, curdst;
 	unsigned int sbnode;
 
-	tom = dnc_rdmsr(MSR_TOPMEM);
+	tom = rdmsr(MSR_TOPMEM);
 	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
 	assert(tom < 0x100000000);
 
@@ -1803,7 +1812,7 @@ static void setup_local_mmio_maps(void)
 			for (j = 0; j < next; j++) {
 				if (((curbase < base[j]) && (curlim > base[j])) ||
 				    ((curbase < lim[j])  && (curlim > lim[j]))) {
-					printf("Error: MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)\n",
+					error("MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)",
 					       i, curbase, curlim, j, base[j], lim[j]);
 					return;
 				}
@@ -1836,7 +1845,7 @@ static void setup_local_mmio_maps(void)
 					} else {
 						/* Enclosed region */
 						if (next >= 8) {
-							printf("Error: Ran out of MMIO regions trying to place #%d (%x-%x)\n",
+							error("Ran out of MMIO regions trying to place #%d (%x-%x)",
 							       i, curbase, curlim);
 							return;
 						}
@@ -1858,7 +1867,7 @@ static void setup_local_mmio_maps(void)
 			if (found) {
 				if (!placed) {
 					if (next >= 8) {
-						printf("Error: Ran out of MMIO regions trying to place #%d (%x-%x)\n",
+						error("Ran out of MMIO regions trying to place #%d (%x-%x)",
 						       i, curbase, curlim);
 						return;
 					}
@@ -1869,7 +1878,7 @@ static void setup_local_mmio_maps(void)
 					next++;
 				}
 			} else {
-				printf("Error: Enclosing window not found for MMIO range #%d (%x-%x)\n",
+				error("Enclosing window not found for MMIO range #%d (%x-%x)",
 				       i, curbase, curlim);
 				return;
 			}
@@ -1890,10 +1899,7 @@ static int read_file(const char *filename, void *buf, int bufsz)
 	static com32sys_t inargs, outargs;
 	int fd, len, bsize, blocks;
 
-	if (bufsz < (int)(strlen(filename) + 1)) {
-		printf("Error: Buffer of %d bytes too small\n", bufsz);
-		return -1;
-	}
+	assert(bufsz >= ((int)(strlen(filename) + 1)));
 
 	printf("Trying to open %s....", filename);
 	strcpy(buf, filename);
@@ -1906,12 +1912,12 @@ static int read_file(const char *filename, void *buf, int bufsz)
 	bsize = outargs.ecx.w[0];
 
 	if (fd == 0 || len < 0) {
-		printf("Error: File not found\n");
+		error("File not found");
 		return -1;
 	}
 
 	if ((len + 1) > bufsz) {
-		printf("Error: File to large at %d bytes\n", len);
+		error("File to large at %d bytes", len);
 		return -1;
 	}
 
@@ -1966,14 +1972,9 @@ static int convert_buf_uint16_t(char *src, uint16_t *dst, int max_offset)
 	for (b = strtok(src, " \n"); b != NULL && offs < max_offset; b = strtok(NULL, "\n")) {
 		if (b[0] == '@') {
 			offs = strtol(&b[1], NULL, 16);
-
-			if (offs >= max_offset) {
-				printf("Error: Value too large converting offset %s\n", b);
-				return -1;
-			}
-		} else {
+			assert(offs < max_offset);
+		} else
 			dst[offs++] = strtol(b, NULL, 16);
-		}
 	}
 
 	return offs - 1;
@@ -2076,7 +2077,7 @@ int read_config_file(char *file_name)
 	config_len = read_file(file_name, __com32.cs_bounce, __com32.cs_bounce_size);
 
 	if (config_len < 0) {
-		printf("Error: Fabric configuration file <%s> not found\n", file_name);
+		error("Fabric configuration file <%s> not found", file_name);
 		return -1;
 	}
 
@@ -2286,15 +2287,12 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		if (!ready_pending || do_restart) {
 			if (do_restart) {
 				cmd.state = CMD_ENTER_RESET;
-				waitfor = RSP_RESET_ACTIVE;
+				waitfor = RSP_PHY_TRAINED;
 				do_restart = 0;
 			} else if (cmd.state == CMD_STARTUP) {
 				cmd.state = CMD_ENTER_RESET;
-				waitfor = RSP_RESET_ACTIVE;
-			} else if (cmd.state == CMD_ENTER_RESET) {
-				cmd.state = CMD_RELEASE_RESET;
 				waitfor = RSP_PHY_TRAINED;
-			} else if (cmd.state == CMD_RELEASE_RESET) {
+			} else if (cmd.state == CMD_ENTER_RESET) {
 				cmd.state = CMD_VALIDATE_RINGS;
 				waitfor = RSP_RINGS_OK;
 			} else if (cmd.state == CMD_VALIDATE_RINGS) {
@@ -2330,36 +2328,36 @@ void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
 	do {
 		i++;
 		assert(i < 8);
-		val = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
+		val = rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
 	} while (val);
 
 	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
 	uint64_t *mtrr_var_mask = (void *)REL64(new_mtrr_var_mask);
 
 	mtrr_var_base[i] = base | type;
-	dnc_wrmsr(MSR_MTRR_PHYS_BASE0 + i * 2, mtrr_var_base[i]);
+	wrmsr(MSR_MTRR_PHYS_BASE0 + i * 2, mtrr_var_base[i]);
 	mtrr_var_mask[i] = (((1ULL << 48) - 1) &~ (limit - base - 1)) | 0x800;
-	dnc_wrmsr(MSR_MTRR_PHYS_MASK0 + i * 2, mtrr_var_mask[i]);
+	wrmsr(MSR_MTRR_PHYS_MASK0 + i * 2, mtrr_var_mask[i]);
 }
 
 static void update_mtrr(void)
 {
 	/* Ensure Tom2ForceMemTypeWB (bit 22) is set, so memory between 4G and TOM2 is writeback */
 	uint64_t *syscfg_msr = (void *)REL64(new_syscfg_msr);
-	*syscfg_msr = dnc_rdmsr(MSR_SYSCFG) | (1 << 22);
-	dnc_wrmsr(MSR_SYSCFG, *syscfg_msr);
+	*syscfg_msr = rdmsr(MSR_SYSCFG) | (1 << 22);
+	wrmsr(MSR_SYSCFG, *syscfg_msr);
 
 	/* Ensure default memory type is uncacheable */
 	uint64_t *mtrr_default = (void *)REL64(new_mtrr_default);
 	*mtrr_default = 3 << 10;
-	dnc_wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
+	wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
 
 	/* Store fixed MTRRs */
 	uint64_t *new_mtrr_fixed = (void *)REL64(new_mtrr_fixed);
 	uint32_t *fixed_mtrr_regs = (void *)REL64(fixed_mtrr_regs);
 
 	for (int i = 0; fixed_mtrr_regs[i] != 0xffffffff; i++)
-		new_mtrr_fixed[i] = dnc_rdmsr(fixed_mtrr_regs[i]);
+		new_mtrr_fixed[i] = rdmsr(fixed_mtrr_regs[i]);
 
 	/* Store variable MTRRs */
 	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
@@ -2367,8 +2365,8 @@ static void update_mtrr(void)
 	printf("Variable MTRRs:\n");
 
 	for (int i = 0; i < 8; i++) {
-		mtrr_var_base[i] = dnc_rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
-		mtrr_var_mask[i] = dnc_rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
+		mtrr_var_base[i] = rdmsr(MSR_MTRR_PHYS_BASE0 + i * 2);
+		mtrr_var_mask[i] = rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
 
 		if (mtrr_var_mask[i] & 0x800ULL) {
 			printf("  [%d] base=0x%012llx, mask=0x%012llx : %s\n", i, mtrr_var_base[i] & ~0xfffULL,
@@ -2467,7 +2465,7 @@ static void local_chipset_fixup(bool master)
 		uint64_t addr;
 		int i;
 		uint32_t sreq_ctrl;
-		addr = dnc_rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
+		addr = rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
 		addr += 0x200000000000ULL;
 		val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 		node = (val >> 16) & 0xfff;
@@ -2553,30 +2551,30 @@ static void setup_c1e_osvw(void)
 {
 	uint64_t msr;
 	/* Disable C1E in MSRs */
-	msr = dnc_rdmsr(MSR_HWCR) & ~(1 << 12);
-	dnc_wrmsr(MSR_HWCR, msr);
+	msr = rdmsr(MSR_HWCR) & ~(1 << 12);
+	wrmsr(MSR_HWCR, msr);
 	*REL64(new_hwcr_msr) = msr;
 	msr = 0;
-	dnc_wrmsr(MSR_INT_HALT, msr);
+	wrmsr(MSR_INT_HALT, msr);
 	*REL64(new_int_halt_msr) = msr;
 	/* Disable OS Vendor Workaround bit for errata #400, as C1E is disabled */
-	msr = dnc_rdmsr(MSR_OSVW_ID_LEN);
+	msr = rdmsr(MSR_OSVW_ID_LEN);
 
 	if (msr < 2) {
 		/* Extend ID length to cover errata 400 status bit */
-		dnc_wrmsr(MSR_OSVW_ID_LEN, 2);
+		wrmsr(MSR_OSVW_ID_LEN, 2);
 		*REL64(new_osvw_id_len_msr) = 2;
-		msr = dnc_rdmsr(MSR_OSVW_STATUS) & ~2;
-		dnc_wrmsr(MSR_OSVW_STATUS, msr);
+		msr = rdmsr(MSR_OSVW_STATUS) & ~2;
+		wrmsr(MSR_OSVW_STATUS, msr);
 		*REL64(new_osvw_status_msr) = msr;
 		printf("Enabled OSVW errata #400 workaround status, as C1E disabled\n");
 	} else {
 		*REL64(new_osvw_id_len_msr) = msr;
-		msr = dnc_rdmsr(MSR_OSVW_STATUS);
+		msr = rdmsr(MSR_OSVW_STATUS);
 
 		if (msr & 2) {
 			msr &= ~2;
-			dnc_wrmsr(MSR_OSVW_STATUS, msr);
+			wrmsr(MSR_OSVW_STATUS, msr);
 			printf("Cleared OSVW errata #400 bit status, as C1E disabled\n");
 		}
 
@@ -2590,34 +2588,33 @@ void setup_mc4_thresholds(void)
 	uint64_t msr;
 
 	/* Ensure MCEs aren't redirected into SMIs */
-	dnc_wrmsr(MSR_MCE_REDIR, 0);
+	wrmsr(MSR_MCE_REDIR, 0);
 
 	/* Set McStatusWrEn in HWCR first or we might get a GPF */
-	msr = dnc_rdmsr(MSR_HWCR);
+	msr = rdmsr(MSR_HWCR);
 	msr |= (1ULL << 18);
-	dnc_wrmsr(MSR_HWCR, msr);
+	wrmsr(MSR_HWCR, msr);
 	*REL64(new_hwcr_msr) = msr & ~(1ULL << 17); /* Don't let the Wrap32Dis bit follow through to other cores */
-	msr = dnc_rdmsr(MSR_HWCR);
 
-	msr = dnc_rdmsr(MSR_MC4_MISC0);
+	msr = rdmsr(MSR_MC4_MISC0);
 	if (((msr >> 49) & 3) == 2)
 		printf("- disabling DRAM thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
 	msr &= ~((3ULL << 49) | (1ULL << 61));
-	dnc_wrmsr(MSR_MC4_MISC0, msr);
+	wrmsr(MSR_MC4_MISC0, msr);
 	*REL64(new_mc4_misc0_msr) = msr;
 
-	msr = dnc_rdmsr(MSR_MC4_MISC1);
+	msr = rdmsr(MSR_MC4_MISC1);
 	if (((msr >> 49) & 3) == 2)
 		printf("- disabling link thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
 	msr &= ~((3ULL << 49) | (1ULL << 61));
-	dnc_wrmsr(MSR_MC4_MISC1, msr);
+	wrmsr(MSR_MC4_MISC1, msr);
 	*REL64(new_mc4_misc1_msr) = msr;
 
-	msr = dnc_rdmsr(MSR_MC4_MISC2);
+	msr = rdmsr(MSR_MC4_MISC2);
 	if (((msr >> 49) & 3) == 2)
 		printf("- disabling L3 cache thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
 	msr &= ~((3ULL << 49) | (1ULL << 61));
-	dnc_wrmsr(MSR_MC4_MISC2, msr);
+	wrmsr(MSR_MC4_MISC2, msr);
 	*REL64(new_mc4_misc2_msr) = msr;
 }
 
@@ -2654,14 +2651,14 @@ static int unify_all_nodes(void)
 			if (!model_first)
 				model_first = model;
 			else if (model != model_first) {
-				printf("Error: SCI%03x (%s) has varying processor models 0x%08x and 0x%08x\n",
+				error("SCI%03x (%s) has varying processor models 0x%08x and 0x%08x",
 					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id), model_first, model);
 				abort = 1;
 			}
 
 			/* 6200/4200 processors lack the HT lock mechanism, so abort */
 			if ((family >> 8) == 0x1501) {
-				printf("Error: SCI%03x (%s) has incompatible 6200/4200 processors; please use 6300/4300 or later\n",
+				error("SCI%03x (%s) has incompatible 6200/4200 processors; please use 6300/4300 or later",
 					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
 				abort = 1;
 			}
@@ -2670,7 +2667,7 @@ static int unify_all_nodes(void)
 				uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24 + i, FUNC2_DRAM, 0x118);
 
 				if (val & (1 << 19)) {
-					printf("Error: SCI%03x (%s) has CState C6 enabled in the BIOS\n",
+					error("SCI%03x (%s) has CState C6 enabled in the BIOS",
 					       nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
 					abort = 1;
 				}
@@ -2711,7 +2708,10 @@ static int unify_all_nodes(void)
 	for (i = 0; i < dnc_master_ht_id; i++) {
 		assert(cht_read_conf(i, FUNC1_MAPS, 0x78) == 0);
 		int range = dram_range_unused(0xfff0, i);
-		dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
+
+		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
+		if (nc_node[1].dram_base > nc_node[0].dram_base)
+			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, dnc_master_ht_id);
 	}
 
 	if (verbose > 0) {
@@ -2761,10 +2761,10 @@ static int unify_all_nodes(void)
 	scc_started = 1;
 	update_mtrr();
 	/* Set TOPMEM2 for ourselves and other cores */
-	dnc_wrmsr(MSR_TOPMEM2, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
+	wrmsr(MSR_TOPMEM2, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 	*REL64(new_topmem2_msr) = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
 	/* Harmonize TOPMEM */
-	*REL64(new_topmem_msr) = dnc_rdmsr(MSR_TOPMEM);
+	*REL64(new_topmem_msr) = rdmsr(MSR_TOPMEM);
 
 #ifdef BROKEN
 	/* Update OS visible workaround MSRs */
@@ -2778,12 +2778,6 @@ static int unify_all_nodes(void)
 	/* If SMM is going to be disabled, do handover now */
 	if (disable_smm)
 		handover_legacy();
-	/* If Linux can't handover ACPI, we can */
-	else if (handover_acpi)
-		stop_acpi();
-
-	if (verbose > 0)
-		debug_acpi();
 
 	update_acpi_tables();
 	update_mptable();
@@ -2794,14 +2788,14 @@ static int unify_all_nodes(void)
 	setup_local_mmio_maps();
 	setup_apic_atts();
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL;
-	dnc_wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
+	wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
 
 	/* Make chipset-specific adjustments */
 	global_chipset_fixup();
 
 	/* Must run after SCI is operational */
 	printf("BSP SMM:");
-	disable_smm_handler(dnc_rdmsr(MSR_SMM_BASE));
+	disable_smm_handler(rdmsr(MSR_SMM_BASE));
 	printf("\n");
 
 	setup_other_cores();
@@ -2895,7 +2889,7 @@ static int check_api_version(void)
 	printf("Detected SYSLINUX API version %d.%02d\n", major, minor);
 
 	if ((major * 100 + minor) < 372) {
-		printf("Error: SYSLINUX API version >= 3.72 is required\n");
+		error("SYSLINUX API version >= 3.72 is required");
 		return -1;
 	}
 
@@ -2994,7 +2988,7 @@ static void constants(void)
 		tsc_mhz = 200 * (((val >> 1) & 0x1f) + 4) / (1 + ((val >> 7) & 1));
 	} else {
 		uint32_t val = cht_read_conf(0, FUNC3_MISC, 0xd4);
-		uint64_t val6 = dnc_rdmsr(0xc0010071);
+		uint64_t val6 = rdmsr(0xc0010071);
 		tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
 	}
 
@@ -3016,7 +3010,7 @@ static void selftest_late_memmap(void)
 
 		uint64_t start = e820[i].base;
 		uint64_t end = e820[i].base + e820[i].length;
-		printf("Testing memory permissions from %016llx to %016llx...", start, end - 1);
+		printf("Testing memory permissions from %012llx to %012llx...", start, end - 1);
 
 		uint64_t pos = start;
 		uint64_t mid = start + (end - start) / 2;
@@ -3119,6 +3113,12 @@ static int nc_start(void)
 	/* Must run after SCI is operational */
 	local_chipset_fixup(part->master == info->sciid);
 
+	if (verbose > 0)
+		debug_acpi();
+
+	load_orig_e820_map();
+	update_acpi_tables_early();
+
 	if (info->sync_only) {
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
@@ -3128,8 +3128,6 @@ static int nc_start(void)
 
 	if (dnc_init_caches() < 0)
 		return ERR_INIT_CACHES;
-
-	load_orig_e820_map();
 
 	if (!install_e820_handler())
 		return ERR_INSTALL_E820_HANDLER;
@@ -3206,7 +3204,7 @@ static int nc_start(void)
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 		} while (!(val & (1 << 31)));
 
-		printf("\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'\n",
+		printf(BANNER "\n\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'",
 		       info->desc, cfg_nodes, get_master_name(part->master));
 
 		disable_smi();
@@ -3234,7 +3232,7 @@ int main(void)
 {
 	int ret;
 	openconsole(&dev_rawcon_r, &dev_stdcon_w);
-	printf("*** NumaConnect system unification module " VER " ***\n");
+	printf(CLEAR BANNER "NumaConnect system unification module " VER COL_DEFAULT "\n");
 
 	/* Enable CF8 extended access for first Northbridge; we do others for Linux later */
 	set_cf8extcfg_enable(0);
@@ -3243,9 +3241,8 @@ int main(void)
 	set_wrap32_disable();
 
 	ret = nc_start();
-
 	if (ret < 0) {
-		printf("Error: nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
+		error("nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
 		wait_key();
 	}
 
