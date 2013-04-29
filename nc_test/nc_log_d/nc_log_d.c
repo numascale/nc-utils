@@ -95,7 +95,7 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
 	get_system_string("date", 1);
 	get_system_string("ps -ef | grep demouser", 0);
 
-	printf("Node  | d_Miss | d_Hit | d_trans | T_Hit | T_miss | T_trans \n" );		
+	printf("Node |d_Miss |d_Hit |d_trans |T_Hit |T_miss |T_trans \n" );		
     for(node=0; node<num_nodes; node++) {
 		double missrate = 0;
 		double hitrate=0;
@@ -117,7 +117,7 @@ void count_rate(struct numachip_context **cntxt, uint32_t num_nodes, struct msgs
 		countstat[node].totalhit=totalhit[node];
 		countstat[node].totalmiss=totalmiss[node];
 
-		printf("%d\t %0.2f\t %0.2f\t %llu\t  %0.2f\t  %0.2f \t%llu\n",   node,missrate,hitrate,(unsigned long long) total,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]);
+		printf("%d %5.2f %5.2f\t%5llu %5.2f %5.2f\t%5llu\n",   node,missrate,hitrate,(unsigned long long) total,100 - avghitrate (node),avghitrate (node), (unsigned long long) totalhit[node] + totalmiss[node]);
 	}
 	
 }
@@ -138,7 +138,7 @@ void get_cave(struct numachip_context **cntxt, uint32_t num_nodes, struct msgsta
 		countstat[node].tot_probe_in=counter_read(*(cntxt + node),tot_probe_in);
 		countstat[node].tot_probe_out=counter_read(*(cntxt + node),tot_probe_out);
 
-		printf("%d\t %lld\t %lld\t %lld\t %lld\t %lld\t %lld\n",
+		printf("%d %6lld %6lld %9lld %9lld %9lld %9lld\n",
 			   node, (unsigned long long)countstat[node].cave_in,
 			   (unsigned long long)countstat[node].cave_out,
 			   (unsigned long long)countstat[node].tot_cave_in,
