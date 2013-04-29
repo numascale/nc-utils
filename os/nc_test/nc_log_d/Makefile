@@ -1,0 +1,13 @@
+TARGETS   = nc_log_d
+CFLAGS    += -O2 -D_GNU_SOURCE 	-Wall -g
+#OS = $(shell uname)
+
+.PHONY: all
+all: $(TARGETS)
+
+.PHONY: clean
+clean:
+	rm -f $(TARGETS) *~ *.o
+
+nc_log_d: nc_log_d.c ../../lib/numachip_user.h
+	$(CC) $(CFLAGS) -I ../../lib  -o $@ nc_log_d.c -L../../lib/ -lnumachip_user
