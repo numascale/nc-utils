@@ -65,6 +65,7 @@ uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static bool scc_started = 0;
 static struct in_addr myip = {0xffffffff};
 uint64_t ht_base = HT_BASE;
+uint64_t tom = 0;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -1479,7 +1480,6 @@ static void setup_remote_cores(const uint16_t num)
 	uint16_t ht, apicid, oldid;
 	uint32_t j;
 	uint32_t val;
-	uint64_t tom;
 	uint64_t qval;
 	printf("Setting up cores on node #%d (SCI%03x), %d HT nodes\n",
 	       num, node, ht_id);
@@ -1561,7 +1561,7 @@ static void setup_remote_cores(const uint16_t num)
 	}
 
 	/* Insert coverall MMIO maps */
-	tom = rdmsr(MSR_TOPMEM) >> 8;
+	tom = rdmsr(MSR_TOPMEM);
 	printf("Inserting coverall MMIO maps on SCI%03x\n", node);
 
 	for (i = 0; i < 8; i++) {
@@ -1764,16 +1764,13 @@ static void setup_remote_cores(const uint16_t num)
 static void setup_local_mmio_maps(void)
 {
 	int i, j, next;
-	uint64_t tom;
 	uint32_t base[8];
 	uint32_t lim[8];
 	uint32_t dst[8];
 	uint32_t curbase, curlim, curdst;
 	unsigned int sbnode;
 
-	tom = rdmsr(MSR_TOPMEM);
 	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
-	assert(tom < 0x100000000);
 
 	for (i = 0; i < 8; i++) {
 		base[i] = 0;
