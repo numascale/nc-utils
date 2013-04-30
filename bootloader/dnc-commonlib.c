@@ -614,13 +614,10 @@ static void set_phy_register(int node, int link, int idx, int direct, uint32_t v
 static void reorganize_mmio(int nc)
 {
 	/* Stub for now */
-	uint64_t tom;
 	uint64_t mmio_start;
 	uint64_t base, lim;
 	int i;
-	tom = rdmsr(MSR_TOPMEM);
 	mmio_start = ~0;
-	printf("MSR_TOPMEM : %llx\n", tom);
 
 	for (i = 0; i < 8; i++) {
 		base = cht_read_conf(0, FUNC1_MAPS, 0x80 + i * 8);
