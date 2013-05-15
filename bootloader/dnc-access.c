@@ -219,9 +219,9 @@ void reset_cf9(int mode, int last)
 	int i;
 
 	/* Ensure last lines are sent from management controller */
+	printf("\n");
 	fflush(stdout);
 	fflush(stderr);
-	udelay(2500000);
 
 	for (i = 0; i <= last; i++) {
 		uint32_t val = cht_read_conf(i, FUNC0_HT, 0x6c);

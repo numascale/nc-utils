@@ -928,7 +928,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	printf("done\n");
 
 	if (reboot) {
-		printf("Rebooting to make new link settings effective...\n");
+		printf("Rebooting to make new link settings effective...");
 		reset_cf9(2, nc - 1);
 	}
 
