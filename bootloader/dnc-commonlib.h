@@ -58,7 +58,7 @@
 	printf(format, ## args);					\
 	printf(COL_DEFAULT);					\
 	broadcast_error(1, format, ## args); \
-   } while (0)
+   } while (1)
 
 #define fatal_reboot(format, args...) do {						\
 	printf(COL_RED "Error: ");						\
@@ -68,7 +68,7 @@
 	broadcast_error(0, format, ## args); \
 	udelay(5000000);						\
 	reset_cf9(0xa, 0);						\
-   } while (0)
+   } while (1)
 
 #define warning(format, args...) do {						\
 	printf(COL_YELLOW "Warning: ");						\
