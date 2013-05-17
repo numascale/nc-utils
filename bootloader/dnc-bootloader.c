@@ -52,7 +52,7 @@
 bool dnc_asic_mode;
 uint32_t dnc_chip_rev;
 char dnc_card_type[16];
-uint16_t dnc_node_count = 0;
+uint16_t dnc_node_count = 0, dnc_core_count = 0;
 nc_node_info_t nc_node[128];
 nc_node_info_t local_node;
 struct node_info *local_info;
@@ -464,6 +464,7 @@ static void update_acpi_tables_early(void)
 	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
 	if (!gap) {
 		warning("No space for OEMN table");
+		free(oemn);
 		return;
 	}
 
@@ -2758,14 +2759,7 @@ static int unify_all_nodes(void)
 		}
 	}
 
-	printf("Loading SCC microcode:");
-	for (i = 0; i < dnc_node_count; i++) {
-		node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
-		printf(" SCI%03x", nc_node[i].sci_id);
-		load_scc_microcode(node);
-	}
-
-	printf("\n");
+	load_scc_microcode();
 	scc_started = 1;
 	update_mtrr();
 	/* Set TOPMEM2 for ourselves and other cores */

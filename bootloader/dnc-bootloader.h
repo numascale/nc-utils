@@ -91,7 +91,7 @@ typedef struct nc_node_info {
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 extern uint8_t nodedata[4096];
 extern uint8_t post_apic_mapping[256];
-extern uint16_t dnc_node_count;
+extern uint16_t dnc_node_count, dnc_core_count;
 extern nc_node_info_t nc_node[128];
 extern nc_node_info_t local_node;
 extern struct node_info *local_info;

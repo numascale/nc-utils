@@ -18,6 +18,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "dnc-regs.h"
 #include "dnc-defs.h"
@@ -31,10 +32,22 @@
 
 #include "../interface/numachip-mseq.h"
 
-void load_scc_microcode(uint16_t node)
+#define SIG_DELAY 0x0043c00a
+#define SIG_RET   0x001a0000
+#define WASHDELAY_P 3.6
+#define WASHDELAY_Q 117000000ULL
+#define WASHDELAY_CALLS 12
+
+static int zceil(double num) {
+    int inum = (int)num;
+    if (num == (double)inum)
+        return inum;
+    return inum + 1;
+}
+
+void load_scc_microcode(void)
 {
 	uint32_t val;
-	uint16_t i;
 	const uint32_t *mseq_ucode;
 	const uint16_t *mseq_table;
 	int mseq_ucode_length, mseq_table_length;
@@ -52,21 +65,39 @@ void load_scc_microcode(uint16_t node)
 		mseq_ucode_length = sizeof(numachip_mseq_ucode_revb) / sizeof(numachip_mseq_ucode_revb[0]);
 		mseq_table_length = sizeof(numachip_mseq_table_revb) / sizeof(numachip_mseq_table_revb[0]);
 	} else
-		fatal("No microcode for NumaChip version %d\n", dnc_chip_rev);
+		fatal("No microcode for NumaChip version %d", dnc_chip_rev);
 
-	dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+	const int delays = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
+	printf("Loading SCC microcode with washdelay %d for %d cores (%d nodes)...", delays * WASHDELAY_CALLS, dnc_core_count, dnc_node_count);
 
-	for (i = 0; i < mseq_ucode_length; i++)
-		dnc_write_csr(node, H2S_CSR_G0_WCS_ENTRY, mseq_ucode[i]);
+	for (int i = 0; i < dnc_node_count; i++) {
+		int counter = 0;
+		int node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
+		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 
-	dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+		for (uint16_t j = 0; j < mseq_ucode_length; j++) {
+			uint32_t val = mseq_ucode[j];
 
-	for (i = 0; i < mseq_table_length; i++)
-		dnc_write_csr(node, H2S_CSR_G0_JUMP_ENTRY, mseq_table[i]);
+			if (val == SIG_DELAY) {
+				counter++;
+				if (counter > delays)
+					val = SIG_RET;
+			} else
+				counter = 0;
 
-	/* Start the microsequencer */
-	val = dnc_read_csr(node, H2S_CSR_G0_STATE_CLEAR);
-	dnc_write_csr(node, H2S_CSR_G0_STATE_CLEAR, val);
+			dnc_write_csr(node, H2S_CSR_G0_WCS_ENTRY, mseq_ucode[j]);
+		}
+
+		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+
+		for (uint16_t j = 0; j < mseq_table_length; j++)
+			dnc_write_csr(node, H2S_CSR_G0_JUMP_ENTRY, mseq_table[j]);
+
+		/* Start the microsequencer */
+		val = dnc_read_csr(node, H2S_CSR_G0_STATE_CLEAR);
+		dnc_write_csr(node, H2S_CSR_G0_STATE_CLEAR, val);
+	}
+	printf("done\n");
 }
 
 void tally_local_node(void)
@@ -213,6 +244,7 @@ void tally_local_node(void)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 
 	dnc_node_count++;
+	dnc_core_count += tot_cores;
 	assert(dnc_node_count < 128);
 }
 
