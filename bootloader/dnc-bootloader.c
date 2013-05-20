@@ -1561,8 +1561,6 @@ static void setup_remote_cores(const uint16_t num)
 			printf("Warning: IO range 0x%llx is enabled\n", rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
 	}
 
-	/* Insert coverall MMIO maps */
-	tom = rdmsr(MSR_TOPMEM);
 	printf("Inserting coverall MMIO maps on SCI%03x\n", node);
 
 	for (i = 0; i < 8; i++) {
@@ -1577,6 +1575,7 @@ static void setup_remote_cores(const uint16_t num)
 		mmio_range(node, i, 0, 0xa0000, 0xbffff, ht_id);
 
 		/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
+		assert(tom);
 		mmio_range(node, i, 1, tom, 0xffffffff, ht_id);
 
 		/* Make sure the VGA Enable register is disabled to forward VGA transactions
@@ -1771,6 +1770,7 @@ static void setup_local_mmio_maps(void)
 	uint32_t curbase, curlim, curdst;
 	unsigned int sbnode;
 
+	tom = rdmsr(MSR_TOPMEM);
 	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
 
 	for (i = 0; i < 8; i++) {
