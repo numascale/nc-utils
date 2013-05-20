@@ -296,10 +296,7 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 	uint64_t newp, childp;
 	acpi_sdt_p table;
 
-	if (!checksum_ok(new, new->len)) {
-		printf("Error: Bad new %.4s table checksum\n", sig);
-		return 0;
-	}
+	assert(checksum_ok(new, new->len));
 
 	newp = 0;
 	memcpy(&newp, &new, sizeof(new));
@@ -329,10 +326,9 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 		}
 	}
 
-	if (slack(parent) < ptrsize) {
-		printf("Error: Not enough space to add %.4s table pointer to %.4s\n", sig, parent->sig.s);
+	/* Handled by caller */
+	if (slack(parent) < ptrsize)
 		return 0;
-	}
 
 	/* Append entry to end of table */
 	memcpy(&parent->data[i], &newp, ptrsize);
@@ -342,11 +338,19 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 	return 1;
 }
 
-bool add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
+void add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 {
+	/* If insufficient space, replace unimportant tables */
 	if (slack(parent) < ptrsize) {
-		printf("Error: Not enough space to add %.4s table pointer to %.4s\n", new->sig.s, parent->sig.s);
-		return 1;
+		const char *expendable[] = {"FPDT", "EINJ", "TCPA", "BERT", "ERST", "HEST"};
+		for (unsigned int i = 0; i < (sizeof expendable / sizeof expendable[0]); i++) {
+			if (replace_child(expendable[i], new, parent, ptrsize)) {
+				printf("Replaced %s table\n", expendable[i]);
+				return;
+			}
+		}
+
+		fatal("Unable to add table");
 	}
 
 	assert(checksum_ok(new, new->len));
@@ -357,8 +361,6 @@ bool add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 	parent->len += ptrsize;
 	assert(parent->len < RSDT_MAX);
 	parent->checksum -= checksum(parent, parent->len);
-
-	return 0;
 }
 
 acpi_sdt_p find_root(const char *sig)

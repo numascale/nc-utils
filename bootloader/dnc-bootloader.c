@@ -474,10 +474,8 @@ static void update_acpi_tables_early(void)
 
 	/* Fixed MTRRs may mark the RSDT and XSDT pointers r/o */
 	disable_fixed_mtrrs();
-
-	add_child(gap, rsdt, 4);
 	add_child(gap, xsdt, 8);
-
+	add_child(gap, rsdt, 4);
 	enable_fixed_mtrrs();
 }
 
@@ -768,15 +766,8 @@ static void update_acpi_tables(void)
 				ssdt->checksum = -checksum(ssdt, ssdt->len);
 				tables_add(ssdt->len);
 
-				bool failed = 0;
-
-				if (rsdt) failed |= add_child(ssdt, rsdt, 4);
-				if (xsdt) failed |= add_child(ssdt, xsdt, 8);
-
-				if (failed) {
-					printf("Warning: failed to inject AML; remote I/O will be unavailable\n");
-					remote_io = 0;
-				}
+				add_child(ssdt, xsdt, 8);
+				add_child(ssdt, rsdt, 4);
 			}
 
 		free(extra);
