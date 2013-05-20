@@ -330,7 +330,7 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 	}
 
 	if (slack(parent) < ptrsize) {
-		printf("Error: Not enough space to add %.4s table to %.4s\n", sig, parent->sig.s);
+		printf("Error: Not enough space to add %.4s table pointer to %.4s\n", sig, parent->sig.s);
 		return 0;
 	}
 
@@ -345,7 +345,7 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 bool add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 {
 	if (slack(parent) < ptrsize) {
-		printf("Error: Not enough space to add %.4s table to %.4s\n", new->sig.s, parent->sig.s);
+		printf("Error: Not enough space to add %.4s table pointer to %.4s\n", new->sig.s, parent->sig.s);
 		return 1;
 	}
 
