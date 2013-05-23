@@ -150,56 +150,51 @@ static void disable_xtpic(void)
 
 static void load_orig_e820_map(void)
 {
+	orig_e820_map = lzalloc(E820_MAX_LEN);
+	assert(orig_e820_map);
+
 	static com32sys_t rm;
-	unsigned int e820_len;
-	struct e820entry *e820_map = lmalloc(E820_MAX_LEN);
-	assert(e820_map);
-	memset(e820_map, 0, E820_MAX_LEN);
 	rm.eax.l = 0x0000e820;
 	rm.edx.l = STR_DW_N("SMAP");
 	rm.ebx.l = 0;
 	rm.ecx.l = sizeof(struct e820entry);
-	rm.edi.w[0] = OFFS(e820_map);
-	rm.es = SEG(e820_map);
+	rm.edi.w[0] = OFFS(orig_e820_map);
+	rm.es = SEG(orig_e820_map);
 	__intcall(0x15, &rm, &rm);
 
 	assert(rm.eax.l == STR_DW_N("SMAP"));
 	printf("--- E820 memory map\n");
-	e820_len = rm.ecx.l;
+	orig_e820_len = rm.ecx.l;
 
 	while (rm.ebx.l > 0) {
 		rm.eax.l = 0x0000e820;
 		rm.edx.l = STR_DW_N("SMAP");
 		rm.ecx.l = sizeof(struct e820entry);
-		rm.edi.w[0] = OFFS(e820_map) + e820_len;
-		rm.es = SEG(e820_map);
+		rm.edi.w[0] = OFFS(orig_e820_map) + orig_e820_len;
+		rm.es = SEG(orig_e820_map);
 		__intcall(0x15, &rm, &rm);
-		e820_len += rm.ecx.l ? rm.ecx.l : sizeof(struct e820entry);
-		assert(e820_len < E820_MAX_LEN);
+		orig_e820_len += rm.ecx.l ? rm.ecx.l : sizeof(struct e820entry);
+		assert(orig_e820_len < E820_MAX_LEN);
 	}
 
-	int i, j, len;
 	struct e820entry elem;
-	len = e820_len / sizeof(elem);
+	int i, j, len = orig_e820_len / sizeof(elem);
 
 	/* Sort e820 map entries */
 	for (j = 1; j < len; j++) {
-		memcpy(&elem, &e820_map[j], sizeof(elem));
+		memcpy(&elem, &orig_e820_map[j], sizeof(elem));
 
-		for (i = j - 1; (i >= 0) && (e820_map[i].base > elem.base); i--)
-			memcpy(&e820_map[i + 1], &e820_map[i], sizeof(elem));
+		for (i = j - 1; (i >= 0) && (orig_e820_map[i].base > elem.base); i--)
+			memcpy(&orig_e820_map[i + 1], &orig_e820_map[i], sizeof(elem));
 
-		memcpy(&e820_map[i + 1], &elem, sizeof(elem));
+		memcpy(&orig_e820_map[i + 1], &elem, sizeof(elem));
 	}
 
 	for (i = 0; i < len; i++) {
 		printf(" %012llx - %012llx (%012llx) [%x]\n",
-		       e820_map[i].base, e820_map[i].base + e820_map[i].length,
-		       e820_map[i].length, e820_map[i].type);
+		       orig_e820_map[i].base, orig_e820_map[i].base + orig_e820_map[i].length,
+		       orig_e820_map[i].length, orig_e820_map[i].type);
 	}
-
-	orig_e820_map = e820_map;
-	orig_e820_len = e820_len;
 }
 
 static int install_e820_handler(void)
@@ -277,7 +272,7 @@ static int install_e820_handler(void)
 			last_32b = j - 1;
 	}
 
-	free(orig_e820_map);
+	lfree(orig_e820_map);
 	*REL16(new_e820_len)  = j;
 	*REL32(old_int15_vec) = int_vecs[0x15];
 
@@ -1885,52 +1880,51 @@ static void setup_local_mmio_maps(void)
 		}
 }
 
-static int read_file(const char *filename, void *buf, int bufsz)
+static char *read_file(const char *filename, int *len)
 {
 	static com32sys_t inargs, outargs;
-	int fd, len, bsize, blocks;
+	int fd, bsize;
 
-	assert(bufsz >= ((int)(strlen(filename) + 1)));
-
-	printf("Trying to open %s....", filename);
+	char *buf = lmalloc(strlen(filename) + 1);
 	strcpy(buf, filename);
+
+	printf("Opening %s...", filename);
+	memset(&inargs, 0, sizeof inargs);
 	inargs.eax.w[0] = 0x0006; /* Open file */
 	inargs.esi.w[0] = OFFS(buf);
 	inargs.es = SEG(buf);
 	__intcall(0x22, &inargs, &outargs);
+	lfree(buf);
+
 	fd = outargs.esi.w[0];
-	len = outargs.eax.l;
+	*len = outargs.eax.l;
 	bsize = outargs.ecx.w[0];
 
-	if (fd == 0 || len < 0) {
-		error("File not found");
-		return -1;
+	if (!fd || *len < 0) {
+		*len = 0;
+		printf("not found\n");
+		return NULL;
 	}
 
-	if ((len + 1) > bufsz) {
-		error("File to large at %d bytes", len);
-		return -1;
-	}
+	buf = lzalloc(roundup(*len, bsize));
+	assert(buf);
 
-	printf("Ok\n");
-	memset(buf, 0, len + 1);
-	blocks = (len / bsize) + 1;
-	printf("Reading %s (%d bytes, %d blocks)\n", filename, len, blocks);
+	memset(&inargs, 0, sizeof inargs);
 	inargs.eax.w[0] = 0x0007; /* Read file */
 	inargs.esi.w[0] = fd;
-	inargs.ecx.w[0] = blocks;
+	inargs.ecx.w[0] = (*len / bsize) + 1;
 	inargs.ebx.w[0] = OFFS(buf);
 	inargs.es = SEG(buf);
 	__intcall(0x22, &inargs, &outargs);
-	len = outargs.ecx.l;
+	*len = outargs.ecx.l;
 
-	if (outargs.esi.w[0] != 0) {
-		inargs.eax.w[0] = 0x0008; /* Close file */
-		inargs.esi.w[0] = outargs.esi.w[0];
-		__intcall(0x22, &inargs, NULL);
-	}
+	memset(&inargs, 0, sizeof inargs);
+	inargs.eax.w[0] = 0x0008; /* Close file */
+	inargs.esi.w[0] = fd;
+	__intcall(0x22, &inargs, NULL);
 
-	return len;
+	printf("done\n");
+	return buf;
 }
 
 #ifdef UNUSED
@@ -1995,11 +1989,10 @@ static void read_microcode_update(void)
 
 	memset(path, 0, sizeof(path));
 	strncpy(path, microcode_path, sizeof(path));
-	psep = strlen(path);
 
+	psep = strlen(path);
 	if (psep == 0) {
-		printf("Microcode update not specified, continuing with built-in version (xor = %u, %u)\n",
-		       ucode_xor, table_xor);
+		printf("Using internal microcode (xor %u, %u)\n", ucode_xor, table_xor);
 		return;
 	}
 
@@ -2007,39 +2000,22 @@ static void read_microcode_update(void)
 		path[psep++] = '/';
 
 	strcat(path, "mseq.code");
-	ucode_len = read_file(path, __com32.cs_bounce, __com32.cs_bounce_size);
+	int len;
+	char *data = read_file(path, &len);
+	assertf(data, "Microcode mseq.code not found");
 
-	if (ucode_len < 0) {
-		printf("Microcode update not found, continuing with built-in version (xor = %u, %u)\n",
-		       ucode_xor, table_xor);
-		return;
-	}
-
-	ucode_len = convert_buf_uint32_t(__com32.cs_bounce, mseq_ucode_update, 1024);
-
-	if (ucode_len < 0) {
-		printf("Error decoding microcode update, continuing with built-in version (xor = %u, %u)\n",
-		       ucode_xor, table_xor);
-		return;
-	}
+	ucode_len = convert_buf_uint32_t(data, mseq_ucode_update, len);
+	assertf(ucode_len >= 0, "Microcode mseq.code corrupted");
+	lfree(data);
 
 	path[psep] = '\0';
 	strcat(path, "mseq.table");
-	table_len = read_file(path, __com32.cs_bounce, __com32.cs_bounce_size);
+	data = read_file(path, &len);
+	assertf(data, "Microcode mseq.table not found");
 
-	if (table_len < 0) {
-		printf("Microcode update not found, continuing with built-in version (xor = %u, %u)\n",
-		       ucode_xor, table_xor);
-		return;
-	}
-
-	table_len = convert_buf_uint16_t(__com32.cs_bounce, mseq_table_update, 128);
-
-	if (table_len < 0) {
-		printf("Error decoding microcode update, continuing with built-in version (xor = %u, %u)\n",
-		       ucode_xor, table_xor);
-		return;
-	}
+	table_len = convert_buf_uint16_t(data, mseq_table_update, len);
+	assetf(table_len >= 0, "Microcode mseq.table corrupted");
+	lfree(data);
 
 	mseq_ucode = mseq_ucode_update;
 	mseq_table = mseq_table_update;
@@ -2057,31 +2033,25 @@ static void read_microcode_update(void)
 		table_xor = table_xor ^(i * mseq_table[i]);
 	}
 
-	printf("Using updated microcode (xor = %u, %u)\n", ucode_xor, table_xor);
+	printf("Using updated microcode (xor %u, %u)\n", ucode_xor, table_xor);
 }
 #endif
 
-int read_config_file(char *file_name)
+int read_config_file(const char *filename)
 {
 	int config_len;
-	char *config;
-	config_len = read_file(file_name, __com32.cs_bounce, __com32.cs_bounce_size);
+	char *config = read_file(filename, &config_len);
+	assertf(config, "Fabric configuration file <%s> not found", filename);
 
-	if (config_len < 0) {
-		error("Fabric configuration file <%s> not found", file_name);
-		return -1;
-	}
-
-	config = __com32.cs_bounce;
 	config[config_len] = '\0';
-
 	if (!parse_config_file(config))
 		return -1;
 
+	lfree(config);
 	return 0;
 }
 
-static int pxeapi_call(int func, uint8_t *buf)
+static int pxeapi_call(int func, const uint8_t *buf)
 {
 	static com32sys_t inargs, outargs;
 	inargs.eax.w[0] = 0x0009; /* Call PXE Stack */
@@ -2094,46 +2064,49 @@ static int pxeapi_call(int func, uint8_t *buf)
 
 void udp_open(void)
 {
-	t_PXENV_TFTP_CLOSE *tftp_close_param;
-	t_PXENV_UDP_OPEN *pxe_open_param;
-	tftp_close_param = __com32.cs_bounce;
-	memset(tftp_close_param, 0, sizeof(*tftp_close_param));
+	t_PXENV_TFTP_CLOSE *tftp_close_param = lzalloc(sizeof(t_PXENV_TFTP_CLOSE));
+	assert(tftp_close_param);
 	pxeapi_call(PXENV_TFTP_CLOSE, (uint8_t *)tftp_close_param);
 	printf("TFTP close returns: %d\n", tftp_close_param->Status);
+	lfree(tftp_close_param);
 
-	pxe_open_param = __com32.cs_bounce;
-	memset(pxe_open_param, 0, sizeof(*pxe_open_param));
+	t_PXENV_UDP_OPEN *pxe_open_param = lzalloc(sizeof(t_PXENV_UDP_OPEN));
+	assert(pxe_open_param);
 	pxe_open_param->src_ip = myip.s_addr;
 	pxeapi_call(PXENV_UDP_OPEN, (uint8_t *)pxe_open_param);
 	printf("PXE UDP open returns: %d\n", pxe_open_param->status);
+	lfree(pxe_open_param);
 }
 
 void udp_broadcast_state(const void *buf, const size_t len)
 {
 	assert(len >= sizeof(struct state_bcast));
 
-	t_PXENV_UDP_WRITE *pxe_write_param;
-	char *buf_reloc;
-	pxe_write_param = __com32.cs_bounce;
-	buf_reloc = (char *)__com32.cs_bounce + sizeof(*pxe_write_param);
+	t_PXENV_UDP_WRITE *pxe_write_param = lmalloc(sizeof(t_PXENV_UDP_WRITE) + len);
+	assert(pxe_write_param);
+	char *buf_reloc = (char *)pxe_write_param + sizeof(*pxe_write_param);
+
 	memset(pxe_write_param, 0, sizeof(*pxe_write_param));
 	pxe_write_param->ip = 0xffffffff;
 	pxe_write_param->src_port = htons(4711);
 	pxe_write_param->dst_port = htons(4711);
 	pxe_write_param->buffer.seg = SEG(buf_reloc);
 	pxe_write_param->buffer.offs = OFFS(buf_reloc);
-	memcpy(buf_reloc, buf, len);
 	pxe_write_param->buffer_size = len;
 
+	memcpy(buf_reloc, buf, len);
 	pxeapi_call(PXENV_UDP_WRITE, (uint8_t *)pxe_write_param);
+	lfree(pxe_write_param);
 }
 
 int udp_read_state(void *buf, const size_t len)
 {
-	t_PXENV_UDP_READ *pxe_read_param;
-	char *buf_reloc;
-	pxe_read_param = __com32.cs_bounce;
-	buf_reloc = (char *)__com32.cs_bounce + sizeof(*pxe_read_param);
+	int ret = 0;
+
+	t_PXENV_UDP_READ *pxe_read_param = lmalloc(sizeof(t_PXENV_UDP_READ) + len);
+	assert(pxe_read_param);
+	char *buf_reloc = (char *)pxe_read_param + sizeof(*pxe_read_param);
+
 	memset(pxe_read_param, 0, sizeof(*pxe_read_param));
 	pxe_read_param->s_port = htons(4711);
 	pxe_read_param->d_port = htons(4711);
@@ -2145,10 +2118,11 @@ int udp_read_state(void *buf, const size_t len)
 	if ((pxe_read_param->status == PXENV_STATUS_SUCCESS) &&
 	    (pxe_read_param->s_port == htons(4711))) {
 		memcpy(buf, buf_reloc, pxe_read_param->buffer_size);
-		return pxe_read_param->buffer_size;
+		ret = pxe_read_param->buffer_size;
 	}
 
-	return 0;
+	lfree(pxe_read_param);
+	return ret;
 }
 
 static void wait_status(struct node_info *info)
@@ -2618,7 +2592,7 @@ void setup_mc4_thresholds(void)
 	*REL64(new_mc4_misc2_msr) = msr;
 }
 
-static int unify_all_nodes(void)
+static void unify_all_nodes(void)
 {
 	uint16_t i;
 	uint16_t node;
@@ -2635,10 +2609,8 @@ static int unify_all_nodes(void)
 
 	nc_node[1].ht[0].base = dnc_top_of_mem;
 
-	if (!tally_all_remote_nodes()) {
-		printf("Unable to reach all nodes, aborting...\n");
-		return 0;
-	}
+	if (!tally_all_remote_nodes())
+		fatal("Unable to communicate with all servers");
 
 	for (node = 0; node < dnc_node_count; node++) {
 		for (i = 0; i < 8; i++) {
@@ -2676,7 +2648,7 @@ static int unify_all_nodes(void)
 	}
 
 	if (abort)
-		return -1;
+		fatal("Processor/BIOS configuration issues need resolving");
 
 	if (verbose > 0) {
 		printf("Global memory map:\n");
@@ -2867,11 +2839,9 @@ static int unify_all_nodes(void)
 
 		printf("\n");
 	}
-
-	return 1;
 }
 
-static int check_api_version(void)
+static void check_api_version(void)
 {
 	static com32sys_t inargs, outargs;
 	int major, minor;
@@ -2879,14 +2849,7 @@ static int check_api_version(void)
 	__intcall(0x22, &inargs, &outargs);
 	major = outargs.ecx.b[1];
 	minor = outargs.ecx.b[0];
-	printf("Detected SYSLINUX API version %d.%02d\n", major, minor);
-
-	if ((major * 100 + minor) < 372) {
-		error("SYSLINUX API version >= 3.72 is required");
-		return -1;
-	}
-
-	return 0;
+	assertf(((major * 100 + minor) >= 372), "SYSLINUX API version >= 3.72 is required");
 }
 
 static void start_user_os(void)
@@ -2894,10 +2857,13 @@ static void start_user_os(void)
 	static com32sys_t rm;
 	/* Restore 32-bit only access */
 	set_wrap32_enable();
-	strcpy(__com32.cs_bounce, next_label);
+
+	char *param = lmalloc(sizeof next_label + 1);
+	assert(param);
+	strcpy(param, next_label);
 	rm.eax.w[0] = 0x0003;
-	rm.ebx.w[0] = OFFS(__com32.cs_bounce);
-	rm.es = SEG(__com32.cs_bounce);
+	rm.ebx.w[0] = OFFS(param);
+	rm.es = SEG(param);
 	printf(BANNER "Unification succeeded at 20%02d-%02d-%02d %02d:%02d:%02d; loading %s..." COL_DEFAULT "\n",
 		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
 		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS), next_label);
@@ -2906,6 +2872,7 @@ static void start_user_os(void)
 		wait_key();
 
 	__intcall(0x22, &rm, NULL);
+	fatal("Failed to boot");
 }
 
 static void cleanup_stack(void)
@@ -3038,13 +3005,11 @@ static int nc_start(void)
 	assert(local_info);
 	memset(local_info, 0xff, sizeof local_info);
 
-	if (check_api_version() < 0)
-		return ERR_API_VERSION;
-
+	check_api_version();
 	constants();
 	get_hostname();
-	int rc = dnc_init_bootloader(&uuid, &dnc_chip_rev, dnc_card_type, &dnc_asic_mode,
-	                                       __com32.cs_cmdline);
+
+	int rc = dnc_init_bootloader(&uuid, &dnc_chip_rev, dnc_card_type, &dnc_asic_mode);
 	if (rc == -2)
 		start_user_os();
 
@@ -3156,8 +3121,7 @@ static int nc_start(void)
 #ifdef UNUSED
 		read_microcode_update();
 #endif
-		if (unify_all_nodes() == 0)
-			return ERR_UNIFY_ALL_NODES;
+		unify_all_nodes();
 
 		(void)dnc_check_mctr_status(0);
 		(void)dnc_check_mctr_status(1);
@@ -3230,10 +3194,11 @@ static int nc_start(void)
 	return ERR_GENERAL_NC_START_ERROR;
 }
 
-int main(void)
+int main(const int argc, const char *argv[])
 {
 	int ret;
 	openconsole(&dev_rawcon_r, &dev_stdcon_w);
+
 	printf(CLEAR BANNER "NumaConnect system unification module " VER " at 20%02d-%02d-%02d %02d:%02d:%02d" COL_DEFAULT "\n",
 		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
 		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS));
@@ -3243,6 +3208,8 @@ int main(void)
 
 	/* Disable 32-bit address wrapping to allow 64-bit access in 32-bit code */
 	set_wrap32_disable();
+
+	parse_cmdline(argc, argv);
 
 	ret = nc_start();
 	if (ret < 0) {

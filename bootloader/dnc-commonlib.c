@@ -1809,20 +1809,19 @@ int adjust_oscillator(char p_type[16], uint32_t osc_setting)
 }
 
 struct optargs {
-	char label[16];
-	int (*handler)(const char *, void *);
-	void *userdata;
+	const char label[20];
+	void (*handler)(const char *, void *);
+	void *result;
 };
 
-static int parse_string(const char *val, void *stringp)
+static void parse_string(const char *val, void *stringp)
 {
 	char **string = (char **)stringp;
 	*string = strdup(val);
 	assert(*string);
-	return 1;
 }
 
-static int parse_bool(const char *val, void *voidp)
+static void parse_bool(const char *val, void *voidp)
 {
 	bool *boolp = (bool *)voidp;
 
@@ -1832,11 +1831,9 @@ static int parse_bool(const char *val, void *voidp)
 		*boolp = res;
 	} else
 		*boolp = true;
-
-	return 1;
 }
 
-static int parse_int(const char *val, void *intp)
+static void parse_int(const char *val, void *intp)
 {
 	int *int32 = (int *)intp;
 
@@ -1844,11 +1841,9 @@ static int parse_int(const char *val, void *intp)
 		*int32 = (int)strtol(val, NULL, 0);
 	else
 		*int32 = 1;
-
-	return 1;
 }
 
-static int parse_uint64_t(const char *val, void *intp)
+static void parse_uint64_t(const char *val, void *intp)
 {
 	uint64_t *int64 = (uint64_t *)intp;
 
@@ -1877,11 +1872,9 @@ static int parse_uint64_t(const char *val, void *intp)
 		*int64 = ret;
 	} else
 		*int64 = 1;
-
-	return 1;
 }
 
-static int parse_cmdline(const char *cmdline)
+void parse_cmdline(const int argc, const char *argv[])
 {
 	static const struct optargs options[] = {
 		{"config",	    &parse_string, &config_file_name},/* Config (JSON) file to use */
@@ -1923,71 +1916,38 @@ static int parse_cmdline(const char *cmdline)
 		{"workaround.locks", &parse_bool,  &workaround_locks}, /* Prevent failure when SMI triggers are locked */
 		{"mem-gap",         &parse_uint64_t, &mem_gap},
 	};
-	char arg[256];
-	int lstart, lend, aend, i;
 
-	if (!cmdline)
-		return 1;
-
+	int errors = 0;
 	printf("Options:");
-	lstart = 0;
+	for (int arg = 1; arg < argc; arg++) {
+		/* Break into two strings where '=' found */
+		char *val = strchr(argv[arg], '=');
+		if (val) {
+			*val = '\0';
+			val++; /* Points to value */
+		}
 
-	while (cmdline[lstart] != '\0') {
-		while (cmdline[lstart] != '\0' && cmdline[lstart] == ' ')
-			lstart++;
+		bool handled = 0;
+		for (unsigned int i = 0; i < (sizeof(options) / sizeof(options[0])); i++) {
+			if (!strcmp(argv[arg], options[i].label)) {
+				printf(" %s", argv[arg]);
+				if (val)
+					printf("=%s", val);
 
-		lend = lstart;
-
-		while (cmdline[lend] != '\0' && cmdline[lend] != ' ' && cmdline[lend] != '=')
-			lend++;
-
-		aend = lend;
-
-		while (cmdline[aend] != '\0' && cmdline[aend] != ' ')
-			aend++;
-
-		if (lstart == lend)
-			break;
-
-		if (lend - lstart < (int)(sizeof(options[0].label))) {
-			for (i = 0; i < (int)(sizeof(options) / sizeof(options[0])); i++) {
-				if (strncmp(&cmdline[lstart], options[i].label, lend - lstart) == 0) {
-					memset(arg, 0, sizeof(arg));
-
-					if (cmdline[lend] == '=')
-						lend++;
-
-					if (aend - lend >= (int)(sizeof(arg)))
-						strncpy(arg, &cmdline[lend], sizeof(arg) - 1);
-					else
-						strncpy(arg, &cmdline[lend], aend - lend);
-
-					printf(" %s=%s", options[i].label, arg);
-
-					if (options[i].handler(arg, options[i].userdata) < 0) {
-						printf("\n");
-						return -1;
-					}
-
-					break;
-				}
-			}
-
-			/* Check if option isn't recognised */
-			if (i == (int)(sizeof(options) / sizeof(options[0]))) {
-				/* Terminate current arg */
-				*strchr(&cmdline[lstart], ' ') = '\0';
-				printf("\n");
-				error("Invalid option '%s'", &cmdline[lstart]);
-				wait_key();
+				options[i].handler(val, options[i].result);
+				handled = 1;
+				break;
 			}
 		}
 
-		lstart = aend;
+		if (!handled) {
+			printf(" (!)");
+			errors++;
+		}
 	}
-
 	printf("\n");
-	return 1;
+
+	assertf(!errors, "Invalid arguments specified");
 }
 
 static int perform_selftest(int asic_mode, char p_type[16])
@@ -2435,14 +2395,11 @@ static void platform_quirks(void)
 	printf("\n");
 }
 
-int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode, const char *cmdline)
+int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode)
 {
 	uint32_t uuid, val, chip_rev;
 	int i, ht_id;
 	bool asic_mode;
-
-	if (parse_cmdline(cmdline) < 0)
-		return -1;
 
 	platform_quirks();
 	detect_southbridge();

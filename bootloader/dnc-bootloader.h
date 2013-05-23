@@ -107,7 +107,7 @@ extern uint64_t ht_base;
 extern uint64_t tom;
 
 void set_cf8extcfg_enable(const int ht);
-int read_config_file(char *file_name);
+int read_config_file(const char *filename);
 void udp_open(void);
 void udp_broadcast_state(const void *buf, const size_t len);
 int udp_read_state(void *buf, const size_t len);

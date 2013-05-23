@@ -388,15 +388,17 @@ void stop_acpi(void)
 		return;
 	}
 
-	uint32_t smi_cmd = *(uint32_t *)&fadt->data[48 - 36];
-	uint8_t acpi_enable = fadt->data[52 - 36];
+	unsigned char *val = &fadt->data[48 - 36];
+	const uint32_t smi_cmd = *(uint32_t *)val;
+	const uint8_t acpi_enable = fadt->data[52 - 36];
 
 	if (!smi_cmd || !acpi_enable) {
 		printf("legacy support not enabled\n");
 		return;
 	}
 
-	uint32_t acpipm1cntblk = *(uint32_t *)&fadt->data[64 - 36];
+	val = &fadt->data[64 - 36];
+	const uint32_t acpipm1cntblk = *(uint32_t *)val;
 	uint16_t sci_en = inb(acpipm1cntblk);
 	outb(acpi_enable, smi_cmd);
 	int limit = 100;
