@@ -2381,7 +2381,7 @@ static void smbios_parse(const char *buf, const uint16_t len, const uint16_t num
 		if (h->type == 0) {
 			*biosver = smbios_string(next, data[5]);
 			*biosdate = smbios_string(next, data[8]);
-		} else if (h->type == 1) {
+		} else if (h->type == 2) {
 			*manuf = smbios_string(next, data[4]);
 			*product = smbios_string(next, data[5]);
 		}
@@ -2416,8 +2416,10 @@ static void platform_quirks(void)
 	printf("Platform is %s %s with BIOS %s %s", manuf, product, biosver, biosdate);
 
 	/* Skip if already set */
-	if (handover_acpi)
+	if (handover_acpi) {
+		printf("\n");
 		return;
+	}
 
 	/* Systems where ACPI must be handed off early */
 	const char *acpi_blacklist[] = {"H8QGL", NULL};
