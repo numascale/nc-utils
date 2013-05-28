@@ -3013,9 +3013,6 @@ static int nc_start(void)
 	if (rc == -2)
 		start_user_os();
 
-	if (rc < 0)
-		return ERR_MASTER_HT_ID;
-
 	local_node.nc_ht_id = rc;
 
 	if (singleton) {

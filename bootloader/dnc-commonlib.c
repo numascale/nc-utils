@@ -120,7 +120,7 @@ void wait_key(void)
 	printf("\n");
 }
 
-static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
+static void read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 {
 	uint16_t spd_addr;
 	uint8_t addr_bits;
@@ -139,38 +139,19 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 		dataw[i] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + (i<<2)));
 
 	/* Check SPD validity */
-	if (ddr2_spd_check(spd) < 0) {
-		error("Couldn't find a valid DDR2 SDRAM memory module attached to the %s memory controller",
-		       cdata ? "CData" : "MCTag");
-		return -1;
-	}
+	assertf(ddr2_spd_check(spd) >= 0, "Couldn't find a valid DDR2 SDRAM memory module attached to the %s memory controller",
+		cdata ? "CData" : "MCTag");
 
-	if (!(spd->config & 2)) {
-		error("Unsupported non-ECC %s DIMM", cdata ? "CData" : "MCTag");
-		return -1;
-	}
-
-	if (!(spd->dimm_type & 0x11)) {
-		error("Unsupported non-Registered %s DIMM", cdata ? "CData" : "MCTag");
-		return -1;
-	}
-
-	if ((spd->mod_ranks & 7) > 1) {
-		error("Unsupported %s rank count %d", cdata ? "CData" : "MCTag", (spd->mod_ranks & 7) + 1);
-		return -1;
-	}
-
-	if ((spd->primw != 4) && (spd->primw != 8)) {
-		error("Unsupported %s SDRAM component width %d", cdata ? "CData" : "MCTag", spd->primw);
-		return -1;
-	}
+	assertf(spd->config & 2, "Unsupported non-ECC %s DIMM", cdata ? "CData" : "MCTag");
+	assertf(spd->dimm_type & 0x11, "Unsupported non-Registered %s DIMM", cdata ? "CData" : "MCTag");
+	assertf((spd->mod_ranks & 7) <= 1, "Unsupported %s rank count %d", cdata ? "CData" : "MCTag", (spd->mod_ranks & 7) + 1);
+	assertf(spd->primw == 4 || spd->primw == 8, "Unsupported %s SDRAM width %d", cdata ? "CData" : "MCTag", spd->primw);
 
 	dimm->addr_pins = 16 - (spd->nrow_addr & 0xf); /* Number of Row address bits (max 16) */
 	dimm->column_size = 13 - (spd->ncol_addr & 0xf); /* Number of Column address bits (max 13) */
 	dimm->cs_map = (spd->mod_ranks & 1) ? 3 : 1; /* Single or Dual rank */
 	dimm->width = spd->primw;
 	dimm->eight_bank = (spd->nbanks == 8);
-
 	addr_bits = (spd->nrow_addr & 0xf) + (spd->ncol_addr & 0xf) + (spd->mod_ranks & 1) + ((spd->nbanks == 8) ? 3 : 2);
 
 	// Make sure manufacturer's part-number is null-terminated
@@ -199,12 +180,8 @@ static int read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 		dimm->mem_size = 0;
 		break; /*  1G */
 	default:
-		dimm->mem_size = 0;
-		error("Unsupported %s DIMM size of %dMB", cdata ? "CData" : "MCTag", 1 << (addr_bits - 17));
-		return -1;
+		fatal("Unsupported %s DIMM size of %dMB", cdata ? "CData" : "MCTag", 1 << (addr_bits - 17));
 	}
-
-	return 0;
 }
 
 #include "../interface/mctr_define_register_C.h"
@@ -1950,46 +1927,37 @@ void parse_cmdline(const int argc, const char *argv[])
 	assertf(!errors, "Invalid arguments specified");
 }
 
-static int perform_selftest(int asic_mode, char p_type[16])
+static void perform_selftest(int asic_mode, char p_type[16])
 {
-	int pass, res;
+	int pass;
 	uint32_t val;
-	res = 0;
-	printf("Performing internal RAM self test:");
+	printf("Performing internal RAM self test");
 
-	for (pass = 0; pass < 10 && res == 0; pass++) {
+	for (pass = 0; pass < 10; pass++) {
 		const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
-		int i, chunk;
+		uint32_t i, chunk;
 		/* Test PCII/O ATT */
-		printf(" 1");
+		printf(".");
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000000);
 
-		for (i = 0; i < 256; i++) {
+		for (i = 0; i < 256; i++)
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, i);
-		}
 
 		for (i = 0; i < 256; i++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-
-			if (val != (uint32_t)i) {
-				res = -1;
-				break;
-			}
+			assertf(val == i, "PCIlo address map readback failed; have 0x%x, expected 0x%x", val, i);
 		}
-
-		if (res < 0) break;
 
 		if (asic_mode) {
 			/* XXX: MMIO32 ATT has a slightly different layout on FPGA, so skip it for now */
 			/* Test MMIO32 ATT */
-			printf("2");
+			printf(".");
 
 			for (chunk = 0; chunk < maxchunk; chunk++) {
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
 
-				for (i = 0; i < 256; i++) {
+				for (i = 0; i < 256; i++)
 					dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
-				}
 			}
 
 			for (chunk = 0; chunk < maxchunk; chunk++) {
@@ -1997,26 +1965,20 @@ static int perform_selftest(int asic_mode, char p_type[16])
 
 				for (i = 0; i < 256; i++) {
 					val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-
-					if (val != (uint32_t)((chunk * 256) + i)) {
-						res = -1;
-						break;
-					}
+					uint32_t want = (chunk * 256) + i;
+					assertf(val == want, "MMIO32 address map readback failed; have 0x%x, expected 0x%x", val, want);
 				}
 			}
 		}
-
-		if (res < 0) break;
 
 		/* Test APIC ATT */
-		printf("3");
+		printf(".");
 
 		for (chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | chunk);
 
-			for (i = 0; i < 256; i++) {
+			for (i = 0; i < 256; i++)
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
-			}
 		}
 
 		for (chunk = 0; chunk < maxchunk; chunk++) {
@@ -2024,25 +1986,19 @@ static int perform_selftest(int asic_mode, char p_type[16])
 
 			for (i = 0; i < 256; i++) {
 				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-
-				if (val != (uint32_t)((chunk * 256) + i)) {
-					res = -1;
-					break;
-				}
+				uint32_t want = (chunk * 256) + i;
+				assertf(val == want, "APIC address map readback failed; have 0x%x, expected 0x%x", val, want);
 			}
 		}
-
-		if (res < 0) break;
 
 		/* Test IntRecNode ATT */
-		printf("4");
+		printf(".");
 
 		for (chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000040 | chunk);
 
-			for (i = 0; i < 256; i++) {
+			for (i = 0; i < 256; i++)
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
-			}
 		}
 
 		for (chunk = 0; chunk < maxchunk; chunk++) {
@@ -2050,18 +2006,13 @@ static int perform_selftest(int asic_mode, char p_type[16])
 
 			for (i = 0; i < 256; i++) {
 				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-
-				if (val != (uint32_t)((chunk * 256) + i)) {
-					res = -1;
-					break;
-				}
+				uint32_t want = (chunk * 256) + i;
+				assertf(val == want, "Interrupt address map readback failed; have 0x%x, expected 0x%x", val, want);
 			}
 		}
 
-		if (res < 0) break;
-
 		/* Test SCC routing tables, no readback verify */
-		printf("5");
+		printf(".");
 
 		for (chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
@@ -2072,12 +2023,10 @@ static int perform_selftest(int asic_mode, char p_type[16])
 				dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLH00 + i * 4, 0);
 			}
 		}
-
-		printf("-PASS%d", pass);
 	}
-	printf("\n");
+	printf("done\n");
 
-	if (asic_mode && res == 0 && _is_pic_present(p_type)) {
+	if (asic_mode && _is_pic_present(p_type)) {
 		printf("Testing fabric phys...");
 		/* Trigger a HSS PLL reset */
 		_pic_reset_ctrl();
@@ -2085,11 +2034,8 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		for (int phy = 0; phy < 6; phy++) {
 			/* 1. Check that the HSS PLL has locked */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (!(val & (1 << 8))) {
-				printf("error 1 on phy %d during transmit", phy);
-				res = -1;
-				goto pll_err_out;
-			}
+			assertf(val & (1 << 8), "Phy %d PLL failed to lock (stat 0x%08x)",
+				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 
 			/* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
@@ -2102,11 +2048,8 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xf0) {
-				printf("error 2 on phy %d during transmit", phy);
-				res = -1;
-				goto pll_err_out;
-			}
+			assertf(!(val & 0xf0), "Transmit data mismatch on phy %d with status 0x%08x",
+				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 		}
 
 		/* Run test for 200msec */
@@ -2114,11 +2057,8 @@ static int perform_selftest(int asic_mode, char p_type[16])
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xf0) {
-				printf("error 3 on phy %d during transmit", phy);
-				res = -1;
-				goto pll_err_out;
-			}
+			assertf(!(val & 0xf0), "Transmit test failed on phy error 3 on phy %d with status 0x%08x",
+				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 		}
 
 		for (int phy = 0; phy < 6; phy++) {
@@ -2136,11 +2076,8 @@ static int perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the RXLBERRORx flag (bit[3:0] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xff) {
-				printf("error 1 on phy %d during receive", phy);
-				res = -1;
-				goto pll_err_out;
-			}
+			assertf(!(val & 0xff), "Receive data mismatch on phy %d with status %08x",
+				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 		}
 
 		/* Run test for 200msec */
@@ -2148,11 +2085,8 @@ static int perform_selftest(int asic_mode, char p_type[16])
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xff) {
-				printf("error 2 on phy %d during receive", phy);
-				res = -1;
-				goto pll_err_out;
-			}
+			assertf(!(val & 0xff), "Receive test failed on phy %d with status %08x",
+				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 
 			/* Stop BIST test */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x00f0);
@@ -2166,22 +2100,7 @@ static int perform_selftest(int asic_mode, char p_type[16])
 		/* Trigger a HSS PLL reset */
 		_pic_reset_ctrl();
 	}
-
-	printf("%s\n", res == 0 ? "passed" : "failed");
-	return res;
-pll_err_out:
-	printf("\n");
-
-	for (pass = 0; pass < 3; pass++) {
-		for (int phy = 0; phy < 6; phy++) {
-			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			printf("HSS%s_STAT_1 = %x\n", _get_linkname(phy), val);
-		}
-
-		udelay(1000000);
-	}
-
-	return res;
+	printf("done\n");
 }
 
 /* List of the documented MSRs in the fam10h BKDG */
@@ -2418,9 +2337,6 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 	if (route_only)
 		return -2;
 
-	if (ht_id < 0)
-		return -1;
-
 	if (verbose > 1)
 		dump_northbridge_regs(ht_id);
 
@@ -2582,13 +2498,10 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 	printf("UUID: %08X, TYPE: %s\n", uuid, p_type);
 
 	/* Read the SPD info from our DIMMs to see if they are supported */
-	for (i = 0; i < 2; i++) {
-		if (read_spd_info(p_type, i, &dimms[i]) < 0)
-			return -1;
-	}
+	for (i = 0; i < 2; i++)
+		read_spd_info(p_type, i, &dimms[i]);
 
-	if (perform_selftest(asic_mode, p_type) < 0)
-		return -1;
+	perform_selftest(asic_mode, p_type);
 
 	/* If init-only parameter is given, stop here and return */
 	if (init_only)
