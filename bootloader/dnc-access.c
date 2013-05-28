@@ -82,7 +82,7 @@ void pmio_writeb(uint16_t offset, uint8_t val)
 		uint8_t val2 = pmio_readb(offset);
 
 		if (val2 != val)
-			printf("Warning: PMIO reg 0x%02x readback (0x%02x) differs from write (0x%02x)\n", offset, val2, val);
+			warning("PMIO reg 0x%02x readback (0x%02x) differs from write (0x%02x)", offset, val2, val);
 	}
 }
 
@@ -155,7 +155,7 @@ void ioh_nbmiscind_write(uint16_t node, uint8_t reg, uint32_t val)
 		uint32_t val2 = ioh_nbmiscind_read(node, reg);
 
 		if (val2 != val)
-			printf("Warning: IOH NBMISCIND reg 0x%02x readback (0x%08x) differs from write (0x%08x)\n", reg, val2, val);
+			warning("IOH NBMISCIND reg 0x%02x readback (0x%08x) differs from write (0x%08x)", reg, val2, val);
 	}
 }
 
@@ -174,7 +174,7 @@ void ioh_htiu_write(uint16_t node, uint8_t reg, uint32_t val)
 		uint32_t val2 = ioh_htiu_read(node, reg);
 
 		if (val2 != val)
-			printf("Warning: IOH HTIU reg 0x%02x readback (0x%08x) differs from write (0x%08x)\n", reg, val2, val);
+			warning("IOH HTIU reg 0x%02x readback (0x%08x) differs from write (0x%08x)", reg, val2, val);
 	}
 }
 
@@ -186,7 +186,7 @@ static void watchdog_write(uint32_t val)
 		uint32_t val2 = *watchdog_ctl;
 
 		if (val2 != val)
-			printf("Warning: Watchdog control readback (0x%08x) differs from write (0x%08x)\n", val2, val);
+			warning("Watchdog control readback (0x%08x) differs from write (0x%08x)", val2, val);
 	}
 }
 
@@ -259,7 +259,7 @@ static void _write_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg, 
 		uint32_t val2 = _read_config(bus, dev, func, reg);
 
 		if (val2 != val)
-			printf("Warning: Config %02x:%02x.%x reg 0x%x readback (0x%08x) differs from write (0x%08x)\n", bus, dev, func, reg, val2, val);
+			warning("Config %02x:%02x.%x reg 0x%x readback (0x%08x) differs from write (0x%08x)", bus, dev, func, reg, val2, val);
 	}
 }
 
@@ -290,7 +290,7 @@ void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
 		uint32_t val2 = cht_read_conf(node, func, reg);
 
 		if (val2 != val)
-			printf("Warning: Coherent config #%xF%xx%X readback (0x%08x) differs from write (0x%08x)\n", node, func, reg, val2, val);
+			warning("Coherent config #%xF%xx%X readback (0x%08x) differs from write (0x%08x)", node, func, reg, val2, val);
 	}
 }
 
@@ -368,17 +368,14 @@ uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link,
 		reboot = cht_error(neigh, neigh_link);
 
 		if (!reboot && ret == 0xffffffff) {
-			printf("Warning: Undetected link error (HT%d F%dx%02x read 0xffffffff)\n",
+			warning("Undetected link error (HT%d F%dx%02x read 0xffffffff)",
 			       node, func, reg);
 			reboot = 1;
 		}
 	}
 
-	if (reboot) {
-		printf("Link error while reading; resetting system...\n");
-		/* Cold reset, since warm doesn't always reset the link enough */
-		reset_cf9(0xa, neigh);
-	}
+	if (reboot)
+		fatal_reboot("Link error while reading");
 
 	return ret;
 }
@@ -433,7 +430,7 @@ void mem64_write32(uint64_t addr, uint32_t val)
 		uint32_t val2 = mem64_read32(addr);
 
 		if (val2 != val)
-			printf("Warning: 32bit mem64 0x%016llx readback (0x%08x) differs from write (0x%08x)\n", addr, val2, val);
+			warning("32bit mem64 0x%016llx readback (0x%08x) differs from write (0x%08x)", addr, val2, val);
 	}
 }
 
@@ -458,7 +455,7 @@ void mem64_write16(uint64_t addr, uint16_t val)
 		uint16_t val2 = mem64_read16(addr);
 
 		if (val2 != val)
-			printf("Warning: 16bit mem64 0x%016llx readback (0x%04x) differs from write (0x%04x)\n", addr, val2, val);
+			warning("16bit mem64 0x%016llx readback (0x%04x) differs from write (0x%04x)", addr, val2, val);
 	}
 }
 
@@ -483,7 +480,7 @@ void mem64_write8(uint64_t addr, uint8_t val)
 		uint8_t val2 = mem64_read8(addr);
 
 		if (val2 != val)
-			printf("Warning: 8bit mem64 0x%016llx readback (0x%02x) differs from write (0x%02x)\n", addr, val2, val);
+			warning("8bit mem64 0x%016llx readback (0x%02x) differs from write (0x%02x)", addr, val2, val);
 	}
 }
 
@@ -506,7 +503,7 @@ void dnc_write_csr(uint32_t node, uint16_t csr, uint32_t val)
 		uint32_t val2 = dnc_read_csr(node, csr);
 
 		if (val2 != val)
-			printf("Warning: SCI%04x CSR 0x%04x readback (0x%08x) differs from write (0x%08x)\n", node, csr, val2, val);
+			warning("SCI%04x CSR 0x%04x readback (0x%08x) differs from write (0x%08x)", node, csr, val2, val);
 	}
 }
 
@@ -589,6 +586,6 @@ void wrmsr(uint32_t msr, uint64_t v)
 		uint64_t v2 = rdmsr(msr);
 
 		if (v2 != v)
-			printf("Warning: MSR 0x%08x readback (0x%016llx) differs from write (0x%016llx)\n", msr, v2, v);
+			warning("MSR 0x%08x readback (0x%016llx) differs from write (0x%016llx)", msr, v2, v);
 	}
 }
