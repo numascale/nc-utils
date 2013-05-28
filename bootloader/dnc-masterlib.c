@@ -431,6 +431,8 @@ static bool tally_remote_node(uint16_t node)
 		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 
 	dnc_node_count++;
+	dnc_core_count += tot_cores;
+	assert(dnc_node_count < 128);
 	return 1;
 }
 
