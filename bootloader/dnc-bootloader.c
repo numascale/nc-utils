@@ -1542,9 +1542,7 @@ static void setup_remote_cores(const uint16_t num)
 	/* Check additional IO range registers */
 	for (i = 0; i < 2; i++) {
 		uint64_t qval = rdmsr(MSR_IORR_PHYS_MASK0 + i * 2);
-
-		if (qval & (1 << 11))
-			printf("Warning: IO range 0x%llx is enabled\n", rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
+		assertf(!(qval & (1 << 11)), "IO range 0x%llx is enabled", rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
 	}
 
 	printf("Inserting coverall MMIO maps on SCI%03x\n", node);
@@ -1569,7 +1567,7 @@ static void setup_remote_cores(const uint16_t num)
 		if (!pf_vga_local) {
 			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf4, 0x0);
 			if (dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf4))
-				printf("Warning: Legacy VGA access is locked to local server; some video card BIOSs may cause any X servers to fail to complete initialisation\n");
+				warning("Legacy VGA access is locked to local server; some video card BIOSs may cause any X servers to fail to complete initialisation");
 		}
 	}
 
@@ -2557,7 +2555,7 @@ static void setup_c1e_osvw(void)
 }
 #endif
 
-void setup_mc4_thresholds(void)
+static void setup_mc4_thresholds(void)
 {
 	uint64_t msr;
 
@@ -2678,7 +2676,6 @@ static void unify_all_nodes(void)
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
 	for (i = 0; i < local_node.nc_ht_id; i++) {
-		assert(cht_read_conf(i, FUNC1_MAPS, 0x78) == 0);
 		int range = dram_range_unused(0xfff0, i);
 
 		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
