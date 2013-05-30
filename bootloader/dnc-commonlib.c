@@ -138,9 +138,7 @@ static void read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	for (uint32_t i = 0; i < sizeof(ddr2_spd_eeprom_t)/sizeof(uint32_t); i++)
 		dataw[i] = uint32_tbswap(dnc_read_csr(0xfff0, (1 << 12) + (spd_addr << 8) + (i<<2)));
 
-	/* Check SPD validity */
-	assertf(ddr2_spd_check(spd) >= 0, "Couldn't find a valid DDR2 SDRAM memory module attached to the %s memory controller",
-		cdata ? "CData" : "MCTag");
+	ddr2_spd_check(spd);
 
 	assertf(spd->config & 2, "Unsupported non-ECC %s DIMM", cdata ? "CData" : "MCTag");
 	assertf(spd->dimm_type & 0x11, "Unsupported non-Registered %s DIMM", cdata ? "CData" : "MCTag");
