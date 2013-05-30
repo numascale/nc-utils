@@ -2034,8 +2034,9 @@ static void perform_selftest(int asic_mode, char p_type[16])
 		for (int phy = 0; phy < 6; phy++) {
 			/* 1. Check that the HSS PLL has locked */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			assertf(val & (1 << 8), "Phy %d PLL failed to lock (stat 0x%08x)",
-				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+			if (!(val & 0x100))
+				fatal_reboot("Phy %d PLL failed to lock with status 0x%08x",
+					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 
 			/* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
@@ -2048,8 +2049,9 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			assertf(!(val & 0xf0), "Transmit data mismatch on phy %d with status 0x%08x",
-				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+			if (val & 0xf0)
+				fatal_reboot("Transmit data mismatch on phy %d with status 0x%08x",
+					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 		}
 
 		/* Run test for 200msec */
@@ -2057,8 +2059,9 @@ static void perform_selftest(int asic_mode, char p_type[16])
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			assertf(!(val & 0xf0), "Transmit test failed on phy error 3 on phy %d with status 0x%08x",
-				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+			if (val & 0xf0)
+				fatal_reboot("Transmit test failed on phy error 3 on phy %d with status 0x%08x",
+					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 		}
 
 		for (int phy = 0; phy < 6; phy++) {
@@ -2076,8 +2079,9 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the RXLBERRORx flag (bit[3:0] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			assertf(!(val & 0xff), "Receive data mismatch on phy %d with status %08x",
-				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+			if (val & 0xff)
+				fatal_reboot("Receive data mismatch on phy %d with status 0x%08x",
+					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 		}
 
 		/* Run test for 200msec */
@@ -2085,8 +2089,9 @@ static void perform_selftest(int asic_mode, char p_type[16])
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			assertf(!(val & 0xff), "Receive test failed on phy %d with status %08x",
-				phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+			if (val & 0xff)
+				fatal_reboot("Receive test failed on phy %d with status 0x%08x",
+					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
 
 			/* Stop BIST test */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x00f0);
