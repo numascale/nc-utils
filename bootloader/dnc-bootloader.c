@@ -3001,9 +3001,9 @@ static int nc_start(void)
 	int i;
 
 	/* Set local info for early error reporting */
-	local_info = malloc(sizeof local_info);
+	local_info = malloc(sizeof *local_info);
 	assert(local_info);
-	memset(local_info, 0xff, sizeof local_info);
+	memset(local_info, 0xff, sizeof *local_info);
 
 	check_api_version();
 	constants();
