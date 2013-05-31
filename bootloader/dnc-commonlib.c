@@ -1360,7 +1360,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 		ht_suppress = 0x3fff; /* Suppress most sync-flood generation */
 
 	if (ht_suppress) {
-		printf("Setting HT features (%x)...", ht_suppress);
+		printf("Setting HT features to 0x%x...", ht_suppress);
 
 		for (i = 0; i <= nodes; i++) {
 			val = cht_read_conf(i, FUNC3_MISC, 0x44);

@@ -38,9 +38,9 @@
 #define WASHDELAY_Q 117000000ULL
 #define WASHDELAY_CALLS 12
 
-static int zceil(double num) {
+static int zceil(const float num) {
     int inum = (int)num;
-    if (num == (double)inum)
+    if (num == (float)inum)
         return inum;
     return inum + 1;
 }
@@ -67,6 +67,8 @@ void load_scc_microcode(void)
 	} else
 		fatal("No microcode for NumaChip version %d", dnc_chip_rev);
 
+	/* Perform calculation twice to work around register corruption */
+	zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
 	const int delays = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
 	printf("Loading SCC microcode with washdelay %d for %d cores...", delays * WASHDELAY_CALLS, dnc_core_count);
 
