@@ -311,7 +311,6 @@ static void update_e820_map(void)
 
 	/* Truncate to SCI000/HT 0 end; rest added below */
 	e820[max].length = ((uint64_t)nc_node[0].ht[0].size << DRAM_MAP_SHIFT) - e820[max].base;
-	prev_end = e820[max].base + e820[max].length;
 
 	if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size)) {
 		e820[max].length -= trace_buf_size;
@@ -323,16 +322,14 @@ static void update_e820_map(void)
 	/* Add remote nodes */
 	for (i = 0; i < dnc_node_count; i++) {
 		for (j = 0; j < 8; j++) {
-			uint64_t base, length;
-
 			if (!nc_node[i].ht[j].cpuid)
 				continue;
 
 			if ((i == 0) && (j == 0))
 				continue; /* Skip BSP */
 
-			base   = ((uint64_t)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
-			length = ((uint64_t)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);
+			uint64_t base   = ((uint64_t)nc_node[i].ht[j].base << DRAM_MAP_SHIFT);
+			uint64_t length = ((uint64_t)nc_node[i].ht[j].size << DRAM_MAP_SHIFT);
 
 			if (mem_offline && (i > 0)) {
 				if (length > MIN_NODE_MEM)
@@ -553,6 +550,7 @@ static void update_acpi_tables(void)
 
 			for (j = 0; j < nc_node[node].ht[ht].cores; j++) {
 				apicid = j + nc_node[node].ht[ht].apic_base + nc_node[node].apic_offset;
+				assert(apicid != 0xff);
 
 				if (ht_next_apic < 0x100) {
 					struct acpi_local_apic *lapic = (void *)&apic->data[apic->len - sizeof(*apic)];
@@ -1388,7 +1386,7 @@ void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
 }
 
-static bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dst)
+bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dst)
 {
 	assert(range < 8);
 
@@ -1433,11 +1431,12 @@ static void dram_range_print(const uint16_t sci, const int ht, const int range)
 		printf("SCI%03x#%d DRAM range %d: 0x%012llx - 0x%012llx towards %d\n", sci, ht, range, base, limit, dst);
 }
 
-static void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
+void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
 {
 	assert(dest < 8);
 	assert(range < 8);
-	assert((dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) == 0);
+	if (dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3)
+		warning("Overwiting SCI%03x#%x memory range %d", sci, ht, range);
 
 	if (verbose > 1)
 		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x towards %d\n", sci, ht, range, base, limit, dest);
@@ -2590,6 +2589,41 @@ static void setup_mc4_thresholds(void)
 	*REL64(new_mc4_misc2_msr) = msr;
 }
 
+static void enable_cstate6(void)
+{
+	printf("Enabling C-state 6...");
+
+	for (int node = 0; node < dnc_node_count; node++) {
+		for (int ht = 0; ht < 8; ht++) {
+			if (!nc_node[node].ht[ht].cpuid)
+				continue;
+			uint16_t sci = nc_node[node].sci_id;
+			uint32_t val;
+
+			/* Set StateSaveDestNode */
+			val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x128);
+			int dst = node > 0 ? (renumber_bsp ? 0 : nc_node[node].nc_ht_id - 1) : 0;
+			val = (val & ~0x3f000) | (dst << 12);
+			dnc_write_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x128, val);
+
+			/* 3. Set PwrGateEnCstAct0, 1, 2 */
+			val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x118);
+			dnc_write_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x118, val | (1 << 8) | (1 << 24));
+			val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x11c);
+			dnc_write_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x11c, val | (1 << 8));
+
+			/* 4,5. Set CC6SaveEn, LockDramCfg */
+			val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x118);
+			dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x118, val | (3 << 18));
+
+			/* 6. Check CoreCstateMode */
+			assert((val & 1) == 0);
+		}
+	}
+
+	printf("done\n");
+}
+
 static void unify_all_nodes(void)
 {
 	uint16_t i;
@@ -2836,6 +2870,9 @@ static void unify_all_nodes(void)
 
 		printf("\n");
 	}
+
+	if (pf_cstate6)
+		enable_cstate6();
 }
 
 static void check_api_version(void)
@@ -2949,6 +2986,9 @@ static void constants(void)
 		uint32_t val = cht_read_conf(0, FUNC3_MISC, 0xd4);
 		uint64_t val6 = rdmsr(0xc0010071);
 		tsc_mhz = 200 * ((val & 0x1f) + 4) / (1 + ((val6 >> 22) & 1));
+
+		/* C-state 6 not supported before Fam15h */
+		pf_cstate6 = 0;
 	}
 
 	printf("NB/TSC frequency is %dMHz\n", tsc_mhz);

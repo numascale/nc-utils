@@ -112,6 +112,8 @@ void udp_open(void);
 void udp_broadcast_state(const void *buf, const size_t len);
 int udp_read_state(void *buf, const size_t len);
 void mtrr_range(const uint64_t base, const uint64_t limit, const int type);
+bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dst);
+void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest);
 void mmio_range_print(const uint16_t sci, const int ht, uint8_t range);
 void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const int dest);
 void mmio_range_del(const uint16_t sci, const int ht, uint8_t range);

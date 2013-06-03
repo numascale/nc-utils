@@ -189,6 +189,18 @@ void tally_local_node(void)
 				cht_write_conf(i, FUNC1_MAPS, 0x124, limit >> (27 - DRAM_MAP_SHIFT));
 				asm volatile("wbinvd" ::: "memory");
 			}
+
+			/* Subtract 16MB for C-state 6 save area */
+			if (pf_cstate6 && i == (local_node.nc_ht_id - 1)) {
+				printf("Adjusting SCI000#%d DRAM range %d for C-state 6 area", i, i);
+				nc_node[0].ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
+
+				uint64_t base, limit;
+				int dst;
+				dram_range_read(0xfff0, i, i, &base, &limit, &dst);
+				limit -= 1ULL << 24;
+				dram_range(0xfff0, i, i, base >> DRAM_MAP_SHIFT, limit >> DRAM_MAP_SHIFT, dst);
+			}
 		}
 
 		/* Assume at least one core */
@@ -354,6 +366,12 @@ static bool tally_remote_node(uint16_t node)
 			}
 
 			dnc_top_of_mem += cur_node->ht[i].size;
+
+			/* Subtract 16MB for C-state 6 save area */
+			if (pf_cstate6 && i == (renumber_bsp ? 0 : max_ht_node)) {
+				printf("Adjusting SCI%03x#%x for C-state 6 area", node, i);
+				cur_node->ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
+			}
 		}
 
 		while ((cur_apic < 256) && !(apic_used[cur_apic >> 4] & (1 << (cur_apic & 0xf))))
