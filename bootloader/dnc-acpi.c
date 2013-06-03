@@ -71,7 +71,7 @@ static int rdsp_exists(void)
 	return 1;
 }
 
-static acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
+acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
                              int ptrsize)
 {
 	uint64_t childp;

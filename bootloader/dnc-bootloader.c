@@ -441,16 +441,16 @@ static void tables_add(const size_t len)
 
 static void update_acpi_tables_early(void)
 {
-	/* Get table root points and check for space */
 	acpi_sdt_p rsdt = find_root("RSDT");
 	assert(rsdt);
-
 	acpi_sdt_p xsdt = find_root("XSDT");
 	assert(xsdt);
+	acpi_sdt_p dsdt = find_child("APIC", rsdt, 4);
+	assert(dsdt);
 
-	/* Find e820 entry with ACPI tables */
+	/* Find e820 entry with ACPI table */
 	struct e820entry *e820 = orig_e820_map;
-	while (((uint32_t)rsdt < e820->base) || ((uint32_t)rsdt >= (e820->base + e820->length)))
+	while (((uint32_t)dsdt < e820->base) || ((uint32_t)dsdt >= (e820->base + e820->length)))
 		e820++;
 
 	printf("Existing ACPI tables in e820 range %012llx - %012llx\n", e820->base, e820->base + e820->length);

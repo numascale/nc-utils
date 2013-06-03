@@ -126,6 +126,7 @@ void debug_acpi(void);
 uint8_t checksum(void *addr, int len);
 acpi_sdt_p find_sdt(char *sig);
 acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed);
+acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent, int ptrsize);
 bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize);
 void add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize);
 acpi_sdt_p find_root(const char *sig);
