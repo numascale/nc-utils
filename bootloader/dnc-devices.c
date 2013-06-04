@@ -37,8 +37,8 @@ static void pci_search(const struct devspec *list, const int bus)
 			uint8_t type = val >> 16;
 			uint32_t ctlcap = dnc_read_conf(0xfff0, bus, dev, fn, 8);
 
-			for (listp = list; listp->class != PCI_CLASS_FINAL; listp++)
-				if ((listp->class == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->class))
+			for (listp = list; listp->classtype != PCI_CLASS_FINAL; listp++)
+				if ((listp->classtype == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->classtype))
 					if ((listp->type == PCI_TYPE_ANY) || (listp->type == (type & 0x7f)))
 						listp->handler(bus, dev, fn);
 

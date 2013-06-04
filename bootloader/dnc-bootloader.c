@@ -923,7 +923,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	uint8_t *cur;
 
 	if (verbose)
-		printf(" (SMM @ 0x%" PRIx64")", smm_base);
+		printf(" (SMM @ 0x%llx)", smm_base);
 
 	if (!disable_smm)
 		return;
@@ -2858,17 +2858,6 @@ static void unify_all_nodes(void)
 		enable_cstate6();
 }
 
-static void check_api_version(void)
-{
-	static com32sys_t inargs, outargs;
-	int major, minor;
-	inargs.eax.w[0] = 0x0001;
-	__intcall(0x22, &inargs, &outargs);
-	major = outargs.ecx.b[1];
-	minor = outargs.ecx.b[0];
-	assertf(((major * 100 + minor) >= 372), "SYSLINUX API version >= 3.72 is required");
-}
-
 static void start_user_os(void)
 {
 	static com32sys_t rm;
@@ -3024,7 +3013,6 @@ static int nc_start(void)
 	assert(local_info);
 	memset(local_info, 0xff, sizeof *local_info);
 
-	check_api_version();
 	constants();
 	get_hostname();
 

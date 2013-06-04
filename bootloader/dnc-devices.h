@@ -97,7 +97,7 @@
 #define PCI_TYPE_ANY                    0xff
 
 struct devspec {
-	uint32_t class;
+	uint32_t classtype;
 	uint8_t classlen;
 	uint8_t type;
 	void (*handler)(int, int, int);

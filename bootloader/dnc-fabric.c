@@ -77,10 +77,10 @@ static int _raw_write(uint32_t dest, int geo, uint32_t addr, uint32_t val)
 
 	if (((ctrl >> 5) & 0xf) != 2) {
 		printf("Wrong response packet size : %08x\n", ctrl);
-		printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
-		printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
-		printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
-		printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
+		printf("Entry 0: %016llx\n", _getrawentry(0));
+		printf("Entry 1: %016llx\n", _getrawentry(1));
+		printf("Entry 2: %016llx\n", _getrawentry(2));
+		printf("Entry 3: %016llx\n", _getrawentry(3));
 		goto reset;
 	}
 
@@ -121,10 +121,10 @@ static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
 
 	if (((ctrl >> 5) & 0xf) != 4) {
 		printf("Wrong response packet size : %08x\n", ctrl);
-		printf("Entry 0: %016" PRIx64 "\n", _getrawentry(0));
-		printf("Entry 1: %016" PRIx64 "\n", _getrawentry(1));
-		printf("Entry 2: %016" PRIx64 "\n", _getrawentry(2));
-		printf("Entry 3: %016" PRIx64 "\n", _getrawentry(3));
+		printf("Entry 0: %016llx\n", _getrawentry(0));
+		printf("Entry 1: %016llx\n", _getrawentry(1));
+		printf("Entry 2: %016llx\n", _getrawentry(2));
+		printf("Entry 3: %016llx\n", _getrawentry(3));
 		goto reset;
 	}
 

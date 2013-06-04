@@ -127,10 +127,10 @@ uint8_t checksum(void *addr, int len);
 acpi_sdt_p find_sdt(char *sig);
 acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed);
 acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent, int ptrsize);
-bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize);
-void add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize);
+bool replace_child(const char *sig, acpi_sdt_p replacement, acpi_sdt_p parent, unsigned int ptrsize);
+void add_child(acpi_sdt_p replacement, acpi_sdt_p parent, unsigned int ptrsize);
 acpi_sdt_p find_root(const char *sig);
-bool replace_root(const char *sig, acpi_sdt_p new);
+bool replace_root(const char *sig, acpi_sdt_p replacement);
 bool acpi_append(acpi_sdt_p parent, int ptrsize, const char *sig, const unsigned char *extra, uint32_t extra_len);
 acpi_sdt_p acpi_build_oemn(void);
 

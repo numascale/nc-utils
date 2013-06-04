@@ -317,15 +317,15 @@ acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed)
 	return NULL;
 }
 
-bool replace_child(const char *sig, const acpi_sdt_p new, const acpi_sdt_p parent, const unsigned int ptrsize)
+bool replace_child(const char *sig, const acpi_sdt_p replacement, const acpi_sdt_p parent, const unsigned int ptrsize)
 {
 	uint64_t newp, childp;
 	acpi_sdt_p table;
 
-	assert(checksum_ok(new, new->len));
+	assert(checksum_ok(replacement, replacement->len));
 
 	newp = 0;
-	memcpy(&newp, &new, sizeof(new));
+	memcpy(&newp, &replacement, sizeof(replacement));
 	int i;
 
 	for (i = 0; i + sizeof(*parent) < parent->len; i += ptrsize) {
@@ -375,19 +375,19 @@ bool replace_child(const char *sig, const acpi_sdt_p new, const acpi_sdt_p paren
 again:
 	if (!bios_shadowed) {
 		shadow_bios();
-		return replace_child(sig, new, parent, ptrsize);
+		return replace_child(sig, replacement, parent, ptrsize);
 	}
 
 	fatal("ACPI tables immutable when replacing child at 0x%p", &parent->data[i]);
 }
 
-void add_child(const acpi_sdt_p new, const acpi_sdt_p parent, const unsigned int ptrsize)
+void add_child(const acpi_sdt_p replacement, const acpi_sdt_p parent, const unsigned int ptrsize)
 {
 	/* If insufficient space, replace unimportant tables */
 	if (slack(parent) < ptrsize) {
 		const char *expendable[] = {"FPDT", "EINJ", "TCPA", "BERT", "ERST", "HEST"};
 		for (unsigned int i = 0; i < (sizeof expendable / sizeof expendable[0]); i++) {
-			if (replace_child(expendable[i], new, parent, ptrsize)) {
+			if (replace_child(expendable[i], replacement, parent, ptrsize)) {
 				printf("Replaced %s table\n", expendable[i]);
 				return;
 			}
@@ -396,10 +396,9 @@ void add_child(const acpi_sdt_p new, const acpi_sdt_p parent, const unsigned int
 		fatal("Unable to add table");
 	}
 
-	assert(checksum_ok(new, new->len));
+	assert(checksum_ok(replacement, replacement->len));
 	uint64_t newp = 0;
-
-	memcpy(&newp, &new, sizeof(new));
+	memcpy(&newp, &replacement, sizeof replacement);
 	int i = parent->len - sizeof(*parent);
 	memcpy(&parent->data[i], &newp, ptrsize);
 	if (memcmp(&parent->data[i], &newp, ptrsize))
@@ -413,7 +412,7 @@ void add_child(const acpi_sdt_p new, const acpi_sdt_p parent, const unsigned int
 again:
 	if (!bios_shadowed) {
 		shadow_bios();
-		add_child(new, parent, ptrsize);
+		add_child(replacement, parent, ptrsize);
 		return;
 	}
 
@@ -456,7 +455,7 @@ acpi_sdt_p find_root(const char *sig)
 	return NULL;
 }
 
-bool replace_root(const char *sig, acpi_sdt_p new)
+bool replace_root(const char *sig, acpi_sdt_p replacement)
 {
 	if (!rdsp_exists())
 		return 0;
@@ -467,7 +466,7 @@ bool replace_root(const char *sig, acpi_sdt_p new)
 	}
 
 	if (STR_DW_H(sig) == STR_DW_H("RSDT")) {
-		rptr->rsdt_addr = (uint32_t)new;
+		rptr->rsdt_addr = (uint32_t)replacement;
 		rptr->checksum -= checksum(rptr, 20);
 
 		if (rptr->len > 20)
@@ -478,7 +477,7 @@ bool replace_root(const char *sig, acpi_sdt_p new)
 
 	if (STR_DW_H(sig) == STR_DW_H("XSDT")) {
 		if ((rptr->len >= 33) && checksum_ok(rptr, rptr->len)) {
-			rptr->xsdt_addr = (uint32_t)new;
+			rptr->xsdt_addr = (uint32_t)replacement;
 			rptr->echecksum -= checksum(rptr, rptr->len);
 			return 1;
 		}

@@ -95,9 +95,9 @@ const char *pr_size(uint64_t val)
 	}
 
 	if (offset > 0)
-		snprintf(strs[index], 8, "%" PRIu64 "%cB", val, suffix[offset]);
+		snprintf(strs[index], 8, "%llu%cB", val, suffix[offset]);
 	else
-		snprintf(strs[index], 8, "%" PRIu64 "B", val);
+		snprintf(strs[index], 8, "%lluB", val);
 
 	return strs[index];
 }
@@ -2184,7 +2184,7 @@ static void dump_northbridge_regs(int ht_id)
 	uint32_t msr;
 
 	for (offset = 0; (msr = get_msr(offset)) != 0xffffffff; offset++)
-		printf("MSR 0x%08x: %016" PRIx64 "\n", msr, rdmsr(msr));
+		printf("MSR 0x%08x: %016llx\n", msr, rdmsr(msr));
 }
 
 void selftest_late_msrs(void)
