@@ -53,7 +53,7 @@ bool dnc_asic_mode;
 uint32_t dnc_chip_rev;
 char dnc_card_type[16];
 uint16_t dnc_node_count = 0, dnc_core_count = 0;
-nc_node_info_t nc_node[128];
+nc_node_info_t nc_node[256];
 nc_node_info_t local_node;
 struct node_info *local_info;
 uint16_t ht_pdom_count = 0;
@@ -1416,7 +1416,7 @@ void dram_range(const uint16_t sci, const int ht, const int range, const uint32_
 	assert(dest < 8);
 	assert(range < 8);
 	if (dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3)
-		warning("Overwiting SCI%03x#%x memory range %d", sci, ht, range);
+		warning("Overwriting SCI%03x#%x memory range %d", sci, ht, range);
 
 	if (verbose > 1)
 		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x towards %d\n", sci, ht, range, base, limit, dest);

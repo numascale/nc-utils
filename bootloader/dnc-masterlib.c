@@ -123,7 +123,6 @@ void tally_local_node(void)
 #endif
 	apic_per_node = 1 << ((val >> 12) & 0xf);
 	nc_node[0].apic_offset = 0;
-	printf("Examining SCI%03x...", nc_node[0].sci_id);
 
 	for (i = 0; i <= max_ht_node; i++) {
 		if (i == local_node.nc_ht_id)
@@ -233,7 +232,7 @@ void tally_local_node(void)
 		tot_cores += nc_node[0].ht[i].cores;
 	}
 
-	printf("%d cores and %dMB of memory and I/O maps\n", tot_cores, nc_node[0].node_mem << 4);
+	printf("SCI000 has %d cores and %dMB of memory and I/O maps\n", tot_cores, nc_node[0].node_mem << 4);
 	dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
 	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
 	if (rest) {
@@ -259,7 +258,7 @@ void tally_local_node(void)
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
-	assert(dnc_node_count < 128);
+	assert(dnc_node_count < (sizeof nc_node / sizeof nc_node[0]));
 }
 
 static bool tally_remote_node(uint16_t node)
@@ -313,7 +312,6 @@ static bool tally_remote_node(uint16_t node)
 	ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
 	cur_node->apic_offset = ht_next_apic;
 	cur_apic = 0;
-	printf("Examining SCI%03x...", node);
 
 	for (i = 0; i <= max_ht_node; i++) {
 		if (i == cur_node->nc_ht_id) {
@@ -360,7 +358,7 @@ static bool tally_remote_node(uint16_t node)
 			cur_node->node_mem += cur_node->ht[i].size;
 
 			if (cur_node->node_mem > mem_limit) {
-				printf("Node exceeds cachable memory range; clamping...\n");
+				printf("SCI%03x exceeds cachable memory range; clamping...\n", node);
 				cur_node->ht[i].size -= cur_node->node_mem - mem_limit;
 				cur_node->node_mem = mem_limit;
 			}
@@ -436,7 +434,7 @@ static bool tally_remote_node(uint16_t node)
 	cur_node->apic_offset = ht_next_apic - cur_node->ht[0].apic_base;
 	ht_next_apic = cur_node->apic_offset + cur_node->ht[last].apic_base + apic_per_node;
 	cur_node->dram_limit = dnc_top_of_mem;
-	printf("%d cores and %dGB of memory\n", tot_cores, cur_node->node_mem >> 6);
+	printf("SCI%03x has %d cores and %dGB of memory\n", node, tot_cores, cur_node->node_mem >> 6);
 
 	/* Set PCI I/O map */
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
@@ -452,7 +450,7 @@ static bool tally_remote_node(uint16_t node)
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
-	assert(dnc_node_count < 128);
+	assert(dnc_node_count < (sizeof nc_node / sizeof nc_node[0]));
 	return 1;
 }
 
