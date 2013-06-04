@@ -22,8 +22,34 @@
 #include "dnc-commonlib.h"
 #include "dnc-escrow.h"
 #include "dnc-acpi.h"
+#include "dnc-defs.h"
+#include "dnc-access.h"
+
+#define SHADOW_BASE 0xf0000
+#define SHADOW_LEN 65536
+#define FMTRR_WRITETHROUGH 0x1c1c1c1c1c1c1c1c
 
 static struct acpi_rsdp *rptr = NULL;
+static bool bios_shadowed = 0;
+
+static void shadow_bios(void)
+{
+	printf("Shadowing BIOS...");
+	int *area = malloc(SHADOW_LEN);
+	assert(area);
+	memcpy(area, (void *)SHADOW_BASE, SHADOW_LEN);
+	uint64_t val = rdmsr(MSR_SYSCFG);
+	wrmsr(MSR_SYSCFG, val | (3 << 18));
+	disable_cache();
+	wrmsr(MSR_MTRR_FIX4K_F0000, FMTRR_WRITETHROUGH);
+	wrmsr(MSR_MTRR_FIX4K_F8000, FMTRR_WRITETHROUGH);
+	enable_cache();
+	wrmsr(MSR_SYSCFG, val | (1 << 18));
+	memcpy((void *)SHADOW_BASE, area, SHADOW_LEN);
+	free(area);
+	printf("done\n");
+	bios_shadowed = 1;
+}
 
 uint8_t checksum(void *addr, int len)
 {
@@ -291,7 +317,7 @@ acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed)
 	return NULL;
 }
 
-bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
+bool replace_child(const char *sig, const acpi_sdt_p new, const acpi_sdt_p parent, const unsigned int ptrsize)
 {
 	uint64_t newp, childp;
 	acpi_sdt_p table;
@@ -313,7 +339,6 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 		}
 
 		memcpy(&table, &childp, sizeof(table));
-
 		if (!checksum_ok(table, table->len)) {
 			printf("Error: Bad table %p checksum %.4s\n", table, table->sig.s);
 			continue;
@@ -321,6 +346,11 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 
 		if (table->sig.l == STR_DW_H(sig)) {
 			memcpy(&parent->data[i], &newp, ptrsize);
+
+			/* Check if writing succeeded */
+			if (memcmp(&parent->data[i], &newp, ptrsize))
+				goto again;
+
 			parent->checksum -= checksum(parent, parent->len);
 			return 1;
 		}
@@ -332,13 +362,26 @@ bool replace_child(const char *sig, acpi_sdt_p new, acpi_sdt_p parent, unsigned 
 
 	/* Append entry to end of table */
 	memcpy(&parent->data[i], &newp, ptrsize);
+
+	/* Check if writing succeeded */
+	if (memcmp(&parent->data[i], &newp, ptrsize))
+		goto again;
+
 	parent->len += ptrsize;
 	assert(parent->len < RSDT_MAX);
 	parent->checksum -= checksum(parent, parent->len);
 	return 1;
+
+again:
+	if (!bios_shadowed) {
+		shadow_bios();
+		return replace_child(sig, new, parent, ptrsize);
+	}
+
+	fatal("ACPI tables immutable when replacing child at 0x%p", &parent->data[i]);
 }
 
-void add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
+void add_child(const acpi_sdt_p new, const acpi_sdt_p parent, const unsigned int ptrsize)
 {
 	/* If insufficient space, replace unimportant tables */
 	if (slack(parent) < ptrsize) {
@@ -355,12 +398,26 @@ void add_child(acpi_sdt_p new, acpi_sdt_p parent, unsigned int ptrsize)
 
 	assert(checksum_ok(new, new->len));
 	uint64_t newp = 0;
+
 	memcpy(&newp, &new, sizeof(new));
 	int i = parent->len - sizeof(*parent);
 	memcpy(&parent->data[i], &newp, ptrsize);
+	if (memcmp(&parent->data[i], &newp, ptrsize))
+		goto again;
+
 	parent->len += ptrsize;
 	assert(parent->len < RSDT_MAX);
 	parent->checksum -= checksum(parent, parent->len);
+	return;
+
+again:
+	if (!bios_shadowed) {
+		shadow_bios();
+		add_child(new, parent, ptrsize);
+		return;
+	}
+
+	fatal("ACPI tables immutable when adding child at 0x%p", &parent->data[i]);
 }
 
 acpi_sdt_p find_root(const char *sig)

@@ -383,24 +383,26 @@ static void load_existing_apic_map(void)
 	while (i + sizeof(*srat) < srat->len) {
 		if (srat->data[i] == 0) {
 			struct acpi_core_affinity *af =
-			    (struct acpi_core_affinity *) & (srat->data[i]);
-			post_apic_mapping[c] = af->apic_id;
-			apic_used[af->apic_id >> 4] =
-			    apic_used[af->apic_id >> 4] | (1 << (af->apic_id & 0xf));
-			c++;
+			    (struct acpi_core_affinity *) &(srat->data[i]);
+
+			if (af->enabled) {
+				assert(af->apic_id != 0xff); /* Ensure ID is valid */
+				post_apic_mapping[c] = af->apic_id;
+				apic_used[af->apic_id >> 4] |= 1 << (af->apic_id & 0xf);
+				c++;
+			}
+
 			i += af->len;
 		} else if (srat->data[i] == 1) {
 			struct acpi_mem_affinity *af =
-			    (struct acpi_mem_affinity *) & (srat->data[i]);
+			    (struct acpi_mem_affinity *) &(srat->data[i]);
 			i += af->len;
-		} else {
+		} else
 			break;
-		}
 	}
 
 	/* Use APIC ATT map as scratch area to communicate APIC maps to master */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
-
 	for (i = 0; i < 16; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, apic_used[i]);
 }
@@ -414,20 +416,6 @@ static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
 		return 16;
 
 	return 10;
-}
-
-static void disable_fixed_mtrrs(void)
-{
-	disable_cache();
-	wrmsr(MSR_MTRR_DEFAULT, rdmsr(MSR_MTRR_DEFAULT) & ~(1 << 10));
-	enable_cache();
-}
-
-static void enable_fixed_mtrrs(void)
-{
-	disable_cache();
-	wrmsr(MSR_MTRR_DEFAULT, rdmsr(MSR_MTRR_DEFAULT) | (1 << 10));
-	enable_cache();
 }
 
 static void tables_add(const size_t len)
@@ -464,11 +452,8 @@ static void update_acpi_tables_early(void)
 	memcpy((char *)gap, oemn, oemn->len);
 	free(oemn);
 
-	/* Fixed MTRRs may mark the RSDT and XSDT pointers r/o */
-	disable_fixed_mtrrs();
 	add_child(gap, xsdt, 8);
 	add_child(gap, rsdt, 4);
-	enable_fixed_mtrrs();
 }
 
 static void update_acpi_tables(void)
@@ -477,9 +462,6 @@ static void update_acpi_tables(void)
 	uint8_t *dist;
 	unsigned int i, j, apicid, pnum;
 	unsigned int node, ht;
-
-	/* Fixed MTRRs may mark the RSDT and XSDT pointers r/o */
-	disable_fixed_mtrrs();
 
 	/* replace_root may fail if rptr is r/o, so we read the pointers
 	 * back. In case of failure, we'll assume the existing rsdt/xsdt
@@ -765,8 +747,6 @@ static void update_acpi_tables(void)
 
 		free(extra);
 	}
-
-	enable_fixed_mtrrs();
 }
 
 static struct mp_floating_pointer *find_mptable(void *start, int len) {
@@ -2327,8 +2307,11 @@ static void update_mtrr(void)
 	uint64_t *new_mtrr_fixed = (void *)REL64(new_mtrr_fixed);
 	uint32_t *fixed_mtrr_regs = (void *)REL64(fixed_mtrr_regs);
 
-	for (int i = 0; fixed_mtrr_regs[i] != 0xffffffff; i++)
+	printf("Fixed MTRRs:\n");
+	for (int i = 0; fixed_mtrr_regs[i] != 0xffffffff; i++) {
 		new_mtrr_fixed[i] = rdmsr(fixed_mtrr_regs[i]);
+		printf("  [%d] %016llx\n", i, new_mtrr_fixed[i]);
+	}
 
 	/* Store variable MTRRs */
 	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
