@@ -110,7 +110,7 @@ void tally_local_node(void)
 	nc_node[0].node_mem = 0;
 	tot_cores = 0;
 	nc_node[0].sci_id = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	nc_node[0].nc_ht_id = local_node.nc_ht_id;
+	nc_node[0].nc_ht_id = nc_node[0].ht_max = local_node.nc_ht_id;
 	nc_node[0].nc_neigh = local_node.nc_neigh;
 	nc_node[0].dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
@@ -190,15 +190,20 @@ void tally_local_node(void)
 			}
 
 			/* Subtract 16MB for C-state 6 save area */
-			if (pf_cstate6 && i == (local_node.nc_ht_id - 1)) {
-				printf("Adjusting SCI000#%d DRAM range %d for C-state 6 area", i, i);
-				nc_node[0].ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
+			if (pf_cstate6) {
+				int range = local_node.nc_ht_id - 1;
 
 				uint64_t base, limit;
 				int dst;
-				dram_range_read(0xfff0, i, i, &base, &limit, &dst);
+				dram_range_read(0xfff0, i, range, &base, &limit, &dst);
+				assert(dst == range);
 				limit -= 1ULL << 24;
-				dram_range(0xfff0, i, i, base >> DRAM_MAP_SHIFT, limit >> DRAM_MAP_SHIFT, dst);
+				dram_range(0xfff0, i, range, base >> DRAM_MAP_SHIFT, limit >> DRAM_MAP_SHIFT, dst);
+
+				if (i == range) {
+					printf("Adjusting SCI000#%d DRAM range %d for C-state 6 area\n", i, i);
+					nc_node[0].ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
+				}
 			}
 		}
 
@@ -293,7 +298,7 @@ static bool tally_remote_node(uint16_t node)
 	cur_node->node_mem = 0;
 	tot_cores = 0;
 	cur_node->sci_id = node;
-	cur_node->nc_ht_id = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
+	cur_node->nc_ht_id = cur_node->ht_max = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
 	cur_node->nc_neigh = local_node.nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
 	/* Ensure that all nodes start out on 1G boundaries
 	   FIXME: Add IO holes to cover address space discontinuity? */
@@ -366,8 +371,8 @@ static bool tally_remote_node(uint16_t node)
 			dnc_top_of_mem += cur_node->ht[i].size;
 
 			/* Subtract 16MB for C-state 6 save area */
-			if (pf_cstate6 && i == (renumber_bsp ? 0 : max_ht_node)) {
-				printf("Adjusting SCI%03x#%x for C-state 6 area", node, i);
+			if (pf_cstate6 && i == (max_ht_node - 1)) {
+				printf("Adjusting SCI%03x#%x for C-state 6 area\n", node, i);
 				cur_node->ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
 			}
 		}

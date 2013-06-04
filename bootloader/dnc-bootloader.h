@@ -83,6 +83,7 @@ typedef struct nc_node_info {
 	ht_node_info_t ht[8];
 	uint16_t sci_id;		/* Maps logical DNC node ids to physical (SCI) ids */
 	uint16_t apic_offset;	/* Offset to shift APIC ids by when unifying */
+	uint8_t ht_max;         /* Highest HT ID */
 	uint8_t nc_ht_id : 3;	/* HT id of dnc node dnc controller on local system */
 	uint8_t nc_neigh : 3;	/* Our nearest neighbour HT node on local system */
 	uint8_t nc_neigh_link : 2;

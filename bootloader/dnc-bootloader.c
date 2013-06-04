@@ -2581,11 +2581,14 @@ static void enable_cstate6(void)
 			if (!nc_node[node].ht[ht].cpuid)
 				continue;
 			uint16_t sci = nc_node[node].sci_id;
-			uint32_t val;
+			int dst = nc_node[node].ht_max - 1;
+
+			/* Account for single-HT systems with renumbering */
+			if (renumber_bsp && dst == 0 && node > 0)
+				dst = 1;
 
 			/* Set StateSaveDestNode */
-			val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x128);
-			int dst = node > 0 ? (renumber_bsp ? 0 : nc_node[node].nc_ht_id - 1) : 0;
+			uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x128);
 			val = (val & ~0x3f000) | (dst << 12);
 			dnc_write_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x128, val);
 
@@ -3020,7 +3023,7 @@ static int nc_start(void)
 	if (rc == -2)
 		start_user_os();
 
-	local_node.nc_ht_id = rc;
+	local_node.nc_ht_id = local_node.ht_max = rc;
 
 	if (singleton) {
 		make_singleton_config();
