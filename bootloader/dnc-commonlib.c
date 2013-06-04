@@ -1792,6 +1792,7 @@ struct optargs {
 
 static void parse_string(const char *val, void *stringp)
 {
+	assert(val);
 	char **string = (char **)stringp;
 	*string = strdup(val);
 	assert(*string);
@@ -1801,7 +1802,7 @@ static void parse_bool(const char *val, void *voidp)
 {
 	bool *boolp = (bool *)voidp;
 
-	if (val[0] != '\0') {
+	if (val && val[0] != '\0') {
 		int res = atoi(val);
 		assertf(res == !!res, "Boolean option doesn't take value %d", res);
 		*boolp = res;
@@ -1812,18 +1813,17 @@ static void parse_bool(const char *val, void *voidp)
 static void parse_int(const char *val, void *intp)
 {
 	int *int32 = (int *)intp;
-
-	if (val[0] != '\0')
+	if (val && val[0] != '\0')
 		*int32 = (int)strtol(val, NULL, 0);
 	else
 		*int32 = 1;
 }
 
-static void parse_uint64_t(const char *val, void *intp)
+static void parse_int64(const char *val, void *intp)
 {
 	uint64_t *int64 = (uint64_t *)intp;
 
-	if (val[0] != '\0') {
+	if (val && val[0] != '\0') {
 		char *endptr;
 		uint64_t ret = strtoull(val, &endptr, 0);
 
@@ -1853,7 +1853,7 @@ static void parse_uint64_t(const char *val, void *intp)
 void parse_cmdline(const int argc, const char *argv[])
 {
 	static const struct optargs options[] = {
-		{"config",	    &parse_string, &config_file_name},/* Config (JSON) file to use */
+		{"config",          &parse_string, &config_file_name},/* Config (JSON) file to use */
 		{"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
 		{"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */
 		{"init-only",	    &parse_bool,   &init_only},       /* Only initialize chip, but then load <nest-label> without setting up a full system */
@@ -1872,7 +1872,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"ht.force-pf-off", &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
 		{"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
 		{"pf.vga-local",    &parse_bool,   &pf_vga_local},    /* Let legacy VGA access route locally */
-		{"pf.maxmem",       &parse_uint64_t, &pf_maxmem},     /* Memory per server */
+		{"pf.maxmem",       &parse_int64,  &pf_maxmem},       /* Memory per server */
 		{"pf.cstate6",      &parse_bool,   &pf_cstate6},      /* Enable C-state 6 (allowing boosting) */
 		{"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
 		{"disable-smm",     &parse_bool,   &disable_smm},     /* Rewrite start of System Management Mode handler to return */
@@ -1883,15 +1883,15 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"enable-relfreq",  &parse_bool,   &enable_relfreq},
 		{"singleton",       &parse_bool,   &singleton},       /* Loopback test with cables */
 		{"mem-offline",     &parse_bool,   &mem_offline},
-		{"trace-buf",       &parse_uint64_t,    &trace_buf_size},
+		{"trace-buf",       &parse_int64,  &trace_buf_size},
 		{"verbose",         &parse_int,    &verbose},
 		{"remote-io",       &parse_int,    &remote_io},
 		{"boot-wait",       &parse_bool,   &boot_wait},
 		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
 		{"workaround.rtt",  &parse_bool,   &workaround_rtt},  /* Prevent failure when HT Rtt calibration fails */
-		{"workaround.locks", &parse_bool,  &workaround_locks}, /* Prevent failure when SMI triggers are locked */
-		{"mem-gap",         &parse_uint64_t, &mem_gap},
+		{"workaround.locks", &parse_bool,  &workaround_locks},/* Prevent failure when SMI triggers are locked */
+		{"mem-gap",         &parse_int64,  &mem_gap},
 	};
 
 	int errors = 0;
