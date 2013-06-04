@@ -22,6 +22,8 @@
 #include <inttypes.h>
 #include <string.h>
 
+#include "dnc-bootloader.h"
+
 /* #define DEBUG_CONFIG 1 */
 
 struct fabric_info {
@@ -52,8 +54,8 @@ extern int cfg_nodes, cfg_partitions;
 extern bool name_matching;
 
 int parse_config_file(char *data);
-void make_singleton_config(uint32_t uuid);
-struct node_info *get_node_config(uint32_t uuid);
+void make_singleton_config(void);
+void get_node_config(void);
 struct part_info *get_partition_config(int idx);
 char *get_master_name(uint32_t sciid);
 extern char *hostname;

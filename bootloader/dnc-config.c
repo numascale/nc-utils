@@ -276,7 +276,7 @@ int parse_config_file(char *data)
 	return 1;
 }
 
-void make_singleton_config(uint32_t uuid)
+void make_singleton_config(void)
 {
 	cfg_fabric.x_size = 1;
 	cfg_fabric.y_size = 0;
@@ -284,7 +284,7 @@ void make_singleton_config(uint32_t uuid)
 	cfg_nodes = 1;
 	cfg_nodelist = malloc(sizeof(*cfg_nodelist));
 	assert(cfg_nodelist);
-	cfg_nodelist[0].uuid = uuid;
+	cfg_nodelist[0].uuid = local_info->uuid;
 	cfg_nodelist[0].sciid = 0;
 	cfg_nodelist[0].osc = 0;
 	cfg_nodelist[0].partition = 0;
@@ -298,15 +298,18 @@ void make_singleton_config(uint32_t uuid)
 }
 
 /* Must only be used to get local config */
-struct node_info *get_node_config(uint32_t uuid) {
+void get_node_config(void) {
 	int i;
 
-	for (i = 0; i < cfg_nodes; i++)
-		if (config_local(&cfg_nodelist[i], uuid))
-			return &cfg_nodelist[i];
+	for (i = 0; i < cfg_nodes; i++) {
+		if (config_local(&cfg_nodelist[i], local_info->uuid)) {
+			free(local_info);
+			local_info = &cfg_nodelist[i];
+			return;
+		}
+	}
 
-	error("Failed to find node config (hostname %s)", hostname ? hostname : "<none>");
-	return NULL;
+	fatal("Failed to find node config (hostname %s)", hostname ? hostname : "<none>");
 }
 
 struct part_info *get_partition_config(int idx) {

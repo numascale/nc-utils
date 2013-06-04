@@ -3016,7 +3016,6 @@ static void selftest_late_memmap(void)
 
 static int nc_start(void)
 {
-	uint32_t uuid;
 	struct part_info *part;
 	int i;
 
@@ -3029,24 +3028,20 @@ static int nc_start(void)
 	constants();
 	get_hostname();
 
-	int rc = dnc_init_bootloader(&uuid, &dnc_chip_rev, dnc_card_type, &dnc_asic_mode);
+	int rc = dnc_init_bootloader(&dnc_chip_rev, dnc_card_type, &dnc_asic_mode);
 	if (rc == -2)
 		start_user_os();
 
 	local_node.nc_ht_id = rc;
 
 	if (singleton) {
-		make_singleton_config(uuid);
+		make_singleton_config();
 	} else {
 		if (read_config_file(config_file_name) < 0)
 			return ERR_NODE_CONFIG;
 	}
 
-	free(local_info); /* Was allocated earlier */
-	local_info = get_node_config(uuid);
-	if (!local_info)
-		return ERR_NODE_CONFIG;
-
+	get_node_config();
 	local_node.sci_id = local_info->sciid;
 
 	if (name_matching)
@@ -3065,7 +3060,7 @@ static int nc_start(void)
 	       cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
 
 	for (i = 0; i < cfg_nodes; i++) {
-		if (config_local(&cfg_nodelist[i], uuid))
+		if (config_local(&cfg_nodelist[i], local_info->uuid))
 			continue;
 
 		if (name_matching)
@@ -3126,7 +3121,7 @@ static int nc_start(void)
 
 		/* Master */
 		for (i = 0; i < cfg_nodes; i++) {
-			if (config_local(&cfg_nodelist[i], uuid))
+			if (config_local(&cfg_nodelist[i], local_info->uuid))
 				continue;
 
 			if (cfg_nodelist[i].partition != local_info->partition)

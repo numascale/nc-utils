@@ -2319,9 +2319,9 @@ static void platform_quirks(void)
 	printf("\n");
 }
 
-int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode)
+int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode)
 {
-	uint32_t uuid, val, chip_rev;
+	uint32_t val, chip_rev;
 	int i, ht_id;
 	bool asic_mode;
 
@@ -2499,8 +2499,8 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 	}
 
 	/* ====================== END ERRATA WORKAROUNDS ====================== */
-	uuid = identify_eeprom(p_type);
-	printf("UUID: %08X, TYPE: %s\n", uuid, p_type);
+	local_info->uuid = identify_eeprom(p_type);
+	printf("UUID: %08X, TYPE: %s\n", local_info->uuid, p_type);
 
 	/* Read the SPD info from our DIMMs to see if they are supported */
 	for (i = 0; i < 2; i++)
@@ -2514,7 +2514,6 @@ int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16],
 
 	*p_asic_mode = asic_mode;
 	*p_chip_rev = chip_rev;
-	*p_uuid = uuid;
 	return ht_id;
 }
 

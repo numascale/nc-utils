@@ -162,7 +162,7 @@ void enable_smi(void);
 void critical_enter(void);
 void critical_leave(void);
 int adjust_oscillator(char p_type[16], uint32_t osc_setting);
-int dnc_init_bootloader(uint32_t *p_uuid, uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode);
+int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode);
 int dnc_check_fabric(struct node_info *info);
 uint32_t dnc_check_mctr_status(int cdata);
 void dnc_dram_initialise(void);
