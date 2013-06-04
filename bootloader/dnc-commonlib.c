@@ -2452,9 +2452,11 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 			}
 		}
 
+#ifdef WORKAROUND_NOT_NEEDED
 		/* InstallStateS to avoid exclusive state */
 		val = cht_read_conf(i, FUNC0_HT, 0x68);
 		cht_write_conf(i, FUNC0_HT, 0x68, val | (1 << 23));
+#endif
 
 		if (asic_mode && (chip_rev < 2)) {
 			/* ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
