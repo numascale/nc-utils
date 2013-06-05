@@ -2579,7 +2579,7 @@ static void setup_mc4_thresholds(void)
 
 static void enable_cstate6(void)
 {
-	printf("Enabling C-state 6...");
+	printf("Enabling C-state 6:");
 
 	for (int node = 0; node < dnc_node_count; node++) {
 		for (int ht = 0; ht < 8; ht++) {
@@ -2587,6 +2587,7 @@ static void enable_cstate6(void)
 				continue;
 			uint16_t sci = nc_node[node].sci_id;
 			int dst = nc_node[node].ht_max - 1;
+			printf(" SCI%03x#%x", sci, dst);
 
 			/* Account for single-HT systems with renumbering */
 			if (renumber_bsp && dst == 0 && node > 0)
@@ -2612,7 +2613,7 @@ static void enable_cstate6(void)
 		}
 	}
 
-	printf("done\n");
+	printf("\n");
 }
 
 static void unify_all_nodes(void)
