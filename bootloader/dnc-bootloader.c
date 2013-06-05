@@ -2974,7 +2974,7 @@ static void constants(void)
 		pf_cstate6 = 0;
 	}
 
-	printf("NB/TSC frequency is %dMHz\n", tsc_mhz);
+	printf("Family %xh with NB/TSC frequency %dMHz\n", family, tsc_mhz);
 }
 
 #define STEP_MIN (64)
