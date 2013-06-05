@@ -19,10 +19,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <console.h>
-#include <com32.h>
 #include <inttypes.h>
-#include <syslinux/pxe.h>
 #include <sys/io.h>
+
+extern "C" {
+	#include <com32.h>
+	#include <syslinux/pxe.h>
+}
 
 #include "dnc-regs.h"
 #include "dnc-defs.h"
@@ -72,7 +75,7 @@ uint8_t nodedata[4096];
 
 char *asm_relocated;
 static char *tables_relocated;
-void *tables_next;
+char *tables_next;
 
 IMPORT_RELOCATED(new_e820_handler);
 IMPORT_RELOCATED(old_int15_vec);
@@ -150,7 +153,7 @@ static void disable_xtpic(void)
 
 static void load_orig_e820_map(void)
 {
-	orig_e820_map = lzalloc(E820_MAX_LEN);
+	orig_e820_map = (e820entry *)lzalloc(E820_MAX_LEN);
 	assert(orig_e820_map);
 
 	static com32sys_t rm;
@@ -207,11 +210,11 @@ static int install_e820_handler(void)
 	int last_32b = -1;
 	relocate_size = (&asm_relocate_end - &asm_relocate_start + 1023) / 1024;
 	relocate_size *= 1024;
-	asm_relocated = (void *)((tom_lower - relocate_size) & ~0xfff);
+	asm_relocated = (char *)((tom_lower - relocate_size) & ~0xfff);
 	/* http://groups.google.com/group/comp.lang.asm.x86/msg/9b848f2359f78cdf
 	 * *bda_tom_lower = ((uint32_t)asm_relocated) >> 10; */
 	memcpy(asm_relocated, &asm_relocate_start, relocate_size);
-	e820 = (void *)REL32(new_e820_map);
+	e820 = (e820entry *)REL32(new_e820_map);
 	unsigned int i, j = 0;
 
 	for (i = 0; i < orig_e820_len / sizeof(struct e820entry); i++) {
@@ -282,7 +285,7 @@ static int install_e820_handler(void)
     }
 
 	e820[last_32b].length -= TABLE_AREA_SIZE;
-	tables_relocated = (void *)(long)e820[last_32b].base + (long)e820[last_32b].length;
+	tables_relocated = (char *)(long)e820[last_32b].base + (long)e820[last_32b].length;
 	tables_next = tables_relocated;
 	int_vecs[0x15] = (((uint32_t)asm_relocated) << 12) |
 	                 ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
@@ -298,7 +301,7 @@ static void update_e820_map(void)
 	unsigned int i, j, max;
 	struct e820entry *e820;
 	uint16_t *len;
-	e820 = (void *)REL32(new_e820_map);
+	e820 = (e820entry *)REL32(new_e820_map);
 	len  = REL16(new_e820_len);
 	prev_end = 0;
 	max = 0;
@@ -467,9 +470,9 @@ static void update_acpi_tables(void)
 	/* replace_root may fail if rptr is r/o, so we read the pointers
 	 * back. In case of failure, we'll assume the existing rsdt/xsdt
 	 * tables can be extended where they are */
-	acpi_sdt_p rsdt = tables_next;
+	acpi_sdt_p rsdt = (acpi_sdt_p)tables_next;
 	tables_add(RSDT_MAX);
-	acpi_sdt_p xsdt = tables_next;
+	acpi_sdt_p xsdt = (acpi_sdt_p)tables_next;
 	tables_add(RSDT_MAX);
 
 	oroot = find_root("RSDT");
@@ -500,7 +503,7 @@ static void update_acpi_tables(void)
 	}
 
 	/* With APIC we reuse the old info and add our new entries */
-	acpi_sdt_p apic = tables_next;
+	acpi_sdt_p apic = (acpi_sdt_p)tables_next;
 	memcpy(apic, oapic, oapic->len);
 	memcpy(apic->oemid, "NUMASC", 6);
 	apic->len = offsetof(struct acpi_sdt, data) + 8; /* Count 'Local Interrupt Controller' and 'Flags' fields */
@@ -510,7 +513,7 @@ static void update_acpi_tables(void)
 	j = 0;
 
 	for (i = 44; i < oapic->len;) {
-		struct acpi_local_apic *lapic = (void *)&oapic->data[i - sizeof(*oapic)];
+		struct acpi_local_apic *lapic = (acpi_local_apic *)&oapic->data[i - sizeof(*oapic)];
 
 		if (lapic->type != 0) {
 			memcpy(&apic->data[apic->len - sizeof(*apic)], lapic, lapic->len);
@@ -536,7 +539,7 @@ static void update_acpi_tables(void)
 				assert(apicid != 0xff);
 
 				if (ht_next_apic < 0x100) {
-					struct acpi_local_apic *lapic = (void *)&apic->data[apic->len - sizeof(*apic)];
+					struct acpi_local_apic *lapic = (acpi_local_apic *)&apic->data[apic->len - sizeof(*apic)];
 					lapic->type = 0;
 					lapic->len = 8;
 					lapic->proc_id = pnum; /* ACPI Processor ID */
@@ -544,7 +547,7 @@ static void update_acpi_tables(void)
 					lapic->flags = 1;
 					apic->len += lapic->len;
 				} else {
-					struct acpi_local_x2apic *x2apic = (void *)&apic->data[apic->len - sizeof(*apic)];
+					struct acpi_local_x2apic *x2apic = (acpi_local_x2apic *)&apic->data[apic->len - sizeof(*apic)];
 					x2apic->type = 9;
 					x2apic->len = 16;
 					x2apic->reserved1[0] = 0;
@@ -567,7 +570,7 @@ static void update_acpi_tables(void)
 	if (xsdt) replace_child("APIC", apic, xsdt, 8);
 
 	/* Make SLIT info from scratch (ie replace existing table if any) */
-	acpi_sdt_p slit = tables_next;
+	acpi_sdt_p slit = (acpi_sdt_p)tables_next;
 
 	memcpy(slit->sig.s, "SLIT", 4);
 	slit->revision = ACPI_REV;
@@ -577,7 +580,7 @@ static void update_acpi_tables(void)
 	memcpy(slit->creatorid, "1B47", 4);
 	slit->creatorrev = 1;
 	memset(slit->data, 0, 8); /* Number of System Localities */
-	dist = (void *) & (slit->data[8]);
+	dist = (uint8_t *)&(slit->data[8]);
 	int k, l, index = 0;
 
 	for (i = 0; i < dnc_node_count; i++)
@@ -621,7 +624,7 @@ static void update_acpi_tables(void)
 		return;
 	}
 
-	acpi_sdt_p srat = tables_next;
+	acpi_sdt_p srat = (acpi_sdt_p)tables_next;
 
 	memcpy(srat, osrat, osrat->len);
 	memcpy(srat->oemid, "NUMASC", 6);
@@ -693,7 +696,7 @@ static void update_acpi_tables(void)
 	if (xsdt) replace_child("SRAT", srat, xsdt, 8);
 
 	/* MCFG table */
-	acpi_sdt_p mcfg = tables_next;
+	acpi_sdt_p mcfg = (acpi_sdt_p)tables_next;
 	memset(mcfg, 0, sizeof(*mcfg) + 8);
 	memcpy(mcfg->sig.s, "MCFG", 4);
 	mcfg->len = offsetof(struct acpi_sdt, data) + 8 ; /* Count 'reserved' field */
@@ -728,7 +731,7 @@ static void update_acpi_tables(void)
 		if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
 			if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len)) {
 				/* Appending to existing DSDT or SSDT failed; construct new SSDT */
-				acpi_sdt_p ssdt = tables_next;
+				acpi_sdt_p ssdt = (acpi_sdt_p)tables_next;
 				memset(ssdt, 0, sizeof(*ssdt) + 8);
 				memcpy(ssdt->sig.s, "SSDT", 4);
 				ssdt->revision = ACPI_REV;
@@ -750,8 +753,8 @@ static void update_acpi_tables(void)
 	}
 }
 
-static struct mp_floating_pointer *find_mptable(void *start, int len) {
-	void *ret = NULL;
+static struct mp_floating_pointer *find_mptable(const char *start, int len) {
+	const char *ret = NULL;
 	int i;
 
 	for (i = 0; i < len; i += 16) {
@@ -761,7 +764,7 @@ static struct mp_floating_pointer *find_mptable(void *start, int len) {
 		}
 	}
 
-	return ret;
+	return (struct mp_floating_pointer *)ret;
 }
 
 static void update_mptable(void)
@@ -769,14 +772,14 @@ static void update_mptable(void)
 	struct mp_floating_pointer *mpfp;
 	struct mp_config_table *mptable;
 	unsigned int i;
-	void *ebda = (void *)(*((unsigned short *)0x40e) * 16);
+	const char *ebda = (const char *)(*((unsigned short *)0x40e) * 16);
 	mpfp = find_mptable(ebda, 1024);
 
 	if (!mpfp)
-		mpfp = find_mptable((void *)(639 * 1024), 1024);
+		mpfp = find_mptable((const char *)(639 * 1024), 1024);
 
 	if (!mpfp)
-		mpfp = find_mptable((void *)(0xf0000), 0x10000);
+		mpfp = find_mptable((const char *)(0xf0000), 0x10000);
 
 	printf("mpfp: %p\n", mpfp);
 
@@ -790,16 +793,16 @@ static void update_mptable(void)
 
 	if ((uint32_t)mpfp > (uint32_t)REL32(new_mpfp)) {
 		memcpy((void *)REL32(new_mpfp), mpfp, sizeof(*mpfp));
-		mpfp = (void *)REL32(new_mpfp);
+		mpfp = (mp_floating_pointer *)REL32(new_mpfp);
 	}
 
 	mptable = mpfp->mptable;
 	printf("mptable @%p\n", mptable);
 	memcpy((void *)REL32(new_mptable), mptable, 512);
-	mptable = (void *)REL32(new_mptable);
+	mptable = (mp_config_table *)REL32(new_mptable);
 	printf("mptable @%p\n", mptable);
 	mpfp->mptable = mptable;
-	mpfp->checksum -= checksum(mpfp, mpfp->len);
+	mpfp->checksum -= checksum((acpi_sdt_p)mpfp, mpfp->len);
 	printf("sig: %.4s, len: %d, rev: %d, chksum: %x, oemid: %.8s, prodid: %.12s,\n"
 	       "oemtable: %p, oemsz: %d, entries: %d, lapicaddr: %08x, elen: %d, echk: %x\n",
 	       mptable->sig.s, mptable->len,  mptable->revision,  mptable->checksum,
@@ -808,7 +811,7 @@ static void update_mptable(void)
 	i = 0x1d8; /* First unused entry */
 	memcpy(&(mptable->data[i]), &(mptable->data[20]), 20); /* Copy AP 1 data */
 	mptable->data[i + 1] = 0xf;
-	mptable->checksum -= checksum(mptable, mptable->len);
+	mptable->checksum -= checksum((acpi_sdt_p)mptable, mptable->len);
 }
 
 static void setup_apic_atts(void)
@@ -989,8 +992,8 @@ static void setup_other_cores(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 12));
 	msr = rdmsr(MSR_APIC_BAR);
 	printf("MSR APIC_BAR: %012llx\n", msr);
-	apic = (void *)((uint32_t)msr & ~0xfff);
-	icr = &apic[0x300 / 4];
+	apic = (volatile uint32_t *)((uint32_t)msr & ~0xfff);
+	icr = (volatile uint32_t *)&apic[0x300 / 4];
 	printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
 	       (uint32_t)apic, apic[0x20 / 4], (uint32_t)icr, *icr);
 
@@ -1864,7 +1867,7 @@ static char *read_file(const char *filename, int *len)
 	static com32sys_t inargs, outargs;
 	int fd, bsize;
 
-	char *buf = lmalloc(strlen(filename) + 1);
+	char *buf = (char *)lmalloc(strlen(filename) + 1);
 	strcpy(buf, filename);
 
 	printf("Opening %s...", filename);
@@ -1885,7 +1888,7 @@ static char *read_file(const char *filename, int *len)
 		return NULL;
 	}
 
-	buf = lzalloc(roundup(*len, bsize));
+	buf = (char *)lzalloc(roundup(*len, bsize));
 	assert(buf);
 
 	memset(&inargs, 0, sizeof inargs);
@@ -2043,13 +2046,13 @@ static int pxeapi_call(int func, const uint8_t *buf)
 
 void udp_open(void)
 {
-	t_PXENV_TFTP_CLOSE *tftp_close_param = lzalloc(sizeof(t_PXENV_TFTP_CLOSE));
+	t_PXENV_TFTP_CLOSE *tftp_close_param = (t_PXENV_TFTP_CLOSE *)lzalloc(sizeof(t_PXENV_TFTP_CLOSE));
 	assert(tftp_close_param);
 	pxeapi_call(PXENV_TFTP_CLOSE, (uint8_t *)tftp_close_param);
 	printf("TFTP close returns: %d\n", tftp_close_param->Status);
 	lfree(tftp_close_param);
 
-	t_PXENV_UDP_OPEN *pxe_open_param = lzalloc(sizeof(t_PXENV_UDP_OPEN));
+	t_PXENV_UDP_OPEN *pxe_open_param = (t_PXENV_UDP_OPEN *)lzalloc(sizeof(t_PXENV_UDP_OPEN));
 	assert(pxe_open_param);
 	pxe_open_param->src_ip = myip.s_addr;
 	pxeapi_call(PXENV_UDP_OPEN, (uint8_t *)pxe_open_param);
@@ -2061,7 +2064,7 @@ void udp_broadcast_state(const void *buf, const size_t len)
 {
 	assert(len >= sizeof(struct state_bcast));
 
-	t_PXENV_UDP_WRITE *pxe_write_param = lmalloc(sizeof(t_PXENV_UDP_WRITE) + len);
+	t_PXENV_UDP_WRITE *pxe_write_param = (t_PXENV_UDP_WRITE *)lmalloc(sizeof(t_PXENV_UDP_WRITE) + len);
 	assert(pxe_write_param);
 	char *buf_reloc = (char *)pxe_write_param + sizeof(*pxe_write_param);
 
@@ -2082,7 +2085,7 @@ int udp_read_state(void *buf, const size_t len)
 {
 	int ret = 0;
 
-	t_PXENV_UDP_READ *pxe_read_param = lmalloc(sizeof(t_PXENV_UDP_READ) + len);
+	t_PXENV_UDP_READ *pxe_read_param = (t_PXENV_UDP_READ *)lmalloc(sizeof(t_PXENV_UDP_READ) + len);
 	assert(pxe_read_param);
 	char *buf_reloc = (char *)pxe_read_param + sizeof(*pxe_read_param);
 
@@ -2130,7 +2133,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	uint32_t last_cmd = ~0;
 	size_t len;
 	char buf[UDP_MAXLEN];
-	struct state_bcast *rsp = (void *)buf;
+	struct state_bcast *rsp = (struct state_bcast *)buf;
 
 	udp_open();
 
@@ -2284,8 +2287,8 @@ void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
 		val = rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
 	} while (val);
 
-	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
-	uint64_t *mtrr_var_mask = (void *)REL64(new_mtrr_var_mask);
+	uint64_t *mtrr_var_base = REL64(new_mtrr_var_base);
+	uint64_t *mtrr_var_mask = REL64(new_mtrr_var_mask);
 
 	mtrr_var_base[i] = base | type;
 	wrmsr(MSR_MTRR_PHYS_BASE0 + i * 2, mtrr_var_base[i]);
@@ -2296,18 +2299,18 @@ void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
 static void update_mtrr(void)
 {
 	/* Ensure Tom2ForceMemTypeWB (bit 22) is set, so memory between 4G and TOM2 is writeback */
-	uint64_t *syscfg_msr = (void *)REL64(new_syscfg_msr);
+	uint64_t *syscfg_msr = REL64(new_syscfg_msr);
 	*syscfg_msr = rdmsr(MSR_SYSCFG) | (1 << 22);
 	wrmsr(MSR_SYSCFG, *syscfg_msr);
 
 	/* Ensure default memory type is uncacheable */
-	uint64_t *mtrr_default = (void *)REL64(new_mtrr_default);
+	uint64_t *mtrr_default = REL64(new_mtrr_default);
 	*mtrr_default = 3 << 10;
 	wrmsr(MSR_MTRR_DEFAULT, *mtrr_default);
 
 	/* Store fixed MTRRs */
-	uint64_t *new_mtrr_fixed = (void *)REL64(new_mtrr_fixed);
-	uint32_t *fixed_mtrr_regs = (void *)REL64(fixed_mtrr_regs);
+	uint64_t *new_mtrr_fixed = REL64(new_mtrr_fixed);
+	uint32_t *fixed_mtrr_regs = REL32(fixed_mtrr_regs);
 
 	printf("Fixed MTRRs:\n");
 	for (int i = 0; fixed_mtrr_regs[i] != 0xffffffff; i++) {
@@ -2316,8 +2319,8 @@ static void update_mtrr(void)
 	}
 
 	/* Store variable MTRRs */
-	uint64_t *mtrr_var_base = (void *)REL64(new_mtrr_var_base);
-	uint64_t *mtrr_var_mask = (void *)REL64(new_mtrr_var_mask);
+	uint64_t *mtrr_var_base = REL64(new_mtrr_var_base);
+	uint64_t *mtrr_var_mask = REL64(new_mtrr_var_mask);
 	printf("Variable MTRRs:\n");
 
 	for (int i = 0; i < 8; i++) {
@@ -2869,7 +2872,7 @@ static void start_user_os(void)
 	/* Restore 32-bit only access */
 	set_wrap32_enable();
 
-	char *param = lmalloc(sizeof next_label + 1);
+	char *param = (char *)lmalloc(sizeof next_label + 1);
 	assert(param);
 	strcpy(param, next_label);
 	rm.eax.w[0] = 0x0003;
@@ -2976,7 +2979,7 @@ static void constants(void)
 
 static void selftest_late_memmap(void)
 {
-	struct e820entry *e820 = (void *)REL32(new_e820_map);
+	struct e820entry *e820 = (struct e820entry *)REL32(new_e820_map);
 	uint16_t *len = REL16(new_e820_len);
 
 	for (int i = 0; i < *len; i++) {
@@ -3014,7 +3017,7 @@ static int nc_start(void)
 	int i;
 
 	/* Set local info for early error reporting */
-	local_info = malloc(sizeof *local_info);
+	local_info = (node_info *)malloc(sizeof *local_info);
 	assert(local_info);
 	memset(local_info, 0xff, sizeof *local_info);
 

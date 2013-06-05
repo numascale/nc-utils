@@ -172,7 +172,7 @@ static void aml_return(aml **block, uint64_t val)
 
 static ptrlen_t aml_cba(const uint64_t addr)
 {
-	aml *block_start = malloc(BLOCK_MAX);
+	aml *block_start = (aml *)malloc(BLOCK_MAX);
 	assert(block_start);
 	aml *block = block_start;
 	aml_return(&block, addr);
@@ -225,7 +225,7 @@ static void aml_method(aml **outer, const char *name, ptrlen_t block)
 
 static ptrlen_t aml_pci(uint16_t node)
 {
-	aml *block_start = malloc(BLOCK_MAX);
+	aml *block_start = (aml *)malloc(BLOCK_MAX);
 	assert(block_start);
 	aml *block = block_start;
 	/* Name (_HID, EisaId("PNP0A08")) */
@@ -280,7 +280,7 @@ static void aml_device(aml **outer, ptrlen_t block, const char *format, ...)
 
 static ptrlen_t aml_systembus(void)
 {
-	aml *block_start = malloc(BLOCK_MAX);
+	aml *block_start = (aml *)malloc(BLOCK_MAX);
 	assert(block_start);
 	aml *block = block_start;
 
@@ -292,7 +292,7 @@ static ptrlen_t aml_systembus(void)
 
 static ptrlen_t aml_scope(const char *name, ptrlen_t block)
 {
-	aml *outer_start = malloc(BLOCK_MAX);
+	aml *outer_start = (aml *)malloc(BLOCK_MAX);
 	assert(outer_start);
 	aml *outer = outer_start;
 	aml *inner = PTR(block);

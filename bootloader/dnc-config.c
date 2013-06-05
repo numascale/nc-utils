@@ -154,7 +154,7 @@ static int parse_json(json_t *root)
 	for (cfg_nodes = 0, obj = list->child->child; obj; obj = obj->next)
 		cfg_nodes++;
 
-	cfg_nodelist = malloc(cfg_nodes * sizeof(*cfg_nodelist));
+	cfg_nodelist = (node_info *)malloc(cfg_nodes * sizeof(*cfg_nodelist));
 	assert(cfg_nodelist);
 
 	for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
@@ -203,7 +203,7 @@ static int parse_json(json_t *root)
 	for (cfg_partitions = 0, obj = list->child->child; obj; obj = obj->next)
 		cfg_partitions++;
 
-	cfg_partlist = malloc(cfg_partitions * sizeof(*cfg_partlist));
+	cfg_partlist = (part_info *)malloc(cfg_partitions * sizeof(*cfg_partlist));
 	assert(cfg_partlist);
 
 	for (i = 0, obj = list->child->child; obj; obj = obj->next, i++) {
@@ -282,7 +282,7 @@ void make_singleton_config(void)
 	cfg_fabric.y_size = 0;
 	cfg_fabric.z_size = 0;
 	cfg_nodes = 1;
-	cfg_nodelist = malloc(sizeof(*cfg_nodelist));
+	cfg_nodelist = (node_info *)malloc(sizeof(*cfg_nodelist));
 	assert(cfg_nodelist);
 	cfg_nodelist[0].uuid = local_info->uuid;
 	cfg_nodelist[0].sciid = 0;
@@ -291,7 +291,7 @@ void make_singleton_config(void)
 	memcpy(cfg_nodelist[0].desc, "self", 5);
 	cfg_nodelist[0].sync_only = 1;
 	cfg_partitions = 1;
-	cfg_partlist = malloc(sizeof(*cfg_partlist));
+	cfg_partlist = (part_info *)malloc(sizeof(*cfg_partlist));
 	assert(cfg_partlist);
 	cfg_partlist[0].master = 0;
 	cfg_partlist[0].builder = 0;
@@ -319,7 +319,7 @@ struct part_info *get_partition_config(int idx) {
 		return NULL;
 }
 
-char *get_master_name(uint32_t sciid)
+const char *get_master_name(uint32_t sciid)
 {
 	int i;
 

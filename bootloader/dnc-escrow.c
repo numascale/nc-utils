@@ -24,7 +24,7 @@
 
 int escrow_populate(void *data)
 {
-	union escrow_ent *start = data;
+	union escrow_ent *start = (escrow_ent *)data;
 	union escrow_ent *cur = start;
 
 	cur->global.numachip_rev = dnc_chip_rev;

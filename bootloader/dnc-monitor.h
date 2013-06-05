@@ -21,7 +21,7 @@
 struct perf_ev {
 	int event;
 	int unitmask;
-	char *name;
+	const char *name;
 };
 
 void lc3_activity(void);

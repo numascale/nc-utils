@@ -35,7 +35,7 @@ static bool bios_shadowed = 0;
 static void shadow_bios(void)
 {
 	printf("Shadowing BIOS...");
-	int *area = malloc(SHADOW_LEN);
+	int *area = (int *)malloc(SHADOW_LEN);
 	assert(area);
 	memcpy(area, (void *)SHADOW_BASE, SHADOW_LEN);
 	uint64_t val = rdmsr(MSR_SYSCFG);
@@ -51,31 +51,31 @@ static void shadow_bios(void)
 	bios_shadowed = 1;
 }
 
-uint8_t checksum(void *addr, int len)
+uint8_t checksum(acpi_sdt_p addr, int len)
 {
 	uint8_t sum = 0;
 	int i;
 
 	for (i = 0; i < len; i++)
-		sum += *(uint8_t *)(addr + i);
+		sum += *((uint8_t *)addr + i);
 
 	return sum;
 }
 
-static int checksum_ok(void *addr, int len)
+static bool checksum_ok(acpi_sdt_p addr, int len)
 {
 	return checksum(addr, len) == 0;
 }
 
-static void *find_rsdp(void *start, int len)
+static acpi_rsdp *find_rsdp(const char *start, int len)
 {
-	void *ret = NULL;
+	acpi_rsdp *ret = NULL;
 	int i;
 
 	for (i = 0; i < len; i += 16) {
 		if (*(uint32_t *)(start + i) == STR_DW_H("RSD ") &&
 		    *(uint32_t *)(start + i + 4) == STR_DW_H("PTR ")) {
-			ret = start + i;
+			ret = (acpi_rsdp *)(start + i);
 			break;
 		}
 	}
@@ -83,13 +83,13 @@ static void *find_rsdp(void *start, int len)
 	return ret;
 }
 
-static int rdsp_exists(void)
+static bool rdsp_exists(void)
 {
-	void *ebda = (void *)(*((unsigned short *)0x40e) * 16);
+	const char *ebda = (char *)(*((unsigned short *)0x40e) * 16);
 	rptr = find_rsdp(ebda, 1024);
 
 	if (!rptr)
-		rptr = find_rsdp((void *)0x0e0000, 128 * 1024);
+		rptr = find_rsdp((char *)0x0e0000, 128 * 1024);
 
 	if (!rptr)
 		return 0;
@@ -131,7 +131,7 @@ acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
 /* Return the number of bytes after an ACPI table before the next */
 static uint32_t slack(acpi_sdt_p parent)
 {
-	acpi_sdt_p next_table = (void *)0xffffffff;
+	acpi_sdt_p next_table = (acpi_sdt_p)0xffffffff;
 	acpi_sdt_p rsdt = (acpi_sdt_p)rptr->rsdt_addr;
 	uint32_t *rsdt_entries = (uint32_t *) & (rsdt->data);
 	uint64_t xsdtp;
@@ -234,7 +234,7 @@ struct acpi_cache_ent {
 };
 
 #define ACPI_CACHE_MAX 32
-static struct acpi_cache_ent acpi_cache[ACPI_CACHE_MAX] = {{0,}};
+static struct acpi_cache_ent acpi_cache[ACPI_CACHE_MAX] = {{0, 0}};
 
 static void acpi_add(const acpi_sdt_p table, uint32_t limit)
 {
@@ -424,7 +424,7 @@ acpi_sdt_p find_root(const char *sig)
 	if (!rdsp_exists())
 		return NULL;
 
-	if (!checksum_ok(rptr, 20)) {
+	if (!checksum_ok((acpi_sdt_p)rptr, 20)) {
 		printf("Error: Bad RSDP checksum\n");
 		return NULL;
 	}
@@ -433,7 +433,7 @@ acpi_sdt_p find_root(const char *sig)
 		return (acpi_sdt_p)rptr->rsdt_addr;
 
 	if (STR_DW_H(sig) == STR_DW_H("XSDT")) {
-		if ((rptr->len >= 33) && checksum_ok(rptr, rptr->len)) {
+		if ((rptr->len >= 33) && checksum_ok((acpi_sdt_p)rptr, rptr->len)) {
 			uint64_t xsdtp;
 			acpi_sdt_p xsdt;
 			xsdtp = rptr->xsdt_addr;
@@ -460,25 +460,25 @@ bool replace_root(const char *sig, acpi_sdt_p replacement)
 	if (!rdsp_exists())
 		return 0;
 
-	if (!checksum_ok(rptr, 20)) {
+	if (!checksum_ok((acpi_sdt_p)rptr, 20)) {
 		printf("Error: Bad RSDP checksum\n");
 		return 0;
 	}
 
 	if (STR_DW_H(sig) == STR_DW_H("RSDT")) {
 		rptr->rsdt_addr = (uint32_t)replacement;
-		rptr->checksum -= checksum(rptr, 20);
+		rptr->checksum -= checksum((acpi_sdt_p)rptr, 20);
 
 		if (rptr->len > 20)
-			rptr->echecksum -= checksum(rptr, rptr->len);
+			rptr->echecksum -= checksum((acpi_sdt_p)rptr, rptr->len);
 
 		return 1;
 	}
 
 	if (STR_DW_H(sig) == STR_DW_H("XSDT")) {
-		if ((rptr->len >= 33) && checksum_ok(rptr, rptr->len)) {
+		if ((rptr->len >= 33) && checksum_ok((acpi_sdt_p)rptr, rptr->len)) {
 			rptr->xsdt_addr = (uint32_t)replacement;
-			rptr->echecksum -= checksum(rptr, rptr->len);
+			rptr->echecksum -= checksum((acpi_sdt_p)rptr, rptr->len);
 			return 1;
 		}
 	}
@@ -486,7 +486,7 @@ bool replace_root(const char *sig, acpi_sdt_p replacement)
 	return 0;
 }
 
-acpi_sdt_p find_sdt(char *sig)
+acpi_sdt_p find_sdt(const char *sig)
 {
 	acpi_sdt_p root;
 	acpi_sdt_p res = NULL;
@@ -610,7 +610,7 @@ void debug_acpi(void)
 
 	printf("ACPI settings:\n");
 
-	if (!checksum_ok(rptr, 20)) {
+	if (!checksum_ok((acpi_sdt_p)rptr, 20)) {
 		printf("Error: Bad RSDP checksum\n");
 		return;
 	}
@@ -691,7 +691,7 @@ void debug_acpi(void)
 #endif
 	}
 
-	if ((rptr->len >= 33) && checksum_ok(rptr, rptr->len)) {
+	if ((rptr->len >= 33) && checksum_ok((acpi_sdt_p)rptr, rptr->len)) {
 		if ((rptr->xsdt_addr != 0ULL) && (rptr->xsdt_addr != ~0ULL)) {
 			acpi_sdt_p xsdt;
 			memcpy(&xsdt, &rptr->xsdt_addr, sizeof(xsdt));
@@ -711,7 +711,7 @@ void debug_acpi(void)
 			       xsdt->revision,
 			       xsdt->len,
 			       sizeof(*xsdt));
-			uint64_t *xsdt_entries = (void *) & (xsdt->data);
+			uint64_t *xsdt_entries = (uint64_t *) &(xsdt->data);
 			int i;
 
 			for (i = 0; i * 8 + sizeof(*xsdt) < xsdt->len; i++) {
@@ -771,7 +771,7 @@ void debug_acpi(void)
 
 acpi_sdt_p acpi_build_oemn(void)
 {
-	acpi_sdt_p oemn = malloc(TABLE_MAX);
+	acpi_sdt_p oemn = (acpi_sdt_p)malloc(TABLE_MAX);
 	assert(oemn);
 
 	memset(oemn, 0, sizeof(*oemn) + 8);

@@ -123,8 +123,8 @@ struct acpi_mcfg_allocation {
 typedef struct acpi_sdt *acpi_sdt_p;
 
 void debug_acpi(void);
-uint8_t checksum(void *addr, int len);
-acpi_sdt_p find_sdt(char *sig);
+uint8_t checksum(acpi_sdt_p addr, int len);
+acpi_sdt_p find_sdt(const char *sig);
 acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed);
 acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent, int ptrsize);
 bool replace_child(const char *sig, acpi_sdt_p replacement, acpi_sdt_p parent, unsigned int ptrsize);

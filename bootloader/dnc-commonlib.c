@@ -35,9 +35,9 @@ IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
 IMPORT_RELOCATED(msr_readback);
 
-char *config_file_name = "nc-config/fabric.json";
-char *next_label = "menu.c32";
-char *microcode_path = "";
+const char *config_file_name = "nc-config/fabric.json";
+const char *next_label = "menu.c32";
+const char *microcode_path = "";
 static bool init_only = 0;
 static bool route_only = 0;
 static int enable_nbmce = -1;
@@ -657,14 +657,14 @@ void critical_leave(void)
 }
 
 #ifdef __i386
-static void print_phy_gangs(int neigh, int link, char *name, int base)
+static void print_phy_gangs(int neigh, int link, const char *name, int base)
 {
 	printf("%s:\n", name);
 	printf("- CAD[ 7:0],CTL0,CLK0=0x%08x\n", get_phy_register(neigh, link, base, 0));
 	printf("- CAD[15:8],CTL1,CLK1=0x%08x\n", get_phy_register(neigh, link, base + 0x10, 0));
 }
 
-static void print_phy_lanes(int neigh, int link, char *name, int base, int clk)
+static void print_phy_lanes(int neigh, int link, const char *name, int base, int clk)
 {
 	int i;
 	printf("%s:\n", name);
@@ -1077,7 +1077,7 @@ void wake_core_local(const int apicid, const int vector)
 	assert(apicid < 0xff);
 
 	uint64_t val = rdmsr(MSR_APIC_BAR);
-	volatile uint32_t *const apic = (void * const)((uint32_t)val & ~0xfff);
+	volatile uint32_t *const apic = (volatile uint32_t *const)((uint32_t)val & ~0xfff);
 	volatile uint32_t *const icr = &apic[0x300 / 4];
 
 	/* Deliver initialize IPI */
