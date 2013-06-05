@@ -25,428 +25,204 @@
 #include "dnc-bootloader.h"
 #include "dnc-mmio.h"
 
-/* Should be 8+12, but it hangs */
-#define MMIO_RANGES (family < 0x15 ? (8 + 2) : 12)
+#define GRAN (1 << 20)
 
-#define _base(range)  ((range < 8 ? 0x080 : (0x1a0 - 0x40)) + range * 8)
-#define _limit(range) ((range < 8 ? 0x084 : (0x1a4 - 0x40)) + range * 8)
-#define _high(range)  ((range < 8 ? 0x180 : (0x1c0 - 0x20)) + range * 4)
+static uint64_t mmio_cur, mmio_lim;
+static uint64_t range_base[2], range_lim[2];
 
-static uint64_t mmio_small_top = 0;
-static uint64_t mmio_large_top = 0;
-
-static void mmio_range_read_fam10(uint16_t sci, int range, uint64_t *base, uint64_t *limit, int *flags)
+static bool size_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg, uint64_t *addr, uint64_t *len, bool *pref)
 {
-	uint32_t mask;
-	uint32_t val = (dnc_read_conf(sci, 0, 24, FUNC0_HT, 0x168) >> 8) & 3;
-	uint32_t shift = 19 + val * 4;
-	dnc_write_conf(sci, 0, 24, FUNC1_MAPS, 0x110, (3 << 28) | (range - 8));
-	mask = (dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x114) >> 8) & 0x1fffff;
-	*limit = 0; /* FIXME */
-	dnc_write_conf(sci, 0, 24, FUNC1_MAPS, 0x110, (2 << 28) | (range - 8));
-	val = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x114);
-	*base = (uint64_t)val << shift;
-	*flags = 0; /* FIXME */
+	uint32_t save = dnc_read_conf(sci, bus, dev, fn, reg);
+	bool mmio = (save & 1) == 0;
+	uint32_t mask = mmio ? 15 : 3;
+	bool s64 = ((save >> 1) & 3) == 3;
+	*pref = (save >> 3) & 1;
 
-	if (verbose)
-		printf("SCI%03x: MMIO range %d base=0x%012llx mask=0x%08x\n", sci, range, *base, mask);
-}
-
-static void mmio_range_read(uint16_t sci, int range, uint64_t *base, uint64_t *limit, int *flags)
-{
-	assert(range < MMIO_RANGES);
-
-	if (family < 0x15 && range > 7) {
-		mmio_range_read_fam10(sci, range, base, limit, flags);
-		return;
+	dnc_write_conf(sci, bus, dev, fn, reg, 0xffffffff);
+	uint32_t val = dnc_read_conf(sci, bus, dev, fn, reg);
+	/* Skip unimplemented BARs */
+	if (val == 0x00000000 || val == 0xffffffff) {
+		*len = 0;
+		*addr = 0;
+		goto out;
 	}
 
-	uint32_t base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _base(range));
-	uint32_t limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _limit(range));
-	*base = ((uint64_t)base_low & (~0xff)) << (16 - 8);
-	*limit = (((uint64_t)limit_low & (~0xff)) << (16 - 8)) | 0xffff;
-	*flags = (base_low & 0xff) | ((limit_low & 0xff) << 8); /* Lock, WE, RE etc flags */
-
-	if (family >= 0x15) {
-		uint32_t high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, _high(range));
-		*base |= ((uint64_t)high & 0xff0000) << (40 - 16);
-		*limit |= ((uint64_t)high & 0xff) << 40;
-	}
-
-	if (verbose)
-		printf("SCI%03x: MMIO range %d @ 0x%012llx-0x%012llx, flags 0x%x\n",
-		       sci, range, *base, *limit, *flags);
-}
-
-void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, int ht, int link, int sublink)
-{
-	assert(range < MMIO_RANGES);
-
-	if (verbose)
-		printf("SCI%03x: adding MMIO range %d @ 0x%012llx-0x%012llx -> HT %d:%d.%d\n",
-		       sci, range, base << DRAM_MAP_SHIFT, limit << DRAM_MAP_SHIFT, ht, link, sublink);
-
-	uint32_t base_low = (((base << DRAM_MAP_SHIFT) & 0xffffff0000ULL) >> 8);
-
-	/* Use limit to indicate if range is enabled, ie set read, write bits */
-	if (limit)
-		base_low |= 3;
-
-	uint32_t limit_low = ((((limit << DRAM_MAP_SHIFT) - 1) & 0xffffff0000ULL) >> 8) |
-	                     ht | (link << 4) | (sublink << 6);
-
-	if (family >= 0x15) {
-		uint32_t high = (((base << DRAM_MAP_SHIFT) & 0xff0000000000ULL) >> 40) |
-		                ((((limit << DRAM_MAP_SHIFT) - 1) & 0xff0000000000ULL) >> (40 - 16));
-		dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _high(range), high);
-	}
-
-	dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _limit(range), limit_low);
-	dnc_write_conf(sci, 0, 24, FUNC1_MAPS, _base(range), base_low);
-}
-
-void mmio_show(uint16_t sci)
-{
-	int i;
-
-	for (i = 0; i < MMIO_RANGES; i++) {
-		uint64_t base, limit;
-		int flags;
-		mmio_range_read(sci, i, &base, &limit, &flags);
-	}
-}
-
-void dram_show(uint16_t sci)
-{
-	int i;
-	printf("SCI%03x: F1xF0=%08x F2x110=%08x F2x114=%08x F2x118=%08x F2x11C=%08x\n", sci,
-	       dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xf0),
-	       dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x110),
-	       dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x114),
-	       dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x118),
-	       dnc_read_conf(sci, 0, 24, FUNC2_DRAM, 0x11c)
-	      );
-
-	for (i = 0; i < 8; i++) {
-		uint32_t base_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x40 + i * 8);
-		uint32_t limit_low = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x44 + i * 8);
-		uint32_t base_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x140 + i * 8);
-		uint32_t limit_high = dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0x144 + i * 8);
-		uint64_t base = (((uint64_t)base_low & 0xffff0000) << 8) | (((uint64_t)base_high & 0xff) << 40);
-		uint64_t limit = (((uint64_t)limit_low & 0xffff0000) << 8) | (((uint64_t)limit_high & 0xff) << 40) | 0xffffff;
-		printf("SCI%03x: DRAM range=%d base=0x%012llxlimit=0x%012llx r=%d w=%d node=%d intl=%d\n", sci, i, base, limit,
-		       base_low & 1, !!(base_low & 2), limit_low & 3, (limit_low >> 8) & 7);
-	}
-}
-
-void io_show(uint16_t sci)
-{
-	int i;
-
-	for (i = 0; i < 4; i++)
-		printf("SCI%03x: I/O maps base=0x%08x limit=%08x\n", sci,
-		       dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xc0 + i * 8),
-		       dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xc4 + i * 8));
-
-	for (i = 0; i < 4; i++)
-		printf("SCI%03x: config maps base=0x%08x\n", sci,
-		       dnc_read_conf(sci, 0, 24, FUNC1_MAPS, 0xe0 + i * 4));
-}
-
-static int mmio_range_add(uint16_t sci, uint64_t base_new, uint64_t limit_new, int ht, int link, int sublink)
-{
-	int i;
-
-	for (i = 0; i < MMIO_RANGES; i++) {
-		uint64_t base, limit;
-		int flags;
-		mmio_range_read(sci, i, &base, &limit, &flags);
-
-		if (base || limit) /* Skip non-free entries */
-			continue;
-
-		mmio_range_write(sci, i, base_new, limit_new, ht, link, sublink);
-		break;
-	}
-
-	if (i == MMIO_RANGES)
-		return 0;
-
-	return 1;
-}
-
-/* Add a bridge entry if not present, returning 1 if unique */
-static int bridge_add_unique(int *bridges, int flags)
-{
-	int i;
-	/* Leave only HT, link, sublink bits */
-	flags &= (7 << 8) | (3 << 12) | (1 << 14);
-
-	for (i = 0; i < MAX_BRIDGES; i++) {
-		if (bridges[i] == flags)
-			return 0; /* Not new */
-
-		if (bridges[i] == 0) {
-			bridges[i] = flags;
-
-			if ((i + 1) < MAX_BRIDGES)
-				bridges[i + 1] = 0;
-
-			return 1; /* New */
-		}
-	}
-
-	/* Safely ignore additional bridges */
-	return 0;
-}
-
-/* Calculate contiguous MMIO regions */
-void tally_remote_node_mmio(uint16_t node)
-{
-	int bridges[MAX_BRIDGES] = {0, };
-	int i, flags;
-	uint16_t sci = nc_node[node].sci_id;
-	uint64_t base, limit, local_base;
-
-	/* First node has MMIO setup below 4GB already */
-	if (node == 0)
-		return;
-
-	local_base = dnc_top_of_mem;
-	nc_node[node].mmio_base = dnc_top_of_mem;
-	nc_node[node].mmio_end = nc_node[node].mmio_base;
-
-	/* Check number of configured I/O bridges */
-	for (i = 0; i < MMIO_RANGES; i++) {
-		mmio_range_read(sci, i, &base, &limit, &flags);
-
-		if (!base && !limit) /* Skip empty entries */
-			continue;
-
-		if (verbose)
-			printf("Node %d: existing MMIO range %d from 0x%012llx-0x%012llx %s %s %s %s HT=%d link=%d sublink=%d flags=0x%08x\n",
-			       node, i, base << DRAM_MAP_SHIFT, limit << DRAM_MAP_SHIFT,
-			       (flags & 1) ? "R" : "", (flags & 2) ? "W" : "", (flags & 8) ? "L" : "",
-			       (flags & 0x8000) ? "NP" : "P", (flags >> 8) & 7, (flags >> 12) & 3, (flags >> 14) & 1, flags);
-
-		/* Check if bridge wasn't previously seen */
-		bridge_add_unique(bridges, flags);
-	}
-
-	/* Setup each found bridge */
-	for (i = 0; bridges[i]; i++) {
-		int ht = (bridges[i] >> 8) & 7;
-		int link = (bridges[i] >> 12) & 3;
-		int sublink = (bridges[i] >> 14) & 1;
-
-		/* Renumbering swaps proc @ HT0 with maxnode */
-		if (renumber_bsp && ht == 0)
-			ht = nc_node[node].nc_ht_id;
-
-		nc_node[node].mmio_end += SCC_ATT_GRAN;
-		/* Add local bridge high MMIO entry */
-		mmio_range_add(sci, local_base, nc_node[node].mmio_end, ht, link, sublink);
-		local_base += SCC_ATT_GRAN;
-	}
-
-	if (nc_node[node].mmio_end == nc_node[node].mmio_base) {
-		printf("No bridges detected on node %d\n", node);
-		return;
-	}
-
-	dnc_top_of_mem = nc_node[node].mmio_end;
-}
-
-/* Leave existing entries pointing to the root server, adding remote I/O regions */
-bool setup_remote_node_mmio(uint16_t node)
-{
-	bool ret = 1;
-	int ht = nc_node[node].nc_ht_id;
-	uint16_t sci = nc_node[node].sci_id;
-	uint32_t top;
-
-	/* Renumbering swaps proc @ HT0 with maxnode */
-	if (renumber_bsp)
-		ht = 0;
-
-	/* Remote MMIO below this server's local MMIO */
-	if (nc_node[node].mmio_base > dnc_top_of_dram)
-		ret &= mmio_range_add(sci, dnc_top_of_dram, nc_node[node].mmio_base, ht, local_node.nc_neigh_link, 0);
-
-	/* For root node, use top of DRAM */
-	if (nc_node[node].mmio_end)
-		top = nc_node[node].mmio_end;
-	else
-		top = dnc_top_of_dram;
-
-	/* Remote MMIO above this server's local MMIO */
-	if (top < dnc_top_of_mem)
-		ret &= mmio_range_add(sci, top, dnc_top_of_mem, ht, local_node.nc_neigh_link, 0);
-
-	return ret;
-}
-
-static uint64_t bar_size(uint16_t sci, int bus, int dev, int fun, int bar, bool mmio, bool s64)
-{
-	uint32_t save = dnc_read_conf(sci, bus, dev, fun, 0x10 + bar * 4);
-	dnc_write_conf(sci, bus, dev, fun, 0x10 + bar * 4, 0xffffffff);
-	uint64_t len = dnc_read_conf(sci, bus, dev, fun, 0x10 + bar * 4);
-
-	/* Clear bottom bits */
-	if (mmio)
-		len &= ~15;
-	else
-		len &= ~3;
+	*len = val & ~mask;
+	*addr = save & ~mask;
 
 	if (s64) {
-		uint32_t save2 = dnc_read_conf(sci, bus, dev, fun, 0x10 + (bar + 1) * 4);
-		dnc_write_conf(sci, bus, dev, fun, 0x10 + (bar + 1) * 4, 0xffffffff);
-		len |= (uint64_t)dnc_read_conf(sci, bus, dev, fun, 0x10 + (bar + 1) * 4) << 32;
-		dnc_write_conf(sci, bus, dev, fun, 0x10 + (bar + 1) * 4, save2);
+		uint32_t save2 = dnc_read_conf(sci, bus, dev, fn, reg + 4);
+		*addr |= (uint64_t)save2 << 32;
+		dnc_write_conf(sci, bus, dev, fn, reg + 4, 0xffffffff);
+		*len |= (uint64_t)dnc_read_conf(sci, bus, dev, fn, reg + 4) << 32;
+		dnc_write_conf(sci, bus, dev, fn, reg + 4, save2);
 	}
 
-	dnc_write_conf(sci, bus, dev, fun, 0x10 + bar * 4, save);
-	return len & ~(len - 1);
+	*len &= ~(*len - 1);
+	if (*len)
+		printf(" len=%lld@0x%08llx", *len, *addr);
+
+	/* Ignore low I/O windows for now */
+	if (!mmio)
+		*len = 0;
+
+out:
+	dnc_write_conf(sci, bus, dev, fn, reg, save);
+	/* Return is there could be a second BAR */
+	return !s64;
 }
 
-static void disable_bars(uint16_t sci, int bus, int dev, int fun, int count)
+static void assign_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg, uint64_t addr)
 {
-	uint32_t val, val2;
-	uint64_t addr, len;
-	int bar;
-	bool mmio, s64;
-	/* Disable decoding for sizing */
-	uint32_t en = dnc_read_conf(sci, bus, dev, fun, 0x4);
-	dnc_write_conf(sci, bus, dev, fun, 0x4, en & ~3);
+	uint32_t val = dnc_read_conf(sci, bus, dev, fn, reg);
+	bool s64 = ((val >> 1) & 3) == 3;
 
-	for (bar = 0; bar < count; bar++) {
-		val = dnc_read_conf(sci, bus, dev, fun, 0x10 + bar * 4);
+	dnc_write_conf(sci, bus, dev, fn, reg, addr & 0xffffffff);
+	if (s64)
+		dnc_write_conf(sci, bus, dev, fn, reg + 4, addr >> 32);
+	else
+		assert(addr < 0xffffffff);
+	printf(":0x%llx", addr);
+}
 
-		if (!val)
-			continue;
+static bool scope_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg)
+{
+	uint64_t len, addr;
+	bool pref, more = size_bar(sci, bus, dev, fn, reg, &addr, &len, &pref);
 
-		if (val & 1) {
-			/* Bit 0 set, indicating 32-bit I/O space */
-			addr = val & ~3;
-			mmio = 0;
-			s64 = 0;
-		} else {
-			/* Bit 1 set, indicating MMIO space */
-			if (val & 4) {
-				/* Bit 2 set, indicating 64-bit MMIO space */
-				val2 = dnc_read_conf(sci, bus, dev, fun, 0x10 + (bar + 1) * 4);
-				addr = (val & ~15) | ((uint64_t)val2 << 32);
-				mmio = 1;
-				s64 = 1;
-			} else {
-				/* Bit 2 clear, indicating 32-bit MMIO space */
-				addr = val & ~15;
-				mmio = 1;
-				s64 = 0;
+	if (len) {
+		if (addr < range_base[pref])
+			range_base[pref] = addr;
+
+		if ((addr + len) > range_lim[pref])
+			range_lim[pref] = addr + len;
+	}
+
+	return more;
+}
+
+static bool setup_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg)
+{
+	uint64_t len, addr;
+	bool pref, more = size_bar(sci, bus, dev, fn, reg, &addr, &len, &pref);
+
+	if (len) {
+		/* BARs are aligned to their size, or page */
+		mmio_cur = roundup(mmio_cur, max(len, 4096));
+		assign_bar(sci, bus, dev, fn, reg, mmio_cur);
+		mmio_cur += len;
+	}
+
+	return more;
+}
+
+static void pci_search(const uint16_t sci, const int bus, const bool scope,
+	bool (*barfn)(const uint16_t sci, const int bus, const int dev, const int fn, const int reg))
+{
+	for (int dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
+		for (int fn = 0; fn < 8; fn++) {
+			uint32_t val = dnc_read_conf(sci, bus, dev, fn, 0xc);
+			/* PCI device functions are not necessarily contiguous */
+			if (val == 0xffffffff)
+				continue;
+
+			uint8_t type = val >> 16;
+			printf("%s @ %02x:%02x.%x:", (type & 0x7f) == 0 ? " - endpoint" : "bridge", bus, dev, fn);
+
+			if (barfn(sci, bus, dev, fn, 0x10))
+				barfn(sci, bus, dev, fn, 0x14);
+
+			if ((type & 0x7f) == 0) { /* Device */
+				if (barfn(sci, bus, dev, fn, 0x18))
+					barfn(sci, bus, dev, fn, 0x1c);
+				if (barfn(sci, bus, dev, fn, 0x20))
+					barfn(sci, bus, dev, fn, 0x24);
 			}
+
+			printf("\n");
+
+			/* Recurse down bridges */
+			if ((type & 0x7f) == 0x01) {
+				int sec = (dnc_read_conf(sci, bus, dev, fn, 0x18) >> 8) & 0xff;
+
+				if (scope) {
+					/* Adjusted down later */
+					for (int i = 0; i < 2; i++) {
+						range_base[i] = 0xffffffff;
+						range_lim[i] = 0;
+					}
+
+					pci_search(sci, sec, scope, barfn);
+
+					for (int i = 0; i < 2; i++) {
+						/* Round up limit */
+						if (range_lim[i])
+							range_lim[i] = roundup(range_lim[i], GRAN) - 1;
+
+						val = (range_lim[i] & ~0xfffff) | ((range_base[i] >> 16) & ~0xf);
+						printf("bridge range %08llx to %08llx (before %08x, ", range_base[i], range_lim[i],
+							dnc_read_conf(sci, bus, dev, fn, 0x20 + i * 4));
+						dnc_write_conf(sci, bus, dev, fn, 0x20 + i * 4, val);
+						printf("after %08x)\n", dnc_read_conf(sci, bus, dev, fn, 0x20 + i * 4));
+					}
+
+					/* Clear prefetchable upper 32-bits */
+					dnc_write_conf(sci, bus, dev, fn, 0x28, 0);
+					dnc_write_conf(sci, bus, dev, fn, 0x2c, 0);
+				} else {
+					/* Bridge requires 1MB alignment */
+					mmio_cur = roundup(mmio_cur, GRAN);
+
+					assert(mmio_cur < 0xffffffff);
+					uint32_t bridge_start = mmio_cur & 0xffffffff;
+					pci_search(sci, sec, scope, barfn);
+					mmio_cur = roundup(mmio_cur, GRAN);
+					assert(mmio_cur < 0xffffffff);
+					uint32_t bridge_end = (mmio_cur - 1) & 0xffffffff;
+
+					val = ((roundup(bridge_end, GRAN) - 1) & ~0xfffff) | ((bridge_start >> 16) & ~0xf);
+					printf("bridge range %08x to %08x (before %08x)\n", bridge_start, bridge_end, dnc_read_conf(sci, bus, dev, fn, 0x20));
+					dnc_write_conf(sci, bus, dev, fn, 0x20, val);
+				}
+			}
+
+			/* If not multi-function, break out of function loop */
+			if (!fn && !(type & 0x80))
+				break;
+
 		}
-
-		len = bar_size(sci, bus, dev, fun, bar, mmio, s64);
-		printf(" - BAR%d: %s %s @ 0x%012llx len %s ",
-		       bar, s64 ? "64bit" : "32bit", mmio ? "MMIO" : "I/O", addr, pr_size(len));
-
-		if (mmio) {
-			if (len > MMIO_SMALL) {
-				if (addr > mmio_small_top)
-					mmio_small_top = addr;
-			} else if (addr > mmio_large_top)
-				mmio_large_top = addr;
-		}
-
-		printf("[mmio_small top %s, mmio_large top %s]\n", pr_size(mmio_small_top), pr_size(mmio_large_top));
-
-		if (sci > 0x000) {
-			/* Disable BAR */
-			if (s64)
-				dnc_write_conf(sci, bus, dev, fun, 0x10 + (bar + 1) * 4, 0);
-
-			dnc_write_conf(sci, bus, dev, fun, 0x10 + bar * 4, 0);
-		}
-
-		/* Skip second part if 64-bit */
-		if (s64)
-			bar++;
 	}
-
-	/* Re-enable decode */
-	dnc_write_conf(sci, bus, dev, fun, 0x4, en);
 }
 
-static void setup_bridge(uint16_t sci, int bus, int dev, int fun)
+/* rationale:
+(start = TOM)
+- for each server
+	- adjust start up to IO granularity
+	- for each pci bridge
+		- start = cur
+		- for each pci endpoint
+			- probe and assign bars
+			- add 64-bytes margin
+		- set bridge decode range
+	- map I/O forwarding on all numachips
+*/
+
+void setup_mmio_early(void)
 {
-	disable_bars(sci, bus, dev, fun, 2);
+	mmio_cur = tom;
+	mmio_lim = 0xffffffff;
 
-	if (sci > 0x000) {
-		dnc_write_conf(sci, bus, dev, fun, 0x1c, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x20, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x24, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x28, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x2c, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x30, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x38, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x3c, 0);
-	}
-}
-
-static void setup_device(uint16_t sci, int bus, int dev, int fun)
-{
-	disable_bars(sci, bus, dev, fun, 6);
-
-	if (sci > 0x000) {
-		dnc_write_conf(sci, bus, dev, fun, 0x4, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x30, 0);
-		dnc_write_conf(sci, bus, dev, fun, 0x3c, 0);
-	}
+	printf("\nScoping master PCI tree:\n");
+	pci_search(0xfff0, 0, 1, scope_bar);
 }
 
 void setup_mmio_late(void)
 {
-	critical_enter();
-
-	for (int node = 0; node < dnc_node_count; node++) {
-		for (int ht = 0; ht < 8; ht++) {
-			if (!nc_node[node].ht[ht].cpuid)
-				continue;
-
-			uint16_t sci = nc_node[node].sci_id;
-
-			for (int bus = 0; bus < 0x100; bus++) {
-				for (int dev = 0; dev < 0x20; dev++) {
-					for (int fun = 0; fun < 0x8; fun++) {
-						uint32_t type = dnc_read_conf(sci, bus, dev, fun, 0xc);
-
-						if (type == 0xffffffff) {
-							if (fun == 0)
-								break;
-							else
-								continue;
-						}
-
-						switch ((type >> 16) & 0x7f) {
-						case 0:
-							printf("device at SCI%03x %02x:%02x.%x\n", sci, bus, dev, fun);
-							setup_device(sci, bus, dev, fun);
-							break;
-						case 1:
-							printf("bridge at SCI%03x %02x:%02x.%x\n", sci, bus, dev, fun);
-							setup_bridge(sci, bus, dev, fun);
-							break;
-						}
-
-						/* If not multi-function, break out of function loop */
-						if (!fun && !(type & 0x800000))
-							break;
-					}
-				}
-			}
-		}
+	/* Start from first slave */
+	for (int i = 1; i < cfg_nodes; i++) {
+		printf("\nSetting up PCI routing on SCI%03x from 0x%llx\n", cfg_nodelist[i].sciid, mmio_cur);
+		pci_search(cfg_nodelist[i].sciid, 0, 0, setup_bar);
+		mmio_cur = roundup(mmio_cur, GRAN);
 	}
-
-	critical_leave();
 }
 

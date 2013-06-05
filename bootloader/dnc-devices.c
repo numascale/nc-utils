@@ -434,9 +434,11 @@ void handover_legacy(void)
 void pci_setup(void)
 {
 	const struct devspec devices[] = {
-		{PCI_CLASS_ANY, 0, PCI_TYPE_ANY, completion_timeout},
-		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
+		{PCI_CLASS_ANY,             0, PCI_TYPE_ANY, completion_timeout},
+		{PCI_CLASS_FINAL,           0, PCI_TYPE_ANY, NULL}
 	};
+
+	printf("Adjusting PCI parameters:\n");
 	pci_search_start(devices);
 }
 

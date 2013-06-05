@@ -25,6 +25,7 @@
 
 extern void tally_remote_node_mmio(uint16_t sci);
 extern bool setup_remote_node_mmio(uint16_t sci);
+extern void setup_mmio_early(void);
 extern void setup_mmio_late(void);
 extern void mmio_range_write(uint16_t sci, int range, uint64_t base, uint64_t limit, int ht, int link, int sublink);
 extern void mmio_show(uint16_t sci);

@@ -2772,6 +2772,9 @@ static void unify_all_nodes(void)
 	if (verbose > 0)
 		debug_acpi();
 
+	if (remote_io)
+		setup_mmio_early();
+
 	setup_local_mmio_maps();
 	setup_apic_atts();
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL;
