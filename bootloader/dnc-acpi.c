@@ -62,9 +62,9 @@ uint8_t checksum(acpi_sdt_p addr, int len)
 	return sum;
 }
 
-static bool checksum_ok(acpi_sdt_p addr, int len)
+static void checksum_ok(acpi_sdt_p table, const int len)
 {
-	return checksum(addr, len) == 0;
+	assertf(checksum(table, len) == 0, "ACPI table %.4s at 0x%p has bad checksum", table->sig.s, table);
 }
 
 static acpi_rsdp *find_rsdp(const char *start, int len)
@@ -115,11 +115,7 @@ acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
 		}
 
 		memcpy(&table, &childp, sizeof(table));
-
-		if (!checksum_ok(table, table->len)) {
-			printf("Error: Bad table %p checksum %.4s\n", table, table->sig.s);
-			continue;
-		}
+		checksum_ok(table, table->len);
 
 		if (table->sig.l == STR_DW_H(sig))
 			return table;
@@ -141,11 +137,7 @@ static uint32_t slack(acpi_sdt_p parent)
 
 	for (i = 0; i * 4 + sizeof(*rsdt) < rsdt->len; i++) {
 		acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
-
-		if (!checksum_ok(table, table->len)) {
-			printf(" Bad table checksum in '%.4s'\n", table->sig.s);
-			continue;
-		}
+		checksum_ok(table, table->len);
 
 		/* Find the nearest table after parent */
 		if (table > parent && table < next_table)
@@ -155,11 +147,7 @@ static uint32_t slack(acpi_sdt_p parent)
 		if (table->sig.l == STR_DW_H("FACP")) {
 			acpi_sdt_p dsdt;
 			memcpy(&dsdt, &table->data[4], sizeof(dsdt));
-
-			if (!checksum_ok(dsdt, dsdt->len)) {
-				printf(" Bad table checksum in '%.4s'\n", dsdt->sig.s);
-				continue;
-			}
+			checksum_ok(dsdt, dsdt->len);
 
 			if (dsdt > parent && dsdt < next_table)
 				next_table = dsdt;
@@ -195,11 +183,7 @@ static uint32_t slack(acpi_sdt_p parent)
 		}
 
 		memcpy(&table, &childp, sizeof(table));
-
-		if (!checksum_ok(table, table->len)) {
-			printf("Error: Bad table checksum in '%.4s'\n", table->sig.s);
-			continue;
-		}
+		checksum_ok(table, table->len);
 
 		/* Find the nearest table after parent */
 		if (table > parent && table < next_table)
@@ -209,11 +193,7 @@ static uint32_t slack(acpi_sdt_p parent)
 		if (table->sig.l == STR_DW_H("FACP")) {
 			acpi_sdt_p dsdt;
 			memcpy(&dsdt, &table->data[4], sizeof(dsdt));
-
-			if (!checksum_ok(dsdt, dsdt->len)) {
-				printf("Error: Bad table checksum in '%.4s'\n", dsdt->sig.s);
-				continue;
-			}
+			checksum_ok(dsdt, dsdt->len);
 
 			if (dsdt > parent && dsdt < next_table)
 				next_table = dsdt;
@@ -322,7 +302,7 @@ bool replace_child(const char *sig, const acpi_sdt_p replacement, const acpi_sdt
 	uint64_t newp, childp;
 	acpi_sdt_p table;
 
-	assert(checksum_ok(replacement, replacement->len));
+	checksum_ok(replacement, replacement->len);
 
 	newp = 0;
 	memcpy(&newp, &replacement, sizeof(replacement));
@@ -339,10 +319,7 @@ bool replace_child(const char *sig, const acpi_sdt_p replacement, const acpi_sdt
 		}
 
 		memcpy(&table, &childp, sizeof(table));
-		if (!checksum_ok(table, table->len)) {
-			printf("Error: Bad table %p checksum %.4s\n", table, table->sig.s);
-			continue;
-		}
+		checksum_ok(table, table->len);
 
 		if (table->sig.l == STR_DW_H(sig)) {
 			memcpy(&parent->data[i], &newp, ptrsize);
@@ -396,7 +373,7 @@ void add_child(const acpi_sdt_p replacement, const acpi_sdt_p parent, const unsi
 		fatal("Unable to add table");
 	}
 
-	assert(checksum_ok(replacement, replacement->len));
+	checksum_ok(replacement, replacement->len);
 	uint64_t newp = 0;
 	memcpy(&newp, &replacement, sizeof replacement);
 	int i = parent->len - sizeof(*parent);
@@ -424,20 +401,15 @@ acpi_sdt_p find_root(const char *sig)
 	if (!rdsp_exists())
 		return NULL;
 
-	if (!checksum_ok((acpi_sdt_p)rptr, 20)) {
-		printf("Error: Bad RSDP checksum\n");
-		return NULL;
-	}
+	checksum_ok((acpi_sdt_p)rptr, 20);
 
 	if (STR_DW_H(sig) == STR_DW_H("RSDT"))
 		return (acpi_sdt_p)rptr->rsdt_addr;
 
 	if (STR_DW_H(sig) == STR_DW_H("XSDT")) {
-		if ((rptr->len >= 33) && checksum_ok((acpi_sdt_p)rptr, rptr->len)) {
-			uint64_t xsdtp;
-			acpi_sdt_p xsdt;
-			xsdtp = rptr->xsdt_addr;
-
+		if (rptr->len >= 33) {
+			checksum_ok((acpi_sdt_p)rptr, rptr->len);
+			uint64_t xsdtp = rptr->xsdt_addr;
 			if ((xsdtp == 0) || (xsdtp == ~0ULL))
 				return NULL;
 
@@ -447,6 +419,7 @@ acpi_sdt_p find_root(const char *sig)
 				return NULL;
 			}
 
+			acpi_sdt_p xsdt;
 			memcpy(&xsdt, &xsdtp, sizeof(xsdt));
 			return xsdt;
 		}
@@ -460,10 +433,7 @@ bool replace_root(const char *sig, acpi_sdt_p replacement)
 	if (!rdsp_exists())
 		return 0;
 
-	if (!checksum_ok((acpi_sdt_p)rptr, 20)) {
-		printf("Error: Bad RSDP checksum\n");
-		return 0;
-	}
+	checksum_ok((acpi_sdt_p)rptr, 20);
 
 	if (STR_DW_H(sig) == STR_DW_H("RSDT")) {
 		rptr->rsdt_addr = (uint32_t)replacement;
@@ -476,7 +446,8 @@ bool replace_root(const char *sig, acpi_sdt_p replacement)
 	}
 
 	if (STR_DW_H(sig) == STR_DW_H("XSDT")) {
-		if ((rptr->len >= 33) && checksum_ok((acpi_sdt_p)rptr, rptr->len)) {
+		if (rptr->len >= 33) {
+			checksum_ok((acpi_sdt_p)rptr, rptr->len);
 			rptr->xsdt_addr = (uint32_t)replacement;
 			rptr->echecksum -= checksum((acpi_sdt_p)rptr, rptr->len);
 			return 1;
@@ -610,11 +581,7 @@ void debug_acpi(void)
 
 	printf("ACPI settings:\n");
 
-	if (!checksum_ok((acpi_sdt_p)rptr, 20)) {
-		printf("Error: Bad RSDP checksum\n");
-		return;
-	}
-
+	checksum_ok((acpi_sdt_p)rptr, 20);
 	printf(" ptr:   %p, RSDP, %.6s, %d, %08x, %d\n",
 	       rptr,
 	       rptr->oemid,
@@ -623,11 +590,7 @@ void debug_acpi(void)
 	       rptr->len);
 	acpi_sdt_p rsdt = (acpi_sdt_p)rptr->rsdt_addr;
 
-	if (!checksum_ok(rsdt, rsdt->len)) {
-		printf("Error: Bad RSDT checksum\n");
-		return;
-	}
-
+	checksum_ok(rsdt, rsdt->len);
 	printf(" table: %p, %08x, %.4s, %.6s, %.8s, %d, %d, %d, %d\n",
 	       rsdt,
 	       rsdt->sig.l,
@@ -644,11 +607,7 @@ void debug_acpi(void)
 	for (i = 0; i * 4 + sizeof(*rsdt) < rsdt->len; i++) {
 		acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
 
-		if (!checksum_ok(table, table->len)) {
-			printf("Error: Bad table checksum in '%.4s'", table->sig.s);
-			continue;
-		}
-
+		checksum_ok(table, table->len);
 		printf(" table: %p, %08x, %.4s, %.6s, %.8s, %d, %d, %d\n",
 		       table,
 		       table->sig.l,
@@ -664,11 +623,7 @@ void debug_acpi(void)
 			acpi_sdt_p dsdt;
 			memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 
-			if (!checksum_ok(dsdt, dsdt->len)) {
-				printf("Error: Bad table checksum in '%.4s'\n", dsdt->sig.s);
-				continue;
-			}
-
+			checksum_ok(dsdt, dsdt->len);
 			printf(" table: %p, %08x, %.4s, %.6s, %.8s, %d, %d, %d\n",
 			       dsdt,
 			       dsdt->sig.l,
@@ -691,16 +646,14 @@ void debug_acpi(void)
 #endif
 	}
 
-	if ((rptr->len >= 33) && checksum_ok((acpi_sdt_p)rptr, rptr->len)) {
+	if (rptr->len >= 33) {
+		checksum_ok((acpi_sdt_p)rptr, rptr->len);
+
 		if ((rptr->xsdt_addr != 0ULL) && (rptr->xsdt_addr != ~0ULL)) {
 			acpi_sdt_p xsdt;
 			memcpy(&xsdt, &rptr->xsdt_addr, sizeof(xsdt));
 
-			if (!checksum_ok(xsdt, xsdt->len)) {
-				printf("Error: Bad XSDT checksum\n");
-				return;
-			}
-
+			checksum_ok(xsdt, xsdt->len);
 			printf(" table: %p, %08x, %.4s, %.6s, %.8s, %d, %d, %d, %d\n",
 			       xsdt,
 			       xsdt->sig.l,
@@ -718,11 +671,7 @@ void debug_acpi(void)
 				acpi_sdt_p table;
 				memcpy(&table, &xsdt_entries[i], sizeof(table));
 
-				if (!checksum_ok(table, table->len)) {
-					printf("Error: Bad table checksum in '%.4s'\n", table->sig.s);
-					continue;
-				}
-
+				checksum_ok(table, table->len);
 				printf(" table: %p, %08x, %.4s, %.6s, %.8s, %d, %d, %d\n",
 				       table,
 				       table->sig.l,
@@ -738,11 +687,7 @@ void debug_acpi(void)
 					acpi_sdt_p dsdt;
 					memcpy(&dsdt, &table->data[4], sizeof(dsdt));
 
-					if (!checksum_ok(dsdt, dsdt->len)) {
-						printf(" Bad table checksum in '%.4s'\n", dsdt->sig.s);
-						continue;
-					}
-
+					checksum_ok(dsdt, dsdt->len);
 					printf(" table: %p, %08x, %.4s, %.6s, %.8s, %d, %d, %d\n",
 					       dsdt,
 					       dsdt->sig.l,
