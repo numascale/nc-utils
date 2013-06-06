@@ -1779,11 +1779,9 @@ static void setup_local_mmio_maps(void)
 
 			for (j = 0; j < next; j++) {
 				if (((curbase < base[j]) && (curlim > base[j])) ||
-				    ((curbase < lim[j])  && (curlim > lim[j]))) {
-					error("MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)",
+				    ((curbase < lim[j])  && (curlim > lim[j])))
+					fatal("MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)",
 					       i, curbase, curlim, j, base[j], lim[j]);
-					return;
-				}
 
 				if (curbase == base[j]) {
 					found = 1;
@@ -1812,11 +1810,8 @@ static void setup_local_mmio_maps(void)
 						lim[j] = curbase - 0x100;
 					} else {
 						/* Enclosed region */
-						if (next >= 8) {
-							error("Ran out of MMIO regions trying to place #%d (%x-%x)",
-							       i, curbase, curlim);
-							return;
-						}
+						if (next >= 8)
+							fatal("Ran out of MMIO regions trying to place #%d (%x-%x)", i, curbase, curlim);
 
 						base[next] = curlim + 0x100;
 						lim[next] = lim[j];
@@ -1834,22 +1829,16 @@ static void setup_local_mmio_maps(void)
 
 			if (found) {
 				if (!placed) {
-					if (next >= 8) {
-						error("Ran out of MMIO regions trying to place #%d (%x-%x)",
-						       i, curbase, curlim);
-						return;
-					}
+					if (next >= 8)
+						fatal("Ran out of MMIO regions trying to place #%d (%x-%x)", i, curbase, curlim);
 
 					base[next] = curbase;
 					lim[next] = curlim;
 					dst[next] = curdst;
 					next++;
 				}
-			} else {
-				error("Enclosing window not found for MMIO range #%d (%x-%x)",
-				       i, curbase, curlim);
-				return;
-			}
+			} else
+				fatal("Enclosing window not found for MMIO range #%d (%x-%x)", i, curbase, curlim);
 		}
 	}
 
