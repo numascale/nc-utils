@@ -2390,10 +2390,34 @@ static void local_chipset_fixup(bool master)
 	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
 
 	if (val == VENDEV_SP5100) {
-		printf("Adjusting local configuration of AMD SP5100...\n");
-		/* Disable config-space triggered SMI */
-		val = pmio_readb(0xa8);
-		pmio_writeb(0xa8, val & ~(3 << 4)); /* Clear bit4 and bit5 */
+		printf("Adjusting local configuration of AMD SP5100:\n");
+
+		uint8_t val8 = pmio_readb(0x00);
+		if (val8 & 6) {
+			printf("- disabling PM IO timers\n");
+			pmio_writeb(0x00, val8 & ~6);
+		}
+
+		val8 = pmio_readb(0xa8);
+		if (val8 & 0x30) {
+			printf("- disabling config-space triggered SMI\n");
+			pmio_writeb(0xa8, val8 & ~0x30);
+		}
+
+		val8 = pmio_readb(0xd2);
+		if (val8 & 1) {
+			printf("- disabling BMC I2C link\n");
+			pmio_writeb(0xd2, val8 & ~1);
+		}
+
+		const uint8_t sources[] = {0x02, 0x03, 0x04, 0x1c, 0xa8};
+		for (unsigned int i = 0; i < sizeof(sources); i++) {
+			val8 = pmio_readb(sources[i]);
+			if (val8) {
+				printf("- disabling SMI sources 0x%02x in PM IO register 0x%02x\n", val8, sources[i]);
+				pmio_writeb(sources[i], 0);
+			}
+		}
 	}
 
 	val = dnc_read_conf(0xfff0, 0, 0, 0, 0);
