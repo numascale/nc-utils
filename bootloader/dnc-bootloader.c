@@ -857,8 +857,9 @@ static void setup_apic_atts(void)
 			min = min >> apic_shift;
 			max = (max - 1) >> apic_shift;
 
+			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | ((min>>8) & 0xf)); /* Select APIC ATT */
 			for (j = min; j <= max; j++)
-				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nc_node[dnode].sci_id);
+				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nc_node[dnode].sci_id);
 		}
 	}
 	printf("\n");
