@@ -294,6 +294,7 @@ static int install_e820_handler(void)
 static void update_e820_map(void)
 {
 	uint64_t prev_end;
+	uint64_t trace_buf = 0;
 	unsigned int i, j, max;
 	struct e820entry *e820;
 	uint16_t *len;
