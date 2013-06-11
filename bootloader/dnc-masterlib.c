@@ -280,7 +280,7 @@ static bool tally_remote_node(uint16_t node)
 	uint32_t mem_limit = max_mem_per_node;
 
 	if (pf_maxmem) {
-		printf("Limiting per-server memory to %dGB\n", pf_maxmem);
+		printf("Limiting per-server memory to %lldGB\n", pf_maxmem);
 		mem_limit = min(max_mem_per_node, pf_maxmem << (30 - DRAM_MAP_SHIFT));
 	}
 
