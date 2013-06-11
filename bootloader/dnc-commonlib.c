@@ -2250,7 +2250,7 @@ static const char *smbios_string(const char *table, uint8_t index) {
 static void smbios_parse(const char *buf, const uint16_t len, const uint16_t num, const char **biosver, const char **biosdate, const char **manuf, const char **product) {
 	const char *data = buf;
 	int i = 0;
-	int use_system_info = 0;
+	bool use_system_info = 0;
 
 again:
 	while (i < num && data + 4 <= buf + len) {
