@@ -27,7 +27,7 @@
 
 #define SHADOW_BASE 0xf0000
 #define SHADOW_LEN 65536
-#define FMTRR_WRITETHROUGH 0x1c1c1c1c1c1c1c1c
+#define FMTRR_WRITETHROUGH 0x1c1c1c1c1c1c1c1cULL
 
 static struct acpi_rsdp *rptr = NULL;
 static bool bios_shadowed = 0;

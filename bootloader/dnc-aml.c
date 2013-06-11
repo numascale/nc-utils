@@ -23,6 +23,7 @@
 #include <stddef.h>
 #include <inttypes.h>
 
+#include "dnc-access.h"
 #include "dnc-aml.h"
 #include "dnc-commonlib.h"
 #include "dnc-bootloader.h"
@@ -253,7 +254,7 @@ static ptrlen_t aml_pci(uint16_t node)
 	aml_name(&block, "_CRS");
 	aml_resource(&block, TypeBus, Fixed, Fixed, PosDecode,
 	             0x0000, 0x0000, 0x00ff, 0x0000, 0x0100);
-	uint64_t addr = 0x3f0000000000 | ((uint64_t)node << 32);
+	uint64_t addr = DNC_MCFG_BASE | ((uint64_t)node << 32);
 	aml_method(&block, "_CBA", aml_cba(addr));
 	return ptrlen(block_start, block);
 }
