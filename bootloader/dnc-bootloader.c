@@ -3038,7 +3038,6 @@ static int nc_start(void)
 	assert(local_info);
 	memset(local_info, 0xff, sizeof *local_info);
 
-	constants();
 	get_hostname();
 
 	int rc = dnc_init_bootloader(&dnc_chip_rev, dnc_card_type, &dnc_asic_mode);
@@ -3234,6 +3233,7 @@ int main(const int argc, const char *argv[])
 	/* Disable 32-bit address wrapping to allow 64-bit access in 32-bit code */
 	set_wrap32_disable();
 
+	constants();
 	parse_cmdline(argc, argv);
 
 	ret = nc_start();
