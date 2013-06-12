@@ -716,10 +716,9 @@ void debug_acpi(void)
 
 acpi_sdt_p acpi_build_oemn(void)
 {
-	acpi_sdt_p oemn = (acpi_sdt_p)malloc(TABLE_MAX);
+	acpi_sdt_p oemn = (acpi_sdt_p)zalloc(TABLE_MAX);
 	assert(oemn);
 
-	memset(oemn, 0, sizeof(*oemn) + 8);
 	memcpy(oemn->sig.s, "OEMN", 4);
 	oemn->revision = ACPI_REV;
 	memcpy(oemn->oemid, "NUMASC", 6);

@@ -1736,7 +1736,6 @@ static void setup_local_mmio_maps(void)
 	uint32_t lim[8];
 	uint32_t dst[8];
 	uint32_t curbase, curlim, curdst;
-	unsigned int sbnode;
 
 	tom = rdmsr(MSR_TOPMEM);
 	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
@@ -1747,7 +1746,7 @@ static void setup_local_mmio_maps(void)
 		dst[i] = 0;
 	}
 
-	sbnode = (cht_read_conf(0, FUNC0_HT, 0x60) >> 8) & 7;
+	uint8_t sbnode = (cht_read_conf(0, FUNC0_HT, 0x60) >> 8) & 7;
 	base[0] = (tom >> 8) & ~0xff;
 	lim[0] = 0x00ffff00;
 	dst[0] = (sbnode << 8) | 3;
@@ -2053,11 +2052,10 @@ void udp_broadcast_state(const void *buf, const size_t len)
 {
 	assert(len >= sizeof(struct state_bcast));
 
-	t_PXENV_UDP_WRITE *pxe_write_param = (t_PXENV_UDP_WRITE *)lmalloc(sizeof(t_PXENV_UDP_WRITE) + len);
+	t_PXENV_UDP_WRITE *pxe_write_param = (t_PXENV_UDP_WRITE *)lzalloc(sizeof(t_PXENV_UDP_WRITE) + len);
 	assert(pxe_write_param);
 	char *buf_reloc = (char *)pxe_write_param + sizeof(*pxe_write_param);
 
-	memset(pxe_write_param, 0, sizeof(*pxe_write_param));
 	pxe_write_param->ip = 0xffffffff;
 	pxe_write_param->src_port = htons(4711);
 	pxe_write_param->dst_port = htons(4711);
@@ -2074,11 +2072,10 @@ int udp_read_state(void *buf, const size_t len)
 {
 	int ret = 0;
 
-	t_PXENV_UDP_READ *pxe_read_param = (t_PXENV_UDP_READ *)lmalloc(sizeof(t_PXENV_UDP_READ) + len);
+	t_PXENV_UDP_READ *pxe_read_param = (t_PXENV_UDP_READ *)lzalloc(sizeof(t_PXENV_UDP_READ) + len);
 	assert(pxe_read_param);
 	char *buf_reloc = (char *)pxe_read_param + sizeof(*pxe_read_param);
 
-	memset(pxe_read_param, 0, sizeof(*pxe_read_param));
 	pxe_read_param->s_port = htons(4711);
 	pxe_read_param->d_port = htons(4711);
 	pxe_read_param->buffer.seg = SEG(buf_reloc);
@@ -2512,7 +2509,8 @@ static void global_chipset_fixup(void)
 			       node);
 			/* Disable mmcfg setting in bridge to avoid OS confusion */
 			dnc_write_conf(node, 0, 0, 0, 0x90, val & ~(1 << 31));
-		}
+		} else
+			fatal("IOH 0x%08x not recognised\n", val);
 	}
 
 	printf("Chipset-specific setup done\n");
@@ -2809,10 +2807,11 @@ static void unify_all_nodes(void)
 
 	printf("Clearing remote memory...");
 	for (node = 1; node < dnc_node_count; node++) {
+		uint16_t sci = nc_node[node].sci_id;
+
 		for (int ht = 0; ht < 8; ht++) {
 			if (!nc_node[node].ht[ht].cpuid)
 				continue;
-			uint16_t sci = nc_node[node].sci_id;
 			uint32_t val;
 
 			/* Disable memory controller prefetch */
@@ -2827,10 +2826,11 @@ static void unify_all_nodes(void)
 
 	/* Wait for clear to finish */
 	for (node = 1; node < dnc_node_count; node++) {
+		uint16_t sci = nc_node[node].sci_id;
+
 		for (int ht = 0; ht < 8; ht++) {
 			if (!nc_node[node].ht[ht].cpuid)
 				continue;
-			uint16_t sci = nc_node[node].sci_id;
 			uint32_t val;
 
 			while (1) {
