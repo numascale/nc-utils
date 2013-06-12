@@ -62,7 +62,6 @@ struct node_info *local_info;
 uint16_t ht_pdom_count = 0;
 uint16_t apic_per_node;
 uint16_t ht_next_apic;
-uint32_t dnc_top_of_dram;      /* Top of DRAM, before MMIO, in 16MB chunks */
 uint32_t dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
 uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static bool scc_started = 0;

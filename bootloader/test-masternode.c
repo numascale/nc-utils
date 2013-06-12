@@ -66,7 +66,6 @@ uint16_t dnc_node_count = 0;
 nc_node_info_t nc_node[128];
 uint16_t ht_pdom_count = 0;
 uint16_t apic_per_node;
-uint32_t dnc_top_of_dram;       /* Top of DRAM, before MMIO, in 16MB chunks */
 uint16_t ht_next_apic;
 uint32_t dnc_top_of_mem;        /* Top of mem, in 16MB chunks */
 uint8_t post_apic_mapping[256]; /* POST APIC assigments */

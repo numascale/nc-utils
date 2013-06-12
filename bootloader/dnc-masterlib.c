@@ -474,8 +474,5 @@ bool tally_all_remote_nodes(void)
 		ret &= tally_remote_node(node);
 	}
 
-	/* MMIO is added after DRAM */
-	dnc_top_of_dram = dnc_top_of_mem;
-
 	return ret;
 }
