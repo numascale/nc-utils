@@ -1917,7 +1917,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		}
 
 		if (!handled) {
-			printf(" (!)");
+			printf(" %s (!)", argv[arg]);
 			errors++;
 		}
 	}
