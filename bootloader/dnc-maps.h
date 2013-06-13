@@ -17,19 +17,17 @@
 
 #include <stdint.h>
 
-bool pf_dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dest);
-int pf_dram_range_unused(const uint16_t sci, const int ht);
-void pf_dram_range_print(const uint16_t sci, const int ht, const int range);
-void pf_dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest);
-void pf_dram_range_del(const uint16_t sci, const int ht, const int range);
-bool pf_mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link);
-void pf_mmio_range_print(const uint16_t sci, const int ht, const int range);
-void pf_mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link);
-void pf_mmio_range_del(const uint16_t sci, const int ht, uint8_t range);
+bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dest);
+int dram_range_unused(const uint16_t sci, const int ht);
+void dram_range_print(const uint16_t sci, const int ht, const int range);
+void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest);
+void dram_range_del(const uint16_t sci, const int ht, const int range);
+bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link);
+void mmio_range_print(const uint16_t sci, const int ht, const int range);
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link);
+void mmio_range_del(const uint16_t sci, const int ht, uint8_t range);
 void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht);
 void nc_mmio_range_del(const uint16_t sci, const int range);
 bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht);
 void nc_mmio_range_print(const uint16_t sci, const int range);
-void mmio_range_del(const uint16_t sci, const int range);
-void mmio_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht, const int link);
 

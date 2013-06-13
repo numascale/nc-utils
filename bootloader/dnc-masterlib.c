@@ -32,6 +32,7 @@ extern "C" {
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-masterlib.h"
+#include "dnc-maps.h"
 
 #include "../interface/numachip-mseq.h"
 

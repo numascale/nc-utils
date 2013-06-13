@@ -24,7 +24,7 @@
 #include "dnc-defs.h"
 #include "../interface/numachip-autodefs.h"
 
-bool pf_dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dest)
+bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dest)
 {
 	assert(range < 8);
 
@@ -46,30 +46,30 @@ bool pf_dram_range_read(const uint16_t sci, const int ht, const int range, uint6
 	return en;
 }
 
-int pf_dram_range_unused(const uint16_t sci, const int ht)
+int dram_range_unused(const uint16_t sci, const int ht)
 {
 	uint64_t base, limit;
 	int dest;
 
 	for (int range = 0; range < 8; range++)
-		if (!pf_dram_range_read(sci, ht, range, &base, &limit, &dest))
+		if (!dram_range_read(sci, ht, range, &base, &limit, &dest))
 			return range;
 
 	fatal("No free DRAM ranges on SCI%03x\n", sci);
 }
 
-void pf_dram_range_print(const uint16_t sci, const int ht, const int range)
+void dram_range_print(const uint16_t sci, const int ht, const int range)
 {
 	uint64_t base, limit;
 	int dest;
 
 	assert(range < 8);
 
-	if (pf_dram_range_read(sci, ht, range, &base, &limit, &dest))
+	if (dram_range_read(sci, ht, range, &base, &limit, &dest))
 		printf("SCI%03x#%d DRAM range %d: 0x%012llx - 0x%012llx towards %d\n", sci, ht, range, base, limit, dest);
 }
 
-void pf_dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
+void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
 {
 	assert(dest < 8);
 	assert(range < 8);
@@ -85,7 +85,7 @@ void pf_dram_range(const uint16_t sci, const int ht, const int range, const uint
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | 3);
 }
 
-void pf_dram_range_del(const uint16_t sci, const int ht, const int range)
+void dram_range_del(const uint16_t sci, const int ht, const int range)
 {
 	assert(range < 8);
 
@@ -95,7 +95,7 @@ void pf_dram_range_del(const uint16_t sci, const int ht, const int range)
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
 }
 
-bool pf_mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link)
+bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link)
 {
 	if (family >= 0x15) {
 		assert(range < 12);
@@ -155,18 +155,18 @@ bool pf_mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *b
 	return b & 1;
 }
 
-void pf_mmio_range_print(const uint16_t sci, const int ht, const int range)
+void mmio_range_print(const uint16_t sci, const int ht, const int range)
 {
 	uint64_t base, limit;
 	int dest, link;
 
 	assert(range < 8);
 
-	if (pf_mmio_range_read(sci, ht, range, &base, &limit, &dest, &link))
+	if (mmio_range_read(sci, ht, range, &base, &limit, &dest, &link))
 		printf("SCI%03x#%d MMIO range %d: 0x%012llx - 0x%012llx towards %d.%d\n", sci, ht, range, base, limit, dest, link);
 }
 
-void pf_mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link)
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link)
 {
 	if (verbose > 1)
 		printf("Adding MMIO range %d on SCI%03x#%x from 0x%012llx to 0x%012llx towards %d\n",
@@ -223,7 +223,7 @@ void pf_mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t bas
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (mask << 8) | 1);
 }
 
-void pf_mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
+void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
 {
 	if (verbose > 1)
 		printf("Deleting MMIO range %d on SCI%03x#%x\n", range, sci, ht);
@@ -296,33 +296,5 @@ void nc_mmio_range_print(const uint16_t sci, const int range)
 	
 	if (nc_mmio_range_read(sci, range, &base, &limit, &dht))
 		printf("SCI%03x MMIO range %d: 0x%llx - 0x%llx to %d\n", sci, range, base, limit, dht);
-}
-
-void mmio_range_del(const uint16_t sci, const int range)
-{
-	nc_node_info_t *node = sci_to_node(sci);
-
-	for (int ht = 0; ht < 8; ht++) {
-		if (!node->ht[ht].cpuid)
-			continue;
-
-		pf_mmio_range_del(sci, ht, range);
-	}
-
-	nc_mmio_range_del(sci, range);
-}
-
-void mmio_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht, const int link)
-{
-	nc_node_info_t *node = sci_to_node(sci);
-
-	for (int ht = 0; ht < 8; ht++) {
-		if (!node->ht[ht].cpuid)
-			continue;
-
-		pf_mmio_range(sci, ht, range, base, limit, dht, link);
-	}
-
-	nc_mmio_range(sci, range, base, limit, dht);
 }
 

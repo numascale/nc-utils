@@ -40,6 +40,7 @@ extern "C" {
 #include "dnc-masterlib.h"
 #include "dnc-devices.h"
 #include "dnc-mmio.h"
+#include "dnc-maps.h"
 #include "dnc-version.h"
 
 #define PIC_MASTER_CMD          0x20
@@ -942,7 +943,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	node = (val >> 16) & 0xfff;
 
 	for (i = 0; i < nc_node[0].nc_ht_id; i++)
-		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id);
+		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id, 0);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -1223,221 +1224,12 @@ static void renumber_remote_bsp(const uint16_t num)
 	/* Rewrite high MMIO ranges to route CSR access to Numachip */
 	for (i = 1; i <= maxnode; i++) {
 		mmio_range_del(node, i, 8);
-		mmio_range(node, i, 8, DNC_CSR_BASE, DNC_CSR_LIM, 0);
+		mmio_range(node, i, 8, DNC_CSR_BASE, DNC_CSR_LIM, 0, 0);
 		mmio_range_del(node, i, 9);
-		mmio_range(node, i, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, 0);
+		mmio_range(node, i, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, 0, 0);
 	}
 
 	printf("done\n");
-}
-
-void mmio_range_print(const uint16_t sci, const int ht, uint8_t range)
-{
-	if (family >= 0x15) {
-		assert(range < 12);
-
-		int loff = 0, hoff = 0;
-		if (range > 7) {
-			loff = 0xe0;
-			hoff = 0x20;
-		}
-
-		/* Skip disabled ranges */
-		uint32_t low = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
-		if (!(low & 3))
-			return;
-
-		printf("SCI%03x#%d MMIO range %d: %08x %08x %08x\n", sci, ht, range, low,
-			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8),
-			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4));
-		return;
-	}
-
-	/* Family 10h */
-	if (range < 8) {
-		/* Skip disabled ranges */
-		uint32_t low = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8);
-		if (!(low & 3))
-			return;
-
-		printf("SCI%03x#%d MMIO range %d: %08x %08x\n", sci, ht, range, low,
-			dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8));
-		return;
-	}
-
-	assert(range < 12);
-	range -= 8;
-
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
-	uint32_t val1 = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
-	uint32_t val2 = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114);
-
-	printf("SCI%03x#%d MMIO range %d: %08x %08x\n", sci, ht, range, val1, val2);
-}
-
-void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest)
-{
-	if (verbose > 1)
-		printf("Adding MMIO range %d on SCI%03x#%x from 0x%012llx to 0x%012llx towards %d\n",
-			range, sci, ht, base, limit, dest);
-
-	if (family >= 0x15) {
-		assert(range < 12);
-
-		int loff = 0, hoff = 0;
-		if (range > 7) {
-			loff = 0xe0;
-			hoff = 0x20;
-		}
-
-		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
-		if (val & (1 << 3))
-			return; /* Locked */
-		assert((val & 3) == 0); /* Unused */
-
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, ((limit >> 40) << 16) | (base >> 40));
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, ((limit >> 16) << 8) | dest);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, ((base >> 16) << 8 | 3));
-		return;
-	}
-
-	/* Family 10h */
-	if (range < 8) {
-		assert(limit < (1ULL << 40));
-		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8);
-		if (val & (1 << 3))
-			return; /* Locked */
-		assert((val & 3) == 0); /* Unused */
-
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8, ((limit >> 16) << 8) | dest);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, ((base >> 16) << 8 | 3));
-		return;
-	}
-
-	assert(range < 12);
-	range -= 8;
-
-	/* Reading an uninitialised extended MMIO ranges results in MCE, so can't assert */
-
-	uint64_t mask = 0;
-	base  >>= 27;
-	limit >>= 27;
-
-	while ((base | mask) != (limit | mask))
-		mask = (mask << 1) | 1;
-
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (base << 8) | dest);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (mask << 8) | 1);
-}
-
-void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
-{
-	if (verbose > 1)
-		printf("Deleting MMIO range %d on SCI%03x#%x\n", range, sci, ht);
-
-	if (family >= 0x15) {
-		assert(range < 12);
-
-		int loff = 0, hoff = 0;
-		if (range > 7) {
-			loff = 0xe0;
-			hoff = 0x20;
-		}
-
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, 0);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, 0);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, 0);
-		return;
-	}
-
-	/* Family 10h */
-	if (range < 8) {
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8, 0);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, 0);
-		return;
-	}
-
-	assert(range < 12);
-	range -= 8;
-
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, 0);
-}
-
-bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dst)
-{
-	assert(range < 8);
-
-	uint32_t base_l = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8);
-	uint32_t limit_l = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8);
-	uint32_t base_h = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8);
-	uint32_t limit_h = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8);
-
-	*base = ((uint64_t)(base_l & ~0xffff) << (24 - 16)) | ((uint64_t)(base_h & 0xff) << 40);
-	*limit = ((uint64_t)(limit_l & ~0xffff) << (24 - 16)) | ((uint64_t)(limit_h & 0xff) << 40);
-	*dst = limit_l & 7;
-
-	/* Ensure both read and write are enabled or neither */
-	assert((base_l & 1) == ((base_l >> 1) & 1));
-	bool en = base_l & 1;
-	if (en)
-		*limit |= 0xffffff;
-
-	return en;
-}
-
-static int dram_range_unused(const uint16_t sci, const int ht)
-{
-	uint64_t base, limit;
-	int dst;
-
-	for (int range = 0; range < 8; range++)
-		if (!dram_range_read(sci, ht, range, &base, &limit, &dst))
-			return range;
-
-	fatal("No free DRAM ranges on SCI%03x\n", sci);
-}
-
-static void dram_range_print(const uint16_t sci, const int ht, const int range)
-{
-	uint64_t base, limit;
-	int dst;
-
-	assert(range < 8);
-
-	if (dram_range_read(sci, ht, range, &base, &limit, &dst))
-		printf("SCI%03x#%d DRAM range %d: 0x%012llx - 0x%012llx towards %d\n", sci, ht, range, base, limit, dst);
-}
-
-void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
-{
-	assert(dest < 8);
-	assert(range < 8);
-	if (dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3)
-		warning("Overwriting SCI%03x#%x memory range %d", sci, ht, range);
-
-	if (verbose > 1)
-		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x towards %d\n", sci, ht, range, base, limit, dest);
-
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, base >> (40 - DRAM_MAP_SHIFT));
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | 3);
-}
-
-static void dram_range_del(const uint16_t sci, const int ht, const int range)
-{
-	assert(range < 8);
-
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, 0);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, 0);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, 0);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
 }
 
 static void setup_remote_cores(const uint16_t num)
@@ -1537,11 +1329,11 @@ static void setup_remote_cores(const uint16_t num)
 			mmio_range_del(node, i, j);
 
 		/* 1st MMIO map pair is set to point to the VGA segment A0000-C0000 */
-		mmio_range(node, i, 0, 0xa0000, 0xbffff, ht_id);
+		mmio_range(node, i, 0, 0xa0000, 0xbffff, ht_id, 0);
 
 		/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
 		assert(tom);
-		mmio_range(node, i, 1, tom, 0xffffffff, ht_id);
+		mmio_range(node, i, 1, tom, 0xffffffff, ht_id, 0);
 
 		/* Make sure the VGA Enable register is disabled to forward VGA transactions
 		 * (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
@@ -2436,7 +2228,7 @@ static void local_chipset_fixup(bool master)
 		node = (val >> 16) & 0xfff;
 
 		for (i = 0; i < nc_node[0].nc_ht_id; i++)
-			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id);
+			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id, 0);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);

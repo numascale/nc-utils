@@ -29,6 +29,7 @@
 #include "dnc-devices.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
+#include "dnc-maps.h"
 #include "ddr_spd.h"
 
 IMPORT_RELOCATED(cpu_status);
@@ -1604,7 +1605,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		 * and set this value in expansion rom base address register */
 		printf("Setting default CSR maps...\n");
 		for (node = 0; node < dnc_ht_id; node++)
-			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id);
+			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id, 0);
 
 		printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
 		mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1 << 15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
@@ -1622,8 +1623,8 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	printf("Setting CSR and MCFG maps...\n");
 	for (node = 0; node < dnc_ht_id; node++) {
 		mmio_range_del(0xfff0, node, 8);
-		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id);
-		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id);
+		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id, 0);
+		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id, 0);
 	}
 
 	/* Set MMCFG base register so local NC will forward correctly */
