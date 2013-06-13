@@ -189,7 +189,6 @@ static void pci_search(const uint16_t sci, const int bus, const bool scope,
 			/* If not multi-function, break out of function loop */
 			if (!fn && !(type & 0x80))
 				break;
-
 		}
 	}
 }

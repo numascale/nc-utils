@@ -56,8 +56,7 @@ bool dnc_asic_mode;
 uint32_t dnc_chip_rev;
 char dnc_card_type[16];
 uint16_t dnc_node_count = 0, dnc_core_count = 0;
-nc_node_info_t nc_node[256];
-nc_node_info_t local_node;
+nc_node_info_t *nc_node = NULL;
 struct node_info *local_info;
 uint16_t ht_pdom_count = 0;
 uint16_t apic_per_node;
@@ -910,9 +909,9 @@ static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
 				lim = 0;
 			}
 
-			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
-			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
+			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
 		}
 	}
 }
@@ -942,8 +941,8 @@ static void disable_smm_handler(uint64_t smm_base)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 	node = (val >> 16) & 0xfff;
 
-	for (i = 0; i < local_node.nc_ht_id; i++)
-		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, local_node.nc_ht_id);
+	for (i = 0; i < nc_node[0].nc_ht_id; i++)
+		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -973,7 +972,7 @@ static void disable_smm_handler(uint64_t smm_base)
 
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
-	for (i = 0; i < local_node.nc_ht_id; i++)
+	for (i = 0; i < nc_node[0].nc_ht_id; i++)
 		mmio_range_del(0xfff0, i, 10);
 }
 
@@ -1478,8 +1477,7 @@ static void setup_remote_cores(const uint16_t num)
 		if ((j & 0xff) == 0)
 			dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
 
-		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4,
-		              nc_node[0].sci_id);
+		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nc_node[0].sci_id);
 	}
 
 	if (renumber_bsp == -1) {
@@ -1753,9 +1751,9 @@ static void setup_local_mmio_maps(void)
 
 	/* Apply default maps so we can bail without losing all hope */
 	for (i = 0; i < 8; i++) {
-		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 	}
 
 	for (i = 0; i < 8; i++) {
@@ -1843,9 +1841,9 @@ static void setup_local_mmio_maps(void)
 	if (verbose > 0)
 		for (i = 0; i < 8; i++) {
 			printf("NC MMIO region #%d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
-			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-			cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 		}
 }
 
@@ -2357,7 +2355,7 @@ static void lvt_setup(void)
 {
 	uint32_t val;
 
-	for (int ht = 0; ht < local_node.nc_ht_id; ht++) {
+	for (int ht = 0; ht < nc_node[0].nc_ht_id; ht++) {
 		val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
 		if (((val >> 14) & 3) == 2) {
 			printf("- disabling ECC error SMI on HT#%d\n", ht);
@@ -2438,8 +2436,8 @@ static void local_chipset_fixup(bool master)
 		val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 		node = (val >> 16) & 0xfff;
 
-		for (i = 0; i < local_node.nc_ht_id; i++)
-			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, local_node.nc_ht_id);
+		for (i = 0; i < nc_node[0].nc_ht_id; i++)
+			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -2458,7 +2456,7 @@ static void local_chipset_fixup(bool master)
 		printf("MEM %llx: %08x\n", addr, val);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
-		for (i = 0; i < local_node.nc_ht_id; i++)
+		for (i = 0; i < nc_node[0].nc_ht_id; i++)
 			mmio_range_del(0xfff0, i, 10);
 	}
 
@@ -2701,27 +2699,27 @@ static void unify_all_nodes(void)
 	}
 
 	/* Set up local mapping registers etc from 0 - master node max */
-	for (i = 0; i < local_node.nc_ht_id; i++) {
-		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
+	for (i = 0; i < nc_node[0].nc_ht_id; i++) {
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
 		               ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
-		cht_write_conf(local_node.nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
 		               (nc_node[0].ht[i].base << 8) | 3);
 	}
 
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
-	for (i = 0; i < local_node.nc_ht_id; i++) {
+	for (i = 0; i < nc_node[0].nc_ht_id; i++) {
 		int range = dram_range_unused(0xfff0, i);
 
 		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
 		if (nc_node[1].dram_base > nc_node[0].dram_base)
-			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, local_node.nc_ht_id);
+			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, nc_node[0].nc_ht_id);
 	}
 
 	if (verbose > 0) {
-		printf("DRAM and MMIO ranges:\n");
-		for (i = 0; i < local_node.nc_ht_id; i++) {
+		printf("SCI000 DRAM and MMIO ranges:\n");
+		for (i = 0; i < nc_node[0].nc_ht_id; i++) {
 			for (int j = 0; j < 8; j++)
 				dram_range_print(0xfff0, i, j);
 
@@ -3037,13 +3035,16 @@ static int nc_start(void)
 	assert(local_info);
 	memset(local_info, 0xff, sizeof *local_info);
 
+	nc_node = (nc_node_info_t *)zalloc(sizeof *nc_node);
+	assert(nc_node);
+
 	get_hostname();
 
 	int rc = dnc_init_bootloader(&dnc_chip_rev, dnc_card_type, &dnc_asic_mode);
 	if (rc == -2)
 		start_user_os();
 
-	local_node.nc_ht_id = local_node.ht_max = rc;
+	nc_node[0].nc_ht_id = nc_node[0].ht_max = rc;
 
 	if (singleton) {
 		make_singleton_config();
@@ -3052,8 +3053,12 @@ static int nc_start(void)
 			return ERR_NODE_CONFIG;
 	}
 
+	nc_node = (nc_node_info_t *)realloc(nc_node, sizeof(*nc_node) * cfg_nodes);
+	assert(nc_node);
+	memset(&nc_node[1], 0, sizeof(*nc_node) * (cfg_nodes - 1));
+
 	get_node_config();
-	local_node.sci_id = local_info->sciid;
+	nc_node[0].sci_id = local_info->sciid;
 
 	if (name_matching)
 		printf("Node: <%s> sciid: 0x%03x, partition: %d, osc: %d\n",
@@ -3123,8 +3128,8 @@ static int nc_start(void)
 		return ERR_INSTALL_E820_HANDLER;
 
 	if (force_probefilteron && !force_probefilteroff) {
-		enable_probefilter(local_node.nc_ht_id - 1);
-		probefilter_tokens(local_node.nc_ht_id - 1);
+		enable_probefilter(nc_node[0].nc_ht_id - 1);
+		probefilter_tokens(nc_node[0].nc_ht_id - 1);
 	}
 
 	if (part->master == local_info->sciid) {

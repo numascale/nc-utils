@@ -93,13 +93,11 @@ typedef struct nc_node_info {
 extern uint8_t nodedata[4096];
 extern uint8_t post_apic_mapping[256];
 extern uint16_t dnc_node_count, dnc_core_count;
-extern nc_node_info_t nc_node[256];
-extern nc_node_info_t local_node;
+extern nc_node_info_t *nc_node;
 extern struct node_info *local_info;
 extern uint16_t ht_pdom_count;
 extern uint16_t apic_per_node;
 extern uint16_t ht_next_apic;
-extern uint32_t dnc_top_of_dram;
 extern uint32_t dnc_top_of_mem;
 extern char *asm_relocated;
 extern unsigned char asm_relocate_start;

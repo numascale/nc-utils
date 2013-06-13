@@ -818,8 +818,8 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	while ((2U << link) < rqrt)
 		link ++;
 
-	local_node.nc_neigh = neigh;
-	local_node.nc_neigh_link = link;
+	nc_node[0].nc_neigh = neigh;
+	nc_node[0].nc_neigh_link = link;
 	ganged = cht_read_conf(neigh, 0, 0x170 + link * 4) & 1;
 	printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
 	printf("Checking HT width/freq");

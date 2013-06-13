@@ -113,8 +113,7 @@ void tally_local_node(void)
 	nc_node[0].node_mem = 0;
 	tot_cores = 0;
 	nc_node[0].sci_id = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	nc_node[0].nc_ht_id = nc_node[0].ht_max = local_node.nc_ht_id;
-	nc_node[0].nc_neigh = local_node.nc_neigh;
+	nc_node[0].ht_max = nc_node[0].nc_ht_id;
 	nc_node[0].dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	max_ht_node = (val >> 4) & 7;
@@ -128,7 +127,7 @@ void tally_local_node(void)
 	nc_node[0].apic_offset = 0;
 
 	for (i = 0; i <= max_ht_node; i++) {
-		if (i == local_node.nc_ht_id)
+		if (i == nc_node[0].nc_ht_id)
 			continue;
 
 		nc_node[0].ht[i].cores = 0;
@@ -178,7 +177,7 @@ void tally_local_node(void)
 				asm volatile("wbinvd" ::: "memory");
 
 				for (j = 0; j <= max_ht_node; j++) {
-					if (j == local_node.nc_ht_id)
+					if (j == nc_node[0].nc_ht_id)
 						continue;
 
 					if (!nc_node[0].ht[j].cpuid)
@@ -194,7 +193,7 @@ void tally_local_node(void)
 
 			/* Subtract 16MB for C-state 6 save area */
 			if (pf_cstate6) {
-				int range = local_node.nc_ht_id - 1;
+				int range = nc_node[0].nc_ht_id - 1;
 
 				uint64_t base, limit;
 				int dst;
@@ -266,7 +265,6 @@ void tally_local_node(void)
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
-	assert(dnc_node_count < (sizeof nc_node / sizeof nc_node[0]));
 }
 
 static bool tally_remote_node(uint16_t node)
@@ -302,7 +300,7 @@ static bool tally_remote_node(uint16_t node)
 	tot_cores = 0;
 	cur_node->sci_id = node;
 	cur_node->nc_ht_id = cur_node->ht_max = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
-	cur_node->nc_neigh = local_node.nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
+	cur_node->nc_neigh = nc_node[0].nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
 	/* Ensure that all nodes start out on 1G boundaries
 	   FIXME: Add IO holes to cover address space discontinuity? */
 	dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
@@ -458,7 +456,6 @@ static bool tally_remote_node(uint16_t node)
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
-	assert(dnc_node_count < (sizeof nc_node / sizeof nc_node[0]));
 	return 1;
 }
 
