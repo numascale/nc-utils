@@ -1617,11 +1617,10 @@ static void setup_remote_cores(const uint16_t num)
 			dram_range(node, j, map_index + 1, cur_node->ht[i].base, cur_node->ht[i].base + cur_node->ht[i].size - 1, i);
 		}
 
-		dnc_write_conf(node, 0, 24 + ht_id, FUNC1_MAPS, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX,
-		               map_index);
-		dnc_write_conf(node, 0, 24 + ht_id, FUNC1_MAPS, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
+		dnc_write_conf(node, 0, 24 + ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, map_index);
+		dnc_write_conf(node, 0, 24 + ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
 		               ((cur_node->ht[i].base + cur_node->ht[i].size - 1) << 8) | i);
-		dnc_write_conf(node, 0, 24 + ht_id, FUNC1_MAPS, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
+		dnc_write_conf(node, 0, 24 + ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
 		               (cur_node->ht[i].base << 8) | 3);
 		map_index++;
 	}
@@ -1639,7 +1638,7 @@ static void setup_remote_cores(const uint16_t num)
 	}
 
 	if (verbose > 0) {
-		printf("Master DRAM and MMIO ranges:\n");
+		printf("SCI%03x DRAM and MMIO ranges:\n", node);
 		for (i = 0; i < 8; i++) {
 			if (!cur_node->ht[i].cpuid)
 				continue;
