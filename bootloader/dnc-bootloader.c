@@ -2641,8 +2641,7 @@ static void unify_all_nodes(void)
 
 	nc_node[1].ht[0].base = dnc_top_of_mem;
 
-	if (!tally_all_remote_nodes())
-		fatal("Unable to communicate with all servers");
+	tally_all_remote_nodes();
 
 	for (node = 0; node < dnc_node_count; node++) {
 		for (i = 0; i < 8; i++) {

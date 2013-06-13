@@ -459,17 +459,14 @@ static bool tally_remote_node(uint16_t node)
 	return 1;
 }
 
-bool tally_all_remote_nodes(void)
+void tally_all_remote_nodes(void)
 {
 	bool ret = 1;
 	uint16_t node;
 
-	for (node = 1; node < 4096; node++) {
-		if ((nodedata[node] & 0xc0) != 0x80)
-			continue;
+	for (node = 1; node < 4096; node++)
+		if ((nodedata[node] & 0xc0) == 0x80)
+			ret &= tally_remote_node(node);
 
-		ret &= tally_remote_node(node);
-	}
-
-	return ret;
+	assertf(ret == 1, "Unable to communicate with all servers");
 }
