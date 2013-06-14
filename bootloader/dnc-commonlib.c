@@ -2919,12 +2919,16 @@ static int phy_check_status(const int phy)
 static void phy_print_error(const int mask)
 {
 	char msg[32] = {0};
+	int count = 0;
 
 	for (int i = 0; i < 6; i++)
-		if (mask & (1 << i))
+		if (mask & (1 << i)) {
 			strcat(msg, _get_linkname(i));
+			count++;
+		}
 
-	error("Fabric phy training failure; check cables to ports:%s", msg);
+	error("Fabric phy training failure; check cable%s to port%s %s",
+		count == 1 ? "" : "s", count == 1 ? "" : "s", msg);
 }
 
 static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
