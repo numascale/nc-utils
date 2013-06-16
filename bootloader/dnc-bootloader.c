@@ -1629,13 +1629,13 @@ static void setup_local_mmio_maps(void)
 		}
 	}
 
-	if (verbose > 0)
-		for (i = 0; i < 8; i++) {
+	for (i = 0; i < 8; i++) {
+		if (verbose)
 			printf("NC MMIO region #%d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
-			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
-		}
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+	}
 }
 
 static char *read_file(const char *filename, int *len)
