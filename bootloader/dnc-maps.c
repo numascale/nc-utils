@@ -24,6 +24,18 @@
 #include "dnc-defs.h"
 #include "../interface/numachip-autodefs.h"
 
+static nc_node_info_t *sci_to_node(const uint16_t sci)
+{
+	if (sci == 0xfff0)
+		return &nc_node[0];
+
+	for (int i = 0; i < dnc_node_count; i++)
+		if (nc_node[i].sci_id == sci)
+			return &nc_node[i];
+
+	fatal("Unable to find SCI%03x in nodes table", sci);
+}
+
 bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dest)
 {
 	assert(range < 8);
@@ -66,7 +78,7 @@ void dram_range_print(const uint16_t sci, const int ht, const int range)
 	assert(range < 8);
 
 	if (dram_range_read(sci, ht, range, &base, &limit, &dest))
-		printf("SCI%03x#%d DRAM range %d: 0x%012llx - 0x%012llx towards %d\n", sci, ht, range, base, limit, dest);
+		printf("SCI%03x#%d DRAM range %d: 0x%010llx - 0x%010llx to %d\n", sci, ht, range, base, limit, dest);
 }
 
 void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
@@ -77,7 +89,7 @@ void dram_range(const uint16_t sci, const int ht, const int range, const uint32_
 		warning("Overwriting SCI%03x#%x memory range %d", sci, ht, range);
 
 	if (verbose > 1)
-		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x towards %d\n", sci, ht, range, base, limit, dest);
+		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x to %d\n", sci, ht, range, base, limit, dest);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
@@ -88,6 +100,8 @@ void dram_range(const uint16_t sci, const int ht, const int range, const uint32_
 void dram_range_del(const uint16_t sci, const int ht, const int range)
 {
 	assert(range < 8);
+	if (verbose > 2)
+		printf("Deleting DRAM range %d on SCI%03x#%d\n", range, sci, ht);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, 0);
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, 0);
@@ -95,7 +109,7 @@ void dram_range_del(const uint16_t sci, const int ht, const int range)
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
 }
 
-bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link)
+bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link, bool *lock)
 {
 	if (family >= 0x15) {
 		assert(range < 12);
@@ -115,6 +129,7 @@ bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base
 		*limit = ((uint64_t)(b & ~0xff) << 8) | ((uint64_t)(c & 0xff0000) << (40 - 16)) | 0xffff;
 		*dest = b & 7;
 		*link = (b >> 4) & 3;
+		*lock = a & 8;
 		return a & 3;
 	}
 
@@ -128,6 +143,7 @@ bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base
 		*limit = ((uint64_t)(b & ~0xff) << 8) | 0xffff;
 		*dest = b & 7;
 		*link = (b >> 4) & 3;
+		*lock = a & 8;
 		return a & 3;
 	}
 
@@ -142,6 +158,7 @@ bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base
 	/* 128MB granularity is setup earlier */
 	*base = (a & ~0xe00000ff) << (27 - 8);
 	*limit = (~((b >> 8) & 0x1fffff)) << 20;
+	*lock = 0;
 	if (a & (1 << 6)) {
 		*dest = 0;
 		*link = a & 3;
@@ -159,18 +176,20 @@ void mmio_range_print(const uint16_t sci, const int ht, const int range)
 {
 	uint64_t base, limit;
 	int dest, link;
+	bool lock;
 
 	assert(range < 8);
 
-	if (mmio_range_read(sci, ht, range, &base, &limit, &dest, &link))
-		printf("SCI%03x#%d MMIO range %d: 0x%012llx - 0x%012llx towards %d.%d\n", sci, ht, range, base, limit, dest, link);
+	if (mmio_range_read(sci, ht, range, &base, &limit, &dest, &link, &lock))
+		printf("SCI%03x#%d MMIO range %d: 0x%010llx - 0x%010llx to %d.%d%s\n",
+			sci, ht, range, base, limit, dest, link, lock ? " locked" : "");
 }
 
 void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link)
 {
 	if (verbose > 1)
-		printf("Adding MMIO range %d on SCI%03x#%x from 0x%012llx to 0x%012llx towards %d\n",
-			range, sci, ht, base, limit, dest);
+		printf("Adding MMIO range %d on SCI%03x#%x: 0x%010llx - 0x%010llx to %d.%d\n",
+			range, sci, ht, base, limit, dest, link);
 
 	if (family >= 0x15) {
 		assert(range < 12);
@@ -184,7 +203,8 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
 		if (val & (1 << 3))
 			return; /* Locked */
-//		assert((val & 3) == 0); /* Unused */
+		if (val & 3)
+			warning("Overwriting MMIO range %d on SCI%03x#%d", range, sci, ht);
 
 		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, ((limit >> 40) << 16) | (base >> 40));
 		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, ((limit >> 16) << 8) | dest | (link << 4));
@@ -225,7 +245,7 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 
 void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
 {
-	if (verbose > 1)
+	if (verbose > 2)
 		printf("Deleting MMIO range %d on SCI%03x#%x\n", range, sci, ht);
 
 	if (family >= 0x15) {
@@ -261,27 +281,39 @@ void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
 
 void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht)
 {
-	uint32_t a = (base >> (16 - 8)) | 3;
-	uint32_t b = (limit >> (16 - 8)) | dht;
+	if (verbose > 1)
+		printf("Adding Numachip MMIO range %d on SCI%03x: 0x%010llx - 0x%010llx to %d\n",
+			range, sci, base, limit, dht);
 
-	dnc_write_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
-	dnc_write_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, a);
-	dnc_write_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, b);
+	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint32_t a = ((base >> 16) << 8) | 3;
+	uint32_t b = ((limit >> 16) << 8) | dht;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, a);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, b);
 }
 
 void nc_mmio_range_del(const uint16_t sci, const int range)
 {
-	dnc_write_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
-	dnc_write_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, 0);
-	dnc_write_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, 0);
+	if (verbose > 2)
+		printf("Deleting Numachip MMIO range %d on SCI%03x\n", range, sci);
+
+	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, 0);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, 0);
 }
 
 bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht)
 {
-	dnc_write_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
-	uint32_t a = dnc_read_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
-	uint32_t b = dnc_read_conf(sci, 0, 24 + 1, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS);
-	
+	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	uint32_t a = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
+	uint32_t b = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS);
+
 	*base = (uint64_t)(a & ~0xff) << (16 - 8);
 	*limit = (uint64_t)(b & ~0xff) << (16 - 8);
 	*dht = b & 7;
@@ -293,8 +325,59 @@ void nc_mmio_range_print(const uint16_t sci, const int range)
 {
 	uint64_t base, limit;
 	uint8_t dht;
-	
+
 	if (nc_mmio_range_read(sci, range, &base, &limit, &dht))
-		printf("SCI%03x MMIO range %d: 0x%llx - 0x%llx to %d\n", sci, range, base, limit, dht);
+		printf("SCI%03x MMIO range %d: 0x%010llx - 0x%010llx to %d\n", sci, range, base, limit, dht);
+}
+
+void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht)
+{
+	if (verbose > 1)
+		printf("Adding Numachip DRAM range %d on SCI%03x: 0x%010llx - 0x%010llx to %d\n",
+			range, sci, base, limit, dht);
+
+	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint32_t a = ((base >> 24) << 8) | 3;
+	uint32_t b = ((limit >> 24) << 8) | dht;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, a);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, b);
+}
+
+void nc_dram_range_del(const uint16_t sci, const int range)
+{
+	if (verbose > 2)
+		printf("Deleting Numachip DRAM range %d on SCI%03x\n", range, sci);
+
+	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, 0);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, 0);
+}
+
+bool nc_dram_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht)
+{
+	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	uint32_t a = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS);
+	uint32_t b = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS);
+
+	*base = (uint64_t)(a & ~0xff) << (24 - 8);
+	*limit = (uint64_t)(b & ~0xff) << (24 - 8);
+	*dht = b & 7;
+
+	return a & 3;
+}
+
+void nc_dram_range_print(const uint16_t sci, const int range)
+{
+	uint64_t base, limit;
+	uint8_t dht;
+
+	if (nc_dram_range_read(sci, range, &base, &limit, &dht))
+		printf("SCI%03x DRAM range %d: 0x%010llx - 0x%010llx to %d\n", sci, range, base, limit, dht);
 }
 
