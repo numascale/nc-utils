@@ -90,6 +90,8 @@ uint32_t ioh_nbmiscind_read(uint16_t node, uint8_t reg);
 void ioh_nbmiscind_write(uint16_t node, uint8_t reg, uint32_t val);
 uint32_t ioh_htiu_read(uint16_t node, uint8_t reg);
 void ioh_htiu_write(uint16_t node, uint8_t reg, uint32_t val);
+uint32_t ioh_ioapicind_read(const uint16_t sci, const uint8_t reg);
+void ioh_ioapicind_write(const uint16_t sci, const uint8_t reg, const uint32_t val);
 void watchdog_setup(void);
 void reset_cf9(int mode, int last);
 void cht_test(uint8_t node, int neigh, int neigh_link);

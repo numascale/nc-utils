@@ -178,6 +178,18 @@ void ioh_htiu_write(uint16_t node, uint8_t reg, uint32_t val)
 	}
 }
 
+uint32_t ioh_ioapicind_read(const uint16_t sci, const uint8_t reg)
+{
+	dnc_write_conf(sci, 0, 0, 0, 0xf8, reg);
+	return dnc_read_conf(sci, 0, 0, 0, 0xfc);
+}
+
+void ioh_ioapicind_write(const uint16_t sci, const uint8_t reg, const uint32_t val)
+{
+	dnc_write_conf(sci, 0, 0, 0, 0xf8, reg);
+	dnc_write_conf(sci, 0, 0, 0, 0xfc, val);
+}
+
 static void watchdog_write(uint32_t val)
 {
 	*watchdog_ctl = val;
