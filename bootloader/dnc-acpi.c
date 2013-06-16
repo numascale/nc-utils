@@ -568,7 +568,7 @@ bool acpi_append(acpi_sdt_p parent, int ptrsize, const char *sig, const unsigned
 	table->len += extra_len;
 	table->checksum -= checksum(table, table->len);
 
-	if (verbose > 1)
+	if (verbose > 2)
 		acpi_dump(table);
 
 	return true;

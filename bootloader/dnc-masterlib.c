@@ -268,7 +268,7 @@ void tally_local_node(void)
 	dnc_core_count += tot_cores;
 }
 
-static bool tally_remote_node(uint16_t node)
+static bool tally_remote_node(const uint16_t node)
 {
 	uint32_t val, base, limit;
 	uint16_t i, max_ht_node, tot_cores;

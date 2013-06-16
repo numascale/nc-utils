@@ -247,7 +247,7 @@ int parse_config_file(char *data)
 	enum json_error err;
 	int i;
 
-	if (verbose >= 2)
+	if (verbose > 2)
 		printf("Fabric configuration file:\n%s", data);
 
 	err = json_parse_document(&root, data);
