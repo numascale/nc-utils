@@ -30,7 +30,7 @@ static nc_node_info_t *sci_to_node(const uint16_t sci)
 		return &nc_node[0];
 
 	for (int i = 0; i < dnc_node_count; i++)
-		if (nc_node[i].sci_id == sci)
+		if (nc_node[i].sci == sci)
 			return &nc_node[i];
 
 	fatal("Unable to find SCI%03x in nodes table", sci);
@@ -285,7 +285,7 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 		printf("Adding Numachip MMIO range %d on SCI%03x: 0x%010llx - 0x%010llx to %d\n",
 			range, sci, base, limit, dht);
 
-	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 16) << 8) | 3;
 	uint32_t b = ((limit >> 16) << 8) | dht;
 
@@ -299,7 +299,7 @@ void nc_mmio_range_del(const uint16_t sci, const int range)
 	if (verbose > 2)
 		printf("Deleting Numachip MMIO range %d on SCI%03x\n", range, sci);
 
-	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, 0);
@@ -308,7 +308,7 @@ void nc_mmio_range_del(const uint16_t sci, const int range)
 
 bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht)
 {
-	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
 	uint32_t a = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
@@ -336,7 +336,7 @@ void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, con
 		printf("Adding Numachip DRAM range %d on SCI%03x: 0x%010llx - 0x%010llx to %d\n",
 			range, sci, base, limit, dht);
 
-	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 24) << 8) | 3;
 	uint32_t b = ((limit >> 24) << 8) | dht;
 
@@ -350,7 +350,7 @@ void nc_dram_range_del(const uint16_t sci, const int range)
 	if (verbose > 2)
 		printf("Deleting Numachip DRAM range %d on SCI%03x\n", range, sci);
 
-	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, 0);
@@ -359,7 +359,7 @@ void nc_dram_range_del(const uint16_t sci, const int range)
 
 bool nc_dram_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht)
 {
-	uint8_t ht = sci_to_node(sci)->nc_ht_id;
+	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
 	uint32_t a = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS);

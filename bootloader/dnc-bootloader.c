@@ -319,7 +319,7 @@ static void update_e820_map(void)
 		e820[max].length -= trace_buf_size;
 		trace_buf = e820[max].base + e820[max].length;
 		printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
-		       nc_node[0].sci_id, 0, trace_buf, trace_buf + trace_buf_size);
+		       nc_node[0].sci, 0, trace_buf, trace_buf + trace_buf_size);
 	}
 
 	/* Add remote nodes */
@@ -341,7 +341,7 @@ static void update_e820_map(void)
 				if ((trace_buf_size > 0) && (length > trace_buf_size)) {
 					length -= trace_buf_size;
 					printf("SCI%03x#%x tracebuffer reserved @ 0x%llx - 0x%llx\n",
-					       nc_node[i].sci_id, j, base + length, base + length + trace_buf_size);
+					       nc_node[i].sci, j, base + length, base + length + trace_buf_size);
 				}
 			}
 
@@ -709,7 +709,7 @@ static void update_acpi_tables(void)
 	for (node = 0; node < (remote_io ? dnc_node_count : 1); node++) {
 		struct acpi_mcfg_allocation mcfg_allocation;
 		memset(&mcfg_allocation, 0, sizeof(mcfg_allocation));
-		mcfg_allocation.address = DNC_MCFG_BASE | ((uint64_t)nc_node[node].sci_id << 28ULL);
+		mcfg_allocation.address = DNC_MCFG_BASE | ((uint64_t)nc_node[node].sci << 28ULL);
 		mcfg_allocation.pci_segment = node;
 		mcfg_allocation.start_bus_number = 0;
 		mcfg_allocation.end_bus_number = 255;
@@ -828,15 +828,15 @@ static void setup_apic_atts(void)
 
 	/* Set APIC ATT for remote interrupts */
 	for (i = 0; i < dnc_node_count; i++) {
-		uint16_t snode = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
+		uint16_t snode = (i == 0) ? 0xfff0 : nc_node[i].sci;
 		uint16_t dnode, ht;
 
-		printf(" SCI%03x", nc_node[i].sci_id);
+		printf(" SCI%03x", nc_node[i].sci);
 		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
 		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 
 		for (j = 0; j < 64; j++)
-			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nc_node[0].sci_id);
+			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nc_node[0].sci);
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
 			uint16_t cur, min, max;
@@ -861,7 +861,7 @@ static void setup_apic_atts(void)
 
 			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | ((min>>8) & 0xf)); /* Select APIC ATT */
 			for (j = min; j <= max; j++)
-				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nc_node[dnode].sci_id);
+				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nc_node[dnode].sci);
 		}
 	}
 	printf("\n");
@@ -910,9 +910,9 @@ static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
 				lim = 0;
 			}
 
-			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
-			cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+			cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+			cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
+			cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
 		}
 	}
 }
@@ -942,8 +942,8 @@ static void disable_smm_handler(uint64_t smm_base)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 	node = (val >> 16) & 0xfff;
 
-	for (i = 0; i < nc_node[0].nc_ht_id; i++)
-		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id, 0);
+	for (i = 0; i < nc_node[0].nc_ht; i++)
+		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht, 0);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -973,13 +973,13 @@ static void disable_smm_handler(uint64_t smm_base)
 
 	dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
-	for (i = 0; i < nc_node[0].nc_ht_id; i++)
+	for (i = 0; i < nc_node[0].nc_ht; i++)
 		mmio_range_del(0xfff0, i, 10);
 }
 
 static void setup_other_cores(void)
 {
-	uint16_t node = nc_node[0].sci_id;
+	uint16_t node = nc_node[0].sci;
 	uint32_t ht, apicid, oldid, i;
 	volatile uint32_t *icr;
 	volatile uint32_t *apic;
@@ -1080,8 +1080,8 @@ static void renumber_remote_bsp(const uint16_t num)
 {
 	uint8_t i, j;
 	nc_node_info_t *cur_node = &nc_node[num];
-	uint16_t node = cur_node->sci_id;
-	uint8_t maxnode = cur_node->nc_ht_id;
+	uint16_t node = cur_node->sci;
+	uint8_t maxnode = cur_node->nc_ht;
 	uint32_t val;
 	printf("Renumbering BSP to HT#%d on SCI%03x\n", maxnode, node);
 
@@ -1211,7 +1211,7 @@ static void renumber_remote_bsp(const uint16_t num)
 
 	memcpy(&cur_node->ht[maxnode], &cur_node->ht[0], sizeof(ht_node_info_t));
 	cur_node->ht[0].cpuid = 0;
-	cur_node->nc_ht_id = 0;
+	cur_node->nc_ht = 0;
 
 #ifdef BROKEN
 	/* Reorder the individual HT node memory base address so it is in increasing order */
@@ -1236,8 +1236,8 @@ static void setup_remote_cores(const uint16_t num)
 {
 	uint8_t i, map_index;
 	nc_node_info_t *cur_node = &nc_node[num];
-	uint16_t node = cur_node->sci_id;
-	uint8_t ht_id = cur_node->nc_ht_id;
+	uint16_t node = cur_node->sci;
+	uint8_t ht_id = cur_node->nc_ht;
 	uint16_t ht, apicid, oldid;
 	uint32_t j;
 	uint32_t val;
@@ -1269,7 +1269,7 @@ static void setup_remote_cores(const uint16_t num)
 		if ((j & 0xff) == 0)
 			dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
 
-		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nc_node[0].sci_id);
+		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nc_node[0].sci);
 	}
 
 	if (renumber_bsp == -1) {
@@ -1305,7 +1305,7 @@ static void setup_remote_cores(const uint16_t num)
 	if (renumber_bsp == 1)
 		renumber_remote_bsp(num);
 
-	ht_id = cur_node->nc_ht_id;
+	ht_id = cur_node->nc_ht;
 	printf("Remote H2S MMIO32 ATT set...\n");
 	/* Set H2S_Init */
 	printf("Setting SCI%03x H2S_Init...\n", node);
@@ -1443,7 +1443,7 @@ static void setup_remote_cores(const uint16_t num)
 		}
 	}
 
-	dnc_write_csr(node, H2S_CSR_G3_PCI_SEG0, nc_node[0].sci_id << 16);
+	dnc_write_csr(node, H2S_CSR_G3_PCI_SEG0, nc_node[0].sci << 16);
 
 	/* Quick and dirty: zero out I/O and config space maps; add
 	 * all-covering map towards DNC */
@@ -1542,9 +1542,9 @@ static void setup_local_mmio_maps(void)
 
 	/* Apply default maps so we can bail without losing all hope */
 	for (i = 0; i < 8; i++) {
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 	}
 
 	for (i = 0; i < 8; i++) {
@@ -1632,9 +1632,9 @@ static void setup_local_mmio_maps(void)
 	for (i = 0; i < 8; i++) {
 		if (verbose)
 			printf("NC MMIO region #%d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
 	}
 }
 
@@ -1889,9 +1889,9 @@ static void wait_status(struct node_info *info)
 		if (config_local(&cfg_nodelist[i], info->uuid)) /* Self */
 			continue;
 
-		if (nodedata[cfg_nodelist[i].sciid] != 0x80)
+		if (nodedata[cfg_nodelist[i].sci] != 0x80)
 			printf(" SCI%03x (%s)",
-			       cfg_nodelist[i].sciid, cfg_nodelist[i].desc);
+			       cfg_nodelist[i].sci, cfg_nodelist[i].desc);
 	}
 
 	printf("\n");
@@ -1914,7 +1914,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	cmd.sig = UDP_SIG;
 	cmd.state = CMD_STARTUP;
 	cmd.uuid  = info->uuid;
-	cmd.sciid = info->sciid;
+	cmd.sci = info->sci;
 	cmd.tid   = 0; /* Must match initial rsp.tid for RSP_SLAVE_READY */
 	waitfor = RSP_SLAVE_READY;
 	printf("Waiting for %d nodes...\n", cfg_nodes - 1);
@@ -1947,7 +1947,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 				printf("Command did not complete successfully on master (reason %s), resetting...\n",
 				       node_state_name[own_state]);
 
-			nodedata[info->sciid] = 0x80;
+			nodedata[info->sci] = 0x80;
 			last_cmd = cmd.tid;
 		}
 
@@ -1966,7 +1966,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 		if (len >= sizeof(rsp) && rsp->sig == UDP_SIG) {
 			if (rsp->uuid == 0xffffffff) {
-					error_remote(rsp->sciid, "unknown remote", (char *)rsp + sizeof(struct state_bcast));
+					error_remote(rsp->sci, "unknown remote", (char *)rsp + sizeof(struct state_bcast));
 					continue;
 			}
 
@@ -1974,31 +1974,31 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 			for (i = 0; i < cfg_nodes; i++)
 				if ((!name_matching && (cfg_nodelist[i].uuid == rsp->uuid)) ||
-				    ( name_matching && (cfg_nodelist[i].sciid == rsp->sciid))) {
+				    ( name_matching && (cfg_nodelist[i].sci == rsp->sci))) {
 					ours = 1;
 					break;
 				}
 
 			if (ours) {
 				if ((rsp->state == waitfor) && (rsp->tid == cmd.tid)) {
-					if (nodedata[rsp->sciid] != 0x80) {
+					if (nodedata[rsp->sci] != 0x80) {
 						printf("SCI%03x (%s) entered %s\n",
-						       rsp->sciid, cfg_nodelist[i].desc,
+						       rsp->sci, cfg_nodelist[i].desc,
 						       node_state_name[waitfor]);
-						nodedata[rsp->sciid] = 0x80;
+						nodedata[rsp->sci] = 0x80;
 					}
 				} else if ((rsp->state == RSP_PHY_NOT_TRAINED) ||
 				           (rsp->state == RSP_RINGS_NOT_OK) ||
 				           (rsp->state == RSP_FABRIC_NOT_READY) ||
 				           (rsp->state == RSP_FABRIC_NOT_OK)) {
-					if (nodedata[rsp->sciid] != 0x80) {
+					if (nodedata[rsp->sci] != 0x80) {
 						printf("SCI%03x (%s) aborted with state %d; restarting process...\n",
-						       rsp->sciid, cfg_nodelist[i].desc, rsp->state);
+						       rsp->sci, cfg_nodelist[i].desc, rsp->state);
 						do_restart = 1;
-						nodedata[rsp->sciid] = 0x80;
+						nodedata[rsp->sci] = 0x80;
 					}
 				} else if (rsp->state == RSP_ERROR)
-					error_remote(rsp->sciid, cfg_nodelist[i].desc, (char *)rsp + sizeof(struct state_bcast));
+					error_remote(rsp->sci, cfg_nodelist[i].desc, (char *)rsp + sizeof(struct state_bcast));
 			}
 		}
 
@@ -2008,7 +2008,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			if (config_local(&cfg_nodelist[i], info->uuid)) /* Self */
 				continue;
 
-			if (!(nodedata[cfg_nodelist[i].sciid] & 0x80)) {
+			if (!(nodedata[cfg_nodelist[i].sci] & 0x80)) {
 				ready_pending = 1;
 				break;
 			}
@@ -2038,7 +2038,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 			/* Clear seen flag */
 			for (i = 0; i < cfg_nodes; i++)
-				nodedata[cfg_nodelist[i].sciid] &= 0x7f;
+				nodedata[cfg_nodelist[i].sci] &= 0x7f;
 
 			cmd.tid++;
 			count = 0;
@@ -2146,7 +2146,7 @@ static void lvt_setup(void)
 {
 	uint32_t val;
 
-	for (int ht = 0; ht < nc_node[0].nc_ht_id; ht++) {
+	for (int ht = 0; ht < nc_node[0].nc_ht; ht++) {
 		val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
 		if (((val >> 14) & 3) == 2) {
 			printf("- disabling ECC error SMI on HT#%d\n", ht);
@@ -2227,8 +2227,8 @@ static void local_chipset_fixup(bool master)
 		val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 		node = (val >> 16) & 0xfff;
 
-		for (i = 0; i < nc_node[0].nc_ht_id; i++)
-			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht_id, 0);
+		for (i = 0; i < nc_node[0].nc_ht; i++)
+			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nc_node[0].nc_ht, 0);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -2247,7 +2247,7 @@ static void local_chipset_fixup(bool master)
 		printf("MEM %llx: %08x\n", addr, val);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
 
-		for (i = 0; i < nc_node[0].nc_ht_id; i++)
+		for (i = 0; i < nc_node[0].nc_ht; i++)
 			mmio_range_del(0xfff0, i, 10);
 	}
 
@@ -2265,7 +2265,7 @@ static void global_chipset_fixup(void)
 	printf("Scanning for known chipsets, global pass...\n");
 
 	for (i = 0; i < dnc_node_count; i++) {
-		node = nc_node[i].sci_id;
+		node = nc_node[i].sci;
 		val = dnc_read_conf(node, 0, 0, 0, 0);
 
 		if ((val == VENDEV_SR5690) || (val == VENDEV_SR5670) || (val == VENDEV_SR5650)) {
@@ -2384,8 +2384,8 @@ static void enable_cstate6(void)
 		for (int ht = 0; ht < 8; ht++) {
 			if (!nc_node[node].ht[ht].cpuid)
 				continue;
-			uint16_t sci = nc_node[node].sci_id;
-			int dst = nc_node[node].ht_max - 1;
+			uint16_t sci = nc_node[node].sci;
+			int dst = nc_node[node].max_ht - 1;
 			printf(" SCI%03x#%x", sci, dst);
 
 			/* Account for single-HT systems with renumbering */
@@ -2440,29 +2440,29 @@ static void unify_all_nodes(void)
 				continue;
 
 			/* Ensure all processors are the same for compatibility */
-			model = cpu_family(nc_node[node].sci_id, i);
+			model = cpu_family(nc_node[node].sci, i);
 
 			if (!model_first)
 				model_first = model;
 			else if (model != model_first) {
 				error("SCI%03x (%s) has varying processor models 0x%08x and 0x%08x",
-					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id), model_first, model);
+					nc_node[node].sci, get_master_name(nc_node[node].sci), model_first, model);
 				abort = 1;
 			}
 
 			/* 6200/4200 processors lack the HT lock mechanism, so abort */
 			if ((family >> 8) == 0x1501) {
 				error("SCI%03x (%s) has incompatible 6200/4200 processors; please use 6300/4300 or later",
-					nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
+					nc_node[node].sci, get_master_name(nc_node[node].sci));
 				abort = 1;
 			}
 
 			if ((model >> 16) >= 0x15) {
-				uint32_t val = dnc_read_conf(nc_node[node].sci_id, 0, 24 + i, FUNC2_DRAM, 0x118);
+				uint32_t val = dnc_read_conf(nc_node[node].sci, 0, 24 + i, FUNC2_DRAM, 0x118);
 
 				if (val & (1 << 19)) {
 					error("SCI%03x (%s) has CState C6 enabled in the BIOS",
-					       nc_node[node].sci_id, get_master_name(nc_node[node].sci_id));
+					       nc_node[node].sci, get_master_name(nc_node[node].sci));
 					abort = 1;
 				}
 			}
@@ -2481,7 +2481,7 @@ static void unify_all_nodes(void)
 					continue;
 
 				printf("SCI%03x/HT#%d: %012llx - %012llx\n",
-				       nc_node[node].sci_id, i,
+				       nc_node[node].sci, i,
 				       (uint64_t)nc_node[node].ht[i].base << DRAM_MAP_SHIFT,
 				       (uint64_t)(nc_node[node].ht[i].base + nc_node[node].ht[i].size) << DRAM_MAP_SHIFT);
 			}
@@ -2489,27 +2489,27 @@ static void unify_all_nodes(void)
 	}
 
 	/* Set up local mapping registers etc from 0 - master node max */
-	for (i = 0; i < nc_node[0].nc_ht_id; i++) {
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
+	for (i = 0; i < nc_node[0].nc_ht; i++) {
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
 		               ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
-		cht_write_conf(nc_node[0].nc_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
+		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
 		               (nc_node[0].ht[i].base << 8) | 3);
 	}
 
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
-	for (i = 0; i < nc_node[0].nc_ht_id; i++) {
+	for (i = 0; i < nc_node[0].nc_ht; i++) {
 		int range = dram_range_unused(0xfff0, i);
 
 		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
 		if (nc_node[1].dram_base > nc_node[0].dram_base)
-			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, nc_node[0].nc_ht_id);
+			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, nc_node[0].nc_ht);
 	}
 
 	if (verbose > 0) {
 		printf("SCI000 DRAM and MMIO ranges:\n");
-		for (i = 0; i < nc_node[0].nc_ht_id; i++) {
+		for (i = 0; i < nc_node[0].nc_ht; i++) {
 			for (int j = 0; j < 8; j++)
 				dram_range_print(0xfff0, i, j);
 
@@ -2525,7 +2525,7 @@ static void unify_all_nodes(void)
 
 	for (i = 0; i < dnc_node_count; i++) {
 		uint16_t dnode;
-		node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
+		node = (i == 0) ? 0xfff0 : nc_node[i].sci;
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
 			uint32_t addr = nc_node[dnode].dram_base;
@@ -2537,7 +2537,7 @@ static void unify_all_nodes(void)
 			              (addr / SCC_ATT_GRAN)); /* Start index for current node */
 
 			while (addr < end) {
-				dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[dnode].sci_id);
+				dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[dnode].sci);
 				addr += SCC_ATT_GRAN;
 			}
 		}
@@ -2578,7 +2578,7 @@ static void unify_all_nodes(void)
 	setup_apic_atts();
 
 	uint64_t old_mcfg = rdmsr(MSR_MCFG_BASE) & ~0x3f;
-	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci_id << 28ULL) | 0x21ULL;
+	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nc_node[0].sci << 28ULL) | 0x21ULL;
 	wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
 
 	/* Drop redundant MMIO ranges pointing to old MCFG space */
@@ -2611,7 +2611,7 @@ static void unify_all_nodes(void)
 
 	printf("Clearing remote memory...");
 	for (node = 1; node < dnc_node_count; node++) {
-		uint16_t sci = nc_node[node].sci_id;
+		uint16_t sci = nc_node[node].sci;
 
 		for (int ht = 0; ht < 8; ht++) {
 			if (!nc_node[node].ht[ht].cpuid)
@@ -2630,7 +2630,7 @@ static void unify_all_nodes(void)
 
 	/* Wait for clear to finish */
 	for (node = 1; node < dnc_node_count; node++) {
-		uint16_t sci = nc_node[node].sci_id;
+		uint16_t sci = nc_node[node].sci;
 
 		for (int ht = 0; ht < 8; ht++) {
 			if (!nc_node[node].ht[ht].cpuid)
@@ -2656,8 +2656,8 @@ static void unify_all_nodes(void)
 		printf("Enabling DRAM scrubbers:");
 
 		for (node = 0; node < dnc_node_count; node++) {
-			uint16_t sciid = (node == 0) ? 0xfff0 : nc_node[node].sci_id;
-			printf(" SCI%03x", nc_node[node].sci_id);
+			uint16_t sci = (node == 0) ? 0xfff0 : nc_node[node].sci;
+			printf(" SCI%03x", nc_node[node].sci);
 
 			for (i = 0; i < 8; i++) {
 				if (!nc_node[0].ht[i].cpuid)
@@ -2665,17 +2665,17 @@ static void unify_all_nodes(void)
 
 				if (nc_node[node].ht[i].scrub & 0x1f) {
 					uint64_t base = (uint64_t)nc_node[node].ht[i].base << DRAM_MAP_SHIFT;
-					uint32_t redir = dnc_read_conf(sciid, 0, 24 + i, FUNC3_MISC, 0x5c) & 1;
-					dnc_write_conf(sciid, 0, 24 + i, FUNC3_MISC, 0x5c, base | redir);
-					dnc_write_conf(sciid, 0, 24 + i, FUNC3_MISC, 0x60, base >> 32);
+					uint32_t redir = dnc_read_conf(sci, 0, 24 + i, FUNC3_MISC, 0x5c) & 1;
+					dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x5c, base | redir);
+					dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x60, base >> 32);
 
 					/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 					   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 					   See erratum 505 */
 					if (family >= 0x15)
-						dnc_write_conf(sciid, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
+						dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
 
-					dnc_write_conf(sciid, 0, 24 + i, FUNC3_MISC, 0x58, nc_node[node].ht[i].scrub);
+					dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58, nc_node[node].ht[i].scrub);
 				}
 			}
 		}
@@ -2851,7 +2851,7 @@ static int nc_start(void)
 	if (rc == -2)
 		start_user_os();
 
-	nc_node[0].nc_ht_id = nc_node[0].ht_max = rc;
+	nc_node[0].nc_ht = nc_node[0].max_ht = rc;
 
 	if (singleton) {
 		make_singleton_config();
@@ -2865,14 +2865,14 @@ static int nc_start(void)
 	memset(&nc_node[1], 0, sizeof(*nc_node) * (cfg_nodes - 1));
 
 	get_node_config();
-	nc_node[0].sci_id = local_info->sciid;
+	nc_node[0].sci = local_info->sci;
 
 	if (name_matching)
 		printf("Node: <%s> sciid: 0x%03x, partition: %d, osc: %d\n",
-		       local_info->desc, local_info->sciid, local_info->partition, local_info->osc);
+		       local_info->desc, local_info->sci, local_info->partition, local_info->osc);
 	else
 		printf("Node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
-		       local_info->desc, local_info->uuid, local_info->sciid, local_info->partition, local_info->osc);
+		       local_info->desc, local_info->uuid, local_info->sci, local_info->partition, local_info->osc);
 
 	part = get_partition_config(local_info->partition);
 	if (!part)
@@ -2889,14 +2889,14 @@ static int nc_start(void)
 		if (name_matching)
 			printf("Remote node: <%s> sciid: 0x%03x, partition: %d, osc: %d\n",
 			       cfg_nodelist[i].desc,
-			       cfg_nodelist[i].sciid,
+			       cfg_nodelist[i].sci,
 			       cfg_nodelist[i].partition,
 			       cfg_nodelist[i].osc);
 		else
 			printf("Remote node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
 			       cfg_nodelist[i].desc,
 			       cfg_nodelist[i].uuid,
-			       cfg_nodelist[i].sciid,
+			       cfg_nodelist[i].sci,
 			       cfg_nodelist[i].partition,
 			       cfg_nodelist[i].osc);
 	}
@@ -2907,13 +2907,13 @@ static int nc_start(void)
 	/* Copy this into NC ram so its available remotely */
 	load_existing_apic_map();
 
-	if (part->builder == local_info->sciid)
+	if (part->builder == local_info->sci)
 		wait_for_slaves(local_info, part);
 	else
 		wait_for_master(local_info, part);
 
 	/* Must run after SCI is operational */
-	local_chipset_fixup(part->master == local_info->sciid);
+	local_chipset_fixup(part->master == local_info->sci);
 
 	if (verbose > 0)
 		debug_acpi();
@@ -2935,11 +2935,11 @@ static int nc_start(void)
 		return ERR_INSTALL_E820_HANDLER;
 
 	if (force_probefilteron && !force_probefilteroff) {
-		enable_probefilter(nc_node[0].nc_ht_id - 1);
-		probefilter_tokens(nc_node[0].nc_ht_id - 1);
+		enable_probefilter(nc_node[0].nc_ht - 1);
+		probefilter_tokens(nc_node[0].nc_ht - 1);
 	}
 
-	if (part->master == local_info->sciid) {
+	if (part->master == local_info->sci) {
 		int i;
 
 		/* Master */
@@ -2950,7 +2950,7 @@ static int nc_start(void)
 			if (cfg_nodelist[i].partition != local_info->partition)
 				continue;
 
-			nodedata[cfg_nodelist[i].sciid] = 0x80;
+			nodedata[cfg_nodelist[i].sci] = 0x80;
 		}
 
 #ifdef UNUSED

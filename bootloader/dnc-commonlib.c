@@ -537,11 +537,11 @@ int dnc_init_caches(void)
 	return 0;
 }
 
-int cpu_family(uint16_t scinode, uint8_t node)
+int cpu_family(const sci_t sci, const ht_t ht)
 {
 	uint32_t val;
 	int fam, model, stepping;
-	val = dnc_read_conf(scinode, 0, 24 + node, FUNC3_MISC, 0xfc);
+	val = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0xfc);
 	fam = ((val >> 20) & 0xf) + ((val >> 8) & 0xf);
 	model = ((val >> 12) & 0xf0) | ((val >> 4) & 0xf);
 	stepping = val & 0xf;
@@ -819,7 +819,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	while ((2U << link) < rqrt)
 		link ++;
 
-	nc_node[0].nc_neigh = neigh;
+	nc_node[0].nc_neigh_ht = neigh;
 	nc_node[0].nc_neigh_link = link;
 	ganged = cht_read_conf(neigh, 0, 0x170 + link * 4) & 1;
 	printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
@@ -1478,54 +1478,54 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 {
 	uint32_t val;
 	uint8_t node;
-	int dnc_ht_id;
+	int nc_ht;
 
 	/* Ensure SMIs are invoked when accessing config space */
 	assert(!rdmsr(MSR_TRAP_CTL));
 
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
-	dnc_ht_id = (val >> 4) & 7;
-	val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
+	nc_ht = (val >> 4) & 7;
+	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
 
 	if (val == 0x06011b47) {
-		printf("NumaChip already present on HT node %d\n", dnc_ht_id);
+		printf("NumaChip already present on HT node %d\n", nc_ht);
 		/* Chip already found; make sure the desired width/frequency is set */
-		val = cht_read_conf(dnc_ht_id, 0, 0xec);
+		val = cht_read_conf(nc_ht, 0, 0xec);
 
 		if (val == 0) {
-			val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
+			val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
 			printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
-			ht_optimize_link(dnc_ht_id, val & 0xffff, 1);
+			ht_optimize_link(nc_ht, val & 0xffff, 1);
 			*p_asic_mode = 1;
 			*p_chip_rev = val & 0xffff;
 		} else {
 			printf("Doing link calibration of FPGA chip rev %d_%d\n", val >> 16, val & 0xffff);
-			ht_optimize_link(dnc_ht_id, val, 0);
+			ht_optimize_link(nc_ht, val, 0);
 			*p_asic_mode = 0;
 			*p_chip_rev = val;
 		}
 	} else {
-		dnc_ht_id = ht_fabric_find_nc(p_asic_mode, p_chip_rev);
+		nc_ht = ht_fabric_find_nc(p_asic_mode, p_chip_rev);
 
-		if (dnc_ht_id < 0) {
+		if (nc_ht < 0) {
 			printf("NumaChip not found\n");
 			*p_asic_mode = -1;
 			*p_chip_rev = -1;
 			return -1;
 		}
 
-		printf("NumaChip incorporated as HT node %d\n", dnc_ht_id);
+		printf("NumaChip incorporated as HT node %d\n", nc_ht);
 	}
 
-	val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
-	printf("Node #%d F0x00: %x\n", dnc_ht_id, val);
+	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
+	printf("Node #%d F0x00: %x\n", nc_ht, val);
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
-	cht_write_conf(dnc_ht_id, 0,
+	cht_write_conf(nc_ht, 0,
 	               H2S_CSR_F0_CHTX_NODE_ID,
 	               (((val >> 12) & 7) << 24) | /* LkNode */
 	               (((val >> 8)  & 7) << 16) | /* SbNode */
-	               (dnc_ht_id << 8) | /* NodeCnt */
-	               dnc_ht_id); /* NodeId */
+	               (nc_ht << 8) | /* NodeCnt */
+	               nc_ht); /* NodeId */
 	/* Adjust global CSR_BASE to 46 bits in order to access it in Linux */
 	DNC_CSR_BASE = 0x3fff00000000ULL;
 	DNC_CSR_LIM = 0x3fffffffffffULL;
@@ -1540,7 +1540,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	/* Since we use high addresses for our CSR and MCFG space, make sure the necessary
 	   features in the CPU is enabled before we start using them */
-	for (node = 0; node < dnc_ht_id; node++) {
+	for (node = 0; node < nc_ht; node++) {
 		/* Enable CF8 extended access for all NBs, as Linux needs this later */
 		set_cf8extcfg_enable(node);
 
@@ -1578,20 +1578,20 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	}
 
 	/* Check if BIOS has assigned a BAR0, if so clear it */
-	val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER);
+	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER);
 	printf("Command/Status: %08x\n", val);
 
 	if (val & (1 << 1)) {
-		cht_write_conf(dnc_ht_id, 0,
+		cht_write_conf(nc_ht, 0,
 		               H2S_CSR_F0_STATUS_COMMAND_REGISTER, val & ~(1 << 1));
-		cht_write_conf(dnc_ht_id, 0,
+		cht_write_conf(nc_ht, 0,
 		               H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0);
-		cht_write_conf(dnc_ht_id, 0,
+		cht_write_conf(nc_ht, 0,
 		               H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
 	}
 
 	/* Check the expansion rom base address register if this has already been done */
-	val = cht_read_conf(dnc_ht_id, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
+	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
 
 	if (val != 0 && !(val & 1)) {
 		if ((val & 0xffff0000) != (DNC_CSR_BASE >> 16)) {
@@ -1604,13 +1604,13 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		/* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
 		 * and set this value in expansion rom base address register */
 		printf("Setting default CSR maps...\n");
-		for (node = 0; node < dnc_ht_id; node++)
-			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, dnc_ht_id, 0);
+		for (node = 0; node < nc_ht; node++)
+			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, nc_ht, 0);
 
 		printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
 		mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1 << 15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
 		              uint32_tbswap(DNC_CSR_BASE >> 32));
-		cht_write_conf(dnc_ht_id, 0,
+		cht_write_conf(nc_ht, 0,
 		               H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS,
 		               (DNC_CSR_BASE >> 16)); /* Put DNC_CSR_BASE[47:32] in the rom address register offset[31:16] */
 #else
@@ -1621,10 +1621,10 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	}
 
 	printf("Setting CSR and MCFG maps...\n");
-	for (node = 0; node < dnc_ht_id; node++) {
+	for (node = 0; node < nc_ht; node++) {
 		mmio_range_del(0xfff0, node, 8);
-		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, dnc_ht_id, 0);
-		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, dnc_ht_id, 0);
+		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, nc_ht, 0);
+		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, nc_ht, 0);
 	}
 
 	/* Set MMCFG base register so local NC will forward correctly */
@@ -1635,9 +1635,9 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
 	}
 
-	cht_write_conf(dnc_ht_id, 0, H2S_CSR_F0_CHTX_LINK_INITIALIZATION_CONTROL, 0);
-	cht_write_conf(dnc_ht_id, 0, H2S_CSR_F0_CHTX_ADDITIONAL_LINK_TRANSACTION_CONTROL, 6);
-	return dnc_ht_id;
+	cht_write_conf(nc_ht, 0, H2S_CSR_F0_CHTX_LINK_INITIALIZATION_CONTROL, 0);
+	cht_write_conf(nc_ht, 0, H2S_CSR_F0_CHTX_ADDITIONAL_LINK_TRANSACTION_CONTROL, 6);
+	return nc_ht;
 }
 
 #define SPI_INSTR_WRSR  0x01
@@ -2688,7 +2688,7 @@ static enum node_state setup_fabric(struct node_info *info)
 {
 	int i;
 	uint8_t lc;
-	dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, info->sciid << 16);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, info->sci << 16);
 	memset(shadow_ltbl, 0, sizeof(shadow_ltbl));
 	memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
 	memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
@@ -2698,20 +2698,20 @@ static enum node_state setup_fabric(struct node_info *info)
 #endif
 
 	if (cfg_fabric.x_size > 0)
-		_add_route(info->sciid, 0, 1); /* Self route via LC3XA */
+		_add_route(info->sci, 0, 1); /* Self route via LC3XA */
 	else if (cfg_fabric.y_size > 0)
-		_add_route(info->sciid, 0, 3); /* Self route via LC3YA */
+		_add_route(info->sci, 0, 3); /* Self route via LC3YA */
 	else
-		_add_route(info->sciid, 0, 5); /* Self route via LC3ZA */
+		_add_route(info->sci, 0, 5); /* Self route via LC3ZA */
 
 	/* Make sure responses get back to SCC */
 	for (lc = 1; lc <= 6; lc++) {
-		_add_route(info->sciid, lc, 0);
+		_add_route(info->sci, lc, 0);
 	}
 
 	for (i = 0; i < cfg_nodes; i++) {
-		uint16_t src = info->sciid;
-		uint16_t dst = cfg_nodelist[i].sciid;
+		uint16_t src = info->sci;
+		uint16_t dst = cfg_nodelist[i].sci;
 		uint8_t dim = 0;
 		uint8_t out;
 
@@ -2730,20 +2730,20 @@ static enum node_state setup_fabric(struct node_info *info)
 #ifdef UNUSED
 		if (cfg_fabric.strict)
 			/* SCI IDs correspond to position on the rings */
-			out += shortest(dim, info->sciid, cfg_nodelist[i].sciid);
+			out += shortest(dim, info->sci, cfg_nodelist[i].sci);
 		else
 			/* SCI IDs may not correspond; load-balance route */
 			out += src & 1;
 
 		printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
-		       info->sciid, cfg_nodelist[i].sciid, dim, out);
+		       info->sci, cfg_nodelist[i].sci, dim, out);
 #endif
-		_add_route(cfg_nodelist[i].sciid, 0, out);
+		_add_route(cfg_nodelist[i].sci, 0, out);
 
 		for (lc = 1; lc <= 6; lc++) {
 			/* Don't touch packets already on correct dim */
 			if ((lc - 1) / 2 != dim) {
-				_add_route(cfg_nodelist[i].sciid, lc, out);
+				_add_route(cfg_nodelist[i].sci, lc, out);
 			}
 		}
 	}
@@ -2757,11 +2757,11 @@ static enum node_state setup_fabric(struct node_info *info)
 		if (_check_dim(0) != 0)
 			return RSP_FABRIC_NOT_READY;
 
-		res = (0 == dnc_init_lc3(info->sciid, 0, dnc_asic_mode ? 16 : 1,
+		res = (0 == dnc_init_lc3(info->sci, 0, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[1], shadow_rtblm[1],
 		                         shadow_rtblh[1], shadow_ltbl[1])) && res;
 		printf(" XA");
-		res = (0 == dnc_init_lc3(info->sciid, 1, dnc_asic_mode ? 16 : 1,
+		res = (0 == dnc_init_lc3(info->sci, 1, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[2], shadow_rtblm[2],
 		                         shadow_rtblh[2], shadow_ltbl[2])) && res;
 		printf(" XB");
@@ -2771,11 +2771,11 @@ static enum node_state setup_fabric(struct node_info *info)
 		if (_check_dim(1) != 0)
 			return RSP_FABRIC_NOT_READY;
 
-		res = (0 == dnc_init_lc3(info->sciid, 2, dnc_asic_mode ? 16 : 1,
+		res = (0 == dnc_init_lc3(info->sci, 2, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[3], shadow_rtblm[3],
 		                         shadow_rtblh[3], shadow_ltbl[3])) && res;
 		printf(" YA");
-		res = (0 == dnc_init_lc3(info->sciid, 3, dnc_asic_mode ? 16 : 1,
+		res = (0 == dnc_init_lc3(info->sci, 3, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[4], shadow_rtblm[4],
 		                         shadow_rtblh[4], shadow_ltbl[4])) && res;
 		printf(" YB");
@@ -2785,11 +2785,11 @@ static enum node_state setup_fabric(struct node_info *info)
 		if (_check_dim(2) != 0)
 			return RSP_FABRIC_NOT_READY;
 
-		res = (0 == dnc_init_lc3(info->sciid, 4, dnc_asic_mode ? 16 : 1,
+		res = (0 == dnc_init_lc3(info->sci, 4, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[5], shadow_rtblm[5],
 		                         shadow_rtblh[5], shadow_ltbl[5])) && res;
 		printf(" ZA");
-		res = (0 == dnc_init_lc3(info->sciid, 5, dnc_asic_mode ? 16 : 1,
+		res = (0 == dnc_init_lc3(info->sci, 5, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[6], shadow_rtblm[6],
 		                         shadow_rtblh[6], shadow_ltbl[6])) && res;
 		printf(" ZB");
@@ -2807,14 +2807,14 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
 		return RSP_FABRIC_NOT_OK;
 
 	/* Builder is checking that it can access all other nodes via CSR */
-	if (part->builder == info->sciid) {
+	if (part->builder == info->sci) {
 		printf("Validating fabric");
 
 		for (int iter = 0; res && iter < 10; iter++) {
 			printf(".");
 
 			for (int i = 1; i < cfg_nodes; i++) {
-				uint16_t node = cfg_nodelist[i].sciid;
+				uint16_t node = cfg_nodelist[i].sci;
 				res = (0 == dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020)) && res; /* Select APIC ATT */
 
 				for (int j = 0; res && j < 16; j++) {
@@ -2840,14 +2840,14 @@ int dnc_check_fabric(struct node_info *info)
 		if (_check_dim(0) < 0)
 			return 0;
 
-		if (_verify_save_id(info->sciid, 0) != 0) {
-			res = (0 == dnc_init_lc3(info->sciid, 0, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 0) != 0) {
+			res = (0 == dnc_init_lc3(info->sci, 0, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[1], shadow_rtblm[1],
 			                         shadow_rtblh[1], shadow_ltbl[1])) && res;
 		}
 
-		if (_verify_save_id(info->sciid, 1) != 0) {
-			res = (0 == dnc_init_lc3(info->sciid, 1, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 1) != 0) {
+			res = (0 == dnc_init_lc3(info->sci, 1, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[2], shadow_rtblm[2],
 			                         shadow_rtblh[2], shadow_ltbl[2])) && res;
 		}
@@ -2857,14 +2857,14 @@ int dnc_check_fabric(struct node_info *info)
 		if (_check_dim(1) < 0)
 			return 0;
 
-		if (_verify_save_id(info->sciid, 2) != 0) {
-			res = (0 == dnc_init_lc3(info->sciid, 2, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 2) != 0) {
+			res = (0 == dnc_init_lc3(info->sci, 2, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[3], shadow_rtblm[3]
 			                         , shadow_rtblh[3], shadow_ltbl[3])) && res;
 		}
 
-		if (_verify_save_id(info->sciid, 3) != 0) {
-			res = (0 == dnc_init_lc3(info->sciid, 3, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 3) != 0) {
+			res = (0 == dnc_init_lc3(info->sci, 3, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[4], shadow_rtblm[4],
 			                         shadow_rtblh[4], shadow_ltbl[4])) && res;
 		}
@@ -2874,14 +2874,14 @@ int dnc_check_fabric(struct node_info *info)
 		if (_check_dim(2) < 0)
 			return 0;
 
-		if (_verify_save_id(info->sciid, 4) != 0) {
-			res = (0 == dnc_init_lc3(info->sciid, 4, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 4) != 0) {
+			res = (0 == dnc_init_lc3(info->sci, 4, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[5], shadow_rtblm[5],
 			                         shadow_rtblh[5], shadow_ltbl[5])) && res;
 		}
 
-		if (_verify_save_id(info->sciid, 5) != 0) {
-			res = (0 == dnc_init_lc3(info->sciid, 5, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 5) != 0) {
+			res = (0 == dnc_init_lc3(info->sci, 5, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[6], shadow_rtblm[6],
 			                         shadow_rtblh[6], shadow_ltbl[6])) && res;
 		}
@@ -3002,18 +3002,18 @@ static enum node_state validate_rings(struct node_info *info)
 		pending = 0;
 
 		if (cfg_fabric.x_size > 0) {
-			pending += lc_check_status(0, info->sciid & 0x00f);
-			pending += lc_check_status(1, info->sciid & 0x00f);
+			pending += lc_check_status(0, info->sci & 0x00f);
+			pending += lc_check_status(1, info->sci & 0x00f);
 		}
 
 		if (cfg_fabric.y_size > 0) {
-			pending += lc_check_status(2, info->sciid & 0x0f0);
-			pending += lc_check_status(3, info->sciid & 0x0f0);
+			pending += lc_check_status(2, info->sci & 0x0f0);
+			pending += lc_check_status(3, info->sci & 0x0f0);
 		}
 
 		if (cfg_fabric.z_size > 0) {
-			pending += lc_check_status(4, info->sciid & 0xf00);
-			pending += lc_check_status(5, info->sciid & 0xf00);
+			pending += lc_check_status(4, info->sci & 0xf00);
+			pending += lc_check_status(5, info->sci & 0xf00);
 		}
 
 		if (!pending)
@@ -3065,7 +3065,7 @@ void broadcast_error(const bool persistent, const char *format, ...)
 	rsp->sig = UDP_SIG;
 	rsp->state = RSP_ERROR;
 	rsp->uuid = local_info->uuid;
-	rsp->sciid = local_info->sciid;
+	rsp->sci = local_info->sci;
 	rsp->tid = 0;
 
 	do {
@@ -3090,8 +3090,8 @@ void check_error(void)
 
 	for (int i = 0; i < cfg_nodes; i++) {
 		if ((!name_matching && (cfg_nodelist[i].uuid == rsp->uuid)) ||
-		    ( name_matching && (cfg_nodelist[i].sciid == rsp->sciid))) {
-			error_remote(rsp->sciid, cfg_nodelist[i].desc, buf + sizeof(struct state_bcast));
+		    ( name_matching && (cfg_nodelist[i].sci == rsp->sci))) {
+			error_remote(rsp->sci, cfg_nodelist[i].desc, buf + sizeof(struct state_bcast));
 			return;
 		}
 	}
@@ -3110,11 +3110,11 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	rsp.sig = UDP_SIG;
 	rsp.state = RSP_SLAVE_READY;
 	rsp.uuid  = info->uuid;
-	rsp.sciid = info->sciid;
+	rsp.sci = info->sci;
 	rsp.tid   = 0;
 
 	for (i = 0; i < cfg_nodes; i++)
-		if (cfg_nodelist[i].sciid == part->builder)
+		if (cfg_nodelist[i].sci == part->builder)
 			builduuid = cfg_nodelist[i].uuid;
 
 	count = 0;
@@ -3124,10 +3124,10 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 		if (++count >= backoff) {
 			if (name_matching)
 				printf("Broadcasting state: %s (sciid 0x%03x, tid %d)\n",
-				       node_state_name[rsp.state], rsp.sciid, rsp.tid);
+				       node_state_name[rsp.state], rsp.sci, rsp.tid);
 			else
 				printf("Broadcasting state: %s (sciid 0x%03x, uuid %08X, tid %d)\n",
-				       node_state_name[rsp.state], rsp.sciid, rsp.uuid, rsp.tid);
+				       node_state_name[rsp.state], rsp.sci, rsp.uuid, rsp.tid);
 			udp_broadcast_state(&rsp, sizeof(rsp));
 			udelay(100 * backoff);
 
@@ -3151,9 +3151,9 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 				continue;
 
 			/* printf("Got cmd packet (state %d, sciid %03x, uuid %08X, tid %d)\n",
-			 *       cmd.state, cmd.sciid, cmd.uuid, cmd.tid); */
+			 *       cmd.state, cmd.sci, cmd.uuid, cmd.tid); */
 			if ((!name_matching && (cmd.uuid == builduuid)) ||
-			    ( name_matching && (cmd.sciid == part->builder))) {
+			    ( name_matching && (cmd.sci == part->builder))) {
 				if (cmd.tid == last_cmd) {
 					/* Ignoring seen command */
 					continue;

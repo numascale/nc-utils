@@ -219,8 +219,8 @@ void setup_mmio_late(void)
 {
 	/* Start from first slave */
 	for (int i = 1; i < cfg_nodes; i++) {
-		printf("\nSetting up PCI routing on SCI%03x from 0x%llx\n", cfg_nodelist[i].sciid, mmio_cur);
-		pci_search(cfg_nodelist[i].sciid, 0, 0, setup_bar);
+		printf("\nSetting up PCI routing on SCI%03x from 0x%llx\n", cfg_nodelist[i].sci, mmio_cur);
+		pci_search(cfg_nodelist[i].sci, 0, 0, setup_bar);
 		mmio_cur = roundup(mmio_cur, GRAN);
 	}
 }

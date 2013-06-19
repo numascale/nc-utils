@@ -164,7 +164,7 @@ static int parse_json(json_t *root)
 			name_matching = 1;
 		}
 
-		if (!parse_json_num(obj, "sciid", &cfg_nodelist[i].sciid, 0)) {
+		if (!parse_json_num(obj, "sciid", &cfg_nodelist[i].sci, 0)) {
 			error("Label <sciid> not found in fabric configuration file");
 			goto out2;
 		}
@@ -266,7 +266,7 @@ int parse_config_file(char *data)
 	for (i = 0; i < cfg_nodes; i++)
 		printf("Node %d: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
 		       i, cfg_nodelist[i].desc, cfg_nodelist[i].uuid,
-		       cfg_nodelist[i].sciid, cfg_nodelist[i].partition,
+		       cfg_nodelist[i].sci, cfg_nodelist[i].partition,
 		       cfg_nodelist[i].osc, cfg_nodelist[i].sync_only);
 
 	for (i = 0; i < cfg_partitions; i++)
@@ -285,7 +285,7 @@ void make_singleton_config(void)
 	cfg_nodelist = (node_info *)malloc(sizeof(*cfg_nodelist));
 	assert(cfg_nodelist);
 	cfg_nodelist[0].uuid = local_info->uuid;
-	cfg_nodelist[0].sciid = 0;
+	cfg_nodelist[0].sci = 0;
 	cfg_nodelist[0].osc = 0;
 	cfg_nodelist[0].partition = 0;
 	memcpy(cfg_nodelist[0].desc, "self", 5);
@@ -319,12 +319,12 @@ struct part_info *get_partition_config(int idx) {
 		return NULL;
 }
 
-const char *get_master_name(uint32_t sciid)
+const char *get_master_name(const sci_t sci)
 {
 	int i;
 
 	for (i = 0; i < cfg_nodes; i++)
-		if (cfg_nodelist[i].sciid == sciid)
+		if (cfg_nodelist[i].sci == sci)
 			return cfg_nodelist[i].desc;
 
 	return "<not found>";

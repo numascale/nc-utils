@@ -602,9 +602,8 @@ void debug_acpi(void)
 	       rsdt->len,
 	       sizeof(*rsdt));
 	uint32_t *rsdt_entries = (uint32_t *) & (rsdt->data);
-	int i;
 
-	for (i = 0; i * 4 + sizeof(*rsdt) < rsdt->len; i++) {
+	for (int i = 0; i * 4 + sizeof(*rsdt) < rsdt->len; i++) {
 		acpi_sdt_p table = (acpi_sdt_p)rsdt_entries[i];
 
 		checksum_ok(table, table->len);

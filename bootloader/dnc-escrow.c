@@ -31,8 +31,8 @@ int escrow_populate(void *data)
 	cur->global.size_x       = cfg_fabric.x_size;
 	cur->global.size_y       = cfg_fabric.y_size;
 	cur->global.size_z       = cfg_fabric.z_size;
-	cur->global.northbridges = nc_node[0].nc_ht_id;
-	cur->global.neigh_ht     = nc_node[0].nc_neigh;
+	cur->global.northbridges = nc_node[0].nc_ht;
+	cur->global.neigh_ht     = nc_node[0].nc_neigh_ht;
 	cur->global.neigh_link   = nc_node[0].nc_neigh_link;
 	cur->global.symmetric    = 1;
 	cur->global.renumbering  = renumber_bsp == 1;

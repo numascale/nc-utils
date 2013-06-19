@@ -29,7 +29,7 @@
 #define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
 #define cpu_relax() asm volatile("pause" ::: "memory")
 #define PRInode "node 0x%03x (%s)"
-#define nodestr_offset(x) cfg_nodelist[x].sciid, cfg_nodelist[x].desc
+#define nodestr_offset(x) cfg_nodelist[x].sci, cfg_nodelist[x].desc
 
 #define COL_DEFAULT   "\033[0m"
 #define COL_RED       "\033[31m"
@@ -136,7 +136,7 @@ struct state_bcast {
 	uint32_t sig;
 	enum node_state state;
 	uint32_t uuid;
-	uint32_t sciid;
+	uint32_t sci;
 	uint32_t tid;
 };
 

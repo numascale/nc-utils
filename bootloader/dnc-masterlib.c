@@ -78,7 +78,7 @@ void load_scc_microcode(void)
 
 	for (int i = 0; i < dnc_node_count; i++) {
 		int counter = 0;
-		int node = (i == 0) ? 0xfff0 : nc_node[i].sci_id;
+		int node = (i == 0) ? 0xfff0 : nc_node[i].sci;
 		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 
 		for (uint16_t j = 0; j < mseq_ucode_length; j++) {
@@ -109,15 +109,16 @@ void load_scc_microcode(void)
 void tally_local_node(void)
 {
 	uint32_t val, base, limit, rest;
-	uint16_t i, j, max_ht_node, tot_cores;
+	uint16_t i, j, tot_cores;
+	ht_t max_ht;
 	uint16_t last = 0;
 	nc_node[0].node_mem = 0;
 	tot_cores = 0;
-	nc_node[0].sci_id = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	nc_node[0].ht_max = nc_node[0].nc_ht_id;
+	nc_node[0].sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
+	nc_node[0].max_ht = nc_node[0].nc_ht;
 	nc_node[0].dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
-	max_ht_node = (val >> 4) & 7;
+	max_ht = (val >> 4) & 7;
 #ifdef __i386
 	/* Save and restore EBX for the position-independent syslinux com32 binary */
 	asm volatile("mov $0x80000008, %%eax; pushl %%ebx; cpuid; popl %%ebx" : "=c"(val) :: "eax", "edx");
@@ -127,8 +128,8 @@ void tally_local_node(void)
 	apic_per_node = 1 << ((val >> 12) & 0xf);
 	nc_node[0].apic_offset = 0;
 
-	for (i = 0; i <= max_ht_node; i++) {
-		if (i == nc_node[0].nc_ht_id)
+	for (i = 0; i <= max_ht; i++) {
+		if (i == nc_node[0].nc_ht)
 			continue;
 
 		nc_node[0].ht[i].cores = 0;
@@ -177,8 +178,8 @@ void tally_local_node(void)
 				limit = nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1;
 				asm volatile("wbinvd" ::: "memory");
 
-				for (j = 0; j <= max_ht_node; j++) {
-					if (j == nc_node[0].nc_ht_id)
+				for (j = 0; j <= max_ht; j++) {
+					if (j == nc_node[0].nc_ht)
 						continue;
 
 					if (!nc_node[0].ht[j].cpuid)
@@ -194,7 +195,7 @@ void tally_local_node(void)
 
 			/* Subtract 16MB for C-state 6 save area */
 			if (pf_cstate6) {
-				int range = nc_node[0].nc_ht_id - 1;
+				int range = nc_node[0].nc_ht - 1;
 
 				uint64_t base, limit;
 				int dst;
@@ -246,7 +247,7 @@ void tally_local_node(void)
 	if (rest) {
 		rest = SCC_ATT_GRAN - rest;
 		printf("Adding %dMB to SCI%03x to accommodate granularity requirements\n",
-		       rest << (DRAM_MAP_SHIFT - 20), nc_node[0].sci_id);
+		       rest << (DRAM_MAP_SHIFT - 20), nc_node[0].sci);
 		mtrr_range((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, (uint64_t)(dnc_top_of_mem + rest) << DRAM_MAP_SHIFT, MTRR_UC);
 		dnc_top_of_mem += rest;
 	}
@@ -256,7 +257,7 @@ void tally_local_node(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
 
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nc_node[0].sci_id);
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nc_node[0].sci);
 
 	/* Set IntRecCtrl */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);
@@ -271,7 +272,8 @@ void tally_local_node(void)
 static bool tally_remote_node(const uint16_t node)
 {
 	uint32_t val, base, limit;
-	uint16_t i, max_ht_node, tot_cores;
+	uint16_t i, tot_cores;
+	ht_t max_ht;
 	uint16_t apic_used[16];
 	uint16_t last = 0;
 	uint16_t cur_apic;
@@ -299,9 +301,9 @@ static bool tally_remote_node(const uint16_t node)
 	cur_node = &nc_node[dnc_node_count];
 	cur_node->node_mem = 0;
 	tot_cores = 0;
-	cur_node->sci_id = node;
-	cur_node->nc_ht_id = cur_node->ht_max = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
-	cur_node->nc_neigh = nc_node[0].nc_neigh; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
+	cur_node->sci = node;
+	cur_node->nc_ht = cur_node->max_ht = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
+	cur_node->nc_neigh_ht = nc_node[0].nc_neigh_ht; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
 	/* Ensure that all nodes start out on 1G boundaries
 	   FIXME: Add IO holes to cover address space discontinuity? */
 	dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
@@ -310,7 +312,7 @@ static bool tally_remote_node(const uint16_t node)
 
 	assertf(val != 0xffffffff, "Failed to access config space on SCI%03x", node);
 
-	max_ht_node = (val >> 4) & 7;
+	max_ht = (val >> 4) & 7;
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 
 	for (i = 0; i < 16; i++)
@@ -320,8 +322,8 @@ static bool tally_remote_node(const uint16_t node)
 	cur_node->apic_offset = ht_next_apic;
 	cur_apic = 0;
 
-	for (i = 0; i <= max_ht_node; i++) {
-		if (i == cur_node->nc_ht_id) {
+	for (i = 0; i <= max_ht; i++) {
+		if (i == cur_node->nc_ht) {
 			cur_node->ht[i].cpuid = 0;
 			continue;
 		}
@@ -373,7 +375,7 @@ static bool tally_remote_node(const uint16_t node)
 			dnc_top_of_mem += cur_node->ht[i].size;
 
 			/* Subtract 16MB for C-state 6 save area */
-			if (pf_cstate6 && i == (max_ht_node - 1)) {
+			if (pf_cstate6 && i == (max_ht - 1)) {
 				printf("Adjusting SCI%03x#%x for C-state 6 area\n", node, i);
 				cur_node->ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
 			}
@@ -421,7 +423,7 @@ static bool tally_remote_node(const uint16_t node)
 
 		printf("Moving SCI%03x past HyperTransport decode range by %lldGB\n", node, shift >> (30 - DRAM_MAP_SHIFT));
 
-		for (i = 0; i <= max_ht_node; i++) {
+		for (i = 0; i <= max_ht; i++) {
 			if (cur_node->ht[i].cpuid == 0)
 				continue;
 
@@ -447,7 +449,7 @@ static bool tally_remote_node(const uint16_t node)
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
 
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nc_node[0].sci_id);
+		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nc_node[0].sci);
 
 	/* Set IntRecCtrl */
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);

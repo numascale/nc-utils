@@ -35,7 +35,7 @@ struct fabric_info {
 
 struct node_info {
 	uint32_t uuid;
-	uint32_t sciid;
+	uint32_t sci;
 	uint32_t partition;
 	uint32_t osc;
 	char desc[32];
@@ -57,7 +57,7 @@ int parse_config_file(char *data);
 void make_singleton_config(void);
 void get_node_config(void);
 struct part_info *get_partition_config(int idx);
-const char *get_master_name(uint32_t sciid);
+const char *get_master_name(const sci_t sci);
 extern char *hostname;
 
 static inline int config_local(struct node_info *info, uint32_t uuid)
