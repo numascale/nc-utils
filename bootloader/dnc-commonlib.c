@@ -2434,24 +2434,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (1 << 6));
 	}
 
-	uint64_t old_mcfg = rdmsr(MSR_MCFG_BASE) & ~0x3f;
-
 	for (i = 0; i < ht_id; i++) {
-		/* Drop redundant MMIO ranges pointing to old MCFG space */
-		for (int range = 0; range < 8; range++) {
-			uint64_t base, limit;
-			int dest, link;
-			bool lock;
-
-			if (!mmio_range_read(0xfff0, i, range, &base, &limit, &dest, &link, &lock))
-				continue;
-
-			if (base == old_mcfg) {
-				mmio_range_del(0xfff0, i, range);
-				break;
-			}
-		}
-
 		/* Disable Northbridge WatchDog timer and MCE target/master abort for debugging */
 		val = cht_read_conf(i, FUNC3_MISC, 0x44);
 
