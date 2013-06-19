@@ -18,16 +18,11 @@
 #ifndef __DNC_ROUTE
 #define __DNC_ROUTE 1
 
-#include "dnc-bootloader.h"
-#include "dnc-types.h"
+#include <inttypes.h>
+#include <stdbool.h>
 
-void add_chunk_route(uint16_t dest, const sci_t sci, uint8_t link);
-void del_chunk_route(uint16_t dest, const sci_t sci);
-void set_route(uint16_t dest, const sci_t sci, uint16_t width, uint8_t link);
-void add_route(uint16_t dest, const sci_t sci, uint16_t width, uint8_t link);
-void del_route(uint16_t dest, const sci_t sci, uint16_t width);
-void set_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width, uint8_t link);
-void add_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width, uint8_t link);
-void del_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width);
+typedef uint8_t ht_t;
+typedef uint16_t sci_t;
 
 #endif
+

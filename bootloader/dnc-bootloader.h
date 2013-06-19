@@ -18,6 +18,7 @@
 #ifndef __DNC_BOOTLOADER_H
 #define __DNC_BOOTLOADER_H 1
 
+#include <inttypes.h>
 #include <stdbool.h>
 
 #define IMPORT_RELOCATED(sym) extern volatile uint8_t sym ## _relocate
@@ -25,6 +26,9 @@
 #define REL16(sym) ((uint16_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 #define REL32(sym) ((uint32_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 #define REL64(sym) ((uint64_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+
+typedef uint16_t sci_t;
+typedef uint8_t ht_t;
 
 struct mp_config_table {
 	union {
@@ -81,16 +85,13 @@ typedef struct nc_node_info {
 	uint32_t mmio_base;         /* Start of local MMIO mapping, in 16MB chunks */
 	uint32_t mmio_end;
 	ht_node_info_t ht[8];
-	uint16_t sci;               /* Maps logical DNC node ids to physical (SCI) ids */
+	sci_t sci;                  /* Maps logical DNC node ids to physical (SCI) ids */
 	uint16_t apic_offset;       /* Offset to shift APIC ids by when unifying */
-	uint8_t max_ht;             /* Highest HT ID */
-	uint8_t nc_ht : 3;          /* HT id of dnc node dnc controller on local system */
-	uint8_t nc_neigh_ht : 3;    /* Our nearest neighbour HT node on local system */
+	ht_t max_ht : 3;            /* Highest HT ID */
+	ht_t nc_ht : 3;             /* HT id of dnc node dnc controller on local system */
+	ht_t nc_neigh_ht : 3;       /* Our nearest neighbour HT node on local system */
 	uint8_t nc_neigh_link : 2;
 } nc_node_info_t;
-
-typedef uint16_t sci_t;
-typedef uint8_t ht_t;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 extern uint8_t nodedata[4096];

@@ -34,213 +34,213 @@
 #define SCI_ID_BITNR(id) (((id) >> 0) & 0xf)
 
 /* Route all 256 bxbar entries for chunk corresponding to "dest" over "link"
- * on "node" */
-void add_chunk_route(uint16_t dest, uint16_t node, uint8_t link)
+ * on "sci" */
+void add_chunk_route(uint16_t dest, const sci_t sci, uint8_t link)
 {
-	int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
+	int scc = ((sci == 0xfff0) || ((sci & 0xf000) == 0));
 	uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
 	uint16_t reg;
-	dnc_write_csr(node,
+	dnc_write_csr(sci,
 	              scc
 	              ? H2S_CSR_G0_ROUT_TABLE_CHUNK
 	              : LC3_CSR_SW_INFO3,
 	              SCI_ID_CHUNK(dest));
 
 	for (reg = 0; reg < 16; reg++) {
-		dnc_write_csr(node, base + OFFS_RTBLL + reg * 4,
+		dnc_write_csr(sci, base + OFFS_RTBLL + reg * 4,
 		              (link & 1) ? 0xffff : 0);
-		dnc_write_csr(node, base + OFFS_RTBLM + reg * 4,
+		dnc_write_csr(sci, base + OFFS_RTBLM + reg * 4,
 		              (link & 2) ? 0xffff : 0);
-		dnc_write_csr(node, base + OFFS_RTBLH + reg * 4,
+		dnc_write_csr(sci, base + OFFS_RTBLH + reg * 4,
 		              (link & 4) ? 0xffff : 0);
 
-		if (!scc) dnc_write_csr(node, base + OFFS_LTBL + reg * 4, 0xffff);
+		if (!scc) dnc_write_csr(sci, base + OFFS_LTBL + reg * 4, 0xffff);
 	}
 
 	DEBUG_ROUTE("add_chunk_route: on %04x to %04x over %d\n",
-	            node, dest, link);
+	            sci, dest, link);
 }
 
-/* Unroute all 256 entries for chunk corresponding to "dest" on "node" */
-void del_chunk_route(uint16_t dest, uint16_t node)
+/* Unroute all 256 entries for chunk corresponding to "dest" on "sci" */
+void del_chunk_route(uint16_t dest, const sci_t sci)
 {
-	int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
+	int scc = ((sci == 0xfff0) || ((sci & 0xf000) == 0));
 	uint16_t reg;
 
 	if (!scc) {
-		dnc_write_csr(node, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
+		dnc_write_csr(sci, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
 
 		for (reg = 0; reg < 16; reg++) {
-			dnc_write_csr(node, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg * 4, 0x0000);
+			dnc_write_csr(sci, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg * 4, 0x0000);
 		}
 
 		DEBUG_ROUTE("del_chunk_route: on %04x from %04x\n",
-		            node, dest);
+		            sci, dest);
 	}
 }
 
-/* Set route on "node" towards "dest" over "link"; bitmask "width"
+/* Set route on "sci" towards "dest" over "link"; bitmask "width"
    signifies width of route */
-void set_route(uint16_t dest, uint16_t node, uint16_t width, uint8_t link)
+void set_route(uint16_t dest, const sci_t sci, uint16_t width, uint8_t link)
 {
-	int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
+	int scc = ((sci == 0xfff0) || ((sci & 0xf000) == 0));
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
 	uint16_t bit = SCI_ID_BITNR(dest);
 	uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
-	dnc_write_csr(node,
+	dnc_write_csr(sci,
 	              scc
 	              ? H2S_CSR_G0_ROUT_TABLE_CHUNK
 	              : LC3_CSR_SW_INFO3,
 	              SCI_ID_CHUNK(dest));
-	dnc_write_csr(node, base + OFFS_RTBLL + reg, ((link & 1) ? width : 0) << bit);
-	dnc_write_csr(node, base + OFFS_RTBLM + reg, ((link & 2) ? width : 0) << bit);
-	dnc_write_csr(node, base + OFFS_RTBLH + reg, ((link & 4) ? width : 0) << bit);
+	dnc_write_csr(sci, base + OFFS_RTBLL + reg, ((link & 1) ? width : 0) << bit);
+	dnc_write_csr(sci, base + OFFS_RTBLM + reg, ((link & 2) ? width : 0) << bit);
+	dnc_write_csr(sci, base + OFFS_RTBLH + reg, ((link & 4) ? width : 0) << bit);
 
-	if (!scc) dnc_write_csr(node, base + OFFS_LTBL + reg, width << bit);
+	if (!scc) dnc_write_csr(sci, base + OFFS_LTBL + reg, width << bit);
 
 	DEBUG_ROUTE("sdd_route: on %04x to %04x/%x over %d\n",
-	            node, dest, width, link);
+	            sci, dest, width, link);
 }
 
-/* Add route on "node" towards "dest" over "link"; bitmask "width"
+/* Add route on "sci" towards "dest" over "link"; bitmask "width"
    signifies width of route */
-void add_route(uint16_t dest, uint16_t node, uint16_t width, uint8_t link)
+void add_route(uint16_t dest, const sci_t sci, uint16_t width, uint8_t link)
 {
-	int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
+	int scc = ((sci == 0xfff0) || ((sci & 0xf000) == 0));
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
 	uint16_t bit = SCI_ID_BITNR(dest);
 	uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
 	uint32_t csr;
-	dnc_write_csr(node,
+	dnc_write_csr(sci,
 	              scc
 	              ? H2S_CSR_G0_ROUT_TABLE_CHUNK
 	              : LC3_CSR_SW_INFO3,
 	              SCI_ID_CHUNK(dest));
 
 	if (!scc) {
-		csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
+		csr = dnc_read_csr(sci, LC3_CSR_CONFIG4);
 		csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
-		dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
+		dnc_write_csr(sci, LC3_CSR_CONFIG4, csr);
 	}
 
-	csr = dnc_read_csr(node, base + OFFS_RTBLL + reg);
+	csr = dnc_read_csr(sci, base + OFFS_RTBLL + reg);
 	csr = (csr & ~(width << bit)) | (((link & 1) ? width : 0) << bit);
-	dnc_write_csr(node, base + OFFS_RTBLL + reg, csr);
-	csr = dnc_read_csr(node, base + OFFS_RTBLM + reg);
+	dnc_write_csr(sci, base + OFFS_RTBLL + reg, csr);
+	csr = dnc_read_csr(sci, base + OFFS_RTBLM + reg);
 	csr = (csr & ~(width << bit)) | (((link & 2) ? width : 0) << bit);
-	dnc_write_csr(node, base + OFFS_RTBLM + reg, csr);
-	csr = dnc_read_csr(node, base + OFFS_RTBLH + reg);
+	dnc_write_csr(sci, base + OFFS_RTBLM + reg, csr);
+	csr = dnc_read_csr(sci, base + OFFS_RTBLH + reg);
 	csr = (csr & ~(width << bit)) | (((link & 4) ? width : 0) << bit);
-	dnc_write_csr(node, base + OFFS_RTBLH + reg, csr);
+	dnc_write_csr(sci, base + OFFS_RTBLH + reg, csr);
 
 	if (!scc) {
-		csr = dnc_read_csr(node, base + OFFS_LTBL + reg);
+		csr = dnc_read_csr(sci, base + OFFS_LTBL + reg);
 		csr |= (width << bit);
-		dnc_write_csr(node, base + OFFS_LTBL + reg, csr);
-		csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
+		dnc_write_csr(sci, base + OFFS_LTBL + reg, csr);
+		csr = dnc_read_csr(sci, LC3_CSR_CONFIG4);
 		csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
-		dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
+		dnc_write_csr(sci, LC3_CSR_CONFIG4, csr);
 	}
 
 	DEBUG_ROUTE("add_route: on %04x to %04x/%x over %d\n",
-	            node, dest, width, link);
+	            sci, dest, width, link);
 }
 
-/* Remove route on "node" towards "dest"; bitmask "width" signifies
+/* Remove route on "sci" towards "dest"; bitmask "width" signifies
    width of route */
-void del_route(uint16_t dest, uint16_t node, uint16_t width)
+void del_route(uint16_t dest, const sci_t sci, uint16_t width)
 {
-	int scc = ((node == 0xfff0) || ((node & 0xf000) == 0));
+	int scc = ((sci == 0xfff0) || ((sci & 0xf000) == 0));
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
 	uint16_t bit = SCI_ID_BITNR(dest);
 	uint32_t csr;
 
 	if (!scc) {
-		dnc_write_csr(node, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
-		csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
+		dnc_write_csr(sci, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
+		csr = dnc_read_csr(sci, LC3_CSR_CONFIG4);
 		csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
-		dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
-		csr = dnc_read_csr(node, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);
+		dnc_write_csr(sci, LC3_CSR_CONFIG4, csr);
+		csr = dnc_read_csr(sci, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);
 		csr &= ~(width << bit);
-		dnc_write_csr(node, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg, csr);
-		csr = dnc_read_csr(node, LC3_CSR_CONFIG4);
+		dnc_write_csr(sci, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg, csr);
+		csr = dnc_read_csr(sci, LC3_CSR_CONFIG4);
 		csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
-		dnc_write_csr(node, LC3_CSR_CONFIG4, csr);
+		dnc_write_csr(sci, LC3_CSR_CONFIG4, csr);
 		DEBUG_ROUTE("del_route: on %04x to %04x/%x\n",
-		            node, dest, width);
+		            sci, dest, width);
 	}
 }
 
-/* Set route towards "dest" over "link" on blink id "bid" via "node";
+/* Set route towards "dest" over "link" on blink id "bid" via "sci";
    bitmask "width" signifies width of route */
-void set_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width, uint8_t link)
+void set_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width, uint8_t link)
 {
 	int scc = (bid == 0);
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
 	uint16_t bit = SCI_ID_BITNR(dest);
 	uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
-	dnc_write_csr_geo(node, bid,
+	dnc_write_csr_geo(sci, bid,
 	                  scc
 	                  ? H2S_CSR_G0_ROUT_TABLE_CHUNK
 	                  : LC3_CSR_SW_INFO3,
 	                  SCI_ID_CHUNK(dest));
-	dnc_write_csr_geo(node, bid, base + OFFS_RTBLL + reg, ((link & 1) ? width : 0) << bit);
-	dnc_write_csr_geo(node, bid, base + OFFS_RTBLM + reg, ((link & 2) ? width : 0) << bit);
-	dnc_write_csr_geo(node, bid, base + OFFS_RTBLH + reg, ((link & 4) ? width : 0) << bit);
+	dnc_write_csr_geo(sci, bid, base + OFFS_RTBLL + reg, ((link & 1) ? width : 0) << bit);
+	dnc_write_csr_geo(sci, bid, base + OFFS_RTBLM + reg, ((link & 2) ? width : 0) << bit);
+	dnc_write_csr_geo(sci, bid, base + OFFS_RTBLH + reg, ((link & 4) ? width : 0) << bit);
 
-	if (!scc) dnc_write_csr_geo(node, bid, base + OFFS_LTBL + reg, width << bit);
+	if (!scc) dnc_write_csr_geo(sci, bid, base + OFFS_LTBL + reg, width << bit);
 
 	DEBUG_ROUTE("set_route_geo: on %04x bid %d to %04x/%x over %d\n",
-	            node, bid, dest, width, link);
+	            sci, bid, dest, width, link);
 }
 
-/* Add route towards "dest" over "link" on blink id "bid" via "node";
+/* Add route towards "dest" over "link" on blink id "bid" via "sci";
    bitmask "width" signifies width of route */
-void add_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width, uint8_t link)
+void add_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width, uint8_t link)
 {
 	int scc = (bid == 0);
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
 	uint16_t bit = SCI_ID_BITNR(dest);
 	uint16_t base = scc ? H2S_CSR_G0_ROUT_LCTBL00 : LC3_CSR_ROUT_LCTBL00;
 	uint32_t csr;
-	dnc_write_csr_geo(node, bid,
+	dnc_write_csr_geo(sci, bid,
 	                  scc
 	                  ? H2S_CSR_G0_ROUT_TABLE_CHUNK
 	                  : LC3_CSR_SW_INFO3,
 	                  SCI_ID_CHUNK(dest));
 
 	if (!scc) {
-		csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
+		csr = dnc_read_csr_geo(sci, bid, LC3_CSR_CONFIG4);
 		csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
-		dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
+		dnc_write_csr_geo(sci, bid, LC3_CSR_CONFIG4, csr);
 	}
 
-	csr = dnc_read_csr_geo(node, bid, base + OFFS_RTBLL + reg);
+	csr = dnc_read_csr_geo(sci, bid, base + OFFS_RTBLL + reg);
 	csr = (csr& ~(width << bit)) | (((link & 1) ? width : 0) << bit);
-	dnc_write_csr_geo(node, bid, base + OFFS_RTBLL + reg, csr);
-	csr = dnc_read_csr_geo(node, bid, base + OFFS_RTBLM + reg);
+	dnc_write_csr_geo(sci, bid, base + OFFS_RTBLL + reg, csr);
+	csr = dnc_read_csr_geo(sci, bid, base + OFFS_RTBLM + reg);
 	csr = (csr & ~(width << bit)) | (((link & 2) ? width : 0) << bit);
-	dnc_write_csr_geo(node, bid, base + OFFS_RTBLM + reg, csr);
-	csr = dnc_read_csr_geo(node, bid, base + OFFS_RTBLH + reg);
+	dnc_write_csr_geo(sci, bid, base + OFFS_RTBLM + reg, csr);
+	csr = dnc_read_csr_geo(sci, bid, base + OFFS_RTBLH + reg);
 	csr = (csr & ~(width << bit)) | (((link & 4) ? width : 0) << bit);
-	dnc_write_csr_geo(node, bid, base + OFFS_RTBLH + reg, csr);
+	dnc_write_csr_geo(sci, bid, base + OFFS_RTBLH + reg, csr);
 
 	if (!scc) {
-		csr = dnc_read_csr_geo(node, bid, base + OFFS_LTBL + reg);
+		csr = dnc_read_csr_geo(sci, bid, base + OFFS_LTBL + reg);
 		csr |= (width << bit);
-		dnc_write_csr_geo(node, bid, base + OFFS_LTBL + reg, csr);
-		csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
+		dnc_write_csr_geo(sci, bid, base + OFFS_LTBL + reg, csr);
+		csr = dnc_read_csr_geo(sci, bid, LC3_CSR_CONFIG4);
 		csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
-		dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
+		dnc_write_csr_geo(sci, bid, LC3_CSR_CONFIG4, csr);
 	}
 
 	DEBUG_ROUTE("add_route_geo: on %04x bid %d to %04x/%x over %d\n",
-	            node, bid, dest, width, link);
+	            sci, bid, dest, width, link);
 }
 
-/* Remove route towards "dest" on blink id "bid" via "node"; bitmask
+/* Remove route towards "dest" on blink id "bid" via "sci"; bitmask
    "width" signifies width of route */
-void del_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width)
+void del_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width)
 {
 	int scc = (bid == 0);
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
@@ -248,18 +248,18 @@ void del_route_geo(uint16_t dest, uint16_t node, uint8_t bid, uint16_t width)
 	uint32_t csr;
 
 	if (!scc) {
-		dnc_write_csr_geo(node, bid, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
-		csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
+		dnc_write_csr_geo(sci, bid, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
+		csr = dnc_read_csr_geo(sci, bid, LC3_CSR_CONFIG4);
 		csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
-		dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
-		csr = dnc_read_csr_geo(node, bid, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);
+		dnc_write_csr_geo(sci, bid, LC3_CSR_CONFIG4, csr);
+		csr = dnc_read_csr_geo(sci, bid, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);
 		csr &= ~(width << bit);
-		dnc_write_csr_geo(node, bid, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg, csr);
-		csr = dnc_read_csr_geo(node, bid, LC3_CSR_CONFIG4);
+		dnc_write_csr_geo(sci, bid, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg, csr);
+		csr = dnc_read_csr_geo(sci, bid, LC3_CSR_CONFIG4);
 		csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
-		dnc_write_csr_geo(node, bid, LC3_CSR_CONFIG4, csr);
+		dnc_write_csr_geo(sci, bid, LC3_CSR_CONFIG4, csr);
 		DEBUG_ROUTE("del_route_geo: on %04x bid %d to %04x/%x\n",
-		            node, bid, dest, width);
+		            sci, bid, dest, width);
 	}
 }
 

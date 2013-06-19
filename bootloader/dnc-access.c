@@ -140,38 +140,38 @@ void pmio_clearl(uint16_t offset, uint32_t mask)
 	pmio_writel(offset, val);
 }
 
-uint32_t ioh_nbmiscind_read(uint16_t node, uint8_t reg)
+uint32_t ioh_nbmiscind_read(const sci_t node, uint8_t reg)
 {
 	dnc_write_conf(node, 0, 0, 0, 0x60, reg);
 	return dnc_read_conf(node, 0, 0, 0, 0x64);
 }
 
-void ioh_nbmiscind_write(uint16_t node, uint8_t reg, uint32_t val)
+void ioh_nbmiscind_write(const sci_t sci, uint8_t reg, uint32_t val)
 {
-	dnc_write_conf(node, 0, 0, 0, 0x60, reg | 0x80);
-	dnc_write_conf(node, 0, 0, 0, 0x64, val);
+	dnc_write_conf(sci, 0, 0, 0, 0x60, reg | 0x80);
+	dnc_write_conf(sci, 0, 0, 0, 0x64, val);
 
 	if (verbose > 2) {
-		uint32_t val2 = ioh_nbmiscind_read(node, reg);
+		uint32_t val2 = ioh_nbmiscind_read(sci, reg);
 
 		if (val2 != val)
 			warning("IOH NBMISCIND reg 0x%02x readback (0x%08x) differs from write (0x%08x)", reg, val2, val);
 	}
 }
 
-uint32_t ioh_htiu_read(uint16_t node, uint8_t reg)
+uint32_t ioh_htiu_read(const sci_t sci, uint8_t reg)
 {
-	dnc_write_conf(node, 0, 0, 0, 0x94, reg);
-	return dnc_read_conf(node, 0, 0, 0, 0x98);
+	dnc_write_conf(sci, 0, 0, 0, 0x94, reg);
+	return dnc_read_conf(sci, 0, 0, 0, 0x98);
 }
 
-void ioh_htiu_write(uint16_t node, uint8_t reg, uint32_t val)
+void ioh_htiu_write(const sci_t sci, uint8_t reg, uint32_t val)
 {
-	dnc_write_conf(node, 0, 0, 0, 0x94, reg | 0x100);
-	dnc_write_conf(node, 0, 0, 0, 0x98, val);
+	dnc_write_conf(sci, 0, 0, 0, 0x94, reg | 0x100);
+	dnc_write_conf(sci, 0, 0, 0, 0x98, val);
 
 	if (verbose > 2) {
-		uint32_t val2 = ioh_htiu_read(node, reg);
+		uint32_t val2 = ioh_htiu_read(sci, reg);
 
 		if (val2 != val)
 			warning("IOH HTIU reg 0x%02x readback (0x%08x) differs from write (0x%08x)", reg, val2, val);
@@ -544,32 +544,28 @@ void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val)
 }
 
 
-uint32_t dnc_read_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg)
+uint32_t dnc_read_conf(const sci_t sci, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg)
 {
 	uint32_t val;
 
-	if (node == 0xfff0) {
+	if (sci == 0xfff0) {
 		val = _read_config(bus, device, func, reg);
 	} else {
-		DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ",
-		      node, bus, device, func, reg);
-		val = mem64_read32(DNC_MCFG_BASE | ((uint64_t)node << 28) |
-		                   PCI_MMIO_CONF(bus, device, func, reg));
+		DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ", sci, bus, device, func, reg);
+		val = mem64_read32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg));
 		DEBUG("%08x\n", val);
 	}
 
 	return val;
 }
 
-void dnc_write_conf(uint16_t node, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg, uint32_t val)
+void dnc_write_conf(const sci_t sci, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg, uint32_t val)
 {
-	if (node == 0xfff0) {
+	if (sci == 0xfff0) {
 		_write_config(bus, device, func, reg, val);
 	} else {
-		DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x",
-		      node, bus, device, func, reg, val);
-		mem64_write32(DNC_MCFG_BASE | ((uint64_t)node << 28) |
-		              PCI_MMIO_CONF(bus, device, func, reg), val);
+		DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x", sci, bus, device, func, reg, val);
+		mem64_write32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg), val);
 		DEBUG("\n");
 	}
 }
