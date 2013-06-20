@@ -51,7 +51,6 @@ static int zceil(const float num) {
 
 void load_scc_microcode(void)
 {
-	uint32_t val;
 	const uint32_t *mseq_ucode;
 	const uint16_t *mseq_table;
 	int mseq_ucode_length, mseq_table_length;
@@ -100,7 +99,7 @@ void load_scc_microcode(void)
 			dnc_write_csr(node, H2S_CSR_G0_JUMP_ENTRY, mseq_table[j]);
 
 		/* Start the microsequencer */
-		val = dnc_read_csr(node, H2S_CSR_G0_STATE_CLEAR);
+		uint32_t val = dnc_read_csr(node, H2S_CSR_G0_STATE_CLEAR);
 		dnc_write_csr(node, H2S_CSR_G0_STATE_CLEAR, val);
 	}
 	printf("done\n");
@@ -197,12 +196,12 @@ void tally_local_node(void)
 			if (pf_cstate6) {
 				int range = nc_node[0].nc_ht - 1;
 
-				uint64_t base, limit;
+				uint64_t base2, limit2;
 				int dst;
-				dram_range_read(0xfff0, i, range, &base, &limit, &dst);
+				dram_range_read(0xfff0, i, range, &base2, &limit2, &dst);
 				assert(dst == range);
-				limit -= 1ULL << 24;
-				dram_range(0xfff0, i, range, base >> DRAM_MAP_SHIFT, limit >> DRAM_MAP_SHIFT, dst);
+				limit2 -= 1ULL << 24;
+				dram_range(0xfff0, i, range, base2 >> DRAM_MAP_SHIFT, limit2 >> DRAM_MAP_SHIFT, dst);
 
 				if (i == range) {
 					printf("Adjusting SCI000#%d DRAM range %d for C-state 6 area\n", i, i);

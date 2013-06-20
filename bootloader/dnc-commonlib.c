@@ -1250,7 +1250,7 @@ static void disable_link(int node, int link)
 }
 #endif /* __i386 */
 
-static int disable_nc = 0;
+static bool disable_nc = 0;
 
 static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 {
@@ -1258,17 +1258,17 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	printf("(Only doing HT discovery and reconfig in 32-bit mode)\n");
 	return -1;
 #else
-	int nodes, neigh, link = 0, rt, nc, i;
+	int nodes, neigh_ht, link = 0, rt, nc_ht;
 	uint32_t val;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	nodes = (val >> 4) & 7;
 	bool use = 1;
 
-	for (neigh = 0; neigh <= nodes; neigh++) {
-		uint32_t aggr = cht_read_conf(neigh, FUNC0_HT, 0x164);
+	for (neigh_ht = 0; neigh_ht <= nodes; neigh_ht++) {
+		uint32_t aggr = cht_read_conf(neigh_ht, FUNC0_HT, 0x164);
 
 		for (link = 0; link < 4; link++) {
-			val = cht_read_conf(neigh, FUNC0_HT, 0x98 + link * 0x20);
+			val = cht_read_conf(neigh_ht, FUNC0_HT, 0x98 + link * 0x20);
 
 			if ((val & 0x1f) != 0x3)
 				continue; /* Not coherent */
@@ -1279,7 +1279,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 				use = 1;
 
 			for (rt = 0; rt <= nodes; rt++) {
-				val = cht_read_conf(neigh, FUNC0_HT, 0x40 + rt * 4);
+				val = cht_read_conf(neigh_ht, FUNC0_HT, 0x40 + rt * 4);
 
 				if (val & (2 << link))
 					use = 1; /* Routing entry "rt" uses link "link" */
@@ -1298,41 +1298,41 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 		return -1;
 	}
 
-	printf("HT#%d L%d is coherent and unrouted\n", neigh, link);
+	printf("HT#%d L%d is coherent and unrouted\n", neigh_ht, link);
 
 	if (disable_nc) {
 		printf("Disabling NC link.\n");
-		disable_link(neigh, link);
+		disable_link(neigh_ht, link);
 		return -1;
 	}
 
-	nc = nodes + 1;
+	nc_ht = nodes + 1;
 	/* "neigh" request/response routing, copy bcast values from self */
-	val = cht_read_conf(neigh, FUNC0_HT, 0x40 + neigh * 4);
-	cht_write_conf(neigh, FUNC0_HT, 0x40 + nc * 4,
+	val = cht_read_conf(neigh_ht, FUNC0_HT, 0x40 + neigh_ht * 4);
+	cht_write_conf(neigh_ht, FUNC0_HT, 0x40 + nc_ht * 4,
 	               (val & 0x07fc0000) | (0x402 << link));
 
-	for (i = 0; i <= nodes; i++) {
-		val = cht_read_conf(i, FUNC0_HT, 0x68);
-		cht_write_conf(i, FUNC0_HT, 0x68, val & ~(1 << 15)); /* LimitCldtCfg */
+	for (ht_t ht = 0; ht <= nodes; ht++) {
+		val = cht_read_conf(ht, FUNC0_HT, 0x68);
+		cht_write_conf(ht, FUNC0_HT, 0x68, val & ~(1 << 15)); /* LimitCldtCfg */
 
-		if (i == neigh)
+		if (ht == neigh_ht)
 			continue;
 
-		/* Route "nc" same as "neigh" for all other nodes */
-		val = cht_read_conf(i, FUNC0_HT, 0x40 + neigh * 4);
-		cht_write_conf(i, FUNC0_HT, 0x40 + nc * 4, val);
+		/* Route "nc_ht" same as "neigh_ht" for all other nodes */
+		val = cht_read_conf(ht, FUNC0_HT, 0x40 + neigh_ht * 4);
+		cht_write_conf(ht, FUNC0_HT, 0x40 + nc_ht * 4, val);
 	}
 
 #ifdef __i386
-	cht_print(neigh, link);
+	cht_print(neigh_ht, link);
 #endif
 
 	/* Earliest opportunity to test HT link */
 	if (ht_testmode & HT_TESTMODE_TEST)
-		cht_test(nc, neigh, link);
+		cht_test(nc_ht, neigh_ht, link);
 
-	val = cht_read_conf(nc, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
+	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
 
 	if (val != 0x06011b47) {
 		error("Unrouted coherent device %08x is not NumaChip", val);
@@ -1341,17 +1341,17 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	printf("NumaChip found (%08x)\n", val);
 	/* Ramp up link speed and width before adding NC to coherent fabric */
-	val = cht_read_conf(nc, 0, 0xec);
+	val = cht_read_conf(nc_ht, 0, 0xec);
 
 	if (val == 0) {
-		val = cht_read_conf(nc, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
+		val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
 		printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
-		ht_optimize_link(nc, val & 0xffff, 1);
+		ht_optimize_link(nc_ht, val & 0xffff, 1);
 		*p_asic_mode = 1;
 		*p_chip_rev = val & 0xffff;
 	} else {
 		printf("Doing link calibration of FPGA chip rev %d_%d\n", val >> 16, val & 0xffff);
-		ht_optimize_link(nc, val, 0);
+		ht_optimize_link(nc_ht, val, 0);
 		*p_asic_mode = 0;
 		*p_chip_rev = val;
 	}
@@ -1363,8 +1363,8 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	if (ht_suppress) {
 		printf("Setting HT features to 0x%x...", ht_suppress);
 
-		for (i = 0; i <= nodes; i++) {
-			val = cht_read_conf(i, FUNC3_MISC, 0x44);
+		for (ht_t ht = 0; ht <= nodes; ht++) {
+			val = cht_read_conf(ht, FUNC3_MISC, 0x44);
 
 			/* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
 			if (ht_suppress & 0x1) val &= ~(1 << 2);
@@ -1384,8 +1384,8 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 			/* SyncOnDramAdrParErrEn: sync flood on DRAM address parity error enable */
 			if (ht_suppress & 0x20) val &= ~(1 << 30);
 
-			cht_write_conf(i, FUNC3_MISC, 0x44, val);
-			val = cht_read_conf(i, FUNC3_MISC, 0x180);
+			cht_write_conf(ht, FUNC3_MISC, 0x44, val);
+			val = cht_read_conf(ht, FUNC3_MISC, 0x180);
 
 			/* SyncFloodOnUsPwDataErr: sync flood on upstream posted write data error */
 			if (ht_suppress & 0x40) val &= ~(1 << 1);
@@ -1411,7 +1411,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 			/* SyncFloodOnTblWalkErr: sync flood on table walk error enable */
 			if (ht_suppress & 0x2000) val &= ~(1 << 22);
 
-			cht_write_conf(i, FUNC3_MISC, 0x180, val);
+			cht_write_conf(ht, FUNC3_MISC, 0x180, val);
 
 			/* SERR_EN: initiate sync flood when PCIe System Error detected in IOH */
 			if (ht_suppress & 0x4000) {
@@ -1419,11 +1419,11 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 				dnc_write_conf(0xfff0, 0, 0, 0, 0x4, val & ~(1 << 8));
 			}
 
-			for (int link = 0; link < 4; link++) {
+			for (int i = 0; i < 4; i++) {
 				/* CrcFloodEn: Enable sync flood propagation upon link failure */
 				if (ht_suppress & 0x8000) {
-					val = cht_read_conf(i, FUNC0_HT, 0x84 + link * 0x20);
-					cht_write_conf(i, FUNC0_HT, 0x84 + link * 0x20, val & ~2);
+					val = cht_read_conf(i, FUNC0_HT, 0x84 + i * 0x20);
+					cht_write_conf(i, FUNC0_HT, 0x84 + i * 0x20, val & ~2);
 				}
 			}
 		}
@@ -1434,10 +1434,10 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	/* HT looping testmode useful after link is up at 16-bit 800MHz */
 	if (ht_testmode & HT_TESTMODE_LOOP)
 		while (1)
-			cht_test(nc, neigh, link);
+			cht_test(nc_ht, neigh_ht, link);
 
 	if (route_only)
-		return nc;
+		return nc_ht;
 
 	/* On ASIC revB we need to make sure probefilter is disabled */
 	if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff)
@@ -1450,27 +1450,27 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	printf("Adjusting HT fabric...");
 	critical_enter();
 
-	for (i = nodes; i >= 0; i--) {
+	for (int ht = nodes; ht >= 0; ht--) {
 		uint32_t ltcr, val2;
 		/* Disable probes while adjusting */
-		ltcr = cht_read_conf(i, FUNC0_HT, 0x68);
-		cht_write_conf(i, FUNC0_HT, 0x68,
+		ltcr = cht_read_conf(ht, FUNC0_HT, 0x68);
+		cht_write_conf(ht, FUNC0_HT, 0x68,
 		               ltcr | (1 << 10) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
 		/* Update "neigh" bcast values for node about to increment fabric size */
-		val = cht_read_conf(neigh, FUNC0_HT, 0x40 + i * 4);
-		val2 = cht_read_conf(i, FUNC0_HT, 0x60);
-		cht_write_conf(neigh, FUNC0_HT, 0x40 + i * 4, val | (0x80000 << link));
+		val = cht_read_conf(neigh_ht, FUNC0_HT, 0x40 + ht * 4);
+		val2 = cht_read_conf(ht, FUNC0_HT, 0x60);
+		cht_write_conf(neigh_ht, FUNC0_HT, 0x40 + ht * 4, val | (0x80000 << link));
 		/* FIXME: Race condition observered to cause lockups at this point */
 		/* Increase fabric size */
-		cht_write_conf(i, FUNC0_HT, 0x60, val2 + (1 << 4));
+		cht_write_conf(ht, FUNC0_HT, 0x60, val2 + (1 << 4));
 		/* Reassert LimitCldtCfg */
-		cht_write_conf(i, FUNC0_HT, 0x68, ltcr | (1 << 15));
+		cht_write_conf(ht, FUNC0_HT, 0x68, ltcr | (1 << 15));
 	}
 
 	critical_leave();
 	printf("done\n");
-	/* reorganize_mmio(nc); */
-	return nc;
+	/* reorganize_mmio(nc_ht); */
+	return nc_ht;
 #endif
 }
 
