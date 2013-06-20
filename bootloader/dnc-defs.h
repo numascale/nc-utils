@@ -46,6 +46,10 @@
 #define MSR_MC4_MISC2   0xc0000409
 #define MSR_SYSCFG      0xc0010010
 #define MSR_HWCR        0xc0010015
+#define MSR_IORR1_BASE  0xc0010016
+#define MSR_IORR1_MASK  0xc0010017
+#define MSR_IORR2_BASE  0xc0010018
+#define MSR_IORR2_MASK  0xc0010019
 #define MSR_TOPMEM      0xc001001a
 #define MSR_TOPMEM2     0xc001001d
 #define MSR_NB_CFG      0xc001001f

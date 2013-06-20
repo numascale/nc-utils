@@ -317,7 +317,7 @@ bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uin
 	uint32_t b = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS);
 
 	*base = (uint64_t)(a & ~0xff) << (16 - 8);
-	*limit = (uint64_t)(b & ~0xff) << (16 - 8);
+	*limit = ((uint64_t)(b & ~0xff) << (16 - 8)) | 0xffff;
 	*dht = b & 7;
 
 	return a & 3;
@@ -368,7 +368,7 @@ bool nc_dram_range_read(const uint16_t sci, const int range, uint64_t *base, uin
 	uint32_t b = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS);
 
 	*base = (uint64_t)(a & ~0xff) << (24 - 8);
-	*limit = (uint64_t)(b & ~0xff) << (24 - 8);
+	*limit = ((uint64_t)(b & ~0xff) << (24 - 8)) | 0xffffff;
 	*dht = b & 7;
 
 	return a & 3;

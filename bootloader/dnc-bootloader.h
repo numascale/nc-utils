@@ -82,12 +82,13 @@ typedef struct nc_node_info {
 	uint32_t node_mem;          /* Amount of DRAM at dnc nodes, in 16MB chunks */
 	uint32_t dram_base;
 	uint32_t dram_limit;
-	uint32_t mmio_base;         /* Start of local MMIO mapping, in 16MB chunks */
-	uint32_t mmio_end;
+	uint64_t mmio_base;         /* Start of local MMIO mapping */
+	uint64_t mmio_limit;
 	ht_node_info_t ht[8];
 	sci_t sci;                  /* Maps logical DNC node ids to physical (SCI) ids */
 	uint16_t apic_offset;       /* Offset to shift APIC ids by when unifying */
 	ht_t max_ht : 3;            /* Highest HT ID */
+	ht_t bsp_ht : 3;            /* Bootstrap processor HT ID (may be renumbered) */
 	ht_t nc_ht : 3;             /* HT id of dnc node dnc controller on local system */
 	ht_t nc_neigh_ht : 3;       /* Our nearest neighbour HT node on local system */
 	uint8_t nc_neigh_link : 2;
