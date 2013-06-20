@@ -2197,17 +2197,31 @@ static void local_chipset_fixup(bool master)
 				pmio_writeb(sources[i], 0);
 			}
 		}
+
+		/* Enable SP5100 SATA MSI support */
+		uint32_t val2 = dnc_read_conf(0xfff0, 0, 17, 0, 0x40);
+		dnc_write_conf(0xfff0, 0, 17, 0, 0x40, val2 | 1);
+		val = dnc_read_conf(0xfff0, 0, 17, 0, 0x60);
+		dnc_write_conf(0xfff0, 0, 17, 0, 0x60, (val & ~0xff00) | 0x5000);
+		dnc_write_conf(0xfff0, 0, 17, 0, 0x40, val2);
+
+		if (!master) {
+			/* Disable and hide SP5100 IDE controller */
+			dnc_write_conf(0xfff0, 0, 20, 1, 4, 0);
+			val = dnc_read_conf(0xfff0, 0, 20, 0, 0xac);
+			dnc_write_conf(0xfff0, 0, 20, 0, 0xac, val | (1 << 19));
+
+			/* Disable and hide VGA controller */
+			dnc_write_conf(0xfff0, 4, 6, 0, 4, 0);
+			val = dnc_read_conf(0xfff0, 0, 20, 4, 0xfc);
+			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & ~0xffff);
+		}
 	}
 
 	val = dnc_read_conf(0xfff0, 0, 0, 0, 0);
 	if (val == VENDEV_SR5690 || val == VENDEV_SR5670 || val == VENDEV_SR5650) {
-		if (!remote_io && !master) {
-			printf("- disabling IOAPIC\n");
-			/* SR56x0 F0 0xf8/fc is IOAPIC config index/data port
-			 * Write 0 to IOAPIC config register 0 to disable */
-			dnc_write_conf(0xfff0, 0, 0, 2, 0xf8, 0);
-			dnc_write_conf(0xfff0, 0, 0, 2, 0xfc, 0);
-		}
+		if (!master)
+			ioh_ioapicind_write(0xfff0, 0x0, 0);
 	}
 
 	/* Only needed to workaround rev A/B issue */
@@ -2278,11 +2292,6 @@ static void global_chipset_fixup(void)
 				printf("TOM2LO 0x%08x TOM2HI 0x%08x TOM3 0x%08x ",
 				       ioh_htiu_read(node, SR56X0_HTIU_TOM2LO), ioh_htiu_read(node, SR56X0_HTIU_TOM2HI),
 				       ioh_nbmiscind_read(node, SR56X0_MISC_TOM3));
-
-			/* 0xf8/fc IOAPIC config space access
-			 * write 0 to register 0 to disable IOAPIC */
-			dnc_write_conf(node, 0, 0, 2, 0xf8, 0);
-			dnc_write_conf(node, 0, 0, 2, 0xfc, 0);
 
 			printf("done\n");
 		} else if ((vendev == VENDEV_MCP55)) {
