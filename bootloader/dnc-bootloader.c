@@ -1406,12 +1406,9 @@ static void setup_remote_cores(const uint16_t num)
 			dram_range(sci, j, map_index + 1, cur_node->ht[i].base, cur_node->ht[i].base + cur_node->ht[i].size - 1, i);
 		}
 
-		dnc_write_conf(node, 0, 24 + ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, map_index);
-		dnc_write_conf(node, 0, 24 + ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
-		               ((cur_node->ht[i].base + cur_node->ht[i].size - 1) << 8) | i);
-		dnc_write_conf(node, 0, 24 + ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
-		               (cur_node->ht[i].base << 8) | 3);
-		map_index++;
+		uint64_t base = (uint64_t)cur_node->ht[i].base << DRAM_MAP_SHIFT;
+		uint64_t limit = ((uint64_t)(cur_node->ht[i].base + cur_node->ht[i].size) << DRAM_MAP_SHIFT) - 1;
+		nc_dram_range(sci, map_index++, base, limit, i);
 	}
 
 	/* Re-direct everything above our last local DRAM address (if any) to NumaChip */
@@ -1554,8 +1551,8 @@ static void setup_local_mmio_maps(void)
 		curlim = curlim & ~0xff;
 
 		if (verbose > 0)
-			printf("CPU MMIO region #%d base: %08x, lim: %08x, dst: %04x\n",
-			       i, curbase, curlim, curdst);
+			printf("CPU MMIO region #%d base: %08x, lim: %08x, dst: %04x%s\n",
+			       i, curbase, curlim, curdst, (curbase & 8) ? " locked" : "");
 
 		if (curdst & 3) {
 			bool found = 0;
@@ -2485,13 +2482,14 @@ static void unify_all_nodes(void)
 		}
 	}
 
+	tom = rdmsr(MSR_TOPMEM);
+
 	/* Set up local mapping registers etc from 0 - master node max */
 	for (i = 0; i < nc_node[0].nc_ht; i++) {
-		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS,
-		               ((nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1) << 8) | i);
-		cht_write_conf(nc_node[0].nc_ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS,
-		               (nc_node[0].ht[i].base << 8) | 3);
+		uint64_t base = (uint64_t)nc_node[0].ht[i].base << DRAM_MAP_SHIFT;
+		uint64_t limit = ((uint64_t)(nc_node[0].ht[i].base + nc_node[0].ht[i].size) << DRAM_MAP_SHIFT) - 1;
+
+		nc_dram_range(0xfff0, i, base, limit, i);
 	}
 
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
@@ -2964,6 +2962,7 @@ static int nc_start(void)
 		free(cfg_partlist);
 
 		if (verbose) {
+			ranges_print();
 			selftest_late_memmap();
 
 			/* Do this ahead of the self-test to prevent false positives */

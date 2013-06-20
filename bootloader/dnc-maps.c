@@ -201,8 +201,10 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 		}
 
 		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
-		if (val & (1 << 3))
-			return; /* Locked */
+		if (val & 8) {
+			warning("Trying to overwrite locked MMIO range %d on SCI%03x#%d", range, sci, ht);
+			return;
+		}
 		if (val & 3)
 			warning("Overwriting MMIO range %d on SCI%03x#%d", range, sci, ht);
 
@@ -379,5 +381,45 @@ void nc_dram_range_print(const uint16_t sci, const int range)
 
 	if (nc_dram_range_read(sci, range, &base, &limit, &dht))
 		printf("SCI%03x DRAM range %d: 0x%010llx - 0x%010llx to %d\n", sci, range, base, limit, dht);
+}
+
+void ranges_print(void)
+{
+	int node, ht, range;
+
+	printf("\nNorthbridge DRAM ranges:\n");
+	for (node = 0; node < dnc_node_count; node++) {
+		for (range = 0; range < 8; range++)
+			for (ht = 0; ht < 8; ht++) {
+				if (!nc_node[node].ht[ht].cpuid)
+					continue;
+
+				dram_range_print(nc_node[node].sci, ht, range);
+			}
+		printf("\n");
+	}
+
+	printf("Numachip DRAM ranges:\n");
+	for (node = 0; node < dnc_node_count; node++)
+		for (range = 0; range < 8; range++)
+			nc_dram_range_print(nc_node[node].sci, range);
+
+	printf("\nNorthbridge MMIO ranges:\n");
+	for (node = 0; node < dnc_node_count; node++) {
+		for (range = 0; range < 8; range++)
+			for (ht = 0; ht < 8; ht++) {
+				if (!nc_node[node].ht[ht].cpuid)
+					continue;
+
+				mmio_range_print(nc_node[node].sci, ht, range);
+				break;
+			}
+		printf("\n");
+	}
+
+	printf("Numachip MMIO ranges:\n");
+	for (node = 0; node < dnc_node_count; node++)
+		for (range = 0; range < 8; range++)
+			nc_mmio_range_print(nc_node[node].sci, range);
 }
 
