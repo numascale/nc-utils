@@ -2890,90 +2890,72 @@ int dnc_check_fabric(struct node_info *info)
 	return res;
 }
 
-static int phy_check_status(const int phy)
+static bool phy_check_status(const int phy, const bool print)
 {
-	uint32_t val;
-	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
-
+	uint32_t val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
 	if (val & 0xf0) {
-		if (verbose)
-			printf("Warning: Issuing fabric phy reset due to PHY%s_ELOG 0x%x\n", _get_linkname(phy) , val);
+		if (print)
+			warning("Issuing fabric %s reset due to ELOG 0x%x", _get_linkname(phy), val);
 
 		/* Clock compensation error, try forced retraining */
 		dnc_reset_phy(phy);
-		return 1 << phy;
+		return 1;
 	}
 
 	/* Other errors */
-	if (val > 0)
-		return 1 << phy;
+	if (val > 0) {
+		if (print)
+			warning("Fabric %s ELOG 0x%x", _get_linkname(phy), val);
+		return 1;
+	}
 
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
+	if (val != 0x1fff) {
+		if (print)
+			warning("Fabric %s link status 0x%x", _get_linkname(phy), val);
+		return 1;
+	}
 
-	if (verbose & (val != 0x1fff))
-		printf("Warning: Fabric phy PHY%s_LINK_STAT 0x%x\n", _get_linkname(phy) , val);
-
-	return (val != 0x1fff) << phy;
-}
-
-static void phy_print_error(const int mask)
-{
-	char msg[32] = {0};
-	int count = 0;
-
-	for (int i = 0; i < 6; i++)
-		if (mask & (1 << i)) {
-			strcat(msg, _get_linkname(i));
-			count++;
-		}
-
-	error("Fabric phy training failure; check cable%s to port%s %s",
-		count == 1 ? "" : "s", count == 1 ? "" : "s", msg);
+	return 0;
 }
 
 static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
 {
-	int i;
-
 	printf("Training fabric phys...");
 
 	/* No external reset control, simply reset all phys to start training sequence */
-	for (i = 0; i < 6; i++)
-		dnc_reset_phy(i);
+	for (int phy = 0; phy < 6; phy++)
+		dnc_reset_phy(phy);
+
+	int last = 8;
 
 	/* Verify that all relevant PHYs are training */
-	i = 0;
-
-	while (1) {
+	for (int i = 0; i <= last; i++) {
+		udelay(500);
 		bool pending = 0;
 
 		if (cfg_fabric.x_size > 0) {
-			pending |= phy_check_status(0);
-			pending |= phy_check_status(1);
+			pending |= phy_check_status(0, i == last);
+			pending |= phy_check_status(1, i == last);
 		}
 
 		if (cfg_fabric.y_size > 0) {
-			pending |= phy_check_status(2);
-			pending |= phy_check_status(3);
+			pending |= phy_check_status(2, i == last);
+			pending |= phy_check_status(3, i == last);
 		}
 
 		if (cfg_fabric.z_size > 0) {
-			pending |= phy_check_status(4);
-			pending |= phy_check_status(5);
+			pending |= phy_check_status(4, i == last);
+			pending |= phy_check_status(5, i == last);
 		}
 
 		if (!pending) {
 			printf("done\n");
 			return RSP_PHY_TRAINED;
 		}
-
-		if (i++ > 10) {
-			phy_print_error(pending);
-			return RSP_PHY_NOT_TRAINED;
-		}
-
-		udelay(500);
 	}
+
+	return RSP_PHY_NOT_TRAINED;
 }
 
 static int lc_check_status(int lc, int dimidx)
