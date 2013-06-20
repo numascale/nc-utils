@@ -21,11 +21,6 @@
 #define SCC_ATT_INDEX_RANGE 2   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
 #define SCC_ATT_GRAN            ((0x1000000ULL << (SCC_ATT_INDEX_RANGE * 4)) >> DRAM_MAP_SHIFT)
 
-extern uint32_t *mseq_ucode;
-extern uint16_t *mseq_table;
-extern int mseq_ucode_length;
-extern int mseq_table_length;
-
 void load_scc_microcode(void);
 void tally_local_node(void);
 void tally_all_remote_nodes(void);
