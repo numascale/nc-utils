@@ -108,5 +108,6 @@ void stop_acpi(void);
 void disable_dma_all(void);
 void handover_legacy(void);
 void pci_setup(void);
-
+void disable_device(const uint16_t sci, const int bus, const int dev, const int fn);
+uint16_t capability(const uint16_t sci, const uint8_t cap, const int bus, const int dev, const int fn);
 #endif

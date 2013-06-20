@@ -40,7 +40,7 @@ static void pci_search(const struct devspec *list, const int bus)
 			for (listp = list; listp->classtype != PCI_CLASS_FINAL; listp++)
 				if ((listp->classtype == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->classtype))
 					if ((listp->type == PCI_TYPE_ANY) || (listp->type == (type & 0x7f)))
-						listp->handler(bus, dev, fn);
+						listp->handler(0xfff0, bus, dev, fn);
 
 			/* Recurse down bridges */
 			if ((type & 0x7f) == 0x01) {
@@ -60,20 +60,20 @@ static void pci_search_start(const struct devspec *list)
 	pci_search(list, 0);
 }
 
-static void disable_device(const int bus, const int dev, const int fn)
+void disable_device(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	int i;
 	/* Disable I/O, memory, DMA and interrupts */
-	dnc_write_conf(0xfff0, bus, dev, fn, 0x4, 0);
+	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
 
 	/* Clear BARs */
 	for (i = 0x10; i <= 0x24; i += 4)
-		dnc_write_conf(0xfff0, bus, dev, fn, i, 0);
+		dnc_write_conf(sci, bus, dev, fn, i, 0);
 
 	/* Clear expansion ROM base address */
-	dnc_write_conf(0xfff0, bus, dev, fn, 0x30, 0);
+	dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
 	/* Set Interrupt Line register to 0 (unallocated) */
-	dnc_write_conf(0xfff0, bus, dev, fn, 0x3c, 0);
+	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
 
 	if (verbose > 1)
 		printf("disabled\n");
@@ -88,18 +88,18 @@ void disable_dma_all(void)
 	pci_search_start(devices);
 }
 
-uint16_t capability(const uint8_t cap, const int bus, const int dev, const int fn)
+uint16_t capability(const uint16_t sci, const uint8_t cap, const int bus, const int dev, const int fn)
 {
 	/* Check for capability list */
-	if (!(dnc_read_conf(0xfff0, bus, dev, fn, 0x4) & (1 << 20)))
+	if (!(dnc_read_conf(sci, bus, dev, fn, 0x4) & (1 << 20)))
 		return PCI_CAP_NONE;
 
-	uint8_t pos = dnc_read_conf(0xfff0, bus, dev, fn, 0x34) & 0xff;
+	uint8_t pos = dnc_read_conf(sci, bus, dev, fn, 0x34) & 0xff;
 
 	for (int lim = 0; lim < 48 && pos >= 0x40; lim++) {
 		pos &= ~3;
 
-		uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, pos + 0);
+		uint32_t val = dnc_read_conf(sci, bus, dev, fn, pos + 0);
 		if (val == 0xffffffff)
 			break;
 
@@ -130,44 +130,44 @@ uint16_t extcapability(const uint8_t cap, const int bus, const int dev, const in
 	return PCI_CAP_NONE;
 }
 
-static void completion_timeout(const int bus, const int dev, const int fn)
+static void completion_timeout(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	uint32_t val;
 	uint16_t cap;
 	printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
 
-	cap = capability(PCI_CAP_PCIE, bus, dev, fn);
+	cap = capability(sci, PCI_CAP_PCIE, bus, dev, fn);
 	if (cap != PCI_CAP_NONE) {
 		/* Device Control */
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x8);
-		dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x8, val | (1 << 4));
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x8);
+		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x8);
+		dnc_write_conf(sci, bus, dev, fn, cap + 0x8, val | (1 << 4));
+		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x8);
 		if (val & (1 << 4))
 			printf("Relaxed Ordering enabled");
 		else
 			printf("failed to enable Relaxed Ordering");
 
 		/* Root Control */
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x1c);
+		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x1c);
 		if (val & (1 << 1)) {
-			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x1c, val | (1 << 4));
+			dnc_write_conf(sci, bus, dev, fn, cap + 0x1c, val | (1 << 4));
 			printf("; disabled SERR on Non-Fatal");
 		} else
 			printf("; Non-Fatal doesn't trigger SERR");
 
 		/* Device Capabilities/Control 2 */
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x24);
+		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x24);
 
 		/* Select Completion Timeout range D, else disable */
 		if (val & (1 << 3)) {
-			val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
-			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, (val & ~0xf) | 0xe);
+			val = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
+			dnc_write_conf(sci, bus, dev, fn, cap + 0x28, (val & ~0xf) | 0xe);
 			printf("; Completion Timeout 17-64s");
 		} else {
 			if (val & (1 << 4)) {
 				/* Disable Completion Timeout instead */
-				val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x28);
-				dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x28, val | (1 << 4));
+				val = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
+				dnc_write_conf(sci, bus, dev, fn, cap + 0x28, val | (1 << 4));
 				printf("; Completion Timeout disabled");
 			} else
 				printf("; Setting Completion Timeout unsupported");
@@ -177,10 +177,10 @@ static void completion_timeout(const int bus, const int dev, const int fn)
 
 	cap = extcapability(PCI_CAP_AER, bus, dev, fn);
 	if (cap != PCI_CAP_NONE) {
-		val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x0c);
 		if (val & (1 << 14)) {
-			dnc_write_conf(0xfff0, bus, dev, fn, cap + 0x0c, val & ~(1 << 14));
-			val = dnc_read_conf(0xfff0, bus, dev, fn, cap + 0x0c);
+			dnc_write_conf(sci, bus, dev, fn, cap + 0x0c, val & ~(1 << 14));
+			val = dnc_read_conf(sci, bus, dev, fn, cap + 0x0c);
 			if (val & (1 << 14))
 				printf("; Completion Timeout now non-fatal");
 			else
@@ -193,11 +193,11 @@ static void completion_timeout(const int bus, const int dev, const int fn)
 	printf("\n");
 }
 
-static void stop_ohci(int bus, int dev, int fn)
+static void stop_ohci(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	uint32_t val, bar0;
 	printf("OHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
-	bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+	bar0 = dnc_read_conf(sci, bus, dev, fn, 0x10) & ~0xf;
 	if ((bar0 == 0xffffffff) || (bar0 == 0)) {
 		printf("BAR not configured\n");
 		return;
@@ -246,10 +246,10 @@ static void stop_ohci(int bus, int dev, int fn)
 	}
 }
 
-static void stop_ehci(int bus, int dev, int fn)
+static void stop_ehci(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	printf("EHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
-	uint32_t bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+	uint32_t bar0 = dnc_read_conf(sci, bus, dev, fn, 0x10) & ~0xf;
 
 	if (bar0 == 0) {
 		printf("BAR not configured\n");
@@ -265,7 +265,7 @@ static void stop_ehci(int bus, int dev, int fn)
 	}
 
 	/* Check legacy support register shows BIOS ownership */
-	uint32_t legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
+	uint32_t legsup = dnc_read_conf(sci, bus, dev, fn, ecp);
 
 	if ((legsup & 0x10100ff) != 0x0010001) {
 		printf("legacy support not enabled\n");
@@ -274,12 +274,12 @@ static void stop_ehci(int bus, int dev, int fn)
 
 	/* Set OS owned semaphore */
 	legsup |= 1 << 24;
-	dnc_write_conf(0xfff0, bus, dev, fn, ecp, legsup);
+	dnc_write_conf(sci, bus, dev, fn, ecp, legsup);
 	int limit = 100;
 
 	do {
 		udelay(100);
-		legsup = dnc_read_conf(0xfff0, bus, dev, fn, ecp);
+		legsup = dnc_read_conf(sci, bus, dev, fn, ecp);
 
 		if ((legsup & (1 << 16)) == 0) {
 			printf("legacy handover succeeded\n");
@@ -290,10 +290,10 @@ static void stop_ehci(int bus, int dev, int fn)
 	printf("legacy handover timed out\n");
 }
 
-static void stop_xhci(int bus, int dev, int fn)
+static void stop_xhci(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	printf("XHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
-	uint32_t bar0 = dnc_read_conf(0xfff0, bus, dev, fn, 0x10) & ~0xf;
+	uint32_t bar0 = dnc_read_conf(sci, bus, dev, fn, 0x10) & ~0xf;
 
 	if (bar0 == 0) {
 		printf("BAR not configured\n");
@@ -334,11 +334,11 @@ static void stop_xhci(int bus, int dev, int fn)
 	printf("legacy handover timed out\n");
 }
 
-static void stop_ahci(int bus, int dev, int fn)
+static void stop_ahci(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	printf("AHCI controller @ %02x:%02x.%x: ", bus, dev, fn);
 	/* BAR5 (ABAR) contains legacy control registers */
-	uint32_t bar5 = dnc_read_conf(0xfff0, bus, dev, fn, 0x24) & ~0xf;
+	uint32_t bar5 = dnc_read_conf(sci, bus, dev, fn, 0x24) & ~0xf;
 
 	if (bar5 == 0) {
 		printf("BAR not configured\n");
