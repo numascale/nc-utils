@@ -108,7 +108,6 @@ extern char *asm_relocated;
 extern unsigned char asm_relocate_start;
 extern unsigned char asm_relocate_end;
 extern uint64_t ht_base;
-extern uint64_t tom;
 
 void set_cf8extcfg_enable(const int ht);
 int read_config_file(const char *filename);

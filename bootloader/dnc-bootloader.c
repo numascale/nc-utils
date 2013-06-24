@@ -67,7 +67,6 @@ uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static bool scc_started = 0;
 static struct in_addr myip = {0xffffffff};
 uint64_t ht_base = HT_BASE;
-uint64_t tom = 0;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -1329,7 +1328,7 @@ static void setup_remote_cores(const uint16_t num)
 		mmio_range(sci, i, 0, 0xa0000, 0xbffff, cur_node->nc_ht, 0);
 
 		/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
-		assert(tom);
+		uint64_t tom = rdmsr(MSR_TOPMEM);
 		mmio_range(sci, i, 1, tom, 0xffffffff, cur_node->nc_ht, 0);
 
 		/* Make sure the VGA Enable register is disabled to forward VGA transactions
@@ -1518,8 +1517,8 @@ static void setup_local_mmio_maps(void)
 	uint32_t lim[8];
 	uint32_t dst[8];
 	uint32_t curbase, curlim, curdst;
+	uint64_t tom = rdmsr(MSR_TOPMEM);
 
-	tom = rdmsr(MSR_TOPMEM);
 	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
 
 	for (i = 0; i < 8; i++) {
@@ -2490,8 +2489,6 @@ static void unify_all_nodes(void)
 			}
 		}
 	}
-
-	tom = rdmsr(MSR_TOPMEM);
 
 	/* Set up local mapping registers etc from 0 - master node max */
 	for (i = 0; i < nc_node[0].nc_ht; i++) {
