@@ -65,7 +65,7 @@ bool mem_offline = 0;
 uint64_t trace_buf_size = 0;
 int verbose = 0;
 int family = 0;
-uint32_t tsc_mhz = 0;
+uint32_t tsc_mhz = 2200;
 uint64_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
