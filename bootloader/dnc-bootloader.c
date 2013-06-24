@@ -1210,6 +1210,7 @@ static void renumber_remote_bsp(const uint16_t num)
 
 	memcpy(&cur_node->ht[max_ht], &cur_node->ht[0], sizeof(ht_node_info_t));
 	cur_node->ht[0].cpuid = 0;
+	cur_node->bsp_ht = cur_node->nc_ht;
 	cur_node->nc_ht = 0;
 
 #ifdef BROKEN
@@ -2572,9 +2573,6 @@ static void unify_all_nodes(void)
 	if (verbose > 0)
 		debug_acpi();
 
-	if (remote_io)
-		setup_mmio_early();
-
 	setup_local_mmio_maps();
 	setup_apic_atts();
 
@@ -2609,6 +2607,14 @@ static void unify_all_nodes(void)
 
 	for (i = 1; i < dnc_node_count; i++)
 		setup_remote_cores(i);
+
+	if (remote_io) {
+		setup_mmio_master();
+		for (i = 1; i < dnc_node_count; i++)
+			setup_mmio_slave(i);
+
+		setup_mmio_late();
+	}
 
 	printf("Clearing remote memory...");
 	for (node = 1; node < dnc_node_count; node++) {
@@ -2960,9 +2966,6 @@ static int nc_start(void)
 		(void)dnc_check_mctr_status(1);
 		update_e820_map();
 
-		if (remote_io > 1)
-			setup_mmio_late();
-
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
 		free(cfg_partlist);
@@ -3008,7 +3011,8 @@ static int nc_start(void)
 		       local_info->desc, cfg_nodes, get_master_name(part->master));
 
 		disable_smi();
-		disable_dma_all(); /* disables VGA refresh */
+		if (!remote_io)
+			disable_dma_all(); /* disables VGA refresh */
 		clear_bsp_flag();
 		disable_xtpic();
 		disable_cache();
