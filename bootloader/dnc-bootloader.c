@@ -925,18 +925,12 @@ static void disable_smm_handler(uint64_t smm_base)
 	int i;
 	uint8_t *cur;
 
-	if (verbose)
-		printf(" (SMM @ 0x%llx)", smm_base);
-
-	if (!disable_smm)
-		return;
-
 	if (smm_base && (smm_base != ~0ULL))
 		smm_base += 0x8000;
 	else
 		return;
 
-	printf("Disabling SMM handler...\n");
+	printf("Disabling SMM handler at 0x%llx\n", smm_base);
 	smm_addr = 0x200000000000ULL | smm_base;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 	node = (val >> 16) & 0xfff;
@@ -1024,7 +1018,7 @@ static void setup_other_cores(void)
 	}
 	*REL64(new_cucfg2_msr) = msr;
 
-	printf("APICs:");
+	printf("APICs");
 	critical_enter();
 
 	/* Start all local cores (not BSP) and let them run our init_trampoline */
@@ -1061,18 +1055,17 @@ static void setup_other_cores(void)
 			while (*REL32(cpu_status) != 0)
 				cpu_relax();
 
-			printf(" %d", apicid);
-
-			if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
-				printf(" (topmem 0x%llx->0x%llx)", *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
+			if (verbose > 1)
+				printf(" %d", apicid);
 
 			msr = *REL64(rem_smm_base_msr);
-			disable_smm_handler(msr);
+			if (disable_smm)
+				disable_smm_handler(msr);
 		}
 	}
 
 	critical_leave();
-	printf("\n");
+	printf(" online\n");
 }
 
 static void renumber_remote_bsp(const uint16_t num)
@@ -1483,7 +1476,7 @@ static void setup_remote_cores(const uint16_t num)
 	udelay(200);
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)sci << 28ULL) | 0x21ULL;
 
-	printf("APICs:");
+	printf("APICs");
 
 	/* Start all remote cores and let them run our init_trampoline */
 	for (ht_t ht = 0; ht < 8; ht++) {
@@ -1500,17 +1493,17 @@ static void setup_remote_cores(const uint16_t num)
 			*REL64(rem_smm_base_msr) = ~0ULL;
 
 			wake_core_global(oldid, VECTOR_TRAMPOLINE);
-			printf(" %d", apicid);
 
-			if (*REL64(rem_topmem_msr) != *REL64(new_topmem_msr))
-				printf(" (topmem 0x016%llx->0x016%llx)", *REL64(rem_topmem_msr), *REL64(new_topmem_msr));
+			if (verbose > 1)
+				printf(" %d", apicid);
 
 			uint64_t qval = *REL64(rem_smm_base_msr);
-			disable_smm_handler(qval);
+			if (disable_smm)
+				disable_smm_handler(qval);
 		}
 	}
 
-	printf("\n");
+	printf(" online\n");
 }
 
 static void setup_local_mmio_maps(void)
@@ -2172,12 +2165,10 @@ static void lvt_setup(void)
 static void local_chipset_fixup(bool master)
 {
 	uint32_t val;
-	printf("Scanning for known chipsets, local pass...\n");
+	printf("Performing local chipset configuration:\n");
 	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
 
 	if (val == VENDEV_SP5100) {
-		printf("Adjusting local configuration of AMD SP5100:\n");
-
 		uint8_t val8 = pmio_readb(0x00);
 		if (val8 & 6) {
 			printf("- disabling PM IO timers\n");
@@ -2268,8 +2259,6 @@ static void local_chipset_fixup(bool master)
 
 	pci_setup();
 	lvt_setup();
-
-	printf("Chipset-specific setup done\n");
 }
 
 static void global_chipset_fixup(void)
@@ -2277,14 +2266,13 @@ static void global_chipset_fixup(void)
 	uint16_t node;
 	uint32_t val;
 	int i;
-	printf("Scanning for known chipsets, global pass...\n");
+	printf("Performing global chipset configuration...");
 
 	for (i = 0; i < dnc_node_count; i++) {
 		node = nc_node[i].sci;
 		uint32_t vendev = dnc_read_conf(node, 0, 0, 0, 0);
 
 		if ((vendev == VENDEV_SR5690) || (vendev == VENDEV_SR5670) || (vendev == VENDEV_SR5650)) {
-			printf("Adjusting configuration of AMD SR56x0 on SCI%03x...", node);
 			/* Limit TOM2 to HyperTransport address */
 			uint64_t limit = min(ht_base, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
 			ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
@@ -2294,24 +2282,15 @@ static void global_chipset_fixup(void)
 				ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) - 1) | (1 << 31));
 			else
 				ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, 0);
-
-			if (verbose)
-				printf("TOM2LO 0x%08x TOM2HI 0x%08x TOM3 0x%08x ",
-				       ioh_htiu_read(node, SR56X0_HTIU_TOM2LO), ioh_htiu_read(node, SR56X0_HTIU_TOM2HI),
-				       ioh_nbmiscind_read(node, SR56X0_MISC_TOM3));
-
-			printf("done\n");
 		} else if ((vendev == VENDEV_MCP55)) {
 			val = dnc_read_conf(node, 0, 0, 0, 0x90);
-			printf("Adjusting configuration of nVidia MCP55 on SCI%03x...\n",
-			       node);
 			/* Disable mmcfg setting in bridge to avoid OS confusion */
 			dnc_write_conf(node, 0, 0, 0, 0x90, val & ~(1 << 31));
 		} else
 			fatal("IOH 0x%08x not recognised\n", vendev);
 	}
 
-	printf("Chipset-specific setup done\n");
+	printf("done\n");
 }
 
 #ifdef BROKEN
@@ -2607,9 +2586,11 @@ static void unify_all_nodes(void)
 	global_chipset_fixup();
 
 	/* Must run after SCI is operational */
-	printf("BSP SMM:");
-	disable_smm_handler(rdmsr(MSR_SMM_BASE));
-	printf("\n");
+	if (disable_smm) {
+		printf("BSP SMM:");
+		disable_smm_handler(rdmsr(MSR_SMM_BASE));
+		printf("\n");
+	}
 
 	setup_other_cores();
 
@@ -2742,13 +2723,12 @@ static void get_hostname(void)
 	size_t dhcplen;
 
 	if ((sts = pxe_get_cached_info(PXENV_PACKET_TYPE_DHCP_ACK, (void **)&dhcpdata, &dhcplen)) != 0) {
-		printf("pxe_get_cached_info() returned status : %d\n", sts);
+		printf("pxe_get_cached_info() returned status %d\n", sts);
 		return;
 	}
 
 	/* Save MyIP for later (in udp_open) */
 	myip.s_addr = ((pxe_bootp_t *)dhcpdata)->yip;
-	printf("My IP address is %s\n", inet_ntoa(myip));
 
 	/* Skip standard fields, as hostname is an option */
 	unsigned int offset = 4 + offsetof(pxe_bootp_t, vendor.d);
@@ -2759,7 +2739,7 @@ static void get_hostname(void)
 
 		/* Sanity-check length */
 		if (len == 0)
-			return;
+			break;
 
 		/* Skip non-hostname options */
 		if (code != 12) {
@@ -2774,10 +2754,11 @@ static void get_hostname(void)
 		/* Create a private copy */
 		hostname = strndup(&dhcpdata[offset + 2], len);
 		assert(hostname);
-		printf("Hostname is %s\n", hostname);
+		printf("Hostname %s, IP address %s\n", hostname, inet_ntoa(myip));
 		return;
 	}
 
+	printf("IP address %s\n", inet_ntoa(myip));
 	hostname = NULL;
 }
 
