@@ -2919,7 +2919,16 @@ static bool phy_check_status(const int phy, const bool print)
 	return 0;
 }
 
-static enum node_state enter_reset(struct node_info *info __attribute__((unused)))
+static enum node_state reset_fabric(struct node_info *info __attribute__((unused)))
+{
+	printf("Resetting fabric...");
+	_pic_reset_ctrl();
+	printf("done\n");
+
+	return RSP_RESET_COMPLETE;
+}
+
+static enum node_state train_fabric(struct node_info *info __attribute__((unused)))
 {
 	printf("Training fabric phys...");
 
@@ -3013,15 +3022,17 @@ int handle_command(enum node_state cstate, enum node_state *rstate,
                    struct part_info *part)
 {
 	switch (cstate) {
-	case CMD_ENTER_RESET:
-		*rstate = enter_reset(info);
+	case CMD_RESET_FABRIC:
+		*rstate = reset_fabric(info);
+		return 1;
+	case CMD_TRAIN_FABRIC:
+		*rstate = train_fabric(info);
 		return 1;
 	case CMD_VALIDATE_RINGS:
 		*rstate = validate_rings(info);
 		return 1;
 	case CMD_SETUP_FABRIC:
 		*rstate = setup_fabric(info);
-		udelay(2000);
 		return 1;
 	case CMD_VALIDATE_FABRIC:
 		*rstate = validate_fabric(info, part);

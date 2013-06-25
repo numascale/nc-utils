@@ -2010,15 +2010,20 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 		if (!ready_pending || do_restart) {
 			if (do_restart) {
-				cmd.state = CMD_ENTER_RESET;
-				waitfor = RSP_PHY_TRAINED;
+				cmd.state = CMD_RESET_FABRIC;
+				waitfor = RSP_RESET_COMPLETE;
 				do_restart = 0;
 			} else if (cmd.state == CMD_STARTUP) {
-				cmd.state = CMD_ENTER_RESET;
+				/* Skip over resetting fabric, as that's just if training fails */
+				cmd.state = CMD_TRAIN_FABRIC;
 				waitfor = RSP_PHY_TRAINED;
-			} else if (cmd.state == CMD_ENTER_RESET) {
+			} else if (cmd.state == CMD_TRAIN_FABRIC) {
 				cmd.state = CMD_VALIDATE_RINGS;
 				waitfor = RSP_RINGS_OK;
+			} else if (cmd.state == CMD_RESET_FABRIC) {
+				/* When invoked, continue at fabric training */
+				cmd.state = CMD_TRAIN_FABRIC;
+				waitfor = RSP_PHY_TRAINED;
 			} else if (cmd.state == CMD_VALIDATE_RINGS) {
 				cmd.state = CMD_SETUP_FABRIC;
 				waitfor = RSP_FABRIC_READY;
