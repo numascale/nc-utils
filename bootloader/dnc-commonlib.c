@@ -153,7 +153,7 @@ static void read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	dimm->eight_bank = (spd->nbanks == 8);
 	addr_bits = (spd->nrow_addr & 0xf) + (spd->ncol_addr & 0xf) + (spd->mod_ranks & 1) + ((spd->nbanks == 8) ? 3 : 2);
 
-	// Make sure manufacturer's part-number is null-terminated
+	/* Make sure manufacturer's part-number is null-terminated */
 	if (spd->mpart[17])
 		spd->mpart[17] = 0;
 	
@@ -286,12 +286,12 @@ uint32_t dnc_check_mctr_status(int cdata)
 #ifdef BROKEN
 
 	if (val & 0x001) {
-		error("%s single access outside the defined Physical memory space detected", me);
+		error("%s single access outside the defined physical memory space detected", me);
 		ack |= 0x001;
 	}
 
 	if (val & 0x002) {
-		error("%s multiple access outside the defined Physical memory space detected", me);
+		error("%s multiple access outside the defined physical memory space detected", me);
 		ack |= 0x002;
 	}
 
@@ -704,16 +704,16 @@ static void cht_mirror(int neigh, int link)
 static void cht_print(int neigh, int link)
 {
 	uint32_t val;
-	printf("HT#%d L%d Link Control       : 0x%08x\n", neigh, link,
+	printf("HT#%d L%d Link Control      : 0x%08x\n", neigh, link,
 	      cht_read_conf(neigh, FUNC0_HT, 0x84 + link * 0x20));
-	printf("HT#%d L%d Link Freq/Revision : 0x%08x\n", neigh, link,
+	printf("HT#%d L%d Link Freq/Revision: 0x%08x\n", neigh, link,
 	       cht_read_conf(neigh, FUNC0_HT, 0x88 + link * 0x20));
-	printf("HT#%d L%d Link Ext. Control  : 0x%08x\n", neigh, link,
+	printf("HT#%d L%d Link Ext. Control : 0x%08x\n", neigh, link,
 	       cht_read_conf(neigh, 0, 0x170 + link * 4));
 	val = get_phy_register(neigh, link, 0xe0, 0); /* Link phy compensation and calibration control 1 */
 
 	uint8_t rtt = (val >> 23) & 0x1f;
-	printf("HT#%d L%d Link Phy Settings  : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
+	printf("HT#%d L%d Link Phy Settings : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
 
 	if (rtt == 0) {
 		if (workaround_rtt)
@@ -2346,7 +2346,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 	ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
 
 	/* Indicate immediate jump to next-label (-2) if init-only is also given */
-	if ((disable_nc > 0) && init_only)
+	if (disable_nc && init_only)
 		return -2;
 
 	/* Indicate immediate jump to next-label (-2) if route_only issued */
