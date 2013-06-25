@@ -1359,7 +1359,7 @@ static void setup_remote_cores(const uint16_t num)
 		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf0, memhole & 0xff000002);
 
 		/* Re-direct everything below our first local address to NumaChip */
-		dram_range(sci, i, 0, nc_node[0].ht[0].base, cur_node->ht[0].base - 1, cur_node->nc_ht);
+		dram_range(sci, i, 0, (uint64_t)nc_node[0].ht[0].base << DRAM_MAP_SHIFT, ((uint64_t)cur_node->ht[0].base << DRAM_MAP_SHIFT) - 1, cur_node->nc_ht);
 	}
 
 	/* Reprogram HT node "self" ranges */
@@ -1403,7 +1403,8 @@ static void setup_remote_cores(const uint16_t num)
 			if (!cur_node->ht[j].cpuid)
 				continue;
 
-			dram_range(sci, j, map_index + 1, cur_node->ht[i].base, cur_node->ht[i].base + cur_node->ht[i].size - 1, i);
+			dram_range(sci, j, map_index + 1, (uint64_t)cur_node->ht[i].base << DRAM_MAP_SHIFT,
+				((uint64_t)(cur_node->ht[i].base + cur_node->ht[i].size) << DRAM_MAP_SHIFT) - 1, i);
 		}
 
 		uint64_t base = (uint64_t)cur_node->ht[i].base << DRAM_MAP_SHIFT;
@@ -1417,7 +1418,8 @@ static void setup_remote_cores(const uint16_t num)
 			if (!cur_node->ht[i].cpuid)
 				continue;
 
-			dram_range(sci, i, map_index + 1, cur_node->dram_limit, nc_node[dnc_node_count - 1].dram_limit - 1, cur_node->nc_ht);
+			dram_range(sci, i, map_index + 1, (uint64_t)cur_node->dram_limit << DRAM_MAP_SHIFT,
+				((uint64_t)nc_node[dnc_node_count - 1].dram_limit << DRAM_MAP_SHIFT) - 1, cur_node->nc_ht);
 		}
 
 		map_index++;
@@ -2511,7 +2513,8 @@ static void unify_all_nodes(void)
 
 		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
 		if (nc_node[1].dram_base > nc_node[0].dram_base)
-			dram_range(0xfff0, i, range, nc_node[1].dram_base, dnc_top_of_mem - 1, nc_node[0].nc_ht);
+			dram_range(0xfff0, i, range, (uint64_t)nc_node[1].dram_base << DRAM_MAP_SHIFT,
+				((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT) - 1, nc_node[0].nc_ht);
 	}
 
 	if (verbose > 0) {

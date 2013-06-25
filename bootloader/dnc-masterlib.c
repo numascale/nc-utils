@@ -201,7 +201,7 @@ void tally_local_node(void)
 				dram_range_read(0xfff0, i, range, &base2, &limit2, &dst);
 				assert(dst == range);
 				limit2 -= 1ULL << 24;
-				dram_range(0xfff0, i, range, base2 >> DRAM_MAP_SHIFT, limit2 >> DRAM_MAP_SHIFT, dst);
+				dram_range(0xfff0, i, range, base2, limit2, dst);
 
 				if (i == range) {
 					printf("Adjusting SCI000#%d DRAM range %d for C-state 6 area\n", i, i);

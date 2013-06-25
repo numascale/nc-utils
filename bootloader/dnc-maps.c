@@ -81,7 +81,7 @@ void dram_range_print(const uint16_t sci, const int ht, const int range)
 		printf("SCI%03x#%d DRAM range %d: 0x%010llx - 0x%010llx to %d\n", sci, ht, range, base, limit, dest);
 }
 
-void dram_range(const uint16_t sci, const int ht, const int range, const uint32_t base, const uint32_t limit, const int dest)
+void dram_range(const uint16_t sci, const int ht, const int range, const uint64_t base, const uint64_t limit, const int dest)
 {
 	assert(dest < 8);
 	assert(range < 8);
@@ -89,12 +89,12 @@ void dram_range(const uint16_t sci, const int ht, const int range, const uint32_
 		warning("Overwriting SCI%03x#%x memory range %d", sci, ht, range);
 
 	if (verbose > 1)
-		printf("SCI%03x#%d adding DRAM range %d: 0x%08x - 0x%08x to %d\n", sci, ht, range, base, limit, dest);
+		printf("SCI%03x#%d adding DRAM range %d: 0x%010llx - 0x%010llx to %d\n", sci, ht, range, base, limit, dest);
 
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> (40 - DRAM_MAP_SHIFT));
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, (limit << 16) | dest);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, base >> (40 - DRAM_MAP_SHIFT));
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base << 16) | 3);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> 40);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, ((limit >> 8) & ~0xffff) | dest);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x140 + range * 8, base >> 40);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, (base >> 8) | 3);
 }
 
 void dram_range_del(const uint16_t sci, const int ht, const int range)
