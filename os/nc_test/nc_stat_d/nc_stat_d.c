@@ -506,7 +506,7 @@ int main(int argc, char* argv[]) {
     }
 
    
-    nc_devices = numachip_get_device_list_oem(&num_devices);
+    nc_devices = numachip_get_device_list(&num_devices);
     msgsize = num_devices*sizeof(struct msgstats_t);
     countstat = malloc (num_devices * sizeof(struct msgstats_t));
     init_numachip_counters(num_devices, countstat);

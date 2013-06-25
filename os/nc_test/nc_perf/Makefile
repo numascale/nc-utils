@@ -1,6 +1,8 @@
-TARGETS   = nc_perf 
+CC      := gcc
+CFLAGS  := -O2 -D_GNU_SOURCE -Wall -g -I../../lib
+LDFLAGS := -L../../lib -lnumachip_user
 
-CFLAGS    = -O2 -D_GNU_SOURCE -Wall -g
+TARGETS := nc_perf
 
 .PHONY: all
 all: $(TARGETS)
@@ -10,4 +12,4 @@ clean:
 	rm -f $(TARGETS) *~ *.o
 
 nc_perf: nc_perf.c ../../lib/pcounter_test.c ../../lib/numachip_user.h
-	$(CC) $(CFLAGS) -I ../../lib  -o $@ nc_perf.c ../../lib/pcounter_test.c -L../../lib/ -lnumachip_user 
+	$(CC) $(CFLAGS) -o $@ nc_perf.c ../../lib/pcounter_test.c $(LDFLAGS)
