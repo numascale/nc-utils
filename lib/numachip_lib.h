@@ -22,40 +22,27 @@
 #include "numachip_user.h"
 #include "../../interface/numachip-defines.h"
 
-#define HIDDEN		__attribute__((visibility ("hidden")))
+#define NUMACHIP_CSR_BASE 0x3fff00000000ULL
 
-enum {
-    NUMACHIP_SYSFS_PATH_MAX = 256
-};
-
+#define HIDDEN	__attribute__((visibility ("hidden")))
 
 struct numachip_device {
-    //char dev_path[NUMACHIP_SYSFS_PATH_MAX];
-    uint32_t nodeid;
-};
-
-struct numachip_csr_space {
-    uint32_t                    *csr;
+	uint32_t nodeid;
 };
 
 struct numachip_context {
-    struct numachip_device      *device;
-    int32_t                       memfd;
-    struct numachip_csr_space   csr_space;
-    
+	struct numachip_device    *device;
+	int32_t                    memfd;
+	uint32_t                  *csr_space;
 };
 
+static inline uint32_t u32bswap(uint32_t val)
+{
+	asm volatile("bswap %0" : "+r"(val));
+	return val;
+}
 
-HIDDEN int32_t numachip_init(struct numachip_device ***list, const char *filename);
-HIDDEN int32_t numachip_init_oem(struct numachip_device ***list);
-
-/*
- * sysfs helper functions
- */
-const char *numachip_get_sysfs_path(void);
-
-int32_t numachip_read_sysfs_file(const char *dir, const char *file,
-			     char *buf, size_t size);
+HIDDEN int32_t numachip_init(struct numachip_device ***list);
 
 #endif
 

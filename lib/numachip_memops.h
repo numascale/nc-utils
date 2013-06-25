@@ -32,9 +32,9 @@
 BEGIN_C_DECLS
 
 struct numachip_sge {
-    uint64_t from;
-    uint64_t to;
-    uint32_t length;
+	uint64_t from;
+	uint64_t to;
+	uint32_t length;
 } __attribute__((aligned(16)));
 
 /**

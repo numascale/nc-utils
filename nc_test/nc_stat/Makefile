@@ -1,6 +1,8 @@
-TARGETS   = test
+CC      := gcc
+CFLAGS  := -O2 -D_GNU_SOURCE -Wall -g -I../../lib
+LDFLAGS := -L../../lib -lnumachip_user
 
-CFLAGS    = -O2 -D_GNU_SOURCE -Wall -g
+TARGETS := test
 
 .PHONY: all
 all: $(TARGETS)
@@ -10,4 +12,4 @@ clean:
 	rm -f $(TARGETS) *~ *.o
 
 test: test.c ../../lib/numachip_user.h
-	$(CC) $(CFLAGS) -I ../../lib  -o $@ test.c -L../../lib/ -lnumachip_user 
+	$(CC) $(CFLAGS) -o $@ test.c $(LDFLAGS)

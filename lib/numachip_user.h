@@ -31,8 +31,6 @@
 
 BEGIN_C_DECLS
 
-#define NUMACHIP_CSR_BASE 0x3fff00000000ULL;
-
 /*
  * Error codes are defined here.
  * - NUMACHIP_ERR_BUSY:
@@ -44,27 +42,13 @@ BEGIN_C_DECLS
  * An invalid performance counter has been selected.
  */
 typedef enum {
-    NUMACHIP_ERR_OK                         = 0x000,
-    NUMACHIP_ERR_INVALID_PARAMETER          = 0x001,
-    NUMACHIP_ERR_BUSY                       = 0x002
+	NUMACHIP_ERR_OK                = 0x000,
+	NUMACHIP_ERR_INVALID_PARAMETER = 0x001,
+	NUMACHIP_ERR_BUSY              = 0x002
 } nc_error_t;
-
-
-typedef enum {
-  SCC = 0,
-  LCXA,
-  LCXB,
-  LCYA,
-  LCYB,
-  LCZA,
-  LCZB
-} numachip_device_type_t;
 
 struct numachip_device;
 struct numachip_context;
-
-
-//const char *numachip_device_str(numachip_device_type_t str);
 
 /**
  * numachip_get_device_list - Get list of NumaChip devices currently available
@@ -74,9 +58,7 @@ struct numachip_context;
  * Return a NULL-terminated array of NumaChip devices.  The array can be
  * released with numachip_free_device_list().
  */
-struct numachip_device **numachip_get_device_list(int32_t *num_devices, const char *filename);
-
-struct numachip_device **numachip_get_device_list_oem(int32_t *num_devices);
+struct numachip_device **numachip_get_device_list(int32_t *num_devices);
 
 /**
  * numachip_free_device_list - Free list from numachip_get_device_list()
@@ -102,26 +84,13 @@ int32_t numachip_close_device(struct numachip_context *context);
  * numachip_read_csr - Read CSR
  */
 uint32_t numachip_read_csr(struct numachip_context *context,
-			   uint16_t offset
-			   );
+			   uint16_t offset);
 /**
  * numachip_write_csr - Write CSR
  */
 void numachip_write_csr(struct numachip_context *context,
-			uint16_t offset, uint32_t value
-			);
-
-/**
- * numachip_read_config - Read Config Space
- */
-uint32_t numachip_read_config(struct numachip_context *context,
-			      uint8_t fn, uint16_t offset);
-
-/**
- * numachip_write_config - Write Config Space
- */
-void numachip_write_config(struct numachip_context *context,
-			   uint8_t fn, uint16_t offset, uint32_t value);
+			uint16_t offset,
+			uint32_t value);
 
 /**
  * numachip_clear_pcounter
@@ -184,8 +153,8 @@ void numachip_stop_pcounter(struct numachip_context *cntxt,
  *
  */
 uint32_t numachip_get_pcounter_mask(struct numachip_context *cntxt,
-					uint32_t counterno,
-					nc_error_t *error) ;
+				    uint32_t counterno,
+				    nc_error_t *error) ;
 
 /**
  * numachip_get_pcounter - Read Performance Counter Register
@@ -194,8 +163,8 @@ uint32_t numachip_get_pcounter_mask(struct numachip_context *cntxt,
  * H2S_CSR_G3_PERFORMANCE_COUNTER_X_40_BIT_LOWER_BITS
  */
 uint64_t numachip_get_pcounter(struct numachip_context *cntxt,
-					 uint32_t counterno,
-					 nc_error_t *error);
+			       uint32_t counterno,
+			       nc_error_t *error);
 
 /**
  * numachip_get_pcounter
@@ -204,8 +173,8 @@ uint64_t numachip_get_pcounter(struct numachip_context *cntxt,
  * for this counter.
  */
 uint32_t numachip_get_pcounter_select(struct numachip_context *cntxt,
-					  uint32_t counterno,
-					  nc_error_t *error);
+				      uint32_t counterno,
+				      nc_error_t *error);
 
 /**
  * numachip_select_pcounter
@@ -255,7 +224,7 @@ void numachip_all_start_pcounter(struct numachip_context **cntxt,
 				 nc_error_t *error);
 
 char *numachip_strerror(nc_error_t errorcode);
-    
+
 END_C_DECLS
 
 #endif
