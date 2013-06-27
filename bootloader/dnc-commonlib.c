@@ -1931,13 +1931,13 @@ static void perform_selftest(int asic_mode, char p_type[16])
 {
 	int pass;
 	uint32_t val;
-	printf("Performing internal RAM self test");
+	printf("Performing internal RAM self test...");
 
 	for (pass = 0; pass < 10; pass++) {
 		const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
 		uint32_t i, chunk;
+
 		/* Test PCII/O ATT */
-		printf(".");
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000000);
 
 		for (i = 0; i < 256; i++)
@@ -1946,13 +1946,12 @@ static void perform_selftest(int asic_mode, char p_type[16])
 		for (i = 0; i < 256; i++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 			assertf(val == i, "PCIlo address map readback failed; have 0x%x, expected 0x%x", val, i);
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 		}
 
+		/* MMIO32 ATT has a slightly different layout on FPGA, so skip it for now */
 		if (asic_mode) {
-			/* XXX: MMIO32 ATT has a slightly different layout on FPGA, so skip it for now */
 			/* Test MMIO32 ATT */
-			printf(".");
-
 			for (chunk = 0; chunk < maxchunk; chunk++) {
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
 
@@ -1967,13 +1966,12 @@ static void perform_selftest(int asic_mode, char p_type[16])
 					val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 					uint32_t want = (chunk * 256) + i;
 					assertf(val == want, "MMIO32 address map readback failed; have 0x%x, expected 0x%x", val, want);
+					dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 				}
 			}
 		}
 
 		/* Test APIC ATT */
-		printf(".");
-
 		for (chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | chunk);
 
@@ -1988,12 +1986,11 @@ static void perform_selftest(int asic_mode, char p_type[16])
 				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 				uint32_t want = (chunk * 256) + i;
 				assertf(val == want, "APIC address map readback failed; have 0x%x, expected 0x%x", val, want);
+				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 			}
 		}
 
 		/* Test IntRecNode ATT */
-		printf(".");
-
 		for (chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000040 | chunk);
 
@@ -2008,12 +2005,11 @@ static void perform_selftest(int asic_mode, char p_type[16])
 				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 				uint32_t want = (chunk * 256) + i;
 				assertf(val == want, "Interrupt address map readback failed; have 0x%x, expected 0x%x", val, want);
+				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 			}
 		}
 
 		/* Test SCC routing tables, no readback verify */
-		printf(".");
-
 		for (chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
 
