@@ -2162,7 +2162,7 @@ static void lvt_setup(void)
 
 }
 
-static void local_chipset_fixup(bool master)
+static void local_chipset_fixup(const bool master)
 {
 	uint32_t val;
 	printf("Performing local chipset configuration:\n");
@@ -2907,7 +2907,7 @@ static int nc_start(void)
 		wait_for_master(local_info, part);
 
 	/* Must run after SCI is operational */
-	local_chipset_fixup(part->master == local_info->sci);
+	local_chipset_fixup(part->master == local_info->sci || local_info->sync_only);
 
 	if (verbose > 0)
 		debug_acpi();

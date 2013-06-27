@@ -39,7 +39,7 @@ int escrow_populate(void *data)
 	cur->global.remote_io    = !!remote_io;
 
 	if (verbose > 1)
-		printf("Escrow: numachip_rev=%d size=%d,%d,%d northbridges=%d neigh=%d,%d symmetric=%d renumbering=%d\n",
+		printf("Escrow: numachip_rev=%d size=%dx%dx%d northbridges=%d neigh=%d.%d symmetric=%d renumbering=%d\n",
 			cur->global.numachip_rev, cur->global.size_x, cur->global.size_y, cur->global.size_z,
 			cur->global.northbridges, cur->global.neigh_ht, cur->global.neigh_link,
 			cur->global.symmetric, cur->global.renumbering);
