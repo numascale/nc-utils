@@ -1893,6 +1893,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"workaround.rtt",  &parse_bool,   &workaround_rtt},  /* Prevent failure when HT Rtt calibration fails */
 		{"workaround.locks", &parse_bool,  &workaround_locks},/* Prevent failure when SMI triggers are locked */
 		{"mem-gap",         &parse_int64,  &mem_gap},
+		{"disable-kvm",     &parse_bool,   &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
 	};
 
 	int errors = 0;
