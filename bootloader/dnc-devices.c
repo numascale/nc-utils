@@ -60,6 +60,12 @@ static void pci_search_start(const struct devspec *list)
 	pci_search(list, 0);
 }
 
+void disable_kvm_ports(void) {
+	/* Disable AMI Virtual Keyboard and Mouse ports, since they generate a lot of interrupts */
+	uint32_t val = dnc_read_conf(0xfff0, 0, 19, 0, 0x40);
+	dnc_write_conf(0xfff0, 0, 19, 0, 0x40, val | (4 << 16));
+}
+
 void disable_device(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	int i;
