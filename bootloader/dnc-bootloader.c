@@ -2655,7 +2655,7 @@ static void unify_all_nodes(void)
 			uint16_t sci = (node == 0) ? 0xfff0 : nc_node[node].sci;
 
 			for (i = 0; i < 8; i++) {
-				if (!nc_node[0].ht[i].cpuid)
+				if (!nc_node[node].ht[i].cpuid)
 					continue;
 
 				if (nc_node[node].ht[i].scrub & 0x1f) {
