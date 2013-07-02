@@ -247,8 +247,7 @@ void reset_cf9(int mode, int last)
 static uint32_t _read_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg)
 {
 	uint32_t ret;
-	DEBUG("pci:%02x:%02x.%x %03x -> ",
-	      bus, dev, func, reg);
+	DEBUG("pci:%02x:%02x.%x %03x -> ", bus, dev, func, reg);
 	cli();
 	outl(PCI_EXT_CONF(bus, ((dev << 3) | func), reg), PCI_CONF_SEL);
 	ret = inl(PCI_CONF_DATA);
@@ -259,8 +258,7 @@ static uint32_t _read_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t re
 
 static void _write_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg, uint32_t val)
 {
-	DEBUG("pci:%02x:%02x.%x %03x <- %08x",
-	      bus, dev, func, reg, val);
+	DEBUG("pci:%02x:%02x.%x %03x <- %08x", bus, dev, func, reg, val);
 	cli();
 	outl(PCI_EXT_CONF(bus, ((dev << 3) | func), reg), PCI_CONF_SEL);
 	outl(val, PCI_CONF_DATA);
@@ -421,7 +419,17 @@ void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, ui
                      : "A"(canonicalize(addr)), "c"(MSR_FS_BASE));      \
     } while(0)
 
-uint32_t mem64_read32(uint64_t addr)
+uint64_t mem64_read64(const uint64_t addr)
+{
+	uint64_t val;
+	cli();
+	setup_fs(addr);
+	asm volatile("movq %%fs:(0), %%mm0; movq %%mm0, (%0)" : :"r"(&val) :"memory");
+	sti();
+	return val;
+}
+
+uint32_t mem64_read32(const uint64_t addr)
 {
 	uint32_t ret;
 	cli();
@@ -431,7 +439,15 @@ uint32_t mem64_read32(uint64_t addr)
 	return ret;
 }
 
-void mem64_write32(uint64_t addr, uint32_t val)
+void mem64_write64(const uint64_t addr, const uint64_t val)
+{
+	cli();
+	setup_fs(addr);
+	asm volatile("movq (%0), %%mm0; movq %%mm0, %%fs:(0)" : :"r"(&val) :"memory");
+	sti();
+}
+
+void mem64_write32(const uint64_t addr, const uint32_t val)
 {
 	cli();
 	setup_fs(addr);
@@ -446,7 +462,7 @@ void mem64_write32(uint64_t addr, uint32_t val)
 	}
 }
 
-uint16_t mem64_read16(uint64_t addr)
+uint16_t mem64_read16(const uint64_t addr)
 {
 	uint16_t ret;
 	cli();
@@ -543,31 +559,40 @@ void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val)
 	mem64_write32(DNC_CSR_BASE | (node << 16) | (bid << 11) | csr, uint32_tbswap(val));
 }
 
-
-uint32_t dnc_read_conf(const sci_t sci, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg)
+uint32_t dnc_read_conf(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg)
 {
-	uint32_t val;
+	if (sci == 0xfff0)
+		return _read_config(bus, device, func, reg);
 
-	if (sci == 0xfff0) {
-		val = _read_config(bus, device, func, reg);
-	} else {
-		DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ", sci, bus, device, func, reg);
-		val = mem64_read32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg));
-		DEBUG("%08x\n", val);
-	}
+	DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ", sci, bus, device, func, reg);
+	uint32_t val = mem64_read32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg));
+	DEBUG("%08x\n", val);
 
 	return val;
 }
 
-void dnc_write_conf(const sci_t sci, uint8_t bus, uint8_t device, uint8_t func, uint16_t reg, uint32_t val)
+uint64_t dnc_read_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg)
+{
+	assert(sci != 0xfff0);
+	return mem64_read64(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg));
+}
+
+void dnc_write_conf(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint32_t val)
 {
 	if (sci == 0xfff0) {
 		_write_config(bus, device, func, reg, val);
-	} else {
-		DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x", sci, bus, device, func, reg, val);
-		mem64_write32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg), val);
-		DEBUG("\n");
+		return;
 	}
+
+	DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x", sci, bus, device, func, reg, val);
+	mem64_write32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg), val);
+	DEBUG("\n");
+}
+
+void dnc_write_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val)
+{
+	assert(sci != 0xfff0);
+	mem64_write64(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg), val);
 }
 
 uint64_t rdmsr(uint32_t msr)
