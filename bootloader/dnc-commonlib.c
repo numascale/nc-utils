@@ -158,7 +158,7 @@ static void read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 	/* Make sure manufacturer's part-number is null-terminated */
 	if (spd->mpart[17])
 		spd->mpart[17] = 0;
-	
+
 	printf("%s is a x%d %dMB %s-rank module (%s)\n", cdata ? "CData" : "MCTag",
 	       dimm->width, 1 << (addr_bits - 17),
 	       (spd->mod_ranks & 1) ? "dual" : "single",

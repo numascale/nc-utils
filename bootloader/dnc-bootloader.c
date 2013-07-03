@@ -2217,13 +2217,6 @@ static void local_chipset_fixup(const bool master)
 			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & ~0xffff);
 		}
 	}
-
-	val = dnc_read_conf(0xfff0, 0, 0, 0, 0);
-	if (val == VENDEV_SR5690 || val == VENDEV_SR5670 || val == VENDEV_SR5650) {
-		if (!master)
-			ioh_ioapicind_write(0xfff0, 0x0, 0);
-	}
-
 	/* Only needed to workaround rev A/B issue */
 	if (dnc_asic_mode && dnc_chip_rev < 2) {
 		uint16_t node;

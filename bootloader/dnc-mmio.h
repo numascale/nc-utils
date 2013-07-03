@@ -18,6 +18,8 @@
 #ifndef __DNC_MMIO_H
 #define __DNC_MMIO_H 1
 
+#define MMIO_LIMIT 0xfec00000
+
 extern void setup_mmio_master(void);
 extern void setup_mmio_slave(const int node);
 extern void setup_mmio_late(void);
