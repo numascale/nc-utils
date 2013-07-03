@@ -317,7 +317,7 @@ void setup_mmio_late(void)
 			for (int node = 0; node < dnc_node_count; node++)
 				dnc_write_csr(nc_node[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, 0);
 	}
-return;
+
 	/* Skip range to SCI000, as it's default */
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
 		printf("SCI%03x: 0x%llx - 0x%llx\n",
@@ -361,30 +361,6 @@ return;
 			nc_mmio_range_del(sci, range++);
 	}
 
-	/* Master */
-	{
-		uint8_t ioh_ht = (dnc_read_conf(0xfff0, 0, 24 + nc_node[0].bsp_ht, FUNC0_HT, 0x60) >> 8) & 7;
-		uint8_t ioh_link = (dnc_read_conf(0xfff0, 0, 24 + nc_node[0].bsp_ht, FUNC0_HT, 0x64) >> 8) & 3;
-		printf("Setting up NB MMIO ranges on SCI000 with IOH at %d.%d\n", ioh_ht, ioh_link);
-
-		for (int ht = 0; ht < 8; ht++) {
-			if (!nc_node[0].ht[ht].cpuid)
-				continue;
-
-			int range = 0;
-
-			/* Local range first, as it can be locked by Supermicro BIOS */
-			mmio_range(0xfff0, ht, range++, nc_node[0].mmio_base, nc_node[0].mmio_limit, ioh_ht, ioh_link);
-			if (nc_node[0].mmio_base > tom)
-				mmio_range(0xfff0, ht, range++, tom, nc_node[0].mmio_base - 1, ioh_ht, ioh_link);
-			mmio_range(0xfff0, ht, range++, nc_node[0].mmio_limit + 1, nc_node[dnc_node_count - 1].mmio_limit, nc_node[0].nc_ht, 0);
-			mmio_range(0xfff0, ht, range++, nc_node[dnc_node_count - 1].mmio_limit + 1, 0xffffffff, ioh_ht, ioh_link);
-
-			while (range < 8)
-				mmio_range_del(0xfff0, ht, range++);
-		}
-	}
-
 	/* Slaves */
 	for (int i = 1; i < dnc_node_count; i++) {
 		uint16_t sci = nc_node[i].sci;
@@ -396,12 +372,14 @@ return;
 		for (int ht = 0; ht < 8; ht++) {
 			if (!nc_node[i].ht[ht].cpuid)
 				continue;
+
+			/* Skip first range; write it later */
 			int range = 0;
 
 			/* Ranges to master; local range first, as it can be locked by Supermicro BIOS */
 			mmio_range(sci, ht, range++, nc_node[0].mmio_base, nc_node[0].mmio_limit, nc_node[i].nc_ht, 0);
 			if (nc_node[0].mmio_base > tom)
-				mmio_range(0xfff0, ht, range++, tom, nc_node[0].mmio_base - 1, nc_node[i].nc_ht, 0);
+				mmio_range(sci, ht, range++, tom, nc_node[0].mmio_base - 1, nc_node[i].nc_ht, 0);
 
 			/* If gap between master and local, route to fabric */
 			if (nc_node[i].mmio_base > (nc_node[0].mmio_limit + 1))
@@ -416,5 +394,31 @@ return;
 			while (range < 8)
 				mmio_range_del(sci, ht, range++);
 		}
+	}
+
+	/* Master */
+	{
+		uint8_t ioh_ht = (dnc_read_conf(0xfff0, 0, 24 + nc_node[0].bsp_ht, FUNC0_HT, 0x60) >> 8) & 7;
+		uint8_t ioh_link = (dnc_read_conf(0xfff0, 0, 24 + nc_node[0].bsp_ht, FUNC0_HT, 0x64) >> 8) & 3;
+		printf("Setting up NB MMIO ranges on SCI000 with IOH at %d.%d\n", ioh_ht, ioh_link);
+
+		critical_enter();
+		for (int ht = 0; ht < 8; ht++) {
+			if (!nc_node[0].ht[ht].cpuid)
+				continue;
+			int range = 0;
+
+			/* First range to local, as it can be locked by Supermicro BIOS */
+			mmio_range(0xfff0, ht, range++, nc_node[0].mmio_base, nc_node[0].mmio_limit, ioh_ht, ioh_link);
+
+			if (nc_node[0].mmio_base > tom)
+				mmio_range(0xfff0, ht, range++, tom, nc_node[0].mmio_base - 1, ioh_ht, ioh_link);
+			mmio_range(0xfff0, ht, range++, nc_node[0].mmio_limit + 1, nc_node[dnc_node_count - 1].mmio_limit, nc_node[0].nc_ht, 0);
+			mmio_range(0xfff0, ht, range++, nc_node[dnc_node_count - 1].mmio_limit + 1, 0xffffffff, ioh_ht, ioh_link);
+
+			while (range < 8)
+				mmio_range_del(0xfff0, ht, range++);
+		}
+		critical_leave();
 	}
 }
