@@ -1009,13 +1009,15 @@ static void setup_other_cores(void)
 	}
 	*REL64(new_lscfg_msr) = msr;
 
+	/* Enable 64-bit MMIO config access */
+	msr = rdmsr(MSR_CU_CFG2) | (1ULL << 50);
+
 	/* AMD Fam 15h Errata #572: Access to PCI Extended Configuration Space in SMM is Blocked
 	 * Suggested Workaround: BIOS should set MSRC001_102A[27] = 1b */
-	msr = rdmsr(MSR_CU_CFG2);
-	if (family >= 0x15) {
+	if (family >= 0x15)
 		msr |= 1ULL << 27;
-		wrmsr(MSR_CU_CFG2, msr);
-	}
+
+	wrmsr(MSR_CU_CFG2, msr);
 	*REL64(new_cucfg2_msr) = msr;
 
 	printf("APICs");
@@ -2680,6 +2682,17 @@ static void unify_all_nodes(void)
 
 	if (pf_cstate6)
 		enable_cstate6();
+
+	/* Sync remote Northbridge TSCs against master */
+	for (node = 1; node < dnc_node_count; node++) {
+		for (ht_t ht = 0; ht < 8; ht++) {
+			if (!nc_node[node].ht[ht].cpuid)
+				continue;
+
+			uint64_t time = dnc_read_conf64(0xfff0, 0, 24 + 0, 2, 0xb0);
+			dnc_write_conf64(nc_node[node].sci, 0, 24 + ht, 2, 0xb0, time);
+		}
+	}
 }
 
 static void start_user_os(void)

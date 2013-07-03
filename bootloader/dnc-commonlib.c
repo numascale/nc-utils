@@ -35,6 +35,7 @@
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
 IMPORT_RELOCATED(msr_readback);
+IMPORT_RELOCATED(new_cucfg2_msr);
 
 const char *config_file_name = "nc-config/fabric.json";
 const char *next_label = "menu.c32";
@@ -1177,8 +1178,9 @@ void enable_probefilter(const int nodes)
 	/* 4.  Issue WBINVD on all active cores in the system */
 	disable_cache();
 	/* 5. Enable Probe Filter support */
-	val6 = rdmsr(MSR_CU_CFG2);
-	wrmsr(MSR_CU_CFG2, val6 | (1ULL << 42));
+	val6 = rdmsr(MSR_CU_CFG2) | (1ULL << 42);
+	wrmsr(MSR_CU_CFG2, val6);
+	*REL64(new_cucfg2_msr) = val6;
 
 	if (family >= 0x15)
 		wake_cores_local(VECTOR_PROBEFILTER_EARLY_f15);
