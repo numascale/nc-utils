@@ -75,7 +75,7 @@ static bool workaround_rtt = 0;
 bool workaround_locks = 0;
 bool pf_cstate6 = 1;
 uint64_t mem_gap = 0;
-bool disable_kvm = 1;
+bool disable_kvm = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
