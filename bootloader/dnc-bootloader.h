@@ -74,7 +74,6 @@ typedef struct ht_node_info {
 	uint16_t pdom;		/* Proximity domain of individual HT nodes */
 	uint16_t cores;		/* Number of cores at individual HT nodes */
 	uint16_t apic_base;
-	uint32_t cpuid;
 	uint32_t scrub;
 } ht_node_info_t;
 
@@ -87,8 +86,9 @@ typedef struct nc_node_info {
 	ht_node_info_t ht[8];
 	sci_t sci;                  /* Maps logical DNC node ids to physical (SCI) ids */
 	uint16_t apic_offset;       /* Offset to shift APIC ids by when unifying */
-	ht_t max_ht : 3;            /* Highest HT ID */
 	ht_t bsp_ht : 3;            /* Bootstrap processor HT ID (may be renumbered) */
+	ht_t nb_ht_lo : 3;          /* Lowest Northbridge HT ID */
+	ht_t nb_ht_hi : 3;          /* Highest Northbridge HT ID */
 	ht_t nc_ht : 3;             /* HT id of dnc node dnc controller on local system */
 	ht_t nc_neigh_ht : 3;       /* Our nearest neighbour HT node on local system */
 	uint8_t nc_neigh_link : 2;

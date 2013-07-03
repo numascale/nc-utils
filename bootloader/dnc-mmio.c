@@ -369,10 +369,7 @@ void setup_mmio_late(void)
 
 		printf("Setting up NB MMIO ranges on SCI%03x with IOH at %d.%d\n", sci, ioh_ht, ioh_link);
 
-		for (int ht = 0; ht < 8; ht++) {
-			if (!nc_node[i].ht[ht].cpuid)
-				continue;
-
+		for (int ht = nc_node[i].nb_ht_lo; ht <= nc_node[i].nb_ht_hi; ht++) {
 			/* Skip first range; write it later */
 			int range = 0;
 
@@ -403,9 +400,7 @@ void setup_mmio_late(void)
 		printf("Setting up NB MMIO ranges on SCI000 with IOH at %d.%d\n", ioh_ht, ioh_link);
 
 		critical_enter();
-		for (int ht = 0; ht < 8; ht++) {
-			if (!nc_node[0].ht[ht].cpuid)
-				continue;
+		for (int ht = nc_node[0].nb_ht_lo; ht <= nc_node[0].nb_ht_hi; ht++) {
 			int range = 0;
 
 			/* First range to local, as it can be locked by Supermicro BIOS */

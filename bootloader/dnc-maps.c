@@ -415,9 +415,7 @@ void ranges_print(void)
 
 			/* Verify consistency */
 			en = dram_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base, &limit, &dest);
-			for (ht = 0; ht < 8; ht++) {
-				if (!nc_node[node].ht[ht].cpuid)
-					continue;
+			for (ht = nc_node[node].nb_ht_lo; ht <= nc_node[node].nb_ht_hi; ht++) {
 				en2 = dram_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base2, &limit2, &dest2);
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest);
 			}
@@ -437,9 +435,7 @@ void ranges_print(void)
 
 			/* Verify consistency */
 			en = mmio_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base, &limit, &dest, &link, &lock);
-			for (ht = 0; ht < 8; ht++) {
-				if (!nc_node[node].ht[ht].cpuid)
-					continue;
+			for (ht = nc_node[node].nb_ht_lo; ht <= nc_node[node].nb_ht_hi; ht++) {
 				en2 = mmio_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base2, &limit2, &dest2, &link2, &lock2);
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest && link2 == link && lock2 == lock);
 			}

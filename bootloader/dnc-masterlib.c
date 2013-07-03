@@ -109,15 +109,15 @@ void tally_local_node(void)
 {
 	uint32_t val, base, limit, rest;
 	uint16_t i, j, tot_cores;
-	ht_t max_ht;
 	uint16_t last = 0;
 	nc_node[0].node_mem = 0;
 	tot_cores = 0;
 	nc_node[0].sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	nc_node[0].max_ht = nc_node[0].nc_ht;
+	nc_node[0].bsp_ht = 0;
+	nc_node[0].nb_ht_lo = 0;
+	nc_node[0].nb_ht_hi = nc_node[0].nc_ht - 1;
 	nc_node[0].dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
-	max_ht = (val >> 4) & 7;
 #ifdef __i386
 	/* Save and restore EBX for the position-independent syslinux com32 binary */
 	asm volatile("mov $0x80000008, %%eax; pushl %%ebx; cpuid; popl %%ebx" : "=c"(val) :: "eax", "edx");
@@ -127,23 +127,16 @@ void tally_local_node(void)
 	apic_per_node = 1 << ((val >> 12) & 0xf);
 	nc_node[0].apic_offset = 0;
 
-	for (i = 0; i <= max_ht; i++) {
-		if (i == nc_node[0].nc_ht)
-			continue;
+	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
+	for (i = nc_node[0].nb_ht_lo; i <= nc_node[0].nb_ht_hi; i++) {
 		nc_node[0].ht[i].cores = 0;
 		nc_node[0].ht[i].base  = 0;
 		nc_node[0].ht[i].size  = 0;
-		nc_node[0].ht[i].cpuid = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
-		if ((nc_node[0].ht[i].cpuid == 0) ||
-		    (nc_node[0].ht[i].cpuid == 0xffffffff) ||
-		    (nc_node[0].ht[i].cpuid != nc_node[0].ht[0].cpuid)) {
-			fatal("Master server has mixed processor models with CPUIDs %08x and %08x", nc_node[0].ht[0].cpuid, nc_node[0].ht[i].cpuid);
-			nc_node[0].ht[i].cpuid = 0;
-			nc_node[0].ht[i].pdom = 0;
-			continue;
-		}
+		uint32_t cpuid = cht_read_conf(i, FUNC3_MISC, 0xfc);
+		if (cpuid == 0 || cpuid == 0xffffffff || cpuid != cpuid_bsp)
+			fatal("Master server has mixed processor models with CPUIDs %08x and %08x", cpuid_bsp, cpuid);
 
 		nc_node[0].ht[i].pdom = ht_pdom_count++;
 
@@ -177,16 +170,10 @@ void tally_local_node(void)
 				limit = nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1;
 				asm volatile("wbinvd" ::: "memory");
 
-				for (j = 0; j <= max_ht; j++) {
-					if (j == nc_node[0].nc_ht)
-						continue;
-
-					if (!nc_node[0].ht[j].cpuid)
-						continue;
-
+				for (j = nc_node[0].nb_ht_lo; j <= nc_node[0].nb_ht_hi; j++)
+					/* FIXME: Use DRAM range accessors */
 					cht_write_conf(j, FUNC1_MAPS, 0x44 + i * 8, (limit << 16) |
 					               (cht_read_conf(j, FUNC1_MAPS, 0x44 + i * 8) & 0xffff));
-				}
 
 				cht_write_conf(i, FUNC1_MAPS, 0x124, limit >> (27 - DRAM_MAP_SHIFT));
 				asm volatile("wbinvd" ::: "memory");
@@ -272,7 +259,6 @@ static bool tally_remote_node(const uint16_t node)
 {
 	uint32_t val, base, limit;
 	uint16_t i, tot_cores;
-	ht_t max_ht;
 	uint16_t apic_used[16];
 	uint16_t last = 0;
 	uint16_t cur_apic;
@@ -301,19 +287,21 @@ static bool tally_remote_node(const uint16_t node)
 	cur_node->node_mem = 0;
 	tot_cores = 0;
 	cur_node->sci = node;
-	cur_node->nc_ht = cur_node->max_ht = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
-	cur_node->nc_neigh_ht = nc_node[0].nc_neigh_ht; /* FIXME: Read from remote somehow, instead of assuming the same as ours */
-	/* Ensure that all nodes start out on 1G boundaries
-	   FIXME: Add IO holes to cover address space discontinuity? */
+	cur_node->nc_ht = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
+	cur_node->nb_ht_lo = 0;
+	cur_node->nb_ht_hi = cur_node->nc_ht - 1;
+
+	/* FIXME: Read from remote somehow, instead of assuming the same as ours */
+	cur_node->nc_neigh_ht = nc_node[0].nc_neigh_ht;
+	cur_node->nc_neigh_link = nc_node[0].nc_neigh_link;
+
+	/* Ensure that all nodes start out on 1G boundaries */
 	dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
 	cur_node->dram_base = dnc_top_of_mem;
 	val = dnc_read_conf(node, 0, 24, FUNC0_HT, 0x60);
-
 	assertf(val != 0xffffffff, "Failed to access config space on SCI%03x", node);
 
-	max_ht = (val >> 4) & 7;
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
-
 	for (i = 0; i < 16; i++)
 		apic_used[i] = dnc_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 
@@ -321,21 +309,16 @@ static bool tally_remote_node(const uint16_t node)
 	cur_node->apic_offset = ht_next_apic;
 	cur_apic = 0;
 
-	for (i = 0; i <= max_ht; i++) {
-		if (i == cur_node->nc_ht) {
-			cur_node->ht[i].cpuid = 0;
-			continue;
-		}
+	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
+	for (i = cur_node->nb_ht_lo; i <= cur_node->nb_ht_hi; i++) {
 		cur_node->ht[i].cores = 0;
 		cur_node->ht[i].base  = 0;
 		cur_node->ht[i].size  = 0;
-		cur_node->ht[i].cpuid = dnc_read_conf(node, 0, 24 + i, FUNC3_MISC, 0xfc);
 
-		if ((cur_node->ht[i].cpuid == 0) ||
-		    (cur_node->ht[i].cpuid == 0xffffffff) ||
-		    (cur_node->ht[i].cpuid != nc_node[0].ht[0].cpuid))
-			fatal("SCI%03x has CPUID %08x differing from master server CPUID %08x", node, cur_node->ht[i].cpuid, nc_node[0].ht[0].cpuid);
+		uint32_t cpuid = dnc_read_conf(node, 0, 24 + i, FUNC3_MISC, 0xfc);
+		if (cpuid == 0 || cpuid == 0xffffffff || cpuid != cpuid_bsp)
+			fatal("SCI%03x has CPUID %08x differing from master server CPUID %08x", node, cpuid_bsp, cpuid);
 
 		cur_node->ht[i].pdom = ht_pdom_count++;
 
@@ -374,7 +357,7 @@ static bool tally_remote_node(const uint16_t node)
 			dnc_top_of_mem += cur_node->ht[i].size;
 
 			/* Subtract 16MB for C-state 6 save area */
-			if (pf_cstate6 && i == (max_ht - 1)) {
+			if (pf_cstate6 && i == cur_node->nb_ht_hi) {
 				printf("Adjusting SCI%03x#%x for C-state 6 area\n", node, i);
 				cur_node->ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
 			}
@@ -422,12 +405,8 @@ static bool tally_remote_node(const uint16_t node)
 
 		printf("Moving SCI%03x past HyperTransport decode range by %lldGB\n", node, shift >> (30 - DRAM_MAP_SHIFT));
 
-		for (i = 0; i <= max_ht; i++) {
-			if (cur_node->ht[i].cpuid == 0)
-				continue;
-
+		for (i = cur_node->nb_ht_lo; i <= cur_node->nb_ht_hi; i++)
 			cur_node->ht[i].base += shift;
-		}
 
 		ht_base = (uint64_t)cur_node->dram_base << DRAM_MAP_SHIFT; /* End of last node limit */
 		cur_node->dram_base += shift;

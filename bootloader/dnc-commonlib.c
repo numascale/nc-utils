@@ -2198,12 +2198,10 @@ void selftest_late_msrs(void)
 		uint64_t val0 = rdmsr(msr);
 
 		for (int node = 0; node < dnc_node_count; node++) {
-			for (int ht = 0; ht < 8; ht++) {
+			for (int ht = nc_node[node].nb_ht_lo; ht <= nc_node[node].nb_ht_hi; ht++) {
 				for (int i = 0; i < nc_node[node].ht[ht].cores; i++) {
 					if ((node == 0) && (ht == 0) && (i == 0))
 						continue; /* Skip BSP */
-					if (!nc_node[node].ht[ht].cpuid)
-						continue;
 
 					uint32_t oldid = nc_node[node].ht[ht].apic_base + i;
 					uint32_t apicid = nc_node[node].apic_offset + oldid;
