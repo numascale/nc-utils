@@ -1,0 +1,446 @@
+#!/usr/bin/python
+# NumaConnect performance monitoring r1
+
+import mmap, time, os, sys, struct, optparse, ctypes, fcntl, termios, subprocess
+
+# Select = 0, REM/SPrb:
+#  7 SCC-Request Invalidate     (shared   => invalid)
+#  6 SCC-Request Read      (modified => shared)
+#  5 SCC-Request Read and Invalidate (modified => invalid)
+#  4 SCC-Request Aliased Invalidate  (shared   => invalid)
+#  3 SCC-Request Aliased Read and Invalidate (modified => invalid)
+#  2 SCC-Request with SPrb conflict
+#  1 SCC-Request with HReq conflict
+#  0 Cache data access
+#
+# Select = 1, REM/HReq:
+#  7 HT-Request start processing
+#  6 HT-Request with ctag miss
+#  5 HT-Request with ctag hit
+#  4 HT-Request with HReq conflict
+#  3 HT-Request with SPrb conflict
+#  2 HT-command unknown
+#  1 Broadcast messages
+#  0 Direct interrupt (no broadcast)
+#
+# Select = 2, LOC/SReq:
+#  7 Interrupt request
+#  6 Config Space request
+#  5 VictimBlk request
+#  4 VictimBlk conflict
+#  3 SCC conflict
+#  2 SCC discard
+#  1 SCC request (all)
+#  0 Error in interrupt
+#
+# Select = 3, LOC/HPrb:
+#  7 HT lock pending
+#  6 VictimBlk conflict
+#  5 HT-probe with next-state=invalidate
+#  4 SCC retries
+#  3 SCC requests
+#  2 HT-probe on own request
+#  1 HT-probe with next-state=shared
+#  0 HT-probe to non-shared memory
+#
+# Select = 4, CData:
+#  7 CData write request from REM/HReq
+#  6 CData write request from REM/HReq accepted
+#  5 CData read request from REM/HReq
+#  4 CData read request from REM/HReq accepted
+#  3 CData write request from REM/SPrb
+#  2 CData write request from REM/SPrb accepted
+#  1 CData read request from REM/SPrb
+#  0 CData read request from REM/SPrb accepted
+#
+# Select = 5, FTag:
+#  7 Tag update valid from MCTag
+#  6 Tag read valid from MCTag
+#  5 MCTag request
+#  4 Tag response valid from MCTag to LOC/HPrb
+#  3 Unused
+#  2 Tag response valid from prefetch to LOC/HPrb
+#  1 Unused
+#  0 Tag request from LOC/HPrb
+#
+# Select = 6, MCTag:
+#  7 Unused
+#  6 Prefetch buffer address hit
+#  5 Prefetch buffer full hit
+#  4 Tag request from REM/HReq
+#  3 CTag cache hit
+#  2 CTag cache miss
+#  1 DRAM read request
+#  0 DRAM read request delayed
+#
+# Select = 7, cHT-Cave:
+#  7 Outgoing HT-Probe
+#  6 Outgoing HT-Response
+#  5 Outgoing posted HT-Request
+#  4 Outgoing non-posted HT-Request
+#  3 Incoming HT-Probe
+#  2 Incoming HT-Response
+#  1 Incoming posted HT-Request
+#  0 Incoming non-posted HT-Request
+
+class Processor: # r17
+	MCFG_BASE = 0xc0010058
+
+	def __init__(self):
+		# catch failure and attempt msr module load
+		try:
+			self.fd = os.open('/dev/cpu/0/msr', os.O_RDWR)
+		except OSError as e:
+			if e.errno != 2:
+				raise
+
+			subprocess.call(('modprobe', 'msr'))
+			self.fd = os.open('/dev/cpu/0/msr', os.O_RDWR)
+
+	def rdmsr(self, msr):
+		os.lseek(self.fd, msr, os.SEEK_SET)
+		return struct.unpack('=Q', os.read(self.fd, 8))[0]
+
+	def wrmsr(self, msr, val):
+		os.lseek(self.fd, msr, os.SEEK_SET)
+		os.write(self.fd, struct.pack('=Q', val))
+
+class Settings(ctypes.Structure): # r18
+	_pack_ = 1
+	_fields_  = (
+		# ACPI fields
+		('acpi_sig',        ctypes.c_char * 4),
+		('acpi_len',        ctypes.c_uint),
+		('acpi_rev',        ctypes.c_ubyte),
+		('acpi_checksum',   ctypes.c_ubyte),
+		('acpi_oemid',      ctypes.c_char * 6),
+		('acpi_oemtableid', ctypes.c_char * 8),
+		('acpi_oemrev',     ctypes.c_uint),
+		('acpi_creatorid',  ctypes.c_char * 4),
+		('acpi_creatorrev', ctypes.c_uint),
+
+		# fixed fields
+		('numachip_rev',    ctypes.c_ubyte, 4),
+		('size_x',          ctypes.c_ubyte, 4),
+		('size_y',          ctypes.c_ubyte, 4),
+		('size_z',          ctypes.c_ubyte, 4),
+		('northbridges',    ctypes.c_uint, 3),
+		('neigh_ht',        ctypes.c_uint, 3),
+		('neigh_link',      ctypes.c_uint, 2),
+		('symmetric',       ctypes.c_uint, 1),
+		('renumbering',     ctypes.c_uint, 1),
+		('remote_io',       ctypes.c_uint, 1),
+		# warning: alignment occurs at type boundaries
+	)
+
+	def __init__(self):
+		try:
+			with open('/sys/firmware/acpi/tables/OEMN', 'rb') as f:
+				f.readinto(self)
+			assert self.acpi_len >= 52
+		except IOError as e:
+			if e.errno != 2:
+				raise
+			self.size_x = 2
+			self.size_y = 4
+			self.size_z = 0
+
+class NumaChip: # r18
+	H2S_CSR_G0_NODE_IDS       = (0 << 12) | 0x008
+	H2S_CSR_G0_RAW_CONTROL    = (0 << 12) | 0xc50
+	H2S_CSR_G0_RAW_INDEX      = (0 << 12) | 0xc54
+	H2S_CSR_G0_RAW_ENTRY_LO   = (0 << 12) | 0xc58
+	H2S_CSR_G0_RAW_ENTRY_HI   = (0 << 12) | 0xc5c
+	H2S_CSR_G3_MMCFG_BASE     = (3 << 12) | 0x010
+	H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 = (3 << 12) | 0xfa0
+	H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS = (3 << 12) | 0xfc0
+	H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS = (3 << 12) | 0xfc4
+	events = (
+		{'name': 'scc-reqs', 'counter': 0, 'event': 2, 'mask': 2, 'limit': 100000, 'units': 'req/s'},
+	)
+	delay_poll = 1E-3 # 1ms
+	max_tries = 1000
+
+	class NumachipException(Exception):
+		pass
+
+	class HTErrorException(NumachipException):
+		pass
+
+	class AddressDecodeException(NumachipException):
+		pass
+
+	class TimeoutException(NumachipException):
+		pass
+
+	class BlockedException(NumachipException):
+		pass
+
+	def csr_read(self, reg):
+		val = struct.unpack('>L', self.lcsr[reg:reg + 4])[0]
+		if options.verbose > 1:
+			print 'csr_read  %03x = %08x' % (reg, val)
+		return val
+
+	def csr_write(self, reg, val):
+		if options.verbose > 1:
+			print 'csr_write %03x = %08x' % (reg, val)
+		self.lcsr[reg:reg + 4] = struct.pack('>L', val)
+
+	def __init__(self):
+		p = Processor()
+		mcfg_base = p.rdmsr(p.MCFG_BASE) & ~0x3f
+
+		fd = os.open('/dev/mem', os.O_RDWR)
+		self.lcsr = mmap.mmap(fd, 0x6000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, 0x3ffffff08000)
+		self.mcfg = mmap.mmap(fd, 256 << 20, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, mcfg_base)
+		os.close(fd)
+
+		self.own = self.csr_read(self.H2S_CSR_G0_NODE_IDS) >> 16
+
+		# ensure raw engine is in ready state
+		self.csr_write(self.H2S_CSR_G0_RAW_CONTROL, 1 << 12)
+
+	def __del__(self):
+		# skip if not initialised
+		if not hasattr(self, 'f'):
+			return
+
+		self.lcsr.close()
+		self.mcfg.close()
+
+	def raw_entry_read(self, index):
+		self.csr_write(self.H2S_CSR_G0_RAW_INDEX, index)
+		lo = self.csr_read(self.H2S_CSR_G0_RAW_ENTRY_LO)
+		hi = self.csr_read(self.H2S_CSR_G0_RAW_ENTRY_HI)
+		return (lo << 32) | hi
+
+	def raw_entry_write(self, index, entry):
+		self.csr_write(self.H2S_CSR_G0_RAW_INDEX, index)
+		self.csr_write(self.H2S_CSR_G0_RAW_ENTRY_LO, entry >> 32)
+		self.csr_write(self.H2S_CSR_G0_RAW_ENTRY_HI, entry & 0xffffffff)
+
+	def raw_write(self, sci, addr, val):
+		cmd = (addr & 0xc) | 0x13 # writesb
+
+		tries1 = 0
+		while True:
+			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
+			self.raw_entry_write(1, (0x1f << 48) | addr)
+			self.raw_entry_write(2, (val << 32) | val)
+			self.raw_entry_write(3, (val << 32) | val)
+			self.csr_write(self.H2S_CSR_G0_RAW_CONTROL, 1 << 2) # start
+
+			tries2 = 0
+			while True:
+				time.sleep(self.delay_poll)
+				ctrl = self.csr_read(self.H2S_CSR_G0_RAW_CONTROL)
+				if (ctrl & 0xc00) == 0: # finished
+					break
+
+				tries2 += 1
+				if tries2 > self.max_tries:
+					# reset so ready for next time
+					self.csr_write(self.H2S_CSR_G0_RAW_CONTROL, 1 << 12) # reset
+					raise self.TimeoutException()
+
+			# check response length
+			assert ((ctrl >> 5) & 0xf) == 2
+
+			val = (self.raw_entry_read(1) >> 44) & 0xf
+			if val == 0:
+				# RESP_NORMAL; write successful
+				break
+
+			# should only receive a 'conflict' response
+			if val != 4: # RESP_CONFLICT
+				raise Exception('write: response status %d received' % val)
+
+			tries1 += 1
+			if tries1 > self.max_tries:
+				raise self.BlockedException()
+
+	def raw_read(self, sci, addr):
+		cmd = (addr & 0xc) | 0x3 # readsb
+
+		tries1 = 0
+		while True:
+			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
+			self.raw_entry_write(1, (0x1f << 48) | addr)
+			self.csr_write(self.H2S_CSR_G0_RAW_CONTROL, 1 << 1) # start
+
+			tries2 = 0
+			while True:
+				time.sleep(self.delay_poll)
+				ctrl = self.csr_read(self.H2S_CSR_G0_RAW_CONTROL)
+				if (ctrl & 0xc00) == 0: # finished
+					break
+
+				tries2 += 1
+				sys.stdout.flush()
+				if tries2 > self.max_tries:
+					# reset so ready for next time
+					self.csr_write(self.H2S_CSR_G0_RAW_CONTROL, 1 << 12) # reset
+					raise self.TimeoutException()
+
+			# check response length
+			length = (ctrl >> 5) & 0xf
+			if length == 4:
+				# got data
+				break
+			assert length == 2
+			# 'conflict' response is expected
+			val = (self.raw_entry_read(1) >> 44) & 0xf
+
+			if val in (6, 7): # RESP_TYPE (HT Error or NXA bit set), RESP_ADDRESS (address decode error or NXA)
+				raise self.HTErrorException()
+
+			if val != 4: # RESP_CONFLICT
+				raise Exception('read: response status %d received' % val)
+
+			tries1 += 1
+			if tries1 > self.max_tries:
+				raise self.BlockedException()
+
+		index = addr & 0xc
+		if index == 0x0:
+			val = self.raw_entry_read(2) >> 32
+		elif index == 0x4:
+			val = self.raw_entry_read(2) & 0xffffffff
+		elif index == 0x8:
+			val = self.raw_entry_read(3) >> 32
+		elif index == 0xc:
+			val = self.raw_entry_read(3) & 0xffffffff
+
+		return val
+
+	def csr_raw_read(self, sci, reg):
+		return self.raw_read(sci, (0xfffff << 28) | (reg & 0x7ffc))
+
+	def csr_raw_write(self, sci, reg, val):
+		self.raw_write(sci, (0xfffff << 28) | (reg & 0x7ffc), val)
+
+	def bswap(self, val):
+		s = struct.pack('>L', val)
+		return struct.unpack('<L', s)[0]
+
+	def mmcfg_raw_read(self, sci, bus, dev, func, reg):
+		if sci == 0xfff0:
+			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
+			return struct.unpack('=L', self.mcfg[addr:addr + 4])[0]
+
+		val = self.raw_read(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (func << 12) | reg)
+		return self.bswap(val)
+
+	def mmcfg_raw_write(self, sci, bus, dev, func, reg, val):
+		if sci == 0xfff0:
+			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
+			assert val >= 0xffffffff
+			self.mcfg[addr:addr + 4] = struct.pack('=L', val)
+			return
+
+		self.raw_write(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (func << 12) | reg, self.bswap(val))
+
+class Cluster:
+	# 40=black 41=red 42=green 43=yellow 44=blue 45=purple 46=cyan 47=white
+	colours = ('\033[40m', '\033[46m', '\033[44m', '\033[42m', '\033[45m', '\033[41m', '\033[43m', '\033[47m')
+	normal = '\033[0m'
+
+	def __init__(self):
+		self.settings = Settings()
+		self.numachip = NumaChip()
+		self.scis = []
+
+		for z in range(max(self.settings.size_z, 1)):
+			for y in range(max(self.settings.size_y, 1)):
+				for x in range(max(self.settings.size_x, 1)):
+					self.scis.append(x | (y << 4) | (z << 8))
+
+		# detect terminal size
+		res = fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0))
+		self.term_height, self.term_width = struct.unpack('HHHH', res)[:2]
+		self.count = min(8, self.term_width / len(self.scis))
+
+	def banner(self, event):
+		print '\n%s (%s):' % (event['name'], event['units']),
+		for i in range(len(self.colours)):
+			print '%s  %s %d' % (self.colours[i], self.normal, event['limit'] * i / (len(self.colours) - 1)),
+		print self.normal
+
+	def heat(self, val, event):
+		i = min(int(val / float(event['limit']) * len(self.colours)), len(self.colours) - 1)
+		sys.stdout.write(self.colours[i] + ' ' * self.count)
+
+	def reset(self, sci, event):
+		try:
+			self.numachip.csr_raw_write(sci,
+				NumaChip.H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS + event['counter'] * 8, 0)
+			self.numachip.csr_raw_write(sci,
+				NumaChip.H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + event['counter'] * 8, 0)
+		except NumaChip.TimeoutException:
+			print 'T',
+
+	def arm(self, sci, event):
+		# write compare bits the same as mask bits to select only this event
+		mask = event['mask'] | (event['mask'] << 8)
+		self.numachip.csr_raw_write(sci, NumaChip.H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 + event['counter'] * 4, mask)
+		self.reset(sci, event)
+
+	def collect(self, sci, event):
+		try:
+			val = self.numachip.csr_raw_read(sci,
+				NumaChip.H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS + event['counter'] * 8) << 32
+			val |= self.numachip.csr_raw_read(sci,
+				NumaChip.H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS + event['counter'] * 8)
+		except NumaChip.TimeoutException:
+			print 'T',
+			return 0
+
+		self.reset(sci, event)
+		return val
+
+	def performance(self, event):
+		for sci in self.scis:
+			self.arm(sci, event)
+
+		while True:
+			self.banner(event)
+
+			for _ in range(self.term_height - 4):
+				for sci in self.scis:
+					val = self.collect(sci, event)
+					self.heat(val, event)
+				print self.normal
+				time.sleep(0.5)
+
+def usage():
+	print 'usage: nc-perf <event>'
+	print 'performance events:'
+	for event in NumaChip.events:
+		print event['name']
+	raise SystemExit
+
+### start
+
+if os.getuid():
+	print 'error: please run as root'
+	raise SystemExit
+
+parser = optparse.OptionParser()
+parser.add_option('--verbose', dest='verbose', default=0, action='count', help='increase verbosity')
+options, args = parser.parse_args()
+
+if len(args) != 1:
+	usage()
+
+event = [x for x in NumaChip.events if x['name'] == args[0]]
+if not event:
+	usage()
+
+c = Cluster()
+try:
+	c.performance(event[0])
+except KeyboardInterrupt:
+	# reset console background colour
+	print Cluster.normal
+
