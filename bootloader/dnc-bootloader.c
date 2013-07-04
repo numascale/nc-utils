@@ -1491,7 +1491,7 @@ static void setup_local_mmio_maps(void)
 		curlim = curlim & ~0xff;
 
 		if (verbose > 0)
-			printf("CPU MMIO region #%d base: %08x, lim: %08x, dst: %04x%s\n",
+			printf("NB MMIO range %d base: %08x, lim: %08x, dst: %04x%s\n",
 			       i, curbase, curlim, curdst, (curbase & 8) ? " locked" : "");
 
 		if (curdst & 3) {
@@ -1565,7 +1565,7 @@ static void setup_local_mmio_maps(void)
 
 	for (i = 0; i < 8; i++) {
 		if (verbose)
-			printf("NC MMIO region #%d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
+			printf("NC MMIO range %d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
 		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
 		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
 		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
@@ -2399,7 +2399,7 @@ static void unify_all_nodes(void)
 
 		for (node = 0; node < dnc_node_count; node++) {
 			for (i = nodes[node].nb_ht_lo; i <= nodes[node].nb_ht_hi; i++)
-				printf("SCI%03x/HT#%d: %012llx - %012llx\n",
+				printf("SCI%03x#%d: %012llx - %012llx\n",
 				       nodes[node].sci, i,
 				       (uint64_t)nodes[node].ht[i].base << DRAM_MAP_SHIFT,
 				       (uint64_t)(nodes[node].ht[i].base + nodes[node].ht[i].size) << DRAM_MAP_SHIFT);
