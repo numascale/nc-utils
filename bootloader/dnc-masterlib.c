@@ -77,7 +77,7 @@ void load_scc_microcode(void)
 
 	for (int i = 0; i < dnc_node_count; i++) {
 		int counter = 0;
-		int node = (i == 0) ? 0xfff0 : nc_node[i].sci;
+		int node = (i == 0) ? 0xfff0 : nodes[i].sci;
 		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 
 		for (uint16_t j = 0; j < mseq_ucode_length; j++) {
@@ -110,13 +110,13 @@ void tally_local_node(void)
 	uint32_t val, base, limit, rest;
 	uint16_t i, j, tot_cores;
 	uint16_t last = 0;
-	nc_node[0].node_mem = 0;
+	nodes[0].node_mem = 0;
 	tot_cores = 0;
-	nc_node[0].sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	nc_node[0].bsp_ht = 0;
-	nc_node[0].nb_ht_lo = 0;
-	nc_node[0].nb_ht_hi = nc_node[0].nc_ht - 1;
-	nc_node[0].dram_base = 0;
+	nodes[0].sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
+	nodes[0].bsp_ht = 0;
+	nodes[0].nb_ht_lo = 0;
+	nodes[0].nb_ht_hi = nodes[0].nc_ht - 1;
+	nodes[0].dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 #ifdef __i386
 	/* Save and restore EBX for the position-independent syslinux com32 binary */
@@ -125,20 +125,20 @@ void tally_local_node(void)
 	asm volatile("mov $0x80000008, %%eax; cpuid" : "=c"(val) :: "eax", "ebx", "edx");
 #endif
 	apic_per_node = 1 << ((val >> 12) & 0xf);
-	nc_node[0].apic_offset = 0;
+	nodes[0].apic_offset = 0;
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
-	for (i = nc_node[0].nb_ht_lo; i <= nc_node[0].nb_ht_hi; i++) {
-		nc_node[0].ht[i].cores = 0;
-		nc_node[0].ht[i].base  = 0;
-		nc_node[0].ht[i].size  = 0;
+	for (i = nodes[0].nb_ht_lo; i <= nodes[0].nb_ht_hi; i++) {
+		nodes[0].ht[i].cores = 0;
+		nodes[0].ht[i].base  = 0;
+		nodes[0].ht[i].size  = 0;
 
 		uint32_t cpuid = cht_read_conf(i, FUNC3_MISC, 0xfc);
 		if (cpuid == 0 || cpuid == 0xffffffff || cpuid != cpuid_bsp)
 			fatal("Master server has mixed processor models with CPUIDs %08x and %08x", cpuid_bsp, cpuid);
 
-		nc_node[0].ht[i].pdom = ht_pdom_count++;
+		nodes[0].ht[i].pdom = ht_pdom_count++;
 
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
@@ -147,9 +147,9 @@ void tally_local_node(void)
 			cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
 
 		/* Disable DRAM scrubbers */
-		nc_node[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
-		if (nc_node[0].ht[i].scrub & 0x1f) {
-			cht_write_conf(i, FUNC3_MISC, 0x58, nc_node[0].ht[i].scrub & ~0x1f);
+		nodes[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
+		if (nodes[0].ht[i].scrub & 0x1f) {
+			cht_write_conf(i, FUNC3_MISC, 0x58, nodes[0].ht[i].scrub & ~0x1f);
 			/* Allow outstanding scrub requests to finish */
 			udelay(40);
 		}
@@ -158,19 +158,19 @@ void tally_local_node(void)
 		limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
 
 		if (limit & 0x1fffff) {
-			nc_node[0].ht[i].base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
-			nc_node[0].ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
-			nc_node[0].node_mem += nc_node[0].ht[i].size;
+			nodes[0].ht[i].base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
+			nodes[0].ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
+			nodes[0].node_mem += nodes[0].ht[i].size;
 			last = i;
 
-			if (nc_node[0].node_mem > max_mem_per_node) {
+			if (nodes[0].node_mem > max_mem_per_node) {
 				printf("Node exceeds cachable memory range, clamping...\n");
-				nc_node[0].ht[i].size -= nc_node[0].node_mem - max_mem_per_node;
-				nc_node[0].node_mem = max_mem_per_node;
-				limit = nc_node[0].ht[i].base + nc_node[0].ht[i].size - 1;
+				nodes[0].ht[i].size -= nodes[0].node_mem - max_mem_per_node;
+				nodes[0].node_mem = max_mem_per_node;
+				limit = nodes[0].ht[i].base + nodes[0].ht[i].size - 1;
 				asm volatile("wbinvd" ::: "memory");
 
-				for (j = nc_node[0].nb_ht_lo; j <= nc_node[0].nb_ht_hi; j++)
+				for (j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++)
 					/* FIXME: Use DRAM range accessors */
 					cht_write_conf(j, FUNC1_MAPS, 0x44 + i * 8, (limit << 16) |
 					               (cht_read_conf(j, FUNC1_MAPS, 0x44 + i * 8) & 0xffff));
@@ -181,7 +181,7 @@ void tally_local_node(void)
 
 			/* Subtract 16MB for C-state 6 save area */
 			if (pf_cstate6) {
-				int range = nc_node[0].nc_ht - 1;
+				int range = nodes[0].nc_ht - 1;
 
 				uint64_t base2, limit2;
 				int dst;
@@ -192,58 +192,58 @@ void tally_local_node(void)
 
 				if (i == range) {
 					printf("Adjusting SCI000#%d DRAM range %d for C-state 6 area\n", i, i);
-					nc_node[0].ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
+					nodes[0].ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
 				}
 			}
 		}
 
 		/* Assume at least one core */
-		nc_node[0].ht[i].cores = 1;
+		nodes[0].ht[i].cores = 1;
 
 		if (family < 0x15) {
 			val = cht_read_conf(i, FUNC0_HT, 0x68);
-			if (val & 0x20) nc_node[0].ht[i].cores++; /* Cpu1En */
+			if (val & 0x20) nodes[0].ht[i].cores++; /* Cpu1En */
 
 			val = cht_read_conf(i, FUNC0_HT, 0x168);
-			if (val & 0x01) nc_node[0].ht[i].cores++; /* Cpu2En */
-			if (val & 0x02) nc_node[0].ht[i].cores++; /* Cpu3En */
-			if (val & 0x04) nc_node[0].ht[i].cores++; /* Cpu4En */
-			if (val & 0x08) nc_node[0].ht[i].cores++; /* Cpu5En */
+			if (val & 0x01) nodes[0].ht[i].cores++; /* Cpu2En */
+			if (val & 0x02) nodes[0].ht[i].cores++; /* Cpu3En */
+			if (val & 0x04) nodes[0].ht[i].cores++; /* Cpu4En */
+			if (val & 0x08) nodes[0].ht[i].cores++; /* Cpu5En */
 		} else {
 			val = cht_read_conf(i, FUNC5_EXTD, 0x84);
-			nc_node[0].ht[i].cores += val & 0xff;
+			nodes[0].ht[i].cores += val & 0xff;
 			val = cht_read_conf(i, FUNC3_MISC, 0x190);
 
 			while (val > 0) {
 				if (val & 1)
-					nc_node[0].ht[i].cores--;
+					nodes[0].ht[i].cores--;
 
 				val >>= 1;
 			}
 		}
 
-		nc_node[0].ht[i].apic_base = post_apic_mapping[tot_cores];
-		ht_next_apic = nc_node[0].ht[i].apic_base + apic_per_node;
-		tot_cores += nc_node[0].ht[i].cores;
+		nodes[0].ht[i].apic_base = post_apic_mapping[tot_cores];
+		ht_next_apic = nodes[0].ht[i].apic_base + apic_per_node;
+		tot_cores += nodes[0].ht[i].cores;
 	}
 
-	printf("SCI000 has %d cores and %dMB of memory and I/O maps\n", tot_cores, nc_node[0].node_mem << 4);
-	dnc_top_of_mem = nc_node[0].ht[last].base + nc_node[0].ht[last].size;
+	printf("SCI000 has %d cores and %dMB of memory and I/O maps\n", tot_cores, nodes[0].node_mem << 4);
+	dnc_top_of_mem = nodes[0].ht[last].base + nodes[0].ht[last].size;
 	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
 	if (rest) {
 		rest = SCC_ATT_GRAN - rest;
 		printf("Adding %dMB to SCI%03x to accommodate granularity requirements\n",
-		       rest << (DRAM_MAP_SHIFT - 20), nc_node[0].sci);
+		       rest << (DRAM_MAP_SHIFT - 20), nodes[0].sci);
 		mtrr_range((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, (uint64_t)(dnc_top_of_mem + rest) << DRAM_MAP_SHIFT, MTRR_UC);
 		dnc_top_of_mem += rest;
 	}
-	nc_node[0].dram_limit = dnc_top_of_mem;
+	nodes[0].dram_limit = dnc_top_of_mem;
 
 	/* Set PCI I/O map */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
 
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nc_node[0].sci);
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
 	/* Set IntRecCtrl */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);
@@ -262,7 +262,7 @@ static bool tally_remote_node(const uint16_t node)
 	uint16_t apic_used[16];
 	uint16_t last = 0;
 	uint16_t cur_apic;
-	nc_node_info_t *cur_node;
+	nodes_info_t *cur_node;
 	uint32_t mem_limit = max_mem_per_node;
 
 	if (pf_maxmem) {
@@ -283,7 +283,7 @@ static bool tally_remote_node(const uint16_t node)
 		dnc_write_csr(node, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
 	}
 
-	cur_node = &nc_node[dnc_node_count];
+	cur_node = &nodes[dnc_node_count];
 	cur_node->node_mem = 0;
 	tot_cores = 0;
 	cur_node->sci = node;
@@ -292,8 +292,8 @@ static bool tally_remote_node(const uint16_t node)
 	cur_node->nb_ht_hi = cur_node->nc_ht - 1;
 
 	/* FIXME: Read from remote somehow, instead of assuming the same as ours */
-	cur_node->nc_neigh_ht = nc_node[0].nc_neigh_ht;
-	cur_node->nc_neigh_link = nc_node[0].nc_neigh_link;
+	cur_node->nc_neigh_ht = nodes[0].nc_neigh_ht;
+	cur_node->nc_neigh_link = nodes[0].nc_neigh_link;
 
 	/* Ensure that all nodes start out on 1G boundaries */
 	dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
@@ -427,7 +427,7 @@ static bool tally_remote_node(const uint16_t node)
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
 
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nc_node[0].sci);
+		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
 	/* Set IntRecCtrl */
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);

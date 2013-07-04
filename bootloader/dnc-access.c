@@ -576,7 +576,7 @@ uint64_t dnc_read_conf64(const sci_t sci, const uint8_t bus, const uint8_t devic
 	uint64_t addr = DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg);
 
 	/* Processor will issue two 4-byte non-coherent reads */
-	if (sci == 0xfff0 || sci == nc_node->sci)
+	if (sci == 0xfff0 || sci == nodes->sci)
 		return mem64_read64(addr);
 
 	/* Use discrete reads for non-local access for now */
@@ -600,7 +600,7 @@ void dnc_write_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, 
 	uint64_t addr = DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg);
 
 	/* Processor will issue two 4-byte non-coherent writes */
-	if (sci == 0xfff0 || sci == nc_node->sci) {
+	if (sci == 0xfff0 || sci == nodes->sci) {
 		mem64_write64(addr, val);
 		return;
 	}

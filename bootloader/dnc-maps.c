@@ -24,14 +24,14 @@
 #include "dnc-defs.h"
 #include "../interface/numachip-autodefs.h"
 
-static nc_node_info_t *sci_to_node(const uint16_t sci)
+static nodes_info_t *sci_to_node(const uint16_t sci)
 {
 	if (sci == 0xfff0)
-		return &nc_node[0];
+		return &nodes[0];
 
 	for (int i = 0; i < dnc_node_count; i++)
-		if (nc_node[i].sci == sci)
-			return &nc_node[i];
+		if (nodes[i].sci == sci)
+			return &nodes[i];
 
 	fatal("Unable to find SCI%03x in nodes table", sci);
 }
@@ -411,12 +411,12 @@ void ranges_print(void)
 	printf("\nNorthbridge DRAM ranges:\n");
 	for (node = 0; node < dnc_node_count; node++) {
 		for (range = 0; range < 8; range++) {
-			dram_range_print(nc_node[node].sci, nc_node[node].bsp_ht, range);
+			dram_range_print(nodes[node].sci, nodes[node].bsp_ht, range);
 
 			/* Verify consistency */
-			en = dram_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base, &limit, &dest);
-			for (ht = nc_node[node].nb_ht_lo; ht <= nc_node[node].nb_ht_hi; ht++) {
-				en2 = dram_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base2, &limit2, &dest2);
+			en = dram_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base, &limit, &dest);
+			for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
+				en2 = dram_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base2, &limit2, &dest2);
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest);
 			}
 		}
@@ -426,17 +426,17 @@ void ranges_print(void)
 	printf("Numachip DRAM ranges:\n");
 	for (node = 0; node < dnc_node_count; node++)
 		for (range = 0; range < 8; range++)
-			nc_dram_range_print(nc_node[node].sci, range);
+			nc_dram_range_print(nodes[node].sci, range);
 
 	printf("\nNorthbridge MMIO ranges:\n");
 	for (node = 0; node < dnc_node_count; node++) {
 		for (range = 0; range < 8; range++) {
-			mmio_range_print(nc_node[node].sci, nc_node[node].bsp_ht, range);
+			mmio_range_print(nodes[node].sci, nodes[node].bsp_ht, range);
 
 			/* Verify consistency */
-			en = mmio_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base, &limit, &dest, &link, &lock);
-			for (ht = nc_node[node].nb_ht_lo; ht <= nc_node[node].nb_ht_hi; ht++) {
-				en2 = mmio_range_read(nc_node[node].sci, nc_node[node].bsp_ht, range, &base2, &limit2, &dest2, &link2, &lock2);
+			en = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base, &limit, &dest, &link, &lock);
+			for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
+				en2 = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base2, &limit2, &dest2, &link2, &lock2);
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest && link2 == link && lock2 == lock);
 			}
 		}
@@ -446,7 +446,7 @@ void ranges_print(void)
 	printf("Numachip MMIO ranges:\n");
 	for (node = 0; node < dnc_node_count; node++)
 		for (range = 0; range < 8; range++)
-			nc_mmio_range_print(nc_node[node].sci, range);
+			nc_mmio_range_print(nodes[node].sci, range);
 
 	printf("\nNumachip MMIO32 routing:\n");
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 1 << 4);
@@ -458,15 +458,15 @@ void ranges_print(void)
 		/* Select MMIO32 ATT RAM */
 		if ((i % 256) == 0)
 			for (node = 0; node < dnc_node_count; node++)
-				dnc_write_csr(nc_node[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, (1 << 4) | (i / 256));
+				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, (1 << 4) | (i / 256));
 
 		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 
 		/* Verify consistency */
 		for (node = 1; node < dnc_node_count; node++) {
-			uint32_t sci2 = dnc_read_csr(nc_node[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
+			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 			if (sci2 != sci)
-				warning("MMIO32 address 0x%08llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x", (uint64_t)i << 20, sci, sci2, nc_node[node].sci);
+				warning("MMIO32 address 0x%08llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x", (uint64_t)i << 20, sci, sci2, nodes[node].sci);
 		}
 
 		if (sci != last) {

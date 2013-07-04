@@ -77,7 +77,7 @@ typedef struct ht_node_info {
 	uint32_t scrub;
 } ht_node_info_t;
 
-typedef struct nc_node_info {
+typedef struct nodes_info {
 	uint32_t node_mem;          /* Amount of DRAM at dnc nodes, in 16MB chunks */
 	uint32_t dram_base;
 	uint32_t dram_limit;
@@ -92,13 +92,13 @@ typedef struct nc_node_info {
 	ht_t nc_ht : 3;             /* HT id of dnc node dnc controller on local system */
 	ht_t nc_neigh_ht : 3;       /* Our nearest neighbour HT node on local system */
 	uint8_t nc_neigh_link : 2;
-} nc_node_info_t;
+} nodes_info_t;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 extern uint8_t nodedata[4096];
 extern uint8_t post_apic_mapping[256];
 extern uint16_t dnc_node_count, dnc_core_count;
-extern nc_node_info_t *nc_node;
+extern nodes_info_t *nodes;
 extern struct node_info *local_info;
 extern uint16_t ht_pdom_count;
 extern uint16_t apic_per_node;

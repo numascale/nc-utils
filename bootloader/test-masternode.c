@@ -59,11 +59,11 @@ int udp_read_state(int handle, void *buf, int len)
 	return 0;
 }
 
-int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nc_node[0].nc_ht */
+int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nodes[0].nc_ht */
 int dnc_asic_mode;
 uint32_t dnc_chip_rev;
 uint16_t dnc_node_count = 0;
-nc_node_info_t nc_node[128];
+nodes_info_t nodes[128];
 uint16_t ht_pdom_count = 0;
 uint16_t apic_per_node;
 uint16_t ht_next_apic;
@@ -82,12 +82,12 @@ sci_fabric_setup(void)
 	tally_all_remote_nodes();
 
 	for (i = 0; i < dnc_node_count; i++) {
-		node = (i == 0) ? 0xfff0 : nc_node[i].sci;
+		node = (i == 0) ? 0xfff0 : nodes[i].sci;
 
-		printf("Loading SCC microcode on SCI%03x\n", nc_node[i].sci);
+		printf("Loading SCC microcode on SCI%03x\n", nodes[i].sci);
 		load_scc_microcode(node);
 
-		printf("Disabling SCC MIB timeout on SCI%03x\n", nc_node[i].sci);
+		printf("Disabling SCC MIB timeout on SCI%03x\n", nodes[i].sci);
 		val = dnc_read_csr(node, H2S_CSR_G0_MIB_IBC);
 		dnc_write_csr(node, H2S_CSR_G0_MIB_IBC, val | 0x40);
 	}
@@ -108,14 +108,14 @@ sci_fabric_setup(void)
 
 	// Set ATTs
 	for (i = 1; i < dnc_node_count; i++) {
-		node = nc_node[i].sci;
+		node = nodes[i].sci;
 		dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX, 0xa0000003); // Enable AutoInc, use 43:32 as index to ATT and set index to 3 (12G)
-		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nc_node[0].sci); //  12G-16G  (0x300000000 - 0x400000000)
+		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[0].sci); //  12G-16G  (0x300000000 - 0x400000000)
 	}
 
 	for (i = 1; i < dnc_node_count; i++) {
-		uint8_t ht_id = nc_node[i].nc_ht;
-		node = nc_node[i].sci;
+		uint8_t ht_id = nodes[i].nc_ht;
+		node = nodes[i].sci;
 		// Set DRAM Limit on HT#1 to 0x2ffffffff
 		dnc_write_conf(node, 0, 24 + 1, FUNC1_MAPS, 0x124, 0x5f);
 		// Adjust Limit on HT#1 window to 0x2ffffffff
@@ -129,8 +129,8 @@ sci_fabric_setup(void)
 	}
 
 	for (i = 0; i < dnc_node_count; i++) {
-		node = (i == 0) ? 0xfff0 : nc_node[i].sci;
-		printf("Setting HReq_Ctrl on SCI%03x\n", nc_node[i].sci);
+		node = (i == 0) ? 0xfff0 : nodes[i].sci;
+		printf("Setting HReq_Ctrl on SCI%03x\n", nodes[i].sci);
 //        dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17) | (1<<12)); // CacheSize=0 (2GB), Error, H2S_Init
 		dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0 << 26) | (1 << 17)); // CacheSize=0 (2GB), Error
 		val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);

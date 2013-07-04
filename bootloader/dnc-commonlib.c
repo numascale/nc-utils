@@ -753,15 +753,12 @@ static void cht_print(int neigh, int link)
 	}
 }
 
-void probefilter_tokens(int nodes)
+void probefilter_tokens(const ht_t max_ht)
 {
-	int i, j;
-	uint32_t val;
-
 	/* Reprogram HT link buffering */
-	for (i = 0; i < nodes; i++) {
-		for (j = 0; j < 4; j++) {
-			val = cht_read_conf(i, FUNC0_HT, 0x98 + j * 0x20);
+	for (ht_t ht = 0; ht < max_ht; ht++) {
+		for (int link = 0; link < 4; link++) {
+			uint32_t val = cht_read_conf(ht, FUNC0_HT, 0x98 + link * 0x20);
 
 			/* Probe Filter doesn't affect IO link buffering */
 			if ((!(val & 1)) || (val & 4))
@@ -769,13 +766,13 @@ void probefilter_tokens(int nodes)
 
 			/* Same buffer counts for ganged and unganged */
 			val = (8 << 20) | (3 << 18) | (3 << 16) | (4 << 12) | (9 << 8) | (2 << 5) | 8;
-			cht_write_conf(i, FUNC0_HT, 0x90 + j * 0x20, val | (1 << 31));
-			cht_write_conf(i, FUNC0_HT, 0x94 + j * 0x20, 1 << 16);
+			cht_write_conf(ht, FUNC0_HT, 0x90 + link * 0x20, val | (1 << 31));
+			cht_write_conf(ht, FUNC0_HT, 0x94 + link * 0x20, 1 << 16);
 		}
 	}
 
 	printf("Asserting LDTSTOP# to optimise HT buffer allocation...");
-	val = pmio_readb(0x8a);
+	uint8_t val = pmio_readb(0x8a);
 	pmio_writeb(0x8a, 0xf0);
 	pmio_writeb(0x87, 1);
 	pmio_writeb(0x8a, val);
@@ -821,8 +818,8 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	while ((2U << link) < rqrt)
 		link ++;
 
-	nc_node[0].nc_neigh_ht = neigh;
-	nc_node[0].nc_neigh_link = link;
+	nodes[0].nc_neigh_ht = neigh;
+	nodes[0].nc_neigh_link = link;
 	ganged = cht_read_conf(neigh, 0, 0x170 + link * 4) & 1;
 	printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
 	printf("Checking HT width/freq");
@@ -914,12 +911,10 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 }
 
 #ifdef __i386
-static void disable_atmmode(const int nodes)
+static void disable_atmmode(const ht_t max_ht)
 {
-	uint32_t val;
 	uint32_t scrub[8];
-	int i;
-	val = cht_read_conf(0, FUNC0_HT, 0x68);
+	uint32_t val = cht_read_conf(0, FUNC0_HT, 0x68);
 
 	if (!(val & (1 << 12))) {
 		if (verbose) printf("ATMModeEn already disabled\n");
@@ -933,15 +928,15 @@ static void disable_atmmode(const int nodes)
 	   - F3x58[L3Scrub]=00h
 	   - F3x58[DramScrub]=00h
 	   - F3x5C[ScrubRedirEn]=0 */
-	for (i = 0; i <= nodes; i++) {
+	for (ht_t ht = 0; ht <= max_ht; ht++) {
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
-		cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
-		scrub[i] = cht_read_conf(i, FUNC3_MISC, 0x58);
-		cht_write_conf(i, FUNC3_MISC, 0x58, scrub[i] & ~0x1f00001f);
-		val = cht_read_conf(i, FUNC3_MISC, 0x5c);
-		cht_write_conf(i, FUNC3_MISC, 0x5c, val & ~1);
+		cht_write_conf(ht, FUNC1_MAPS, 0x10c, 0);
+		scrub[ht] = cht_read_conf(ht, FUNC3_MISC, 0x58);
+		cht_write_conf(ht, FUNC3_MISC, 0x58, scrub[ht] & ~0x1f00001f);
+		val = cht_read_conf(ht, FUNC3_MISC, 0x5c);
+		cht_write_conf(ht, FUNC3_MISC, 0x5c, val & ~1);
 	}
 
 	/* 2.  Wait 40us for outstanding scrub requests to complete */
@@ -953,25 +948,25 @@ static void disable_atmmode(const int nodes)
 #ifdef BROKEN
 
 	/* 5.  Set F3x1C4[L3TagInit]=1 */
-	for (i = 0; i <= nodes; i++) {
-		val = cht_read_conf(i, FUNC3_MISC, 0x1c4);
-		cht_write_conf(i, FUNC3_MISC, 0x1c4, val | (1 << 31));
+	for (ht_t ht = 0; ht <= max_ht; ht++) {
+		val = cht_read_conf(ht, FUNC3_MISC, 0x1c4);
+		cht_write_conf(ht, FUNC3_MISC, 0x1c4, val | (1 << 31));
 	}
 
 	/* 6.  Wait for F3x1C4[L3TagInit]=0 */
-	for (i = 0; i <= nodes; i++)
-		while (cht_read_conf(i, FUNC3_MISC, 0x1c4) & (1 << 31))
+	for (ht_t ht = 0; ht <= max_ht; ht++)
+		while (cht_read_conf(ht, FUNC3_MISC, 0x1c4) & (1 << 31))
 			cpu_relax();
 
 #endif
 
 	/* 7.  Set F0x68[ATMModeEn]=0 and F3x1B8[L3ATMModeEn]=0 */
-	for (i = 0; i <= nodes; i++) {
-		val = cht_read_conf(i, FUNC0_HT, 0x68);
-		cht_write_conf(i, FUNC0_HT, 0x68, val & ~(1 << 12));
+	for (ht_t ht = 0; ht <= max_ht; ht++) {
+		val = cht_read_conf(ht, FUNC0_HT, 0x68);
+		cht_write_conf(ht, FUNC0_HT, 0x68, val & ~(1 << 12));
 
-		val = cht_read_conf(i, FUNC3_MISC, 0x1b8);
-		cht_write_conf(i, FUNC3_MISC, 0x1b8, val & ~(1 << 27));
+		val = cht_read_conf(ht, FUNC3_MISC, 0x1b8);
+		cht_write_conf(ht, FUNC3_MISC, 0x1b8, val & ~(1 << 27));
 	}
 
 	/* 8.  Enable all cache activity in the system by clearing
@@ -979,24 +974,24 @@ static void disable_atmmode(const int nodes)
 	enable_cache();
 
 	/* 9. Restore L3 and DRAM scrubber register values */
-	for (i = 0; i <= nodes; i++) {
+	for (ht_t ht = 0; ht <= max_ht; ht++) {
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
-		cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
-		cht_write_conf(i, FUNC3_MISC, 0x58, scrub[i]);
-		val = cht_read_conf(i, FUNC3_MISC, 0x5c);
-		cht_write_conf(i, FUNC3_MISC, 0x5c, val | 1);
+		cht_write_conf(ht, FUNC1_MAPS, 0x10c, 0);
+		cht_write_conf(ht, FUNC3_MISC, 0x58, scrub[ht]);
+		val = cht_read_conf(ht, FUNC3_MISC, 0x5c);
+		cht_write_conf(ht, FUNC3_MISC, 0x5c, val | 1);
 	}
 
 	printf("done\n");
 }
 
-static void disable_probefilter(const int nodes)
+static void disable_probefilter(const ht_t max_ht)
 {
 	uint32_t val;
 	uint32_t scrub[8];
-	int i;
+	ht_t i;
 	val = cht_read_conf(0, FUNC3_MISC, 0x1d4);
 
 	/* Probe filter not active? */
@@ -1012,7 +1007,7 @@ static void disable_probefilter(const int nodes)
 	   - F3x58[L3Scrub]=00h
 	   - F3x58[DramScrub]=00h
 	   - F3x5C[ScrubRedirEn]=0 */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
@@ -1034,23 +1029,23 @@ static void disable_probefilter(const int nodes)
 	disable_cache();
 
 	/* 5.  Set F3x1C4[L3TagInit]=1 */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		val = cht_read_conf(i, FUNC3_MISC, 0x1c4);
 		cht_write_conf(i, FUNC3_MISC, 0x1c4, val | (1 << 31));
 	}
 
 	/* 6.  Wait for F3x1C4[L3TagInit]=0 */
-	for (i = 0; i <= nodes; i++)
+	for (i = 0; i <= max_ht; i++)
 		while (cht_read_conf(i, FUNC3_MISC, 0x1c4) & (1 << 31))
 			cpu_relax();
 
 	/* 7.  Set F3x1D4[PFMode]=00b */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		val = cht_read_conf(i, FUNC3_MISC, 0x1d4);
 		cht_write_conf(i, FUNC3_MISC, 0x1d4, val & ~3);
 	}
 
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		val = cht_read_conf(i, FUNC3_MISC, 0x1d4);
 	}
 
@@ -1060,7 +1055,7 @@ static void disable_probefilter(const int nodes)
 	critical_leave();
 
 	/* 9. Restore L3 and DRAM scrubber register values */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
@@ -1131,7 +1126,7 @@ static void wake_cores_local(const int vector)
 		wake_core_local(post_apic_mapping[i], vector);
 }
 
-void enable_probefilter(const int nodes)
+void enable_probefilter(const ht_t max_ht)
 {
 	uint32_t val;
 	uint32_t scrub[8];
@@ -1152,7 +1147,7 @@ void enable_probefilter(const int nodes)
 	   - F3x58[L3Scrub]=00h
 	   - F3x58[DramScrub]=00h
 	   - F3x5C[ScrubRedirEn]=0 */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
@@ -1188,18 +1183,18 @@ void enable_probefilter(const int nodes)
 		wake_cores_local(VECTOR_PROBEFILTER_EARLY_f10);
 
 	/* 6. Set F3x1C4[L3TagInit]=1 */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		val = cht_read_conf(i, FUNC3_MISC, 0x1c4);
 		cht_write_conf(i, FUNC3_MISC, 0x1c4, val | (1 << 31));
 	}
 
 	/* 7. Wait for F3x1C4[L3TagInit]=0 */
-	for (i = 0; i <= nodes; i++)
+	for (i = 0; i <= max_ht; i++)
 		while (cht_read_conf(i, FUNC3_MISC, 0x1c4) & (1 << 31))
 			cpu_relax();
 
 	/* 8. Set PF flags depending on cache size */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		uint32_t pfctrl = (2 << 2) | (0xf << 12) | (1 << 17) | (1 << 29);
 
 		if ((cht_read_conf(i, FUNC3_MISC, 0x1c4) & 0xffff) == 0xcccc)
@@ -1211,7 +1206,7 @@ void enable_probefilter(const int nodes)
 	}
 
 	/* 6. Wait for F3x1D4[PFInitDone]=1 */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		while ((cht_read_conf(i, FUNC3_MISC, 0x1d4) & (1 << 19)) == 0)
 			cpu_relax();
 	}
@@ -1223,7 +1218,7 @@ void enable_probefilter(const int nodes)
 	critical_leave();
 
 	/* 9. Restore L3 and DRAM scrubber register values */
-	for (i = 0; i <= nodes; i++) {
+	for (i = 0; i <= max_ht; i++) {
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
@@ -1261,13 +1256,13 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	printf("(Only doing HT discovery and reconfig in 32-bit mode)\n");
 	return -1;
 #else
-	int nodes, neigh_ht, link = 0, rt, nc_ht;
+	int max_ht, neigh_ht, link = 0, rt, nc_ht;
 	uint32_t val;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
-	nodes = (val >> 4) & 7;
+	max_ht = (val >> 4) & 7;
 	bool use = 1;
 
-	for (neigh_ht = 0; neigh_ht <= nodes; neigh_ht++) {
+	for (neigh_ht = 0; neigh_ht <= max_ht; neigh_ht++) {
 		uint32_t aggr = cht_read_conf(neigh_ht, FUNC0_HT, 0x164);
 
 		for (link = 0; link < 4; link++) {
@@ -1281,7 +1276,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 			if (aggr & (0x10000 << link))
 				use = 1;
 
-			for (rt = 0; rt <= nodes; rt++) {
+			for (rt = 0; rt <= max_ht; rt++) {
 				val = cht_read_conf(neigh_ht, FUNC0_HT, 0x40 + rt * 4);
 
 				if (val & (2 << link))
@@ -1309,13 +1304,13 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 		return -1;
 	}
 
-	nc_ht = nodes + 1;
+	nc_ht = max_ht + 1;
 	/* "neigh" request/response routing, copy bcast values from self */
 	val = cht_read_conf(neigh_ht, FUNC0_HT, 0x40 + neigh_ht * 4);
 	cht_write_conf(neigh_ht, FUNC0_HT, 0x40 + nc_ht * 4,
 	               (val & 0x07fc0000) | (0x402 << link));
 
-	for (ht_t ht = 0; ht <= nodes; ht++) {
+	for (ht_t ht = 0; ht <= max_ht; ht++) {
 		val = cht_read_conf(ht, FUNC0_HT, 0x68);
 		cht_write_conf(ht, FUNC0_HT, 0x68, val & ~(1 << 15)); /* LimitCldtCfg */
 
@@ -1366,7 +1361,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	if (ht_suppress) {
 		printf("Setting HT features to 0x%x...", ht_suppress);
 
-		for (ht_t ht = 0; ht <= nodes; ht++) {
+		for (ht_t ht = 0; ht <= max_ht; ht++) {
 			val = cht_read_conf(ht, FUNC3_MISC, 0x44);
 
 			/* SyncOnUcEccEn: sync flood on uncorrectable ECC error enable */
@@ -1444,16 +1439,16 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	/* On ASIC revB we need to make sure probefilter is disabled */
 	if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff)
-		disable_probefilter(nodes);
+		disable_probefilter(max_ht);
 
 	/* On Fam15h disable the Accelerated Transiton to Modified protocol */
 	if (family >= 0x15)
-		disable_atmmode(nodes);
+		disable_atmmode(max_ht);
 
 	printf("Adjusting HT fabric...");
 	critical_enter();
 
-	for (int ht = nodes; ht >= 0; ht--) {
+	for (int ht = max_ht; ht >= 0; ht--) {
 		uint32_t ltcr, val2;
 		/* Disable probes while adjusting */
 		ltcr = cht_read_conf(ht, FUNC0_HT, 0x68);
@@ -2198,13 +2193,13 @@ void selftest_late_msrs(void)
 		uint64_t val0 = rdmsr(msr);
 
 		for (int node = 0; node < dnc_node_count; node++) {
-			for (int ht = nc_node[node].nb_ht_lo; ht <= nc_node[node].nb_ht_hi; ht++) {
-				for (int i = 0; i < nc_node[node].ht[ht].cores; i++) {
+			for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
+				for (int i = 0; i < nodes[node].ht[ht].cores; i++) {
 					if ((node == 0) && (ht == 0) && (i == 0))
 						continue; /* Skip BSP */
 
-					uint32_t oldid = nc_node[node].ht[ht].apic_base + i;
-					uint32_t apicid = nc_node[node].apic_offset + oldid;
+					uint32_t oldid = nodes[node].ht[ht].apic_base + i;
+					uint32_t apicid = nodes[node].apic_offset + oldid;
 					*REL32(msr_readback) = msr;
 
 #ifdef FIXME
