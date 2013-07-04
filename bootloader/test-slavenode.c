@@ -43,7 +43,7 @@ int ht_testmode = 0;
 static void sighandler(int sig)
 {
 	printf("Received signal %d. aborting!\n", sig);
-	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); // Reset RAW engine
+	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL, 0x1000); /* Reset RAW engine */
 	exit(-1);
 }
 
@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 	struct part_info *part;
 	char *cmdline = NULL;
 	(void) signal(SIGINT, sighandler);
-	// Bind to core 0
+	/* Bind to core 0 */
 	CPU_ZERO(&cset);
 	CPU_SET(0, &cset);
 
@@ -217,7 +217,7 @@ int main(int argc, char **argv)
 	if (dnc_init_caches() < 0)
 		return -1;
 
-	// Set G3x02c FAB_CONTROL bit 30.
+	/* Set G3x02c FAB_CONTROL bit 30 */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1 << 30);
 	printf("Numascale NumaChip awaiting fabric set-up by master node...\n");
 

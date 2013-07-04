@@ -95,33 +95,33 @@ sci_fabric_setup(void)
 	printf("SCC microcode loaded.\n");
 	return 0;
 
-	//[    0.000000] Bootmem setup node 1 0000000220000000-0000000420000000
-	// Shared memory on node: 300000000-400000000 (4G window)
+	/* [    0.000000] Bootmem setup node 1 0000000220000000-0000000420000000 */
+	/* Shared memory on node: 300000000-400000000 (4G window) */
 	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, 0);
 	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, 0x00030003);
 	cht_write_conf(dnc_master_ht_id, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, 0x0003ff01);
-	// SCC NGC window overlaps a bit because of the boundaries
-	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, 12); // 200000000
-	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT, 16); // 400000000
+	/* SCC NGC window overlaps a bit because of the boundaries */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, 12); /* 200000000 */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT, 16); /* 400000000 */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_BASE, 0x300);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT, 0x400);
 
-	// Set ATTs
+	/* Set ATTs */
 	for (i = 1; i < dnc_node_count; i++) {
 		node = nodes[i].sci;
-		dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX, 0xa0000003); // Enable AutoInc, use 43:32 as index to ATT and set index to 3 (12G)
-		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[0].sci); //  12G-16G  (0x300000000 - 0x400000000)
+		dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX, 0xa0000003); /* Enable AutoInc, use 43:32 as index to ATT and set index to 3 (12G) */
+		dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[0].sci); /* 12G-16G  (0x300000000 - 0x400000000) */
 	}
 
 	for (i = 1; i < dnc_node_count; i++) {
 		uint8_t ht_id = nodes[i].nc_ht;
 		node = nodes[i].sci;
-		// Set DRAM Limit on HT#1 to 0x2ffffffff
+		/* Set DRAM Limit on HT#1 to 0x2ffffffff */
 		dnc_write_conf(node, 0, 24 + 1, FUNC1_MAPS, 0x124, 0x5f);
-		// Adjust Limit on HT#1 window to 0x2ffffffff
+		/* Adjust Limit on HT#1 window to 0x2ffffffff */
 		dnc_write_conf(node, 0, 24 + 0, FUNC1_MAPS, 0x4c, 0x02ff0001);
 		dnc_write_conf(node, 0, 24 + 1, FUNC1_MAPS, 0x4c, 0x02ff0001);
-		// Insert new window for 0x300000000 - 0x3ffffffff to point to NC
+		/* Insert new window for 0x300000000 - 0x3ffffffff to point to NC */
 		dnc_write_conf(node, 0, 24 + 0, FUNC1_MAPS, 0x54, 0x03ff0000 | ht_id);
 		dnc_write_conf(node, 0, 24 + 0, FUNC1_MAPS, 0x50, 0x03000000 | 3);
 		dnc_write_conf(node, 0, 24 + 1, FUNC1_MAPS, 0x54, 0x03ff0000 | ht_id);
@@ -131,8 +131,8 @@ sci_fabric_setup(void)
 	for (i = 0; i < dnc_node_count; i++) {
 		node = (i == 0) ? 0xfff0 : nodes[i].sci;
 		printf("Setting HReq_Ctrl on SCI%03x\n", nodes[i].sci);
-//        dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17) | (1<<12)); // CacheSize=0 (2GB), Error, H2S_Init
-		dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0 << 26) | (1 << 17)); // CacheSize=0 (2GB), Error
+/*        dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17) | (1<<12)); /* CacheSize=0 (2GB), Error, H2S_Init */
+		dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0 << 26) | (1 << 17)); /* CacheSize=0 (2GB), Error */
 		val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
 		printf("fab_control: %x\n", val);
 		val |= 0x80000000UL;
@@ -202,7 +202,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	// Since our memory is allocated dynamically, we need to zero out this
+	/* Since our memory is allocated dynamically, we need to zero out this */
 	memset(nodedata, 0, sizeof(nodedata));
 	dnc_master_ht_id = dnc_init_bootloader(&uuid, &dnc_chip_rev, type, &dnc_asic_mode,
 	                                       argc > 1 ? argv[1] : NULL);

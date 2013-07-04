@@ -40,11 +40,11 @@ static void test_route(uint8_t bxbarid, uint16_t dest)
 	uint16_t mask = 1 << (dest & 0xf);
 	uint8_t out = 0;
 
-//    printf("Testing route on bxbarid %d to target ID %04x (offs=%02x, mask=%04x)\n", bxbarid, dest, offs, mask);
-//    printf("ltbl[%d][%02x] = %04x\n", bxbarid, offs, shadow_ltbl[bxbarid][offs]);
-//    printf("rtbll[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtbll[bxbarid][offs]);
-//    printf("rtblm[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblm[bxbarid][offs]);
-//    printf("rtblh[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblh[bxbarid][offs]);
+/*    printf("Testing route on bxbarid %d to target ID %04x (offs=%02x, mask=%04x)\n", bxbarid, dest, offs, mask);
+      printf("ltbl[%d][%02x] = %04x\n", bxbarid, offs, shadow_ltbl[bxbarid][offs]);
+      printf("rtbll[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtbll[bxbarid][offs]);
+      printf("rtblm[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblm[bxbarid][offs]);
+      printf("rtblh[%d][%02x] = %04x\n", bxbarid, offs, shadow_rtblh[bxbarid][offs]); */
 	if (bxbarid > 0 && (shadow_ltbl[bxbarid][offs] & mask)) {
 		out += ((shadow_rtbll[bxbarid][offs] & mask) >> (dest & 0xf)) * 1;
 		out += ((shadow_rtblm[bxbarid][offs] & mask) >> (dest & 0xf)) * 2;
@@ -77,14 +77,14 @@ static void load_scc_routing(uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[
 
 		for (offs = 0; offs < 16; offs++) {
 			uint32_t l, m, h;
-			// SCC
+			/* SCC */
 			l = dnc_read_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLL00 + (offs << 2));
 			m = dnc_read_csr(0xfff0, H2S_CSR_G0_ROUT_BLTBL00  + (offs << 2));
 			h = dnc_read_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLH00 + (offs << 2));
 			l = ((l & 0xff) << 8) | ((l & 0xff00) >> 8);
 			m = ((m & 0xff) << 8) | ((m & 0xff00) >> 8);
 			h = ((h & 0xff) << 8) | ((h & 0xff00) >> 8);
-//            printf("rtbll = %08x, rtblm = %08x, rtblh = %08x\n", l, m, h);
+/*            printf("rtbll = %08x, rtblm = %08x, rtblh = %08x\n", l, m, h); */
 			rtbll[(chunk << 4) + offs] = l;
 			rtblm[(chunk << 4) + offs] = m;
 			rtblh[(chunk << 4) + offs] = h;
@@ -103,7 +103,7 @@ static void load_lc3_routing(int linkno,
 	uint32_t csr;
 	printf("Loading routing table from LC3%s...", _get_linkname(linkno));
 	csr = dnc_read_csr(0xfff0 + linkno, LC3_CSR_CONFIG4);
-	csr |= (1 << 6); // CONFIG4.tblrd is needed to read routing tables through CSR
+	csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
 	dnc_write_csr(0xfff0 + linkno, LC3_CSR_CONFIG4, csr);
 
 	for (chunk = 0; chunk < maxchunk; chunk++) {
@@ -117,7 +117,7 @@ static void load_lc3_routing(int linkno,
 		}
 	}
 
-	csr &= ~(1 << 6); // Disbale CONFIG4.tblrd to enable normal routing operation
+	csr &= ~(1 << 6); /* Disable CONFIG4.tblrd to enable normal routing operation */
 	dnc_write_csr(0xfff0 + linkno, LC3_CSR_CONFIG4, csr);
 	printf("Done\n");
 }
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
 	int cpu_fam  = -1;
 	cpu_set_t cset;
 	uint32_t val;
-	// Bind to core 0
+	/* Bind to core 0 */
 	CPU_ZERO(&cset);
 	CPU_SET(0, &cset);
 
@@ -155,7 +155,7 @@ int main(int argc, char **argv)
 	load_lc3_routing(4, shadow_rtbll[4], shadow_rtblm[4], shadow_rtblh[4], shadow_ltbl[4]);
 	load_lc3_routing(5, shadow_rtbll[5], shadow_rtblm[5], shadow_rtblh[5], shadow_ltbl[5]);
 	load_lc3_routing(6, shadow_rtbll[6], shadow_rtblm[6], shadow_rtblh[6], shadow_ltbl[6]);
-	//
+
 	test_route(0, 0x000);
 	test_route(1, 0x000);
 	test_route(3, 0x000);
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
 	test_route(1, 0x021);
 	test_route(3, 0x021);
 	test_route(5, 0x021);
-	//
+
 	test_route(0, 0x100);
 	test_route(1, 0x100);
 	test_route(3, 0x100);
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 	test_route(1, 0x121);
 	test_route(3, 0x121);
 	test_route(5, 0x121);
-	//
+
 	test_route(0, 0x200);
 	test_route(1, 0x200);
 	test_route(3, 0x200);

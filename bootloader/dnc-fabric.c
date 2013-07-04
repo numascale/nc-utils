@@ -51,7 +51,7 @@ static int _raw_write(uint32_t dest, int geo, uint32_t addr, uint32_t val)
 	uint32_t cmd;
 	int ret = 0;
 
-	cmd = (addr & 0xc) | 0x13; // writesb
+	cmd = (addr & 0xc) | 0x13; /* writesb */
 	ownnodeid = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
 	_setrawentry(0, (0x1fULL << 48) | (((uint64_t)dest & 0xffffULL) << 32) | ((uint64_t)cmd << 16) | ownnodeid);
 
