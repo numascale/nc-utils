@@ -1486,11 +1486,11 @@ static void setup_local_mmio_maps(void)
 		curlim = cht_read_conf(ioh_ht, FUNC1_MAPS, 0x84 + i * 8);
 		curdst = ((curlim & 0x7) << 8) | (curbase & 0x3);
 
-		/* This strips NP-bit */
+		bool en = curbase & 3;
 		curbase = curbase & ~0xff;
 		curlim = curlim & ~0xff;
 
-		if (verbose > 0)
+		if (verbose && en)
 			printf("NB MMIO range %d base: %08x, lim: %08x, dst: %04x%s\n",
 			       i, curbase, curlim, curdst, (curbase & 8) ? " locked" : "");
 
@@ -1564,7 +1564,7 @@ static void setup_local_mmio_maps(void)
 	}
 
 	for (i = 0; i < 8; i++) {
-		if (verbose)
+		if (verbose && (dst[i] & 3))
 			printf("NC MMIO range %d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
 		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
 		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
