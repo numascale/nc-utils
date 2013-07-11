@@ -453,13 +453,6 @@ void mem64_write32(const uint64_t addr, const uint32_t val)
 	setup_fs(addr);
 	asm volatile("mov %0, %%fs:(0)" :: "a"(val));
 	sti();
-
-	if (verbose > 2) {
-		uint32_t val2 = mem64_read32(addr);
-
-		if (val2 != val)
-			warning("32bit mem64 0x%016llx readback (0x%08x) differs from write (0x%08x)", addr, val2, val);
-	}
 }
 
 uint16_t mem64_read16(const uint64_t addr)
@@ -478,13 +471,6 @@ void mem64_write16(uint64_t addr, uint16_t val)
 	setup_fs(addr);
 	asm volatile("movw %0, %%fs:(0)" :: "a"(val));
 	sti();
-
-	if (verbose > 2) {
-		uint16_t val2 = mem64_read16(addr);
-
-		if (val2 != val)
-			warning("16bit mem64 0x%016llx readback (0x%04x) differs from write (0x%04x)", addr, val2, val);
-	}
 }
 
 uint8_t mem64_read8(uint64_t addr)
@@ -503,13 +489,6 @@ void mem64_write8(uint64_t addr, uint8_t val)
 	setup_fs(addr);
 	asm volatile("movb %0, %%fs:(0)" :: "a"(val));
 	sti();
-
-	if (verbose > 2) {
-		uint8_t val2 = mem64_read8(addr);
-
-		if (val2 != val)
-			warning("8bit mem64 0x%016llx readback (0x%02x) differs from write (0x%02x)", addr, val2, val);
-	}
 }
 
 uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
@@ -526,13 +505,6 @@ void dnc_write_csr(uint32_t node, uint16_t csr, uint32_t val)
 	DEBUG("SCI%03x:csr%04x <- %08x", node, csr, val);
 	mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, uint32_tbswap(val));
 	DEBUG("\n");
-
-	if (verbose > 2) {
-		uint32_t val2 = dnc_read_csr(node, csr);
-
-		if (val2 != val)
-			warning("SCI%04x CSR 0x%04x readback (0x%08x) differs from write (0x%08x)", node, csr, val2, val);
-	}
 }
 
 uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr)
