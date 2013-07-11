@@ -2826,8 +2826,7 @@ static int nc_start(void)
 			       cfg_nodelist[i].osc);
 	}
 
-	if (adjust_oscillator(dnc_card_type, local_info->osc) < 0)
-		return -1;
+	adjust_oscillator(dnc_card_type, local_info->osc);
 
 	/* Copy this into NC ram so its available remotely */
 	load_existing_apic_map();

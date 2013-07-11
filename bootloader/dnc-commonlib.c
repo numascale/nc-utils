@@ -1720,7 +1720,7 @@ static void _pic_reset_ctrl(void)
 	udelay(2000000);
 }
 
-static int _is_pic_present(char p_type[16])
+static bool _is_pic_present(const char p_type[16])
 {
 	if ((strncmp("313001", p_type, 6) == 0) ||
 	    (strncmp("N313001", p_type, 7) == 0) ||
@@ -1735,51 +1735,46 @@ static int _is_pic_present(char p_type[16])
 	return 0;
 }
 
-int adjust_oscillator(char p_type[16], uint32_t osc_setting)
+void adjust_oscillator(const char p_type[16], const uint32_t osc_setting)
 {
-	uint32_t val;
+	assertf(osc_setting <= 2, "Invalid oscillator setting %d", osc_setting);
 
 	if (enable_relfreq) {
 		printf("PHY Relative Frequency Correction mode enabled, not adjusting oscillators\n");
-		return 0;
+		return;
 	}
 
 	/* Check if adjusting the frequency is possible */
-	if (_is_pic_present(p_type)) {
-		if (osc_setting > 2) {
-			printf("Invalid oscillator setting %d; skipping\n", osc_setting);
-			return 0;
-		}
+	if (!_is_pic_present(p_type)) {
+		printf("Oscillator not set\n");
+		return;
+	}
 
+	dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
+	udelay(10000);
+	uint32_t val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
+
+	/* Mask out bit7 of every byte because it's missing.. */
+	assertf(((val & 0x007f7f7f) == (0x0000b0e9 & 0x007f7f7f)), "External micro controller not working !\n");
+
+	/* On the RevC cards the micro controller isn't quite fast enough
+	 * to send bit7 of every byte correctly on the I2C bus when reading;
+	 * the bits we care about are bit[1:0] of the high order byte */
+	if (((val >> 24) & 3) != osc_setting) {
+		/* Write directly to the frequency selct register */
+		val = 0x0000b0e9 | (osc_setting << 24);
+		dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
+		/* Wait for the new frequency to settle */
+		udelay(10000);
+		/* Read back value, to verify */
 		dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
 		udelay(10000);
 		val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
-
-		/* Mask out bit7 of every byte because it's missing.. */
-		assertf(((val & 0x007f7f7f) == (0x0000b0e9 & 0x007f7f7f)), "External micro controller not working !\n");
-
-		/* On the RevC cards the micro controller isn't quite fast enough
-		 * to send bit7 of every byte correctly on the I2C bus when reading;
-		 * the bits we care about are bit[1:0] of the high order byte */
-		if (((val >> 24) & 3) != osc_setting) {
-			/* Write directly to the frequency selct register */
-			val = 0x0000b0e9 | (osc_setting << 24);
-			dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ + 0x40, val);
-			/* Wait for the new frequency to settle */
-			udelay(10000);
-			/* Read back value, to verify */
-			dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
-			udelay(10000);
-			val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
-			assertf(((val >> 24) & 3) == osc_setting, "Oscillator setting not set correctly! %08x", val);
-			printf("Oscillator set to %d\n", (val >> 24) & 3);
-			/* Trigger a HSS PLL reset */
-			_pic_reset_ctrl();
-		}
-	} else
-		printf("Oscillator not set\n");
-
-	return 0;
+		assertf(((val >> 24) & 3) == osc_setting, "Oscillator setting not set correctly! %08x", val);
+		printf("Oscillator set to %d\n", (val >> 24) & 3);
+		/* Trigger a HSS PLL reset */
+		_pic_reset_ctrl();
+	}
 }
 
 struct optargs {
@@ -2022,6 +2017,7 @@ static void perform_selftest(int asic_mode, char p_type[16])
 	printf("done\n");
 
 	if (asic_mode && _is_pic_present(p_type)) {
+again:
 		printf("Testing fabric phys...");
 		/* Trigger a HSS PLL reset */
 		_pic_reset_ctrl();
@@ -2029,9 +2025,11 @@ static void perform_selftest(int asic_mode, char p_type[16])
 		for (int phy = 0; phy < 6; phy++) {
 			/* 1. Check that the HSS PLL has locked */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (!(val & 0x100))
-				fatal_reboot("Phy %d PLL failed to lock with status 0x%08x",
+			if (!(val & 0x100)) {
+				warning("Phy %d PLL failed to lock with status 0x%08x...retrying",
 					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+				goto again;
+			}
 
 			/* 2. Activate TXLBENABLEx (bit[3:0] of HSSxx_CTR_8) */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_8 + 0x40 * phy, 0x000f);
@@ -2044,9 +2042,11 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the TXLBERRORx flag (bit[7:4] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xf0)
-				fatal_reboot("Transmit data mismatch on phy %d with status 0x%08x",
+			if (val & 0xf0) {
+				warning("Transmit data mismatch on phy %d with status 0x%08x...retrying",
 					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+				goto again;
+			}
 		}
 
 		/* Run test for 200msec */
@@ -2054,9 +2054,11 @@ static void perform_selftest(int asic_mode, char p_type[16])
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xf0)
-				fatal_reboot("Transmit test failed on phy error 3 on phy %d with status 0x%08x",
+			if (val & 0xf0) {
+				warning("Transmit test failed on phy error 3 on phy %d with status 0x%08x...retrying",
 					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+				goto again;
+			}
 		}
 
 		for (int phy = 0; phy < 6; phy++) {
@@ -2074,9 +2076,11 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			udelay(10);
 			/* 6. Monitor the RXLBERRORx flag (bit[3:0] of HSSxx_STAT_1) */
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xff)
-				fatal_reboot("Receive data mismatch on phy %d with status 0x%08x",
+			if (val & 0xff) {
+				warning("Receive data mismatch on phy %d with status 0x%08x...retrying",
 					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+				goto again;
+			}
 		}
 
 		/* Run test for 200msec */
@@ -2084,9 +2088,11 @@ static void perform_selftest(int asic_mode, char p_type[16])
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
-			if (val & 0xff)
-				fatal_reboot("Receive test failed on phy %d with status 0x%08x",
+			if (val & 0xff) {
+				warning("Receive test failed on phy %d with status 0x%08x...retrying",
 					phy, dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy));
+				goto again;
+			}
 
 			/* Stop BIST test */
 			dnc_write_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy, 0x00f0);
