@@ -80,9 +80,6 @@ void disable_device(const uint16_t sci, const int bus, const int dev, const int 
 	dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
 	/* Set Interrupt Line register to 0 (unallocated) */
 	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
-
-	if (verbose > 1)
-		printf("disabled\n");
 }
 
 void disable_dma_all(void)

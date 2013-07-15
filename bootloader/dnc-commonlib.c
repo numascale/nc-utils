@@ -1755,7 +1755,7 @@ void adjust_oscillator(const char p_type[16], const uint32_t osc_setting)
 	uint32_t val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
 
 	/* Mask out bit7 of every byte because it's missing.. */
-	assertf(((val & 0x007f7f7f) == (0x0000b0e9 & 0x007f7f7f)), "External micro controller not working !\n");
+	assertf(((val & 0x007f7f7f) == (0x0000b0e9 & 0x007f7f7f)), "External microcontroller not working");
 
 	/* On the RevC cards the micro controller isn't quite fast enough
 	 * to send bit7 of every byte correctly on the I2C bus when reading;
@@ -1770,7 +1770,7 @@ void adjust_oscillator(const char p_type[16], const uint32_t osc_setting)
 		dnc_write_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ, 0x40); /* Set the indirect read address register */
 		udelay(10000);
 		val = dnc_read_csr(0xfff0, H2S_CSR_G1_PIC_INDIRECT_READ);
-		assertf(((val >> 24) & 3) == osc_setting, "Oscillator setting not set correctly! %08x", val);
+		assertf(((val >> 24) & 3) == osc_setting, "Oscillator setting not set correctly at %08x", val);
 		printf("Oscillator set to %d\n", (val >> 24) & 3);
 		/* Trigger a HSS PLL reset */
 		_pic_reset_ctrl();

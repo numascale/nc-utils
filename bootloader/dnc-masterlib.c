@@ -105,6 +105,19 @@ void load_scc_microcode(void)
 	printf("done\n");
 }
 
+static void print_node_info(const nodes_info_t *node)
+{
+	for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++)
+		printf("- HT%d: base=%x size=%d pdom=%x cores=%d apic_base=%d scrub=%x\n",
+			ht, node->ht[ht].base, node->ht[ht].size, node->ht[ht].pdom, node->ht[ht].cores, node->ht[ht].apic_base, node->ht[ht].scrub);
+	printf("- node_mem=%d\n", node->node_mem);
+	printf("- dram_base=%d/0x%x dram_limit=%d/0x%x\n", node->dram_base, node->dram_base, node->dram_limit, node->dram_limit);
+	printf("- mmio_base=%lld mmio_limit=%lld\n", node->mmio_base, node->mmio_limit);
+	printf("- apic_offset=%d\n", node->apic_offset);
+	printf("- nb_ht_lo=%d nb_ht_hi=%d nc_ht=%d nc_neigh_ht=%d nc_neigh_link=%d\n",
+		node->nb_ht_lo, node->nb_ht_hi, node->nc_ht, node->nc_neigh_ht, node->nc_neigh_link);
+}
+
 void tally_local_node(void)
 {
 	uint32_t val, base, limit, rest;
@@ -253,6 +266,8 @@ void tally_local_node(void)
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
+	if (verbose > 1)
+		print_node_info(&nodes[0]);
 }
 
 static bool tally_remote_node(const uint16_t node)
