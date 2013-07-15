@@ -759,8 +759,6 @@ static void update_mptable(void)
 	if (!mpfp)
 		mpfp = find_mptable((const char *)(0xf0000), 0x10000);
 
-	printf("mpfp: %p\n", mpfp);
-
 	if (!mpfp)
 		return;
 
@@ -775,10 +773,8 @@ static void update_mptable(void)
 	}
 
 	mptable = mpfp->mptable;
-	printf("mptable @%p\n", mptable);
 	memcpy((void *)REL32(new_mptable), mptable, 512);
 	mptable = (mp_config_table *)REL32(new_mptable);
-	printf("mptable @%p\n", mptable);
 	mpfp->mptable = mptable;
 	mpfp->checksum -= checksum((acpi_sdt_p)mpfp, mpfp->len);
 	printf("sig: %.4s, len: %d, rev: %d, chksum: %x, oemid: %.8s, prodid: %.12s,\n"
@@ -803,14 +799,13 @@ static void setup_apic_atts(void)
 	if (apic_shift > 4)
 		apic_shift = 4;
 
-	printf("Setting up APIC ATT tables with shift %d:", apic_shift);
+	printf("Setting up APIC ATT tables with shift %d...", apic_shift);
 
 	/* Set APIC ATT for remote interrupts */
 	for (i = 0; i < dnc_node_count; i++) {
 		uint16_t snode = (i == 0) ? 0xfff0 : nodes[i].sci;
 		uint16_t dnode, ht;
 
-		printf(" SCI%03x", nodes[i].sci);
 		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
 		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 
@@ -840,7 +835,7 @@ static void setup_apic_atts(void)
 				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nodes[dnode].sci);
 		}
 	}
-	printf("\n");
+	printf("done\n");
 }
 
 static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
@@ -1211,10 +1206,8 @@ static void setup_remote_cores(const uint16_t num)
 	uint32_t j;
 	uint32_t val;
 
-	printf("Setting up cores on node #%d (SCI%03x), %d HT nodes\n", num, sci, cur_node->nc_ht);
+	printf(" SCI%03x", sci);
 	/* Toggle go-ahead flag to remote node */
-	printf("Checking if SCI%03x is ready\n", sci);
-
 	do {
 		check_error();
 		udelay(100000);
@@ -1223,16 +1216,13 @@ static void setup_remote_cores(const uint16_t num)
 
 	val |= 0x80000000UL;
 	dnc_write_csr(sci, H2S_CSR_G3_FAB_CONTROL, val);
-	printf("Waiting for SCI%03x to acknowledge\n", sci);
 
 	do {
 		udelay(200);
 		val = dnc_read_csr(sci, H2S_CSR_G3_FAB_CONTROL);
 	} while (val & 0x80000000UL);
 
-	/* Map MMIO 0x00000000 - 0xffffffff to master node */
-	printf("Setting remote H2S MMIO32 ATT pages...\n");
-
+	/* Setup remote MMIO */
 	for (j = 0; j < 0x1000; j++) {
 		if ((j & 0xff) == 0)
 			dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
@@ -1270,9 +1260,6 @@ static void setup_remote_cores(const uint16_t num)
 	if (renumber_bsp == 1)
 		renumber_remote_bsp(num);
 
-	printf("Remote H2S MMIO32 ATT set...\n");
-	/* Set H2S_Init */
-	printf("Setting SCI%03x H2S_Init...\n", sci);
 	val = dnc_read_csr(sci, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(sci, H2S_CSR_G3_HREQ_CTRL, val | (1 << 12));
 
@@ -1281,8 +1268,6 @@ static void setup_remote_cores(const uint16_t num)
 		uint64_t qval = rdmsr(MSR_IORR_PHYS_MASK0 + i * 2);
 		assertf(!(qval & (1 << 11)), "IO range 0x%llx is enabled", rdmsr(MSR_IORR_PHYS_BASE0 + i * 2) & (~0xfffULL));
 	}
-
-	printf("Inserting coverall MMIO maps on SCI%03x\n", sci);
 
 	for (i = cur_node->nb_ht_lo; i <= cur_node->nb_ht_hi; i++) {
 		/* Clear low MMIO ranges, leaving high ranges */
@@ -1306,8 +1291,6 @@ static void setup_remote_cores(const uint16_t num)
 	}
 
 	/* Now, reset all DRAM maps */
-	printf("Resetting DRAM maps on SCI%03x\n", sci);
-
 	/* Read DRAM Hole register off master BSP */
 	uint32_t memhole = cht_read_conf(0, FUNC1_MAPS, 0xf0);
 
@@ -1324,8 +1307,6 @@ static void setup_remote_cores(const uint16_t num)
 	}
 
 	/* Reprogram HT node "self" ranges */
-	printf("Reprogramming HT node \"self\" ranges on SCI%03x\n", sci);
-
 	for (i = cur_node->nb_ht_lo; i <= cur_node->nb_ht_hi; i++) {
 		/* Check if DRAM channels are unganged */
 		val = dnc_read_conf(sci, 0, 24 + i, FUNC2_DRAM, 0x110);
@@ -1340,10 +1321,6 @@ static void setup_remote_cores(const uint16_t num)
 			               (((cur_node->ht[i].base + rlow) >> (27 - DRAM_MAP_SHIFT)) << 11));
 			dnc_write_conf(sci, 0, 24 + i, FUNC2_DRAM, 0x114,
 			               ((cur_node->ht[i].base + rhigh) >> (26 - DRAM_MAP_SHIFT)) << 10);
-			printf("SCI%03x#%d: F2x110 %08x, F2x114 %08x\n",
-			       sci, i,
-			       dnc_read_conf(sci, 0, 24 + i, FUNC2_DRAM, 0x110),
-			       dnc_read_conf(sci, 0, 24 + i, FUNC2_DRAM, 0x114));
 		}
 
 		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120,
@@ -1372,17 +1349,6 @@ static void setup_remote_cores(const uint16_t num)
 		map_index++;
 	}
 
-	if (verbose > 0) {
-		printf("SCI%03x DRAM and MMIO ranges:\n", sci);
-		for (i = cur_node->nb_ht_lo; i <= cur_node->nb_ht_hi; i++) {
-			for (j = 0; j < 8; j++)
-				dram_range_print(sci, i, j);
-
-			for (j = 0; j < 8; j++)
-				mmio_range_print(sci, i, j);
-		}
-	}
-
 	dnc_write_csr(sci, H2S_CSR_G3_PCI_SEG0, nodes[0].sci << 16);
 
 	/* Quick and dirty: zero out I/O and config space maps; add
@@ -1407,9 +1373,6 @@ static void setup_remote_cores(const uint16_t num)
 	/* Set DRAM range on local NumaChip */
 	dnc_write_csr(sci, H2S_CSR_G0_MIU_NGCM0_LIMIT, cur_node->dram_base >> 6);
 	dnc_write_csr(sci, H2S_CSR_G0_MIU_NGCM1_LIMIT, (cur_node->dram_limit >> 6) - 1);
-	printf("SCI%03x NGCM0 0x%x, NGCM1 0x%x\n", sci,
-		dnc_read_csr(sci, H2S_CSR_G0_MIU_NGCM0_LIMIT),
-		dnc_read_csr(sci, H2S_CSR_G0_MIU_NGCM1_LIMIT));
 	dnc_write_csr(sci, H2S_CSR_G3_DRAM_SHARED_BASE, cur_node->dram_base);
 	dnc_write_csr(sci, H2S_CSR_G3_DRAM_SHARED_LIMIT, cur_node->dram_limit);
 
@@ -1420,11 +1383,7 @@ static void setup_remote_cores(const uint16_t num)
 	for (j = (0xff00 >> i) & 0xff; j < 0x100; j++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, sci);
 
-	printf("int_status: %x\n", dnc_read_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_STATUS));
-	udelay(200);
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)sci << 28ULL) | 0x21ULL;
-
-	printf("APICs");
 
 	/* Start all remote cores and let them run our init_trampoline */
 	for (ht_t ht = cur_node->nb_ht_lo; ht <= cur_node->nb_ht_hi; ht++) {
@@ -1447,8 +1406,6 @@ static void setup_remote_cores(const uint16_t num)
 				disable_smm_handler(qval);
 		}
 	}
-
-	printf(" online\n");
 }
 
 static void setup_local_mmio_maps(void)
@@ -1915,12 +1872,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 			if (ours) {
 				if ((rsp->state == waitfor) && (rsp->tid == cmd.tid)) {
-					if (nodedata[rsp->sci] != 0x80) {
-						printf("SCI%03x (%s) entered %s\n",
-						       rsp->sci, cfg_nodelist[i].desc,
-						       node_state_name[waitfor]);
+					if (nodedata[rsp->sci] != 0x80)
 						nodedata[rsp->sci] = 0x80;
-					}
 				} else if ((rsp->state == RSP_PHY_NOT_TRAINED) ||
 				           (rsp->state == RSP_RINGS_NOT_OK) ||
 				           (rsp->state == RSP_FABRIC_NOT_READY) ||
@@ -2394,18 +2347,6 @@ static void unify_all_nodes(void)
 	if (abort)
 		fatal("Processor/BIOS configuration issues need resolving");
 
-	if (verbose > 0) {
-		printf("Global memory map:\n");
-
-		for (node = 0; node < dnc_node_count; node++) {
-			for (i = nodes[node].nb_ht_lo; i <= nodes[node].nb_ht_hi; i++)
-				printf("SCI%03x#%d: %012llx - %012llx\n",
-				       nodes[node].sci, i,
-				       (uint64_t)nodes[node].ht[i].base << DRAM_MAP_SHIFT,
-				       (uint64_t)(nodes[node].ht[i].base + nodes[node].ht[i].size) << DRAM_MAP_SHIFT);
-		}
-	}
-
 	/* Set up local mapping registers etc from 0 - master node max */
 	for (i = 0; i < nodes[0].nc_ht; i++) {
 		uint64_t base = (uint64_t)nodes[0].ht[i].base << DRAM_MAP_SHIFT;
@@ -2423,17 +2364,6 @@ static void unify_all_nodes(void)
 		if (nodes[1].dram_base > nodes[0].dram_base)
 			dram_range(0xfff0, i, range, (uint64_t)nodes[1].dram_base << DRAM_MAP_SHIFT,
 				((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT) - 1, nodes[0].nc_ht);
-	}
-
-	if (verbose > 0) {
-		printf("SCI000 DRAM and MMIO ranges:\n");
-		for (i = 0; i < nodes[0].nc_ht; i++) {
-			for (int j = 0; j < 8; j++)
-				dram_range_print(0xfff0, i, j);
-
-			for (int j = 0; j < 8; j++)
-				mmio_range_print(0xfff0, i, j);
-		}
 	}
 
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, nodes[0].dram_base >> 6);
@@ -2523,8 +2453,10 @@ static void unify_all_nodes(void)
 
 	setup_other_cores();
 
+	printf("Joining:");
 	for (i = 1; i < dnc_node_count; i++)
 		setup_remote_cores(i);
+	printf("\n");
 
 	if (remote_io) {
 		setup_mmio_master();

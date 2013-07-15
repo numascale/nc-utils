@@ -452,6 +452,8 @@ static bool tally_remote_node(const uint16_t node)
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
+	if (verbose > 1)
+		print_node_info(cur_node);
 	return 1;
 }
 
