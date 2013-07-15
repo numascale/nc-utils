@@ -297,10 +297,14 @@ void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
 	DEBUG("\n");
 
 	if (verbose > 2) {
+		/* Ignore link phy offset */
+		if (func == 4 && reg == 0x190)
+			return;
+
 		uint32_t val2 = cht_read_conf(node, func, reg);
 
 		if (val2 != val)
-			warning("Coherent config #%xF%xx%X readback (0x%08x) differs from write (0x%08x)", node, func, reg, val2, val);
+			warning("Coherent config HT%xF%xx%X readback (0x%08x) differs from write (0x%08x)", node, func, reg, val2, val);
 	}
 }
 
