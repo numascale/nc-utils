@@ -87,7 +87,7 @@ dnc-bootloader.o: dnc-bootloader.c dnc-bootloader.h $(IFACEDEPS) dnc-regs.h \
 
 dnc-e820-handler.o: dnc-defs.h
 
-dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-access.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h ../interface/mctr_define_register_C.h ddr_spd.h
+dnc-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-bootloader.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-access.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h ../interface/mctr_define_register_C.h ddr_spd.h
 
 ddr_spd.o: ddr_spd.c dnc-commonlib.h ddr_spd.h
 
