@@ -83,8 +83,12 @@
 	broadcast_error(0, format, ## args); \
    } while (0)
 
-#define error_remote(sci, name, msg) do { \
-	printf(COL_RED "Error on SCI%03x (%s): %s" COL_DEFAULT "\n", sci, name, msg); \
+#define error_remote(sci, name, ip, msg) do { \
+	if (sci != 0xffffffff) \
+		printf(COL_RED "Error on SCI%03x (%s): %s" COL_DEFAULT "\n", sci, name, msg); \
+	else \
+		printf(COL_RED "Error on %d.%d.%d.%d: %s" COL_DEFAULT "\n", \
+			ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff, msg); \
    } while (0)
 
 #ifdef __i386__

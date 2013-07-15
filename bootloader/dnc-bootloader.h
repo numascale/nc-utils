@@ -116,7 +116,7 @@ void set_cf8extcfg_enable(const int ht);
 int read_config_file(const char *filename);
 void udp_open(void);
 void udp_broadcast_state(const void *buf, const size_t len);
-int udp_read_state(void *buf, const size_t len);
+int udp_read_state(void *buf, const size_t len, uint32_t *ip);
 void mtrr_range(const uint64_t base, const uint64_t limit, const int type);
 
 #endif

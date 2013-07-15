@@ -2306,7 +2306,10 @@ static void platform_quirks(void)
 
 	const char *manuf = NULL, *product = NULL, *biosver = NULL, *biosdate = NULL;
 	smbios_parse((const char *)fp, len, num, &biosver, &biosdate, &manuf, &product);
-	assert(biosver && biosdate && manuf && product);
+	assert(biosver);
+	assert(biosdate);
+	assert(manuf);
+	assert(product);
 	printf("Platform is %s %s with BIOS %s %s", manuf, product, biosver, biosdate);
 
 	/* Skip if already set */
@@ -3069,7 +3072,8 @@ void broadcast_error(const bool persistent, const char *format, ...)
 void check_error(void)
 {
 	char buf[UDP_MAXLEN];
-	size_t len = udp_read_state(buf, sizeof buf);
+	uint32_t ip;
+	size_t len = udp_read_state(buf, sizeof buf, &ip);
 	if (!len)
 		return;
 
@@ -3083,7 +3087,7 @@ void check_error(void)
 	for (int i = 0; i < cfg_nodes; i++) {
 		if ((!name_matching && (cfg_nodelist[i].uuid == rsp->uuid)) ||
 		    ( name_matching && (cfg_nodelist[i].sci == rsp->sci))) {
-			error_remote(rsp->sci, cfg_nodelist[i].desc, buf + sizeof(struct state_bcast));
+			error_remote(rsp->sci, cfg_nodelist[i].desc, ip, buf + sizeof(struct state_bcast));
 			return;
 		}
 	}
@@ -3095,7 +3099,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 	int count, backoff, i;
 	int go_ahead = 0;
 	uint32_t last_cmd = ~0;
-	uint32_t builduuid = ~0;
+	uint32_t ip, builduuid = ~0;
 
 	udp_open();
 
@@ -3134,7 +3138,7 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 		/* In order to avoid jamming, broadcast own status at least
 		 * once every 2*cfg_nodes packet seen */
 		for (i = 0; i < 2 * cfg_nodes; i++) {
-			len = udp_read_state(&cmd, sizeof(cmd));
+			len = udp_read_state(&cmd, sizeof(cmd), &ip);
 
 			if (!len)
 				break;

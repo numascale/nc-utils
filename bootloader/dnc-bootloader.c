@@ -1747,7 +1747,7 @@ void udp_broadcast_state(const void *buf, const size_t len)
 	lfree(pxe_write_param);
 }
 
-int udp_read_state(void *buf, const size_t len)
+int udp_read_state(void *buf, const size_t len, uint32_t *ip)
 {
 	int ret = 0;
 
@@ -1765,6 +1765,7 @@ int udp_read_state(void *buf, const size_t len)
 	if ((pxe_read_param->status == PXENV_STATUS_SUCCESS) &&
 	    (pxe_read_param->s_port == htons(4711))) {
 		memcpy(buf, buf_reloc, pxe_read_param->buffer_size);
+		*ip = pxe_read_param->src_ip;
 		ret = pxe_read_param->buffer_size;
 	}
 
@@ -1795,7 +1796,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	int count, backoff, last_stat, i;
 	bool do_restart = 0;
 	enum node_state waitfor, own_state;
-	uint32_t last_cmd = ~0;
+	uint32_t ip, last_cmd = ~0;
 	size_t len;
 	char buf[UDP_MAXLEN];
 	struct state_bcast *rsp = (struct state_bcast *)buf;
@@ -1843,7 +1844,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 		}
 
 		if (cfg_nodes > 1) {
-			len = udp_read_state(rsp, UDP_MAXLEN);
+			len = udp_read_state(rsp, UDP_MAXLEN, &ip);
 			if (!len && !do_restart) {
 				if (last_stat > 64) {
 					last_stat = 0;
@@ -1857,7 +1858,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 		if (len >= sizeof(rsp) && rsp->sig == UDP_SIG) {
 			if (rsp->uuid == 0xffffffff) {
-					error_remote(rsp->sci, "unknown remote", (char *)rsp + sizeof(struct state_bcast));
+					error_remote(0xffffffff, "", ip, (char *)rsp + sizeof(struct state_bcast));
 					continue;
 			}
 
@@ -1885,7 +1886,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 						nodedata[rsp->sci] = 0x80;
 					}
 				} else if (rsp->state == RSP_ERROR)
-					error_remote(rsp->sci, cfg_nodelist[i].desc, (char *)rsp + sizeof(struct state_bcast));
+					error_remote(rsp->sci, cfg_nodelist[i].desc, ip, (char *)rsp + sizeof(struct state_bcast));
 			}
 		}
 
