@@ -1303,7 +1303,7 @@ static void setup_remote_cores(const uint16_t num)
 		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf0, memhole & 0xff000002);
 
 		/* Re-direct everything below our first local address to NumaChip */
-		dram_range(sci, i, 0, (uint64_t)nodes[0].ht[0].base << DRAM_MAP_SHIFT, ((uint64_t)cur_node->ht[0].base << DRAM_MAP_SHIFT) - 1, cur_node->nc_ht);
+		dram_range(sci, i, 0, (uint64_t)nodes[0].ht[0].base << DRAM_MAP_SHIFT, ((uint64_t)((cur_node - 1)->dram_limit) << DRAM_MAP_SHIFT) - 1, cur_node->nc_ht);
 	}
 
 	/* Reprogram HT node "self" ranges */
@@ -2259,39 +2259,37 @@ static void setup_mc4_thresholds(void)
 
 static void enable_cstate6(void)
 {
-	printf("Enabling C-state 6:");
+	printf("Enabling C-state 6...");
 
-	for (int node = 0; node < dnc_node_count; node++) {
-		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-			uint16_t sci = nodes[node].sci;
-			int dst = nodes[node].nb_ht_hi - (renumber_bsp == 1);
-			printf(" SCI%03x#%x", sci, dst);
+	for (nodes_info_t *node = &nodes[0]; node < &nodes[dnc_node_count]; node++) {
+		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+			/* Action field 0, 1 */
+			uint32_t val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC4_LINK, 0x118);
+			val |= (1 << 17) | (1 << 1); /* CacheFlushEn */
+			val = (val & ~((3 << 2) | (3 << 18))) | (1 << 2) | (1 << 18); /* CacheFlushTmrSel */
+			val |= (1 << 8) | (1 << 24); /* PwrGateEn */
+			dnc_write_conf(node->sci, 0, 24 + ht, FUNC4_LINK, 0x118, val); //0x0107000b);
 
-			/* Account for single-HT systems with renumbering */
-			if (renumber_bsp && dst == 0 && node > 0)
-				dst = 1;
+			/* Action field 2 */
+			val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC4_LINK, 0x11c);
+			val |= (1 << 8); /* CacheFlushEn */
+			val = (val & ~(3 << 2)) | (1 << 2); /* CacheFlushTmrSel */
+			val |= (1 << 8); /* PwrGateEn */
+			dnc_write_conf(node->sci, 0, 24 + ht, FUNC4_LINK, 0x11c, val); //00000000);
 
-			/* Set StateSaveDestNode */
-			uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x128);
-			val = (val & ~0x3f000) | (dst << 12);
-			dnc_write_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x128, val);
+			/* Set StateSaveDestNode to itself; clear CoreCstateMode */
+			val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC4_LINK, 0x128);
+			val = (val & ~0x3f000) | (ht << 12);
+			val &= ~1;
+			dnc_write_conf(node->sci, 0, 24 + ht, FUNC4_LINK, 0x128, val);
 
-			/* 3. Set PwrGateEnCstAct0, 1, 2 */
-			val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x118);
-			dnc_write_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x118, val | (1 << 8) | (1 << 24));
-			val = dnc_read_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x11c);
-			dnc_write_conf(sci, 0, 24 + ht, FUNC4_LINK, 0x11c, val | (1 << 8));
-
-			/* 4,5. Set CC6SaveEn, LockDramCfg */
-			val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x118);
-			dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x118, val | (3 << 18));
-
-			/* 6. Check CoreCstateMode */
-			assert((val & 1) == 0);
+			/* Set CC6SaveEn, LockDramCfg */
+			val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x118);
+			dnc_write_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x118, val | (3 << 18));
 		}
 	}
 
-	printf("\n");
+	printf("done\n");
 }
 
 static void unify_all_nodes(void)
@@ -2312,6 +2310,10 @@ static void unify_all_nodes(void)
 	nodes[1].ht[0].base = dnc_top_of_mem;
 
 	tally_all_remote_nodes();
+
+	/* Remove last 16MB if CC6 enabled */
+	if (pf_cstate6)
+		dnc_top_of_mem -= 1;
 
 	for (node = 0; node < dnc_node_count; node++) {
 		for (i = nodes[node].nb_ht_lo; i <= nodes[node].nb_ht_hi; i++) {

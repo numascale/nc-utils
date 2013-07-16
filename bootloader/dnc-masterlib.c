@@ -122,7 +122,6 @@ void tally_local_node(void)
 {
 	uint32_t val, base, limit, rest;
 	uint16_t i, j, tot_cores;
-	uint16_t last = 0;
 	nodes[0].node_mem = 0;
 	tot_cores = 0;
 	nodes[0].sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
@@ -174,7 +173,28 @@ void tally_local_node(void)
 			nodes[0].ht[i].base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
 			nodes[0].ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
 			nodes[0].node_mem += nodes[0].ht[i].size;
-			last = i;
+
+			/* Subtract 16MB from each local memory range for CC6 save area */
+			if (pf_cstate6) {
+				nodes[0].ht[i].size -= 1;
+
+				/* Remove 16MB from ranges to this Northbridge */
+				for (j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++) {
+					uint64_t base2, limit2;
+					int dst;
+
+					/* Assuming only one local range */
+					for (int range = 0; range < 8; range++) {
+						/* Skip inactivate ranges and ranges to other Northbridges */
+						if (!dram_range_read(0xfff0, i, j, &base2, &limit2, &dst) || dst != j)
+							continue;
+
+						limit2 -= 16 << 20;
+						dram_range(0xfff0, i, j, base2, limit2, dst);
+						break;
+					}
+				}
+			}
 
 			if (nodes[0].node_mem > max_mem_per_node) {
 				printf("Node exceeds cachable memory range, clamping...\n");
@@ -190,23 +210,6 @@ void tally_local_node(void)
 
 				cht_write_conf(i, FUNC1_MAPS, 0x124, limit >> (27 - DRAM_MAP_SHIFT));
 				asm volatile("wbinvd" ::: "memory");
-			}
-
-			/* Subtract 16MB for C-state 6 save area */
-			if (pf_cstate6) {
-				int range = nodes[0].nc_ht - 1;
-
-				uint64_t base2, limit2;
-				int dst;
-				dram_range_read(0xfff0, i, range, &base2, &limit2, &dst);
-				assert(dst == range);
-				limit2 -= 1ULL << 24;
-				dram_range(0xfff0, i, range, base2, limit2, dst);
-
-				if (i == range) {
-					printf("Adjusting SCI000#%d DRAM range %d for C-state 6 area\n", i, i);
-					nodes[0].ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
-				}
 			}
 		}
 
@@ -241,7 +244,8 @@ void tally_local_node(void)
 	}
 
 	printf("SCI000 has %d cores and %dMB of memory and I/O maps\n", tot_cores, nodes[0].node_mem << 4);
-	dnc_top_of_mem = nodes[0].ht[last].base + nodes[0].ht[last].size;
+
+	dnc_top_of_mem = nodes[0].ht[nodes[0].nb_ht_hi].base + nodes[0].ht[nodes[0].nb_ht_hi].size;
 	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
 	if (rest) {
 		rest = SCC_ATT_GRAN - rest;
@@ -353,28 +357,23 @@ static bool tally_remote_node(const uint16_t node)
 		if (limit & 0x1fffff) {
 			base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
 			limit = (limit & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
-			limit = limit | (0xffffffff >> (32 - 27 + DRAM_MAP_SHIFT));
-			val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf0);
+			limit |= (0xffffffff >> (32 - 27 + DRAM_MAP_SHIFT));
 
+			val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf0);
 			if ((val & 3) == 3)
 				limit -= ((val >> 8) & 0xff) - base;
 
 			cur_node->ht[i].base = dnc_top_of_mem;
 			cur_node->ht[i].size = limit - base + 1;
-			cur_node->node_mem += cur_node->ht[i].size;
+			dnc_top_of_mem += cur_node->ht[i].size;
+			if (pf_cstate6)
+				cur_node->ht[i].size -= 1;
 
+			cur_node->node_mem += cur_node->ht[i].size;
 			if (cur_node->node_mem > mem_limit) {
 				printf("SCI%03x exceeds cachable memory range; clamping...\n", node);
 				cur_node->ht[i].size -= cur_node->node_mem - mem_limit;
 				cur_node->node_mem = mem_limit;
-			}
-
-			dnc_top_of_mem += cur_node->ht[i].size;
-
-			/* Subtract 16MB for C-state 6 save area */
-			if (pf_cstate6 && i == cur_node->nb_ht_hi) {
-				printf("Adjusting SCI%03x#%x for C-state 6 area\n", node, i);
-				cur_node->ht[i].size -= 1 << (24 - DRAM_MAP_SHIFT);
 			}
 		}
 
@@ -436,7 +435,8 @@ static bool tally_remote_node(const uint16_t node)
 	cur_node->apic_offset = ht_next_apic - cur_node->ht[0].apic_base;
 	ht_next_apic = cur_node->apic_offset + cur_node->ht[last].apic_base + apic_per_node;
 	cur_node->dram_limit = dnc_top_of_mem;
-	printf("SCI%03x has %d cores and %dGB of memory\n", node, tot_cores, cur_node->node_mem >> 6);
+
+	printf("SCI%03x has %d cores and %dMB of memory\n", node, tot_cores, cur_node->node_mem << (DRAM_MAP_SHIFT - 20));
 
 	/* Set PCI I/O map */
 	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
