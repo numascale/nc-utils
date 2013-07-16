@@ -67,7 +67,6 @@ uint64_t trace_buf_size = 0;
 int verbose = 0;
 int family = 0;
 uint32_t tsc_mhz = 2200;
-uint64_t pf_maxmem = 0;
 bool pf_vga_local = 0;
 uint32_t max_mem_per_node;
 static int dimmtest = 1;
@@ -1865,7 +1864,6 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"ht.force-pf-off", &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
 		{"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
 		{"pf.vga-local",    &parse_bool,   &pf_vga_local},    /* Let legacy VGA access route locally */
-		{"pf.maxmem",       &parse_int64,  &pf_maxmem},       /* Memory per server */
 		{"pf.cstate6",      &parse_bool,   &pf_cstate6},      /* Enable C-state 6 (allowing boosting) */
 		{"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
 		{"disable-smm",     &parse_bool,   &disable_smm},     /* Rewrite start of System Management Mode handler to return */

@@ -284,11 +284,6 @@ static bool tally_remote_node(const uint16_t sci)
 	node_info_t *node;
 	uint32_t mem_limit = max_mem_per_node;
 
-	if (pf_maxmem) {
-		printf("Limiting per-server memory to %lldGB\n", pf_maxmem);
-		mem_limit = min(max_mem_per_node, pf_maxmem << (30 - DRAM_MAP_SHIFT));
-	}
-
 	if (dnc_raw_read_csr(sci, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
 		warning("Unable to contact SCI%03x", sci);
 		return 0;
