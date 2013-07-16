@@ -92,16 +92,16 @@ typedef struct nodes_info {
 	ht_t nc_ht : 3;             /* HT id of dnc node dnc controller on local system */
 	ht_t nc_neigh_ht : 3;       /* Our nearest neighbour HT node on local system */
 	uint8_t nc_neigh_link : 2;
-} nodes_info_t;
+} node_info_t;
 
-#define foreach_node(x) for (nodes_info_t *(x) = &nodes[0]; (x) < &nodes[dnc_node_count]; (x)++)
+#define foreach_node(x) for (node_info_t *(x) = &nodes[0]; (x) < &nodes[dnc_node_count]; (x)++)
 #define foreach_nb(x, y) for (ht_t (x) = (y)->nb_ht_lo; (x) <= (y)->nb_ht_hi; (x)++)
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 extern uint8_t nodedata[4096];
 extern uint8_t post_apic_mapping[256];
 extern uint16_t dnc_node_count, dnc_core_count;
-extern nodes_info_t *nodes;
+extern node_info_t *nodes;
 extern struct node_info *local_info;
 extern uint16_t ht_pdom_count;
 extern uint16_t apic_per_node;

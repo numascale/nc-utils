@@ -24,7 +24,7 @@
 #include "dnc-defs.h"
 #include "../interface/numachip-autodefs.h"
 
-static nodes_info_t *sci_to_node(const uint16_t sci)
+static node_info_t *sci_to_node(const uint16_t sci)
 {
 	if (sci == 0xfff0)
 		return &nodes[0];

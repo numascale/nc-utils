@@ -63,7 +63,7 @@ int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nodes[0]
 int dnc_asic_mode;
 uint32_t dnc_chip_rev;
 uint16_t dnc_node_count = 0;
-nodes_info_t nodes[128];
+node_info_t nodes[128];
 uint16_t ht_pdom_count = 0;
 uint16_t apic_per_node;
 uint16_t ht_next_apic;

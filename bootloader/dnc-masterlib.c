@@ -105,7 +105,7 @@ void load_scc_microcode(void)
 	printf("done\n");
 }
 
-static void print_node_info(const nodes_info_t *node)
+static void print_node_info(const node_info_t *node)
 {
 	for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++)
 		printf("- HT%d: base=%x size=%d pdom=%x cores=%d apic_base=%d scrub=%x\n",
@@ -274,14 +274,14 @@ void tally_local_node(void)
 		print_node_info(&nodes[0]);
 }
 
-static bool tally_remote_node(const uint16_t node)
+static bool tally_remote_node(const uint16_t sci)
 {
 	uint32_t val, base, limit;
 	uint16_t i, tot_cores;
 	uint16_t apic_used[16];
 	uint16_t last = 0;
 	uint16_t cur_apic;
-	nodes_info_t *cur_node;
+	node_info_t *node;
 	uint32_t mem_limit = max_mem_per_node;
 
 	if (pf_maxmem) {
@@ -289,91 +289,91 @@ static bool tally_remote_node(const uint16_t node)
 		mem_limit = min(max_mem_per_node, pf_maxmem << (30 - DRAM_MAP_SHIFT));
 	}
 
-	if (dnc_raw_read_csr(node, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
-		printf("Can't find node %04x!\n", node);
+	if (dnc_raw_read_csr(sci, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
+		warning("Unable to contact SCI%03x", sci);
 		return 0;
 	}
 
 	/* Set MMCFG base register so remote NC will accept our forwarded requests */
-	val = dnc_read_csr(node, H2S_CSR_G3_MMCFG_BASE);
+	val = dnc_read_csr(sci, H2S_CSR_G3_MMCFG_BASE);
 
 	if (val != (DNC_MCFG_BASE >> 24)) {
-		printf("Setting SCI%03x MCFG_BASE to %08llx\n", node, DNC_MCFG_BASE >> 24);
-		dnc_write_csr(node, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
+		printf("Setting SCI%03x MCFG_BASE to %08llx\n", sci, DNC_MCFG_BASE >> 24);
+		dnc_write_csr(sci, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
 	}
 
-	cur_node = &nodes[dnc_node_count];
-	cur_node->node_mem = 0;
+	node = &nodes[dnc_node_count];
+	node->node_mem = 0;
 	tot_cores = 0;
-	cur_node->sci = node;
-	cur_node->nc_ht = dnc_read_csr(node, H2S_CSR_G3_HT_NODEID) & 0xf;
-	cur_node->nb_ht_lo = 0;
-	cur_node->nb_ht_hi = cur_node->nc_ht - 1;
+	node->sci = sci;
+	node->nc_ht = dnc_read_csr(sci, H2S_CSR_G3_HT_NODEID) & 0xf;
+	node->nb_ht_lo = 0;
+	node->nb_ht_hi = node->nc_ht - 1;
 
 	/* FIXME: Read from remote somehow, instead of assuming the same as ours */
-	cur_node->nc_neigh_ht = nodes[0].nc_neigh_ht;
-	cur_node->nc_neigh_link = nodes[0].nc_neigh_link;
+	node->nc_neigh_ht = nodes[0].nc_neigh_ht;
+	node->nc_neigh_link = nodes[0].nc_neigh_link;
 
 	/* Ensure that all nodes start out on 1G boundaries */
 	dnc_top_of_mem = (dnc_top_of_mem + (0x3fffffff >> DRAM_MAP_SHIFT)) & ~(0x3fffffff >> DRAM_MAP_SHIFT);
-	cur_node->dram_base = dnc_top_of_mem;
-	val = dnc_read_conf(node, 0, 24, FUNC0_HT, 0x60);
-	assertf(val != 0xffffffff, "Failed to access config space on SCI%03x", node);
+	node->dram_base = dnc_top_of_mem;
+	val = dnc_read_conf(sci, 0, 24, FUNC0_HT, 0x60);
+	assertf(val != 0xffffffff, "Failed to access config space on SCI%03x", sci);
 
-	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
+	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
 	for (i = 0; i < 16; i++)
-		apic_used[i] = dnc_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
+		apic_used[i] = dnc_read_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 
 	ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
-	cur_node->apic_offset = ht_next_apic;
+	node->apic_offset = ht_next_apic;
 	cur_apic = 0;
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
-	for (i = cur_node->nb_ht_lo; i <= cur_node->nb_ht_hi; i++) {
-		cur_node->ht[i].cores = 0;
-		cur_node->ht[i].base  = 0;
-		cur_node->ht[i].size  = 0;
+	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+		node->ht[i].cores = 0;
+		node->ht[i].base  = 0;
+		node->ht[i].size  = 0;
 
-		uint32_t cpuid = dnc_read_conf(node, 0, 24 + i, FUNC3_MISC, 0xfc);
+		uint32_t cpuid = dnc_read_conf(sci, 0, 24 + i, FUNC3_MISC, 0xfc);
 		if (cpuid == 0 || cpuid == 0xffffffff || cpuid != cpuid_bsp)
-			fatal("SCI%03x has CPUID %08x differing from master server CPUID %08x", node, cpuid_bsp, cpuid);
+			fatal("SCI%03x has CPUID %08x differing from master server CPUID %08x", sci, cpuid_bsp, cpuid);
 
-		cur_node->ht[i].pdom = ht_pdom_count++;
+		node->ht[i].pdom = ht_pdom_count++;
 
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 		   See erratum 505 */
 		if (family >= 0x15)
-			dnc_write_conf(node, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
+			dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
 
-		cur_node->ht[i].scrub = dnc_read_conf(node, 0, 24 + i, FUNC3_MISC, 0x58);
-		if (cur_node->ht[i].scrub & 0x1f)
-			dnc_write_conf(node, 0, 24 + i, FUNC3_MISC, 0x58, cur_node->ht[i].scrub & ~0x1f);
+		node->ht[i].scrub = dnc_read_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58);
+		if (node->ht[i].scrub & 0x1f)
+			dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58, node->ht[i].scrub & ~0x1f);
 
-		base  = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x120);
-		limit = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0x124);
+		base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
+		limit = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124);
 
 		if (limit & 0x1fffff) {
 			base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
 			limit = (limit & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
 			limit |= (0xffffffff >> (32 - 27 + DRAM_MAP_SHIFT));
 
-			val = dnc_read_conf(node, 0, 24 + i, FUNC1_MAPS, 0xf0);
+			val = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf0);
 			if ((val & 3) == 3)
 				limit -= ((val >> 8) & 0xff) - base;
 
-			cur_node->ht[i].base = dnc_top_of_mem;
-			cur_node->ht[i].size = limit - base + 1;
-			dnc_top_of_mem += cur_node->ht[i].size;
+			node->ht[i].base = dnc_top_of_mem;
+			node->ht[i].size = limit - base + 1;
+			dnc_top_of_mem += node->ht[i].size;
 			if (pf_cstate6)
-				cur_node->ht[i].size -= 1;
+				node->ht[i].size -= 1;
 
-			cur_node->node_mem += cur_node->ht[i].size;
-			if (cur_node->node_mem > mem_limit) {
-				printf("SCI%03x exceeds cachable memory range; clamping...\n", node);
-				cur_node->ht[i].size -= cur_node->node_mem - mem_limit;
-				cur_node->node_mem = mem_limit;
+			node->node_mem += node->ht[i].size;
+			if (node->node_mem > mem_limit) {
+				printf("SCI%03x exceeds cachable memory range; clamping...\n", sci);
+				node->ht[i].size -= node->node_mem - mem_limit;
+				node->node_mem = mem_limit;
 			}
 		}
 
@@ -381,90 +381,89 @@ static bool tally_remote_node(const uint16_t node)
 			cur_apic++;
 
 		/* Assume at least one core */
-		cur_node->ht[i].cores = 1;
+		node->ht[i].cores = 1;
 
 		if (family < 0x15) {
-			val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x68);
-			if (val & 0x20) cur_node->ht[i].cores++; /* Cpu1En */
+			val = dnc_read_conf(sci, 0, 24 + i, FUNC0_HT, 0x68);
+			if (val & 0x20) node->ht[i].cores++; /* Cpu1En */
 
-			val = dnc_read_conf(node, 0, 24 + i, FUNC0_HT, 0x168);
-			if (val & 0x01) cur_node->ht[i].cores++; /* Cpu2En */
-			if (val & 0x02) cur_node->ht[i].cores++; /* Cpu3En */
-			if (val & 0x04) cur_node->ht[i].cores++; /* Cpu4En */
-			if (val & 0x08) cur_node->ht[i].cores++; /* Cpu5En */
+			val = dnc_read_conf(sci, 0, 24 + i, FUNC0_HT, 0x168);
+			if (val & 0x01) node->ht[i].cores++; /* Cpu2En */
+			if (val & 0x02) node->ht[i].cores++; /* Cpu3En */
+			if (val & 0x04) node->ht[i].cores++; /* Cpu4En */
+			if (val & 0x08) node->ht[i].cores++; /* Cpu5En */
 		} else {
-			val = dnc_read_conf(node, 0, 24 + i, FUNC5_EXTD, 0x84);
-			cur_node->ht[i].cores += val & 0xff;
-			val = dnc_read_conf(node, 0, 24 + i, FUNC3_MISC, 0x190);
+			val = dnc_read_conf(sci, 0, 24 + i, FUNC5_EXTD, 0x84);
+			node->ht[i].cores += val & 0xff;
+			val = dnc_read_conf(sci, 0, 24 + i, FUNC3_MISC, 0x190);
 
 			while (val > 0) {
 				if (val & 1)
-					cur_node->ht[i].cores--;
+					node->ht[i].cores--;
 
 				val = val >> 1;
 			}
 		}
 
-		cur_node->ht[i].apic_base = cur_apic;
-		tot_cores += cur_node->ht[i].cores;
-		cur_apic += cur_node->ht[i].cores;
+		node->ht[i].apic_base = cur_apic;
+		tot_cores += node->ht[i].cores;
+		cur_apic += node->ht[i].cores;
 		last = i;
 	}
 
 	/* Check if any DRAM ranges overlap the HyperTransport address space */
-	if ((cur_node->dram_base < (HT_LIMIT >> DRAM_MAP_SHIFT)) &&
-		((cur_node->dram_base + cur_node->node_mem) > (HT_BASE >> DRAM_MAP_SHIFT))) {
+	if ((node->dram_base < (HT_LIMIT >> DRAM_MAP_SHIFT)) &&
+		((node->dram_base + node->node_mem) > (HT_BASE >> DRAM_MAP_SHIFT))) {
 		/* Move whole server up to HT decode limit */
-		uint64_t shift = (HT_LIMIT >> DRAM_MAP_SHIFT) - cur_node->dram_base;
+		uint64_t shift = (HT_LIMIT >> DRAM_MAP_SHIFT) - node->dram_base;
 
-		printf("Moving SCI%03x past HyperTransport decode range by %lldGB\n", node, shift >> (30 - DRAM_MAP_SHIFT));
+		printf("Moving SCI%03x past HyperTransport decode range by %lldGB\n", sci, shift >> (30 - DRAM_MAP_SHIFT));
 
-		for (i = cur_node->nb_ht_lo; i <= cur_node->nb_ht_hi; i++)
-			cur_node->ht[i].base += shift;
+		for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++)
+			node->ht[i].base += shift;
 
-		ht_base = (uint64_t)cur_node->dram_base << DRAM_MAP_SHIFT; /* End of last node limit */
-		cur_node->dram_base += shift;
+		ht_base = (uint64_t)node->dram_base << DRAM_MAP_SHIFT; /* End of last node limit */
+		node->dram_base += shift;
 		dnc_top_of_mem += shift;
 	}
 
 	/* If rebased apicid[7:0] of last core is above a given threshold,
 	   bump base for entire SCI node to next 8-bit interval */
-	if ((ht_next_apic & 0xff) + cur_node->ht[last].apic_base + cur_node->ht[last].cores > 0xf0)
-		ht_next_apic = (ht_next_apic & ~0xff) + 0x100 + cur_node->ht[0].apic_base;
+	if ((ht_next_apic & 0xff) + node->ht[last].apic_base + node->ht[last].cores > 0xf0)
+		ht_next_apic = (ht_next_apic & ~0xff) + 0x100 + node->ht[0].apic_base;
 
-	cur_node->apic_offset = ht_next_apic - cur_node->ht[0].apic_base;
-	ht_next_apic = cur_node->apic_offset + cur_node->ht[last].apic_base + apic_per_node;
-	cur_node->dram_limit = dnc_top_of_mem;
+	node->apic_offset = ht_next_apic - node->ht[0].apic_base;
+	ht_next_apic = node->apic_offset + node->ht[last].apic_base + apic_per_node;
+	node->dram_limit = dnc_top_of_mem;
 
-	printf("SCI%03x has %d cores and %dMB of memory\n", node, tot_cores, cur_node->node_mem << (DRAM_MAP_SHIFT - 20));
+	printf("SCI%03x has %d cores and %dMB of memory\n", sci, tot_cores, node->node_mem << (DRAM_MAP_SHIFT - 20));
 
 	/* Set PCI I/O map */
-	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
+	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
 
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
+		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
 	/* Set IntRecCtrl */
-	dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);
+	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);
 
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
+		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
 	if (verbose > 1)
-		print_node_info(cur_node);
+		print_node_info(node);
 	return 1;
 }
 
 void tally_all_remote_nodes(void)
 {
 	bool ret = 1;
-	uint16_t node;
 
-	for (node = 1; node < 4096; node++)
-		if ((nodedata[node] & 0xc0) == 0x80)
-			ret &= tally_remote_node(node);
+	for (uint16_t num = 1; num < 4096; num++)
+		if ((nodedata[num] & 0xc0) == 0x80)
+			ret &= tally_remote_node(num);
 
 	assertf(ret == 1, "Unable to communicate with all servers");
 }
