@@ -2821,8 +2821,8 @@ static int nc_start(void)
 		free(cfg_nodelist);
 		free(cfg_partlist);
 
-		if (disable_kvm)
-			disable_kvm_ports();
+		if (disable_kvm > -1)
+			disable_kvm_ports(disable_kvm);
 
 		if (verbose) {
 			ranges_print();
@@ -2867,8 +2867,8 @@ static int nc_start(void)
 		disable_smi();
 		if (!remote_io)
 			disable_dma_all(); /* Disables VGA refresh and other DMA traffic */
-		if (disable_kvm)
-			disable_kvm_ports();
+		if (disable_kvm > -1)
+			disable_kvm_ports(disable_kvm);
 		clear_bsp_flag();
 		disable_xtpic();
 		disable_cache();

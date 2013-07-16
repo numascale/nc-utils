@@ -157,6 +157,11 @@ struct dimm_config {
 	int mem_size; /* Size of DIMM in GByte powers of 2 */
 };
 
+struct kvm_port {
+	const char *name;
+	int port;
+};
+
 const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
 void wait_key(void);
@@ -217,7 +222,7 @@ extern uint64_t mem_gap;
 extern bool workaround_locks;
 extern int enable_nbwdt;
 extern bool pf_cstate6;
-extern bool disable_kvm;
+extern int disable_kvm;
 
 extern const char *node_state_name[];
 

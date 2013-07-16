@@ -75,7 +75,7 @@ static bool workaround_rtt = 0;
 bool workaround_locks = 0;
 bool pf_cstate6 = 1;
 uint64_t mem_gap = 0;
-bool disable_kvm = 0;
+int disable_kvm = -1;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2324,6 +2324,18 @@ static void platform_quirks(void)
 			printf(" (blacklisted)");
 			handover_acpi = 1;
 			break;
+		}
+	}
+
+	if (disable_kvm == -1) {
+		/* BMC KVM USB port connected to SP5100 */
+		const struct kvm_port kvm_blacklist[] = {{"OCTANS", 2}, };
+		for (unsigned int i = 0; i < (sizeof kvm_blacklist / sizeof kvm_blacklist[0]); i++) {
+			if (!strcmp(product, kvm_blacklist[i].name)) {
+				disable_kvm = kvm_blacklist[i].port;
+				printf(" (KVM port %d)", disable_kvm);
+				break;
+			}
 		}
 	}
 

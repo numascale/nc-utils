@@ -105,7 +105,7 @@ struct devspec {
 };
 
 void stop_acpi(void);
-void disable_kvm_ports(void);
+void disable_kvm_ports(const int port);
 void disable_dma_all(void);
 void handover_legacy(void);
 void pci_setup(void);
