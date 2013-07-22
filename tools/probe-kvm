@@ -1,0 +1,35 @@
+#!/bin/bash
+
+echo "Activity before..."
+vmstat 15 2
+
+echo "Disabling USB ports..."
+
+val=$(setpci -s 0:12.0 0x40.l)
+for ((port = 0; port < 6; port++)); do
+	echo "port $port" >/dev/kmsg
+	val2=0x$(printf %x $((0x$val | (1 << ($port + 16)))))
+	setpci -s 0:12.0 0x40.l=$val2
+	sleep 1
+done
+
+val=$(setpci -s 0:13.0 0x40.l)
+for ((port = 0; port < 6; port++)); do
+	echo "port $(($port + 6))" >/dev/kmsg
+	val2=0x$(printf %x $((0x$val | (1 << ($port + 16)))))
+	setpci -s 0:13.0 0x40.l=$val2
+	sleep 1
+done
+
+val=$(setpci -s 0:14.5 0x40.l)
+for ((port = 0; port < 2; port++)); do
+	echo "port $(($port + 12))" >/dev/kmsg
+	val2=0x$(printf %x $((0x$val | (1 << ($port + 16)))))
+	setpci -s 0:14.5 0x40.l=$val2
+	sleep 1
+done
+
+echo "Activity after..."
+vmstat 15 2
+
+dmesg | tail -n 20
