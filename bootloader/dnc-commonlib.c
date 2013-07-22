@@ -273,7 +273,7 @@ static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 	dnc_write_csr(0xfff0, mctrbase + (188 << 2), DENALI_CTL_188_DATA);
 }
 
-uint32_t dnc_check_mctr_status(int cdata)
+uint32_t dnc_check_mctr_status(const int cdata)
 {
 	uint32_t val;
 	uint32_t ack = 0;
@@ -2844,7 +2844,7 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
 	return (res) ? RSP_FABRIC_OK : RSP_FABRIC_NOT_OK;
 }
 
-int dnc_check_fabric(struct node_info *info)
+bool dnc_check_fabric(struct node_info *info)
 {
 	int res = 1;
 

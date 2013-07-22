@@ -211,7 +211,7 @@ void dnc_reset_lc3(int lc)
 	udelay(1000);
 }
 
-int dnc_check_phy(int phy)
+bool dnc_check_phy(const int phy)
 {
 	const char *phyname = _get_linkname(phy);
 	uint32_t stat, elog, tries;
@@ -243,7 +243,7 @@ again:
 
 	if (((stat & 1) == 0) || ((elog & 0xff) != 0)) {
 		printf("PHY%s LINK_STAT 0x%x, ELOG 0x%x\n", phyname, stat, elog);
-		return -1;
+		return 1;
 	}
 
 	return 0;
