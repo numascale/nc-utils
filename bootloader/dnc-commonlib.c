@@ -187,10 +187,59 @@ static void read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
 #include "../interface/mctr_define_register_C.h"
 #include "../interface/regconfig_200_cl4_bl4_genericrdimm.h"
 
+#define SCALAR 16
+
+uint32_t clocks(const uint16_t raw, int div)
+{
+	/* Use fixed-point integer arithmetic, as floating-point fails */
+	/* 5ns clock period; 200 MHz */
+	uint32_t val = ((uint32_t)raw << 16) / (div * 5);
+	uint8_t a = val >> 16;
+	if (val > ((uint32_t)a << 16))
+		return a + 1;
+	return a;
+}
+
+uint32_t mod(const uint32_t initial, const uint16_t raw, const int div, const uint32_t mask, const char *name)
+{
+	assert(mask && div);
+
+	if (raw == 0) {
+		warning("SPD has %s is unset; skipping", name);
+		return initial;
+	}
+
+	uint32_t mask2 = mask;
+	int shift = 0;
+
+	/* Find first set bit in mask */
+	while (!(mask2 & 1)) {
+		mask2 >>= 1;
+		shift++;
+	}
+
+	uint32_t a = (initial & mask) >> shift;
+	uint32_t b = clocks(raw, div);
+
+	/* Ensure new value is within mask */
+	assert(!((b << shift) & ~mask));
+
+	uint32_t newval = (initial & ~mask) | (b << shift);
+
+	if (b != a)
+		printf("Using SPD value %d rather than default %d for %s; raw %d; %08x -> %08x\n", b, a, name, raw, initial, newval);
+	return initial;
+}
+
 static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 {
+	uint32_t val;
+	#define COEFF 12
+	const static int part[] = {0, COEFF / 4, COEFF / 3, COEFF / 2, 4 * COEFF / 6, 3 * COEFF / 4};
+
 	int mctrbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 	dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00) + (0 << 2), DENALI_CTL_00_DATA);
+
 	dnc_write_csr(0xfff0, mctrbase + (1 << 2), DENALI_CTL_01_DATA);
 	dnc_write_csr(0xfff0, mctrbase + (2 << 2), DENALI_CTL_02_DATA);
 	dnc_write_csr(0xfff0, mctrbase + (3 << 2), DENALI_CTL_03_DATA);
@@ -209,8 +258,14 @@ static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 	dnc_write_csr(0xfff0, mctrbase + (14 << 2),
 	              (DENALI_CTL_14_DATA & ~(0x7 << 16)) | ((dimm->column_size & 0x7) << 16));
 	dnc_write_csr(0xfff0, mctrbase + (16 << 2), DENALI_CTL_16_DATA);
-	dnc_write_csr(0xfff0, mctrbase + (17 << 2), DENALI_CTL_17_DATA);
-	dnc_write_csr(0xfff0, mctrbase + (18 << 2), DENALI_CTL_18_DATA);
+
+	val = mod(DENALI_CTL_17_DATA, dimm->spd.twr, 4, 0x1f << 24, "tWR");
+	val = mod(val, dimm->spd.trtp, 4, 7 << 16, "tRTP");
+	val = mod(val, dimm->spd.trrd, 4, 7 << 8, "tRRD");
+	dnc_write_csr(0xfff0, mctrbase + (17 << 2), val);
+
+	val = mod(DENALI_CTL_18_DATA, dimm->spd.twtr, 4, 0xf, "tWTR");
+	dnc_write_csr(0xfff0, mctrbase + (18 << 2), val);
 	dnc_write_csr(0xfff0, mctrbase + (19 << 2),
 	              (DENALI_CTL_19_DATA & ~(0x3 << 24)) | ((dimm->cs_map & 0x3) << 24));
 	dnc_write_csr(0xfff0, mctrbase + (20 << 2), DENALI_CTL_20_DATA);
@@ -219,11 +274,22 @@ static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 	dnc_write_csr(0xfff0, mctrbase + (23 << 2), DENALI_CTL_23_DATA);
 	dnc_write_csr(0xfff0, mctrbase + (24 << 2), DENALI_CTL_24_DATA);
 	dnc_write_csr(0xfff0, mctrbase + (25 << 2), DENALI_CTL_25_DATA);
-	dnc_write_csr(0xfff0, mctrbase + (26 << 2), DENALI_CTL_26_DATA);
-	dnc_write_csr(0xfff0, mctrbase + (28 << 2), DENALI_CTL_28_DATA);
-	dnc_write_csr(0xfff0, mctrbase + (30 << 2), DENALI_CTL_30_DATA);
+
+	val = mod(DENALI_CTL_26_DATA, dimm->spd.trp, 4, 0xf << 24, "tRP");
+	dnc_write_csr(0xfff0, mctrbase + (26 << 2), val);
+
+	val = mod(DENALI_CTL_28_DATA, dimm->spd.trc * COEFF + part[(dimm->spd.trctrfc_ext >> 4) & 0x7], COEFF, 0x1f << 24, "tRC");
+	dnc_write_csr(0xfff0, mctrbase + (28 << 2), val);
+
+	val = mod(DENALI_CTL_30_DATA,
+		dimm->spd.trfc * COEFF + part[(dimm->spd.trctrfc_ext >> 1) & 0x7] + (dimm->spd.trctrfc_ext & 1) * 256 * COEFF, COEFF, 0xff << 16, "tRFC");
+	val = mod(val, dimm->spd.trcd, 4, 0xff << 8, "tRCD");
+	val = mod(val, dimm->spd.tras, 1, 0xff, "tRAS");
+	dnc_write_csr(0xfff0, mctrbase + (30 << 2), val);
 	dnc_write_csr(0xfff0, mctrbase + (31 << 2), DENALI_CTL_31_DATA);
 	dnc_write_csr(0xfff0, mctrbase + (33 << 2), DENALI_CTL_33_DATA);
+
+	assert(dimm->spd.refresh == 0x82);
 	dnc_write_csr(0xfff0, mctrbase + (35 << 2), DENALI_CTL_35_DATA);
 	dnc_write_csr(0xfff0, mctrbase + (36 << 2), DENALI_CTL_36_DATA);
 	dnc_write_csr(0xfff0, mctrbase + (37 << 2), DENALI_CTL_37_DATA);
