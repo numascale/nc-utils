@@ -2850,13 +2850,8 @@ static int nc_start(void)
 		do {
 			if (((dnc_check_mctr_status(0) & 0xfbc) != 0) ||
 			    ((dnc_check_mctr_status(1) & 0xfbc) != 0) ||
-			    (!dnc_check_fabric(local_info))) {
-				printf("\nErrors detected, halting!\n");
-				while (1) {
-					cli();
-					asm volatile("hlt" ::: "memory");
-				}
-			}
+			    (!dnc_check_fabric(local_info)))
+				fatal("Late memory controller or fabric issues detected");
 			udelay(1000);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 		} while (!(val & (1 << 31)));
