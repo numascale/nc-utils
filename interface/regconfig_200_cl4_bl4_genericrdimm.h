@@ -37,11 +37,11 @@
 
 
 #define               DENALI_CTL_00_DATA 0x00000101 //0000000_0 arefresh(WR) 0000000_0 ap(RW) 0000000_1 addr_cmp_en(RW) 0000000_1 active_aging(RW) 
-#define               DENALI_CTL_01_DATA 0x01000100 //0000000_1 bist_addr_check(RW) 0000000_0 big_endian_en(RW) 0000000_1 bank_split_en(RW) 0000000_0 auto_refresh_mode(RW) 
+#define               DENALI_CTL_01_DATA 0x01000101 //0000000_1 bist_addr_check(RW) 0000000_0 big_endian_en(RW) 0000000_1 bank_split_en(RW) 0000000_0 auto_refresh_mode(RW) 
 #define               DENALI_CTL_02_DATA 0x00010001 //000000000000000_1 concurrentap(RW) 0000000_0 bist_go(WR) 0000000_1 bist_data_check(RW) 
 #define               DENALI_CTL_03_DATA 0x00000100 //0000000_0 dll_bypass_mode(RW) 0000000_0 dlllockreg(RD) 0000000_1 denali1_port_ordering(RW) 0000000_0 denali0_port_ordering(RW) 
 #define               DENALI_CTL_04_DATA 0x01000101 //0000000_1 eight_bank_mode(RW) 0000000_0 ecc_disable_w_uc_err(RW) 0000000_1 drive_dq_dqs(RW) 0000000_1 dqs_n_en(RW) 
-#define               DENALI_CTL_05_DATA 0x00000001 //0000000_0 intrptapburst(RW) 0000000_0 fwc(WR) 0000000_0 fast_write(RW) 0000000_1 enable_quick_srefresh(RW) 
+#define               DENALI_CTL_05_DATA 0x00000101 //0000000_0 intrptapburst(RW) 0000000_0 fwc(WR) 0000000_0 fast_write(RW) 0000000_1 enable_quick_srefresh(RW) 
 #define               DENALI_CTL_06_DATA 0x00000000 //0000000_0 odt_add_turn_clk_en(RW) 0000000_0 no_cmd_init(RW) 0000000_0 intrptwritea(RW) 0000000_0 intrptreada(RW) 
 #define               DENALI_CTL_07_DATA 0x01000101 //0000000_1 priority_en(RW) 0000000_0 power_down(RW) 0000000_1 placement_en(RW) 0000000_1 odt_alt_en(RW) 
 #define               DENALI_CTL_08_DATA 0x01010000 //0000000_1 rw_same_en(RW) 0000000_1 reg_dimm_enable(RW) 0000000_0 reduc(RW) 0000000_0 pwrup_srefresh_exit(RW) 
