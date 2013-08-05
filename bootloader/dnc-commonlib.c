@@ -2677,71 +2677,62 @@ static void test_route(uint8_t bxbarid, uint16_t dest)
 }
 #endif
 
-static int _verify_save_id(uint16_t nodeid, int lc)
+static bool _verify_save_id(uint16_t nodeid, int lc)
 {
 	const char *linkname = _get_linkname(lc);
 	uint16_t expected_id = (nodeid | ((lc + 1) << 13));
 	uint32_t val;
 
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_SAVE_ID, &val) != 0)
-		return -1;
+		return 1;
 
 	if (val != expected_id) {
 		printf("LC3%s SAVE_ID (%04x) doesn't match expected value (%04x)\n",
 		       linkname, val, expected_id);
-		return -1;
+		return 1;
 	}
 
 	return 0;
 }
 
-static int _check_dim(int dim)
+static bool _check_dim(const int dim)
 {
-	uint16_t linkida = 2 * dim + 0;
-	uint16_t linkidb = 2 * dim + 1;
-	int ok = 0;
-	ok = (dnc_check_phy(linkida) == 0);
-	ok &= (dnc_check_phy(linkidb) == 0);
+	const uint16_t linkida = 2 * dim + 0;
+	const uint16_t linkidb = 2 * dim + 1;
 
-	if (!ok) {
+	bool err = dnc_check_phy(linkida) | dnc_check_phy(linkidb);
+	if (err) {
 		warning("Errors detected on PHY%s and PHY%s; resetting",
 		       _get_linkname(linkida), _get_linkname(linkidb));
 		/* Counter-rotating rings, reset both phys */
 		dnc_reset_phy(linkida);
 		dnc_reset_phy(linkidb);
 		udelay(1000);
-		ok = (dnc_check_phy(linkida) == 0);
-		ok &= (dnc_check_phy(linkidb) == 0);
-
-		if (!ok) {
+		err = dnc_check_phy(linkida) | dnc_check_phy(linkidb);
+		if (err) {
 			warning("Errors still present on PHY%s and PHY%s",
 			       _get_linkname(linkida), _get_linkname(linkidb));
-			return -1;
+			return 1;
 		}
 	}
 
-	ok = (dnc_check_lc3(linkida) == 0);
-	ok &= (dnc_check_lc3(linkidb) == 0);
-
-	if (!ok) {
+	err = dnc_check_lc3(linkida) | dnc_check_lc3(linkidb);
+	if (err) {
 		warning("LC3 errors detected on LC3%s and LC3%s; resetting",
 		       _get_linkname(linkida), _get_linkname(linkidb));
 		/* Counter-rotating rings, reset both phys */
 		dnc_reset_phy(linkida);
 		dnc_reset_phy(linkidb);
 		udelay(1000);
-		ok = (dnc_check_phy(linkida) == 0);
-		ok &= (dnc_check_phy(linkidb) == 0);
-		ok &= (dnc_check_lc3(linkida) == 0);
-		ok &= (dnc_check_lc3(linkidb) == 0);
-
-		if (!ok) {
+		err = dnc_check_phy(linkida) | dnc_check_phy(linkidb);
+		err |= dnc_check_lc3(linkida) | dnc_check_lc3(linkidb);
+		if (err) {
 			error("LC3 reset not successful");
-			return -1;
+			return 1;
 		}
 	}
 
-	return ok ? 0 : -1;
+	return err;
 }
 
 #ifdef UNUSED
@@ -2832,7 +2823,7 @@ static enum node_state setup_fabric(struct node_info *info)
 	printf("Initialising LC3s:");
 
 	if (cfg_fabric.x_size > 0) {
-		if (_check_dim(0) != 0)
+		if (_check_dim(0))
 			return RSP_FABRIC_NOT_READY;
 
 		res = (0 == dnc_init_lc3(info->sci, 0, dnc_asic_mode ? 16 : 1,
@@ -2846,7 +2837,7 @@ static enum node_state setup_fabric(struct node_info *info)
 	}
 
 	if (cfg_fabric.y_size > 0) {
-		if (_check_dim(1) != 0)
+		if (_check_dim(1))
 			return RSP_FABRIC_NOT_READY;
 
 		res = (0 == dnc_init_lc3(info->sci, 2, dnc_asic_mode ? 16 : 1,
@@ -2860,7 +2851,7 @@ static enum node_state setup_fabric(struct node_info *info)
 	}
 
 	if (cfg_fabric.z_size > 0) {
-		if (_check_dim(2) != 0)
+		if (_check_dim(2))
 			return RSP_FABRIC_NOT_READY;
 
 		res = (0 == dnc_init_lc3(info->sci, 4, dnc_asic_mode ? 16 : 1,
@@ -2881,7 +2872,7 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
 {
 	int res = 1;
 
-	if (!dnc_check_fabric(info))
+	if (dnc_check_fabric(info))
 		return RSP_FABRIC_NOT_OK;
 
 	/* Builder is checking that it can access all other nodes via CSR */
@@ -2912,60 +2903,54 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
 
 bool dnc_check_fabric(struct node_info *info)
 {
-	int res = 1;
+	bool err = 0;
 
 	if (cfg_fabric.x_size > 0) {
-		if (_check_dim(0) < 0)
-			return 0;
+		if (_check_dim(0))
+			return 1;
 
-		if (_verify_save_id(info->sci, 0) != 0) {
-			res = (0 == dnc_init_lc3(info->sci, 0, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 0))
+			err |= dnc_init_lc3(info->sci, 0, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[1], shadow_rtblm[1],
-			                         shadow_rtblh[1], shadow_ltbl[1])) && res;
-		}
+			                         shadow_rtblh[1], shadow_ltbl[1]);
 
-		if (_verify_save_id(info->sci, 1) != 0) {
-			res = (0 == dnc_init_lc3(info->sci, 1, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 1))
+			err |= dnc_init_lc3(info->sci, 1, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[2], shadow_rtblm[2],
-			                         shadow_rtblh[2], shadow_ltbl[2])) && res;
-		}
+			                         shadow_rtblh[2], shadow_ltbl[2]);
 	}
 
 	if (cfg_fabric.y_size > 0) {
-		if (_check_dim(1) < 0)
-			return 0;
+		if (_check_dim(1))
+			return 1;
 
-		if (_verify_save_id(info->sci, 2) != 0) {
-			res = (0 == dnc_init_lc3(info->sci, 2, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 2))
+			err |= dnc_init_lc3(info->sci, 2, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[3], shadow_rtblm[3]
-			                         , shadow_rtblh[3], shadow_ltbl[3])) && res;
-		}
+			                         , shadow_rtblh[3], shadow_ltbl[3]);
 
-		if (_verify_save_id(info->sci, 3) != 0) {
-			res = (0 == dnc_init_lc3(info->sci, 3, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 3))
+			err |= dnc_init_lc3(info->sci, 3, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[4], shadow_rtblm[4],
-			                         shadow_rtblh[4], shadow_ltbl[4])) && res;
-		}
+			                         shadow_rtblh[4], shadow_ltbl[4]);
 	}
 
 	if (cfg_fabric.z_size > 0) {
-		if (_check_dim(2) < 0)
-			return 0;
+		if (_check_dim(2))
+			return 1;
 
-		if (_verify_save_id(info->sci, 4) != 0) {
-			res = (0 == dnc_init_lc3(info->sci, 4, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 4))
+			err |= dnc_init_lc3(info->sci, 4, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[5], shadow_rtblm[5],
-			                         shadow_rtblh[5], shadow_ltbl[5])) && res;
-		}
+			                         shadow_rtblh[5], shadow_ltbl[5]);
 
-		if (_verify_save_id(info->sci, 5) != 0) {
-			res = (0 == dnc_init_lc3(info->sci, 5, dnc_asic_mode ? 16 : 1,
+		if (_verify_save_id(info->sci, 5))
+			err |= dnc_init_lc3(info->sci, 5, dnc_asic_mode ? 16 : 1,
 			                         shadow_rtbll[6], shadow_rtblm[6],
-			                         shadow_rtblh[6], shadow_ltbl[6])) && res;
-		}
+			                         shadow_rtblh[6], shadow_ltbl[6]);
 	}
 
-	return res;
+	return err;
 }
 
 static bool phy_check_status(const int phy, const bool print)
@@ -3045,7 +3030,7 @@ static enum node_state train_fabric(struct node_info *info __attribute__((unused
 	return RSP_PHY_NOT_TRAINED;
 }
 
-static int lc_check_status(int lc, int dimidx)
+static bool lc_check_status(int lc, int dimidx)
 {
 	if (dnc_check_lc3(lc) == 0)
 		return 0;

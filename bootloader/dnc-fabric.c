@@ -221,7 +221,7 @@ again:
 
 	if (!(stat & (1 << 8)) || (stat & 0xff)) {
 		if (tries++ > 4)
-			return -1;
+			return 1;
 
 		printf("HSS%s STAT_1 is 0x%x; issuing HSS reset\n", phyname, stat);
 		stat = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_CTR_7 + 0x40 * phy);
@@ -249,7 +249,7 @@ again:
 	return 0;
 }
 
-int dnc_check_lc3(int lc)
+bool dnc_check_lc3(const int lc)
 {
 	const char *linkname = _get_linkname(lc);
 	uint32_t initst, error_count;
@@ -257,44 +257,44 @@ int dnc_check_lc3(int lc)
 	const uint32_t fatal_mask1 = 0x0;
 
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_INIT_STATE, &initst) != 0)
-		return -1;
+		return 1;
 
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count) != 0)
-		return -1;
+		return 1;
 
 	if ((((initst & 7) != 2) && ((initst & 7) != 4))) {
 		warning("LC3%s INIT_STATE 0x%x", linkname, initst);
-		return -1;
+		return 1;
 	}
 
 	if (error_count != 0) {
 		uint32_t elog0, elog1;
 
 		if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ELOG0, &elog0) != 0)
-			return -1;
+			return 1;
 
 		if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ELOG1, &elog1) != 0)
-			return -1;
+			return 1;
 
 		if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, 0) != 0)
-			return -1;
+			return 1;
 
 		if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0) != 0)
-			return -1;
+			return 1;
 
 		if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ELOG0, 0) != 0)
-			return -1;
+			return 1;
 
 		warning("LC3%s ERROR_COUNT %d, ELOG0 0x%04x, ELOG1 0x%04x", linkname, error_count, elog0, elog1);
 
 		if ((elog0 & fatal_mask0) || (elog1 & fatal_mask1))
-			return -1;
+			return 1;
 	}
 
 	return 0;
 }
 
-int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
+bool dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
                  uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[])
 {
 	uint16_t expected_id = (nodeid | ((lc + 1) << 13));
@@ -302,21 +302,21 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 	uint16_t chunk, offs;
 
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count1) != 0)
-		return -1;
+		return 1;
 
 	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_NODE_IDS, expected_id << 16) != 0)
-		return -1;
+		return 1;
 
 	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_SAVE_ID, expected_id) != 0)
-		return -1;
+		return 1;
 
 	/* CONFIG2 is used for multiple things so store the initial value for later use */
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_CONFIG2, &config2) != 0)
-		return -1;
+		return 1;
 
 	if (((sync_interval & 0xff) > 0) || ((sync_interval & 0x1ff) > 0x100)) {
 		if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_SYNC_INTERVAL, sync_interval & 0xff) != 0)
-			return -1;
+			return 1;
 
 		/* If bit[8] is set in the sync_interval variable, disable the sync interval prescaler in CONFIG2 */
 		if (sync_interval & 0x100)
@@ -328,7 +328,7 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 
 	/* Save CONFIG2 settings (additions should be above this line to the config2 variable) */
 	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_CONFIG2, config2) != 0)
-		return -1;
+		return 1;
 
 	/* 1. Disable table routing
 	   2. Initialize routing table
@@ -336,38 +336,38 @@ int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
 
 	/* 1. Disable table routing */
 	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 3 << 14) != 0) /* ROUT_CTRL.rtype = 2'b11 (all) */
-		return -1;
+		return 1;
 
 	/* 2. Initialize routing table */
 	for (chunk = 0; chunk < maxchunk; chunk++) {
 		if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_SW_INFO3, chunk) != 0)
-			return -1;
+			return 1;
 
 		for (offs = 0; offs < 16; offs++) {
 			if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_LCTBL00  + (offs << 2), ltbl[(chunk << 4) + offs]) != 0)
-				return -1;
+				return 1;
 
 			if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BXTBLL00 + (offs << 2), rtbll[(chunk << 4) + offs]) != 0)
-				return -1;
+				return 1;
 
 			if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BLTBL00  + (offs << 2), rtblm[(chunk << 4) + offs]) != 0)
-				return -1;
+				return 1;
 
 			if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_BXTBLH00 + (offs << 2), rtblh[(chunk << 4) + offs]) != 0)
-				return -1;
+				return 1;
 		}
 	}
 
 	/* 3. Enable table routing */
 	if (dnc_raw_write_csr(0xfff1 + lc, LC3_CSR_ROUT_CTRL, 1 << 14) != 0) /* ROUT_CTRL.rtype = 2'b01 (table routing) */
-		return -1;
+		return 1;
 
 	if (dnc_raw_read_csr(0xfff1 + lc, LC3_CSR_ERROR_COUNT, &error_count2) != 0)
-		return -1;
+		return 1;
 
 	if (error_count1 != error_count2) {
 		printf(" error: %d != %d", error_count1, error_count2);
-		return -1;
+		return 1;
 	}
 
 	return 0;

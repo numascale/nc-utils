@@ -29,8 +29,8 @@ int dnc_raw_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val
 void dnc_reset_phy(int phy);
 void dnc_reset_lc3(int lc);
 bool dnc_check_phy(const int phy);
-int dnc_check_lc3(int lc);
-int dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
+bool dnc_check_lc3(const int lc);
+bool dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
                  uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[]);
 
 static inline const char *_get_linkname(int linkno)
