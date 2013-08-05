@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect diagnostics r20
+# NumaConnect diagnostics r21
 
 import mmap, time, os, sys, struct, optparse, ctypes, random, subprocess
 
@@ -312,7 +312,7 @@ class Platform:
 					print 'SCI%03x %x:%02x.%x timeout; aborting' % (self.sci, bus, dev, fn)
 					raise SystemExit
 				except Numachip.BlockedException:
-					print 'SCI%03x hosed' % self.sci
+					print 'SCI%03x blocked' % self.sci
 					return
 
 				if val == 0xffffffff:
@@ -535,6 +535,8 @@ class Cluster:
 						print ' TIMEOUT',
 					except Numachip.HTErrorException:
 						print ' HTERROR',
+					except Numachip.BlockedException:
+						print ' BLOCKED',
 					except IndexError:
 						print ' MISSING',
 				print
