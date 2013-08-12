@@ -1843,13 +1843,16 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 		if (cfg_nodes > 1) {
 			len = udp_read_state(rsp, UDP_MAXLEN, &ip);
-			if (!len && !do_restart) {
-				if (last_stat > 64) {
-					last_stat = 0;
-					wait_status(info);
-				}
+			if (!do_restart) {
+				if (!do_restart) {
+					if (last_stat > 64) {
+						last_stat = 0;
+						wait_status(info);
+					}
 
-				continue;
+					if (!len)
+						continue;
+				}
 			}
 		} else
 			len = 0;
