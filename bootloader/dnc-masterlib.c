@@ -72,11 +72,13 @@ void load_scc_microcode(void)
 
 	/* Perform calculation twice to work around register corruption */
 	zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
-	const int delays = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
+	const uint32_t delays = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
 	printf("Loading SCC microcode with washdelay %d for %d cores...", delays * WASHDELAY_CALLS, dnc_core_count);
 
+	uint32_t used = 0;
+
 	for (int i = 0; i < dnc_node_count; i++) {
-		int counter = 0;
+		uint32_t counter = 0;
 		int node = (i == 0) ? 0xfff0 : nodes[i].sci;
 		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 
@@ -85,8 +87,11 @@ void load_scc_microcode(void)
 
 			if (val == SIG_DELAY) {
 				counter++;
-				if (counter > delays)
+				if (counter > delays) {
 					val = SIG_RET;
+					if (!used)
+						used = counter;
+				}
 			} else
 				counter = 0;
 
@@ -102,7 +107,9 @@ void load_scc_microcode(void)
 		uint32_t val = dnc_read_csr(node, H2S_CSR_G0_STATE_CLEAR);
 		dnc_write_csr(node, H2S_CSR_G0_STATE_CLEAR, val);
 	}
-	printf("done\n");
+
+	printf("%d delays used\n", used * WASHDELAY_CALLS);
+	assert(used > 0);
 }
 
 static void print_node_info(const node_info_t *node)
