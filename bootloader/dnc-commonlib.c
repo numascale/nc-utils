@@ -2753,6 +2753,20 @@ static int shortest(uint8_t dim, uint16_t src, uint16_t dst)
 }
 #endif
 
+static uint8_t route1(sci_t src, sci_t dst) {
+	uint8_t dim = 0;
+
+	while ((src ^ dst) & ~0xf) {
+		dim++;
+		src >>= 4;
+		dst >>= 4;
+	}
+
+	int out = dim * 2 + 1;
+	out += ((src ^ dst) & 0x1); /* Load balance pairs */
+	return out;
+}
+
 static enum node_state setup_fabric(struct node_info *info)
 {
 	int i;
@@ -2774,27 +2788,14 @@ static enum node_state setup_fabric(struct node_info *info)
 		_add_route(info->sci, 0, 5); /* Self route via LC3ZA */
 
 	/* Make sure responses get back to SCC */
-	for (lc = 1; lc <= 6; lc++) {
+	for (lc = 1; lc <= 6; lc++)
 		_add_route(info->sci, lc, 0);
-	}
 
 	for (i = 0; i < cfg_nodes; i++) {
-		uint16_t src = info->sci;
-		uint16_t dst = cfg_nodelist[i].sci;
-		uint8_t dim = 0;
-		uint8_t out;
-
-		if (src == dst)
+		if (info->sci == cfg_nodelist[i].sci)
 			continue;
 
-		while ((src ^ dst) & ~0xf) {
-			dim++;
-			src >>= 4;
-			dst >>= 4;
-		}
-
-		out = dim * 2 + 1;
-		out += ((src ^ dst) & 0x1); /* Load balance pairs */
+		uint8_t out = route1(info->sci, cfg_nodelist[i].sci);
 
 #ifdef UNUSED
 		if (cfg_fabric.strict)
@@ -2811,9 +2812,8 @@ static enum node_state setup_fabric(struct node_info *info)
 
 		for (lc = 1; lc <= 6; lc++) {
 			/* Don't touch packets already on correct dim */
-			if ((lc - 1) / 2 != dim) {
+			if ((lc - 1) / 2 != (out - 1) / 2)
 				_add_route(cfg_nodelist[i].sci, lc, out);
-			}
 		}
 	}
 
