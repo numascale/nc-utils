@@ -39,47 +39,35 @@
 #define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
 
 #define assert(cond) do { if (!(cond)) {				\
-	printf(COL_RED "Error: assertion '%s' failed in %s at %s:%d\n",	\
+	printf(COL_RED "Error: assertion '%s' failed in %s at %s:%d\n" COL_DEFAULT,	\
 	    #cond, __FUNCTION__, __FILE__, __LINE__);			\
-	printf(COL_DEFAULT);					\
 	broadcast_error(1, "Assertion '%s' failed in %s at %s:%d", \
 	    #cond, __FUNCTION__, __FILE__, __LINE__); \
     } } while (0)
 
 #define assertf(cond, format, args...) do { if (!(cond)) {			\
-	printf(COL_RED "Error: ");						\
-	printf(format, ## args);					\
-	printf(COL_DEFAULT);					\
+	printf(COL_RED "Error: " format COL_DEFAULT, ## args);					\
 	broadcast_error(1, format, ## args); \
     } } while(0)
 
 #define fatal(format, args...) do {						\
-	printf(COL_RED "Error: ");						\
-	printf(format, ## args);					\
-	printf(COL_DEFAULT);					\
+	printf(COL_RED "Error: " format COL_DEFAULT, ## args);					\
 	broadcast_error(1, format, ## args); \
    } while (1)
 
 #define fatal_reboot(format, args...) do {						\
-	printf(COL_RED "Error: ");						\
-	printf(format, ## args);					\
-	printf("; rebooting in 5s...");		\
-	printf(COL_DEFAULT);					\
-	broadcast_error(0, format, ## args); \
+	printf(COL_RED "Error: " format "; rebooting in 5s..." COL_DEFAULT, ## args);					\
+	broadcast_error(0, format "; rebooting", ## args); \
 	udelay(5000000);						\
 	reset_cf9(0xa, 0);						\
    } while (1)
 
 #define warning(format, args...) do {						\
-	printf(COL_YELLOW "Warning: ");						\
-	printf(format, ## args);					\
-	printf(COL_DEFAULT "\n");					\
+	printf(COL_YELLOW "Warning: " format COL_DEFAULT "\n", ## args);					\
    } while (0)
 
 #define error(format, args...) do {						\
-	printf(COL_RED "Error: ");						\
-	printf(format, ## args);					\
-	printf(COL_DEFAULT "\n");					\
+	printf(COL_RED "Error: " format COL_DEFAULT "\n", ## args);					\
 	broadcast_error(0, format, ## args); \
    } while (0)
 
