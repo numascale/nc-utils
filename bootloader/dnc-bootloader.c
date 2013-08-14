@@ -1780,7 +1780,7 @@ static void wait_status(struct node_info *info)
 			continue;
 
 		if (nodedata[cfg_nodelist[i].sci] != 0x80)
-			printf(" SCI%03x (%s)",
+			printf(" SCI%03x/%s",
 			       cfg_nodelist[i].sci, cfg_nodelist[i].desc);
 	}
 
