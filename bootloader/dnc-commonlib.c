@@ -2735,24 +2735,6 @@ static bool _check_dim(const int dim)
 	return err;
 }
 
-#ifdef UNUSED
-static int shortest(uint8_t dim, uint16_t src, uint16_t dst)
-{
-	/* Extract positions on ring */
-	int src2 = (src >> (dim * 4)) & 0xf;
-	int dst2 = (dst >> (dim * 4)) & 0xf;
-	int len = (dim == 0) ? cfg_fabric.x_size : (dim == 1) ? cfg_fabric.y_size : cfg_fabric.z_size;
-	assert(len);
-	int forward = ((len - src2) + dst2) % len;
-	int backward = ((src2 + (len - dst2)) + len) % len;
-
-	if (forward == backward)
-		return src2 & 1; /* Load balance */
-
-	return backward < forward;
-}
-#endif
-
 static uint8_t route1(sci_t src, sci_t dst) {
 	uint8_t dim = 0;
 
@@ -2763,7 +2745,7 @@ static uint8_t route1(sci_t src, sci_t dst) {
 	}
 
 	int out = dim * 2 + 1;
-	out += ((src ^ dst) & 0x1); /* Load balance pairs */
+	out += ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf)) & 1; /* Load balance */
 	return out;
 }
 
@@ -2776,9 +2758,6 @@ static enum node_state setup_fabric(struct node_info *info)
 	memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
 	memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
 	memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
-#ifdef UNUSED
-	printf("Using %s path routing\n", cfg_fabric.strict ? "shortest" : "unoptimised");
-#endif
 
 	if (cfg_fabric.x_size > 0)
 		_add_route(info->sci, 0, 1); /* Self route via LC3XA */
@@ -2796,18 +2775,6 @@ static enum node_state setup_fabric(struct node_info *info)
 			continue;
 
 		uint8_t out = route1(info->sci, cfg_nodelist[i].sci);
-
-#ifdef UNUSED
-		if (cfg_fabric.strict)
-			/* SCI IDs correspond to position on the rings */
-			out += shortest(dim, info->sci, cfg_nodelist[i].sci);
-		else
-			/* SCI IDs may not correspond; load-balance route */
-			out += src & 1;
-
-		printf("Routing from %03x -> %03x on dim %d (lc %d)\n",
-		       info->sci, cfg_nodelist[i].sci, dim, out);
-#endif
 		_add_route(cfg_nodelist[i].sci, 0, out);
 
 		for (lc = 1; lc <= 6; lc++) {
