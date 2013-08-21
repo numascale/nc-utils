@@ -2745,7 +2745,8 @@ static uint8_t route1(sci_t src, sci_t dst) {
 	}
 
 	int out = dim * 2 + 1;
-	out += ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf)) & 1; /* Load balance */
+	out += ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf) +
+		(src & 0xf) + ((src >> 4) & 0xf) + ((src >> 8) & 0xf)) & 1; /* Load balance */
 	return out;
 }
 
