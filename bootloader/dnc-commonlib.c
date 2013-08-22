@@ -2372,7 +2372,8 @@ static void platform_quirks(void)
 	smbios_parse((const char *)fp, len, num, &biosver, &biosdate, &manuf, &product);
 	assert(biosver);
 	assert(biosdate);
-	assert(manuf);
+	if (!manuf)
+		manuf = "unknown manufacturer";
 	assert(product);
 	printf("Platform is %s %s with BIOS %s %s", manuf, product, biosver, biosdate);
 
