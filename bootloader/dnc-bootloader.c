@@ -2179,8 +2179,7 @@ static void global_chipset_fixup(void)
 			val = dnc_read_conf(node, 0, 0, 0, 0x90);
 			/* Disable mmcfg setting in bridge to avoid OS confusion */
 			dnc_write_conf(node, 0, 0, 0, 0x90, val & ~(1 << 31));
-		} else
-			fatal("IOH 0x%08x not recognised\n", vendev);
+		}
 	}
 
 	printf("done\n");
