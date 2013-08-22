@@ -2374,7 +2374,8 @@ static void platform_quirks(void)
 	assert(biosdate);
 	if (!manuf)
 		manuf = "unknown manufacturer";
-	assert(product);
+	if (!product)
+		product = "unknown product";
 	printf("Platform is %s %s with BIOS %s %s", manuf, product, biosver, biosdate);
 
 	/* Skip if already set */
