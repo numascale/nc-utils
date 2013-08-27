@@ -1045,15 +1045,11 @@ static void renumber_remote_bsp(node_info_t *const node)
 	uint16_t sci = node->sci;
 	uint8_t max_ht = node->nc_ht;
 	uint32_t val;
-	printf("Renumbering BSP to HT#%d on SCI%03x\n", max_ht, sci);
+	printf(" [renumbering");
 
 	for (i = 0; i < max_ht; i++) {
 		val = dnc_read_conf(sci, 0, 24 + i, FUNC0_HT, 0x0);
-		if ((val != 0x12001022) && (val != 0x16001022)) {
-			error("F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x",
-			       val, sci, i);
-			return;
-		}
+		assert(val == 0x12001022 || val == 0x16001022);
 
 		/* Disable traffic distribution */
 		dnc_write_conf(sci, 0, 24 + i, FUNC0_HT, 0x164, 0);
@@ -1067,7 +1063,6 @@ static void renumber_remote_bsp(node_info_t *const node)
 	dnc_write_conf(sci, 0, 24 + max_ht, 0, H2S_CSR_F0_CHTX_NODE_ID,
 	               (max_ht << 8) | (max_ht + 1));
 	val = dnc_read_csr(sci, H2S_CSR_G3_HT_NODEID);
-	printf("- moving NC to HT#%d\n", val);
 
 	for (i = 0; i < max_ht; i++) {
 		val = dnc_read_conf(sci, 0, 24 + i, FUNC0_HT, 0x68);
@@ -1137,12 +1132,7 @@ static void renumber_remote_bsp(node_info_t *const node)
 
 	for (i = 1; i <= max_ht; i++) {
 		val = dnc_read_conf(sci, 0, 24 + i, FUNC0_HT, 0x00);
-
-		if ((val != 0x12001022) && (val != 0x16001022)) {
-			error("F0x00 value 0x%08x does not indicate an AMD Opteron processor on SCI%03x#%x",
-			       i, val, sci);
-			return;
-		}
+		assert(val == 0x12001022 || val == 0x16001022);
 
 		/* Route 0 as max_ht + 1 */
 		val = dnc_read_conf(sci, 0, 24 + i, FUNC0_HT, 0x44 + 4 * max_ht);
@@ -1153,7 +1143,6 @@ static void renumber_remote_bsp(node_info_t *const node)
 	dnc_write_conf(sci, 0, 24 + max_ht + 1, 0, H2S_CSR_F0_CHTX_NODE_ID,
 	               (max_ht << 24) | (max_ht << 16) | (max_ht << 8) | 0);
 	val = dnc_read_csr(sci, H2S_CSR_G3_HT_NODEID);
-	printf("- moving NC to HT#%d on SCI%03x...", val, sci);
 
 	/* Decrease NodeCnt */
 	for (i = 1; i <= max_ht; i++) {
@@ -1193,7 +1182,7 @@ static void renumber_remote_bsp(node_info_t *const node)
 		mmio_range(sci, i, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, 0, 0);
 	}
 
-	printf("done\n");
+	printf("]");
 }
 
 static void setup_remote_cores(node_info_t *const node)
@@ -1248,10 +1237,8 @@ static void setup_remote_cores(node_info_t *const node)
 			}
 
 			/* Break out of outer loop if needed */
-			if (renumber_bsp == 1) {
-				printf("SCI%03x has locked MMIO ranges\n", sci);
+			if (renumber_bsp == 1)
 				break;
-			}
 		}
 	}
 
