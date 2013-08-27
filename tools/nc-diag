@@ -182,7 +182,7 @@ class Numachip: # r18
 					raise self.TimeoutException()
 
 			# check response length
-			assert ((ctrl >> 5) & 0xf) == 2
+			assert ((ctrl >> 5) & 0xf) == 2, 'response length %d unexpected' % ((ctrl >> 5) & 0xf)
 
 			val = (self.raw_entry_read(1) >> 44) & 0xf
 			if val == 0:
