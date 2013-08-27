@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect diagnostics r21
+# NumaConnect diagnostics r22
 
 import mmap, time, os, sys, struct, optparse, ctypes, random, subprocess
 
@@ -67,7 +67,7 @@ class Settings(ctypes.Structure): # r17
 			with open('/sys/firmware/acpi/tables/OEMN', 'rb') as f:
 				f.readinto(self)
 			assert self.acpi_len >= 52
-			self.local = False
+			self.standalone = False
 		except IOError as e:
 			if e.errno != 2:
 				raise
@@ -75,7 +75,7 @@ class Settings(ctypes.Structure): # r17
 			self.size_x = 2
 			self.size_y = 0
 			self.size_z = 0
-			self.local = True
+			self.standalone = True
 #			self.northbridges = 1 # FIXME
 
 		if options.verbose:
@@ -122,19 +122,21 @@ class Numachip: # r18
 			print 'csr_write %03x = %08x' % (reg, val)
 		self.lcsr[reg:reg + 4] = struct.pack('>L', val)
 
-	def __init__(self):
+	def __init__(self, standalone):
+		self.standalone = standalone
 		p = Processor()
 		mcfg_base = p.rdmsr(p.MCFG_BASE) & ~0x3f
 
 		fd = os.open('/dev/mem', os.O_RDWR)
-		self.lcsr = mmap.mmap(fd, 0x6000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, 0x3ffffff08000)
+		if not self.standalone:
+			self.lcsr = mmap.mmap(fd, 0x6000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, 0x3ffffff08000)
 		self.mcfg = mmap.mmap(fd, 256 << 20, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, mcfg_base)
 		os.close(fd)
 
-		self.own = self.csr_read(self.G0_NODE_IDS) >> 16
-
-		# ensure raw engine is in ready state
-		self.csr_write(self.G0_RAW_CONTROL, 1 << 12)
+		if not self.standalone:
+			self.own = self.csr_read(self.G0_NODE_IDS) >> 16
+			# ensure raw engine is in ready state
+			self.csr_write(self.G0_RAW_CONTROL, 1 << 12)
 
 	def __del__(self):
 		# skip if not initialised
@@ -330,20 +332,25 @@ class Platform:
 
 	def __init__(self, sci, numachip, settings):
 		self.sci = sci
-		self.numachip = numachip
 		self.settings = settings
+		self.numachip = numachip
 
-		try:
-			self.nc_ht = self.numachip.csr_raw_read(sci, Numachip.G3_HT_NODEID) & 7
-			self.renumbering = self.nc_ht == 0
-			ids = self.numachip.mmcfg_raw_read(sci, 0, 0x18 + self.nc_ht, 0, 0xc8)
-			ht_max = (ids >> 8) & 7
-			if options.verbose:
-				print 'SCI%03x: ids=%08x nc_ht=%d renumbering=%d ht_max=%d' % (self.sci, ids, self.nc_ht, self.renumbering, ht_max)
-		except Numachip.TimeoutException:
-			print 'SCI%03x timeout; assuming 0 HT nodes' % self.sci
+		if self.settings.standalone:
+			ids = self.numachip.mmcfg_raw_read(sci, 0, 0x18, 0, 0x60)
+			ht_max = (ids >> 4) & 7
 			self.renumbering = 0
-			ht_max = 0
+		else:
+			try:
+				self.nc_ht = self.numachip.csr_raw_read(sci, Numachip.G3_HT_NODEID) & 7
+				self.renumbering = self.nc_ht == 0
+				ids = self.numachip.mmcfg_raw_read(sci, 0, 0x18 + self.nc_ht, 0, 0xc8)
+				ht_max = (ids >> 8) & 7
+				if options.verbose:
+					print 'SCI%03x: ids=%08x nc_ht=%d renumbering=%d ht_max=%d' % (self.sci, ids, self.nc_ht, self.renumbering, ht_max)
+			except Numachip.TimeoutException:
+				print 'SCI%03x timeout; assuming 0 HT nodes' % self.sci
+				self.renumbering = 0
+				ht_max = 0
 
 		if self.renumbering:
 			self.northbridge_ids = [ht_max, ] + [n for n in range(1, ht_max)]
@@ -470,11 +477,11 @@ class Cluster:
 
 	def __init__(self):
 		self.settings = Settings()
-		self.numachip = Numachip()
+		self.numachip = Numachip(self.settings.standalone)
 		self.last_colour = 0
 
 		# no NumaConnect
-		if self.settings.local:
+		if self.settings.standalone:
 			self.settings.northbridges = self.northbridges()
 			self.platforms = [Platform(0xfff0, self.numachip, self.settings),]
 			return
@@ -507,7 +514,7 @@ class Cluster:
 			print '     %03X' % platform.sci,
 		print
 
-		if not self.settings.local:
+		if not self.settings.standalone:
 			for name, fn, reg, mask, ideal in self.ncregs:
 				print '%20s' % name,
 
@@ -599,7 +606,6 @@ if os.getuid():
 	raise SystemExit
 
 parser = optparse.OptionParser()
-parser.add_option('--local', dest='local', action='store_true', default=False, help='use direct local chipset access')
 parser.add_option('--rate', dest='rate', type='int', default=100, help='rate of error injection in errors per second (0 = no delays; default 100)')
 parser.add_option('--report-correctable', dest='correctable', action='store_true', default=False, help='report correctable errors')
 parser.add_option('--disable-syncflood', dest='syncflood', action='store_true', default=False, help='disable syncflood generation')
