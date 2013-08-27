@@ -265,7 +265,6 @@ class Numachip: # r18
 	def mmcfg_raw_write(self, sci, bus, dev, func, reg, val):
 		if sci == 0xfff0:
 			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
-			assert val >= 0xffffffff
 			self.mcfg[addr:addr + 4] = struct.pack('=L', val)
 			return
 
