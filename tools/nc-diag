@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect diagnostics r22
+# NumaConnect diagnostics r24
 
 import mmap, time, os, sys, struct, optparse, ctypes, random, subprocess
 
@@ -182,7 +182,11 @@ class Numachip: # r18
 					raise self.TimeoutException()
 
 			# check response length
-			assert ((ctrl >> 5) & 0xf) == 2, 'response length %d unexpected' % ((ctrl >> 5) & 0xf)
+			rlen = ((ctrl >> 5) & 0xf)
+			if rlen != 2:
+				print 'warning: write response length %d unexpected' % rlen
+				tries1 += 1
+				continue
 
 			val = (self.raw_entry_read(1) >> 44) & 0xf
 			if val == 0:
@@ -191,7 +195,7 @@ class Numachip: # r18
 
 			# should only receive a 'conflict' response
 			if val != 4: # RESP_CONFLICT
-				raise Exception('write: response status %d received' % val)
+				raise Exception('write response status %d received' % val)
 
 			tries1 += 1
 			if tries1 > self.max_tries:
@@ -233,7 +237,7 @@ class Numachip: # r18
 				raise self.HTErrorException()
 
 			if val != 4: # RESP_CONFLICT
-				raise Exception('read: response status %d received' % val)
+				raise Exception('read response status %d received' % val)
 
 			tries1 += 1
 			if tries1 > self.max_tries:
@@ -255,7 +259,7 @@ class Numachip: # r18
 		return self.raw_read(sci, (0xfffff << 28) | (reg & 0x7ffc))
 
 	def mmcfg_raw_read(self, sci, bus, dev, func, reg):
-		if sci == 0xfff0:
+		if sci == 0xfff0 or sci == self.own:
 			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
 			return struct.unpack('=L', self.mcfg[addr:addr + 4])[0]
 
@@ -263,7 +267,7 @@ class Numachip: # r18
 		return bswap(val)
 
 	def mmcfg_raw_write(self, sci, bus, dev, func, reg, val):
-		if sci == 0xfff0:
+		if sci == 0xfff0 or sci == self.own:
 			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
 			self.mcfg[addr:addr + 4] = struct.pack('=L', val)
 			return
@@ -392,7 +396,11 @@ class Platform:
 			self.write(0, 0x18 + nb, 3, 0x44, val)
 
 	def inject_dram(self):
-		nb = random.choice(self.northbridge_ids)
+		if options.northbridges == -1:
+			nb = random.choice(self.northbridge_ids)
+		else:
+			nb = int(random.choice(options.northbridges.split(',')))
+
 		quad = random.randint(0, 3)
 
 		val = (8 << 28) | (quad << 1)
@@ -609,6 +617,7 @@ parser.add_option('--rate', dest='rate', type='int', default=100, help='rate of 
 parser.add_option('--report-correctable', dest='correctable', action='store_true', default=False, help='report correctable errors')
 parser.add_option('--disable-syncflood', dest='syncflood', action='store_true', default=False, help='disable syncflood generation')
 parser.add_option('--platform', dest='platform', type='int', default=-1, help='platform to inject errors into (-1 = all)')
+parser.add_option('--northbridges=', dest='northbridges', type='string', default=-1, help='comma separated list of northbridges to inject errors into (-1 = all)')
 parser.add_option('--inject-dram', dest='inject_dram', type='int', default=0, help='inject DRAM errors')
 parser.add_option('--bits', dest='bits', type='int', default=1, help='bits to corrupt per word (default 1)')
 parser.add_option('--inject-link', dest='inject_link', type='int', default=0, help='inject link errors')
