@@ -1983,6 +1983,12 @@ void parse_cmdline(const int argc, const char *argv[])
 	printf("\n");
 
 	assertf(!errors, "Invalid arguments specified");
+
+	/* Constraints */
+	if (trace_buf_size && pf_cstate6) {
+		warning("Tracing is exclusive of C-state 6; disabling C-state 6");
+		pf_cstate6 = 0;
+	}
 }
 
 static void perform_selftest(int asic_mode, char p_type[16])
