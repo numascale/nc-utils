@@ -1026,10 +1026,9 @@ static void setup_other_cores(void)
 			while (*REL32(cpu_status) != 0)
 				cpu_relax();
 
-			if (verbose > 1)
-				printf(" %d", apicid);
-
 			msr = *REL64(rem_smm_base_msr);
+			if (verbose > 1)
+				printf(" %d/0x%llx", apicid, msr);
 			if (disable_smm)
 				disable_smm_handler(msr);
 		}
