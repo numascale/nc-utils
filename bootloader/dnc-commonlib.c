@@ -36,6 +36,8 @@ IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
 IMPORT_RELOCATED(msr_readback);
 IMPORT_RELOCATED(new_cucfg2_msr);
+IMPORT_RELOCATED(apic_offset);
+IMPORT_RELOCATED(apic_readback);
 
 const char *config_file_name = "nc-config/fabric.json";
 const char *next_label = "menu.c32";
@@ -2276,17 +2278,12 @@ void selftest_late_msrs(void)
 
 					uint32_t oldid = nodes[node].ht[ht].apic_base + i;
 					uint32_t apicid = nodes[node].apic_offset + oldid;
-					*REL32(msr_readback) = msr;
-
-#ifdef FIXME
-					wake_core_global(apicid, VECTOR_READBACK_MSR);
-#else
-					/* Use local IPI distribution until global is fixed */
+					/* Use limited local IPI distribution until global is fixed */
 					if (apicid > 254)
 						break;
 
+					*REL32(msr_readback) = msr;
 					wake_core_local(apicid, VECTOR_READBACK_MSR);
-#endif
 					if (*REL64(msr_readback) != val0) {
 						if (!printed) {
 							printf("MSR 0x%08x should be %016llx:", msr, val0);
@@ -2302,6 +2299,83 @@ void selftest_late_msrs(void)
 		if (printed)
 			printf("\n");
 	}
+}
+
+void selftest_late_apiclvt(void)
+{
+	const unsigned int apic_offsets[] = {0x320, 0x330, 0x340, 0x350, 0x360, 0x370, 0x500, 0x510, 0x520, 0x530};
+	uint32_t val;
+
+	uint64_t msr = rdmsr(MSR_APIC_BAR);
+	volatile uint32_t *const apic = (volatile uint32_t *const)((uint32_t)msr & ~0xfff);
+
+	printf("\nAdjusting APIC vectors:\n");
+	for (const uint32_t *offset = &apic_offsets[0]; offset < (apic_offsets + sizeof(apic_offsets) / sizeof(apic_offsets[0])); offset++) {
+		if (apic[*offset / 4] != APIC_VECTOR_MASKED) {
+			printf("- masked core 0 APIC vector 0x%x (was 0x%08x)\n", *offset, apic[*offset / 4]);
+			apic[*offset / 4] = APIC_VECTOR_MASKED;
+		}
+	}
+
+	int n = 1;
+
+	for (int node = 0; node < dnc_node_count; node++) {
+		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
+			for (int i = 0; i < nodes[node].ht[ht].cores; i++) {
+				if ((node == 0) && (ht == 0) && (i == 0))
+					continue; /* Skip BSP */
+
+				uint32_t oldid = nodes[node].ht[ht].apic_base + i;
+				uint32_t apicid = nodes[node].apic_offset + oldid;
+
+				for (const uint32_t *offset = &apic_offsets[0]; offset < (apic_offsets + sizeof(apic_offsets) / sizeof(apic_offsets[0])); offset++) {
+					/* Use limited local IPI distribution until global is fixed */
+					if (apicid > 254)
+						break;
+
+					*REL32(apic_offset) = *offset;
+					wake_core_local(apicid, VECTOR_READBACK_APIC);
+					if (*REL32(apic_readback) != APIC_VECTOR_MASKED)
+						printf("- masked core %d APIC vector 0x%x (was 0x%08x)\n", n, *offset, *REL32(apic_readback));
+					n++;
+				}
+			}
+		}
+	}
+
+	foreach_node(node) {
+		foreach_nb(ht, node) {
+			for (unsigned int reg = 0x160; reg <= 0x170; reg += 8) {
+				val = dnc_read_conf(node->sci, 0, 24 + ht, 3, reg);
+				if (val != 0xc0100000) {
+					printf("- disabled thresholding F3x%X interrupt vector (was 0x%08x)\n", reg, val);
+					dnc_write_conf(node->sci, 0, 24 + ht, 3, reg, 0xc0100000);
+				}
+			}
+
+			val = dnc_read_conf(node->sci, 0, 24 + ht, 3, 0x1cc);
+			if ((val & 0x10f) != 0x100) {
+				printf("- disabled IBS vector (was 0x%08x)\n", val);
+				val = (val & ~0x10f) | 0x100;
+				dnc_write_conf(node->sci, 0, 24 + ht, 3, 0x1cc, val);
+			}
+
+			val = dnc_read_conf(node->sci, 0, 24 + ht, 3, 0x1d4);
+			if (val & 0xfc00000) {
+				printf("- disabled probe filter error interrupt (was 0x%08x)\n", val);
+				val &= ~0xfc00000;
+				dnc_write_conf(node->sci, 0, 24 + ht, 3, 0x1d4, val);
+			}
+
+			val = dnc_read_conf(node->sci, 0, 24 + ht, 3, 0x1e4);
+			if ((val & 0xf00) != 0x300) {
+				printf("- moved SBI to use default vector 3 (was 0x%08x)\n", val);
+				val = (val & ~0xf00) | 0x300;
+				dnc_write_conf(node->sci, 0, 24 + ht, 3, 0x1e4, val);
+			}
+		}
+	}
+	printf("\n");
 }
 
 struct smbios_header {
@@ -2569,11 +2643,6 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		 * need to disable it for Directed Probes. Ref email to AMD dated 4/28/2010 */
 		val = cht_read_conf(i, FUNC0_HT, 0x164);
 		cht_write_conf(i, FUNC0_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
-
-		/* Linux updates visible Northbridges with IBS LVT offset 1;
-		 * this causes inconsistencies so do it here on all Northbridges */
-		val = cht_read_conf(i, FUNC3_MISC, 0x1cc);
-		cht_write_conf(i, FUNC3_MISC, 0x1cc, (1 << 8) | 1); /* LvtOffset = 1, LvtOffsetVal = 1 */
 
 		/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
 		if (family >= 0x15) {

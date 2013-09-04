@@ -175,6 +175,7 @@ void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);
 void enable_probefilter(const ht_t max_ht);
 void selftest_late_msrs(void);
+void selftest_late_apiclvt(void);
 void parse_cmdline(const int argc, const char *argv[]);
 void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2]);
 

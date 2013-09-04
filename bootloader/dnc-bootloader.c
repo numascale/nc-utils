@@ -108,6 +108,7 @@ IMPORT_RELOCATED(new_hwcr_msr);
 IMPORT_RELOCATED(new_mc4_misc0_msr);
 IMPORT_RELOCATED(new_mc4_misc1_msr);
 IMPORT_RELOCATED(new_mc4_misc2_msr);
+IMPORT_RELOCATED(msr_readback);
 
 extern uint8_t smm_handler_start;
 extern uint8_t smm_handler_end;
@@ -2222,24 +2223,27 @@ static void setup_mc4_thresholds(void)
 	*REL64(new_hwcr_msr) = msr & ~(1ULL << 17); /* Don't let the Wrap32Dis bit follow through to other cores */
 
 	msr = rdmsr(MSR_MC4_MISC0);
-	if (((msr >> 49) & 3) == 2)
-		printf("- disabling DRAM thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
-	msr &= ~((3ULL << 49) | (1ULL << 61));
-	wrmsr(MSR_MC4_MISC0, msr);
+	if (msr != MSR_VECTOR_MASKED) {
+		printf("- disabling %slocked DRAM thresholding SMI (was 0x%llx)\n", (msr >> 61) ? "" : "un", msr);
+		msr = MSR_VECTOR_MASKED;
+		wrmsr(MSR_MC4_MISC0, msr);
+	}
 	*REL64(new_mc4_misc0_msr) = msr;
 
 	msr = rdmsr(MSR_MC4_MISC1);
-	if (((msr >> 49) & 3) == 2)
-		printf("- disabling link thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
-	msr &= ~((3ULL << 49) | (1ULL << 61));
-	wrmsr(MSR_MC4_MISC1, msr);
+	if (msr != MSR_VECTOR_MASKED) {
+		printf("- disabling %slocked link thresholding SMI (was 0x%llx)\n", (msr >> 61) ? "" : "un", msr);
+		msr = MSR_VECTOR_MASKED;
+		wrmsr(MSR_MC4_MISC1, msr);
+	}
 	*REL64(new_mc4_misc1_msr) = msr;
 
 	msr = rdmsr(MSR_MC4_MISC2);
-	if (((msr >> 49) & 3) == 2)
-		printf("- disabling L3 cache thresholding SMI (%s)\n", (msr >> 61) ? "locked" : "not locked");
-	msr &= ~((3ULL << 49) | (1ULL << 61));
-	wrmsr(MSR_MC4_MISC2, msr);
+	if (msr != MSR_VECTOR_MASKED) {
+		printf("- disabling %slocked L3 cache thresholding SMI (was 0x%llx)\n", (msr >> 61) ? "" : "un", msr);
+		msr = MSR_VECTOR_MASKED;
+		wrmsr(MSR_MC4_MISC2, msr);
+	}
 	*REL64(new_mc4_misc2_msr) = msr;
 }
 
@@ -2812,6 +2816,7 @@ static int nc_start(void)
 		if (disable_kvm > -1)
 			disable_kvm_ports(disable_kvm);
 
+		selftest_late_apiclvt();
 		if (verbose) {
 			ranges_print();
 			selftest_late_memmap();
@@ -2819,7 +2824,6 @@ static int nc_start(void)
 			/* Do this ahead of the self-test to prevent false positives */
 			/* Restore 32-bit only access */
 			set_wrap32_enable();
-			selftest_late_msrs();
 		}
 
 		start_user_os();

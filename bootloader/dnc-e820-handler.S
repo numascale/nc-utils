@@ -47,6 +47,8 @@ EXPORT(init_dispatch)
 	je	init_enable_cache
 	cmpl	$VECTOR_READBACK_MSR, %edx
 	je	init_readback_msr
+	cmpl	$VECTOR_READBACK_APIC, %edx
+	je	init_readback_apic
 1:
 	cli
 	hlt
@@ -359,6 +361,40 @@ init_readback_msr:
 	hlt
 	jmp	1b
 
+init_readback_apic:
+	mov $MSR_APIC_BAR, %ecx
+	rdmsr
+
+	/* Store value for later rewrite */
+	mov %eax, %esi
+	mov %edx, %edi
+
+	and $0xfff, %eax /* Clear base address bits */
+	mov $0, %edx
+	or $SYM_OFFSET(apic_base), %eax
+	wrmsr
+
+	mov $SYM_OFFSET(apic_base), %eax
+	add %cs:SYM_OFFSET(apic_offset), %eax
+	mov (%eax), %ebx
+	mov %ebx, %cs:SYM_OFFSET(apic_readback)
+
+	/* Mask APIC vector to prevent hangs due to SMIs/NMIs */
+	mov $APIC_VECTOR_MASKED, %ebx
+	mov %ebx, (%eax)
+
+	/* Restore APIC base address */
+	mov $MSR_APIC_BAR, %ecx
+	mov %esi, %eax
+	mov %edi, %edx
+	wrmsr
+
+	STATUS(0)
+1:
+	cli
+	hlt
+	jmp	1b
+
 	.align 16
 EXPORT(cpu_status)
 	.long 0
@@ -419,6 +455,10 @@ EXPORT(new_int_halt_msr)
 #endif
 EXPORT(msr_readback)
 	.long 0, 0
+EXPORT(apic_offset)
+	.long 0
+EXPORT(apic_readback)
+	.long 0
 EXPORT(new_lscfg_msr)
 	.long 0, 0
 EXPORT(new_cucfg2_msr)
@@ -563,3 +603,7 @@ smm_handler_start:
 	rsm
 	.global smm_handler_end
 smm_handler_end:
+
+	.align 4096
+	.global apic_base
+apic_base:
