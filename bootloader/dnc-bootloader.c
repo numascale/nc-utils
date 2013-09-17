@@ -1393,127 +1393,6 @@ static void setup_remote_cores(node_info_t *const node)
 	}
 }
 
-static void setup_local_mmio_maps(void)
-{
-	int i, j, next;
-	uint32_t base[8];
-	uint32_t lim[8];
-	uint32_t dst[8];
-	uint32_t curbase, curlim, curdst;
-	uint64_t tom = rdmsr(MSR_TOPMEM);
-
-	printf("Setting MMIO maps on local DNC with TOM %lldMB...\n", tom >> 20);
-
-	for (i = 0; i < 8; i++) {
-		base[i] = 0;
-		lim[i] = 0;
-		dst[i] = 0;
-	}
-
-	uint8_t ioh_ht = (cht_read_conf(0, FUNC0_HT, 0x60) >> 8) & 7;
-	base[0] = (tom >> 8) & ~0xff;
-	lim[0] = 0x00ffff00;
-	dst[0] = (ioh_ht << 8) | 3;
-	next = 1;
-
-	/* Apply default maps so we can bail without losing all hope */
-	for (i = 0; i < 8; i++) {
-		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
-	}
-
-	for (i = 0; i < 8; i++) {
-		curbase = cht_read_conf(ioh_ht, FUNC1_MAPS, 0x80 + i * 8);
-		curlim = cht_read_conf(ioh_ht, FUNC1_MAPS, 0x84 + i * 8);
-		curdst = ((curlim & 0x7) << 8) | (curbase & 0x3);
-
-		bool en = curbase & 3;
-		curbase = curbase & ~0xff;
-		curlim = curlim & ~0xff;
-
-		if (verbose && en)
-			printf("NB MMIO range %d base: %08x, lim: %08x, dst: %04x%s\n",
-			       i, curbase, curlim, curdst, (curbase & 8) ? " locked" : "");
-
-		if (curdst & 3) {
-			bool found = 0;
-			bool placed = 0;
-
-			for (j = 0; j < next; j++) {
-				if (((curbase < base[j]) && (curlim > base[j])) ||
-				    ((curbase < lim[j])  && (curlim > lim[j])))
-					fatal("MMIO range #%d (%x-%x) overlaps registered window #%d (%x-%x)",
-					       i, curbase, curlim, j, base[j], lim[j]);
-
-				if (curbase == base[j]) {
-					found = 1;
-
-					if ((curdst >> 8) == ioh_ht) {
-						placed = 1;
-					}
-
-					if (curlim == lim[j]) {
-						/* Complete overlap */
-						dst[j] = curdst;
-						placed = 1;
-					} else {
-						/* Equal base */
-						base[j] = curlim + 0x100;
-					}
-
-					break;
-				} else if ((curbase > base[j]) && (curbase <= lim[j])) {
-					found = 1;
-
-					if ((curdst >> 8) == ioh_ht) {
-						placed = 1;
-					} else if (curlim == lim[j]) {
-						/* Equal limit */
-						lim[j] = curbase - 0x100;
-					} else {
-						/* Enclosed region */
-						if (next >= 8)
-							fatal("Ran out of MMIO regions trying to place #%d (%x-%x)", i, curbase, curlim);
-
-						base[next] = curlim + 0x100;
-						lim[next] = lim[j];
-						dst[next] = dst[j];
-						lim[j] = curbase - 0x100;
-						next++;
-					}
-
-					break;
-				} else if ((curbase < 0x1000) && (curlim < 0x1000)) {
-					/* Sub-1M ranges */
-					found = 1;
-				}
-			}
-
-			if (found) {
-				if (!placed) {
-					if (next >= 8)
-						fatal("Ran out of MMIO regions trying to place #%d (%x-%x)", i, curbase, curlim);
-
-					base[next] = curbase;
-					lim[next] = curlim;
-					dst[next] = curdst;
-					next++;
-				}
-			} else
-				fatal("Enclosing window not found for MMIO range #%d (%x-%x)", i, curbase, curlim);
-		}
-	}
-
-	for (i = 0; i < 8; i++) {
-		if (verbose && (dst[i] & 3))
-			printf("NC MMIO range %d base %08x, lim %08x, dst %04x\n", i, base[i], lim[i], dst[i]);
-		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, lim[i] | (dst[i] >> 8));
-		cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, base[i] | (dst[i] & 0x3));
-	}
-}
-
 static char *read_file(const char *filename, int *len)
 {
 	static com32sys_t inargs, outargs;
@@ -2412,8 +2291,13 @@ static void unify_all_nodes(void)
 	if (verbose > 0)
 		debug_acpi();
 
-	setup_local_mmio_maps();
 	setup_apic_atts();
+
+	/* Decode remote coherent access to MMIO ranges to the SRI */
+	uint64_t tom = rdmsr(MSR_TOPMEM);
+	uint8_t ioh_ht = (cht_read_conf(0, FUNC0_HT, 0x60) >> 8) & 7;
+	nc_mmio_range(0xfff0, 0, 0xa0000, 0xbffff, ioh_ht);
+	nc_mmio_range(0xfff0, 1, tom, 0xffffffff, ioh_ht);
 
 	uint64_t old_mcfg = rdmsr(MSR_MCFG_BASE) & ~0x3f;
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nodes[0].sci << 28ULL) | 0x21ULL;

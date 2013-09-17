@@ -342,7 +342,9 @@ void setup_mmio_late(void)
 	for (int i = 0; i < dnc_node_count; i++) {
 		uint16_t sci = nodes[i].sci;
 		uint8_t ioh_ht = (dnc_read_conf(sci, 0, 24 + nodes[i].bsp_ht, FUNC0_HT, 0x60) >> 8) & 7;
-		int range = 0;
+
+		/* Range 0 is used for VGA MMIO decoding */
+		int range = 1;
 
 		printf("Setting up NC MMIO ranges on SCI%03x with IOH at %d\n", sci, ioh_ht);
 
@@ -351,6 +353,7 @@ void setup_mmio_late(void)
 
 		/* Master below and above ranges */
 		if (i == 0) {
+			nc_mmio_range(sci, range++, 0xa0000, 0xbffff, ioh_ht);
 			if (nodes[i].mmio_base > tom)
 				nc_mmio_range(sci, range++, tom, nodes[i].mmio_base - 1, ioh_ht);
 
