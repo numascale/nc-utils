@@ -1,0 +1,149 @@
+#!/usr/bin/python
+# NumaConnect performance monitoring r2
+
+from lib import Platform, Numachip, Cpuset
+import threading, time, os
+
+class LC3:
+	CONFIG1 = 0x388
+	DIAG = 0x3a4
+
+	def reset(self):
+		self.min = 8
+		self.max = 0
+		self.tot = 0
+		self.samples = 0
+
+	def __init__(self, sci, n, mode):
+		self.sci = sci
+		self.n = n
+		self.reset()
+
+		# set stats sampling mode
+		val = numachip.csr_read(0xfff0 | self.n, self.CONFIG1)
+		val = (val & ~0xf00) | (mode << 12)
+		numachip.csr_write(0xfff0 | self.n, self.CONFIG1, val)
+
+	def update(self):
+		used = numachip.csr_read(0xfff0 | self.n, self.DIAG) >> 8
+		count = 0
+
+		# count bits set
+		for _ in range(8):
+			used >>= 1
+			count += used & 1
+
+		if count > self.max:
+			self.max = count
+		elif count < self.min:
+			self.min = count
+		self.tot += count
+		self.samples += 1
+
+	def sample(self):
+		if self.samples == 0:
+			return 0.
+
+#		avg = self.tot / float(self.samples)
+		valmax = self.max
+		self.reset()
+		return valmax
+
+class Node(threading.Thread):
+	def __init__(self, num, sci, mode):
+		super(Node, self).__init__()
+
+		self.num = num
+		self.lc3s = []
+		if platform.oemn.size_x:
+			self.lc3s.append(LC3(sci, 1, mode))
+			self.lc3s.append(LC3(sci, 2, mode))
+
+		if platform.oemn.size_y:
+			self.lc3s.append(LC3(sci, 3, mode))
+			self.lc3s.append(LC3(sci, 4, mode))
+
+		if platform.oemn.size_z:
+			self.lc3s.append(LC3(sci, 5, mode))
+			self.lc3s.append(LC3(sci, 6, mode))
+
+	def run(self):
+		# skip servers that observers
+		try:
+			cpuset.bind(self.name, self.num)
+		except IOError as e:
+			assert e.errno == 34 # Numerical result out of range
+			return
+
+		while not quit:
+			time.sleep(interval)
+
+			for lc3 in self.lc3s:
+				lc3.update()
+
+platform = Platform()
+numachip = Numachip(platform)
+val = platform.pci.conf_readl(0, 0x18, 0, 0x1dc)
+
+cores = 1
+for shift in range(1, 8):
+	if val >> shift:
+		cores += 1
+print 'detected %d cores per cpu' % cores
+
+cpuset = Cpuset(platform.oemn.northbridges, cores) # cores per processor
+scis = []
+quit = False
+
+for z in range(max(platform.oemn.size_z, 1)):
+	for y in range(max(platform.oemn.size_y, 1)):
+		for x in range(max(platform.oemn.size_x, 1)):
+			scis.append(x | (y << 4) | (z << 8))
+
+interval = 0.01 # 10Hz
+threads = []
+mode = 0
+if mode == 0:
+	print 'LC3 receive queue depth'
+elif mode == 4:
+	print 'LC3 transmit queue depth'
+else:
+	raise SystemExit('incorrect LC3 diags mode specified')
+
+num = 0
+for sci in scis:
+	threads.append(Node(num, sci, mode))
+	num += 1
+
+# preempt compute-bound tasks
+os.nice(-5)
+
+for thread in threads:
+	thread.start()
+
+# heading
+line = []
+for sci in scis:
+	elem = ''
+	if platform.oemn.size_x:
+		elem += 'XA  XB  '
+	if platform.oemn.size_y:
+		elem += 'YA  YB  '
+	if platform.oemn.size_z:
+		elem += 'ZA  ZB '
+	print 'SCI%03x%*s' % (sci, len(elem) - 5, ''),
+	line.append(elem)
+print
+print '| '.join(line)
+
+try:
+	while True:
+		time.sleep(1.5)
+		elems = []
+		for thread in threads:
+			elems.append(' '.join(['%.1f' % lc3.sample() for lc3 in thread.lc3s]))
+		print ' | '.join(elems)
+except KeyboardInterrupt:
+	quit = True
+	# threads implicitly joined
+
