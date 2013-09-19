@@ -407,17 +407,6 @@ static void load_existing_apic_map(void)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, apic_used[i]);
 }
 
-static int dist_fn(int src_node, int src_ht, int dst_node, int dst_ht)
-{
-	if (src_node != dst_node)
-		return 120;
-
-	if (src_ht != dst_ht)
-		return 16;
-
-	return 10;
-}
-
 static void tables_add(const size_t len)
 {
 	tables_next += roundup(len, TABLE_ALIGNMENT);
@@ -456,10 +445,21 @@ static void update_acpi_tables_early(void)
 	add_child(gap, rsdt, 4);
 }
 
+static uint8_t dist_fn(const sci_t src, const sci_t dst)
+{
+	int changes = 0;
+	const sci_t mask = src ^ dst;
+
+	for (int shift = 0; shift < 12; shift += 4)
+		if (mask & (0xf << shift))
+			changes++;
+
+	return 70 + changes * 30;
+}
+
 static void update_acpi_tables(void)
 {
 	acpi_sdt_p oroot;
-	uint8_t *dist;
 	unsigned int i, j, pnum;
 	unsigned int node, ht;
 
@@ -562,6 +562,8 @@ static void update_acpi_tables(void)
 	if (rsdt) replace_child("APIC", apic, rsdt, 4);
 	if (xsdt) replace_child("APIC", apic, xsdt, 8);
 
+	acpi_sdt_p oslit = find_sdt("SLIT");
+
 	/* Make SLIT info from scratch (ie replace existing table if any) */
 	acpi_sdt_p slit = (acpi_sdt_p)tables_next;
 
@@ -573,16 +575,48 @@ static void update_acpi_tables(void)
 	memcpy(slit->creatorid, "1B47", 4);
 	slit->creatorrev = 1;
 	memset(slit->data, 0, 8); /* Number of System Localities */
-	dist = (uint8_t *)&(slit->data[8]);
-	int k, l, index = 0;
+	int index = 0;
+	const int nbs = nodes->nb_ht_hi - nodes->nb_ht_lo + 1;
+	uint8_t *odist, *dist = (uint8_t *)&(slit->data[8]);
 
-	for (i = 0; i < dnc_node_count; i++)
-		for (j = nodes[i].nb_ht_lo; j <= nodes[i].nb_ht_hi; j++) {
-			for (k = 0; k < dnc_node_count; k++) {
-				for (l = nodes[k].nb_ht_lo; l <= nodes[k].nb_ht_hi; l++)
-					dist[index++] = min(254, dist_fn(i, j, k, l)); /* 255 is unreachable */
+	if (oslit) {
+		odist = (uint8_t *)&(oslit->data[8]);
+		assert(odist[0] == 10);
+	} else
+		odist = NULL;
+
+	if (verbose > 1) {
+		printf("topology distances:\n   ");
+		for (int snode = 0; snode < dnc_node_count; snode++)
+			for (ht_t snb = 0; snb < nbs; snb++)
+				printf(" %3d", snode * nbs + snb);
+		printf("\n");
+	}
+
+	for (sci_t snode = 0; snode < dnc_node_count; snode++) {
+		for (ht_t snb = 0; snb < nbs; snb++) {
+			if (verbose > 1)
+				printf("%2d:", snode * nbs + snb);
+
+			for (sci_t dnode = 0; dnode < dnc_node_count; dnode++) {
+				for (ht_t dnb = 0; dnb < nbs; dnb++) {
+					if (snode == dnode) {
+						if (oslit)
+							dist[index] = odist[snb + dnb * nbs];
+						else
+							dist[index] = snb == dnb ? 10 : 16;
+					} else
+						dist[index] = dist_fn(nodes[snode].sci, nodes[dnode].sci);
+					if (verbose > 1)
+						printf(" %3d", dist[index]);
+					index++;
+				}
 			}
+
+			if (verbose > 1)
+				printf("\n");
 		}
+	}
 
 	memcpy(slit->data, &ht_pdom_count, sizeof(ht_pdom_count));
 	slit->len = 44 + ht_pdom_count * ht_pdom_count;
