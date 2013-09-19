@@ -460,20 +460,16 @@ bool replace_root(const char *sig, acpi_sdt_p replacement)
 acpi_sdt_p find_sdt(const char *sig)
 {
 	acpi_sdt_p root;
-	acpi_sdt_p res = NULL;
 	root = find_root("XSDT");
 
 	if (root)
-		res = find_child(sig, root, 8);
+		return find_child(sig, root, 8);
 
-	if (!res) {
-		root = find_root("RSDT");
+	root = find_root("RSDT");
+	if (root)
+		return find_child(sig, root, 4);
 
-		if (root)
-			res = find_child(sig, root, 4);
-	}
-
-	return res;
+	return NULL;
 }
 
 #ifdef UNUSED
