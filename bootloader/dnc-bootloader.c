@@ -1302,11 +1302,9 @@ static void setup_remote_cores(node_info_t *const node)
 
 		/* Make sure the VGA Enable register is disabled to forward VGA transactions
 		 * (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
-		if (!pf_vga_local) {
-			dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf4, 0x0);
-			if (dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf4))
-				warning("Legacy VGA access is locked to local server; some video card BIOSs may cause any X servers to fail to complete initialisation");
-		}
+		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf4, 0x0);
+		if (dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf4))
+			warning("Legacy VGA access is locked to local server; some video card BIOSs may cause any X servers to fail to complete initialisation");
 	}
 
 	/* Now, reset all DRAM maps */

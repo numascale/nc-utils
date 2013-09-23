@@ -203,7 +203,6 @@ extern bool boot_wait;
 extern int family;
 extern uint32_t tsc_mhz;
 extern uint64_t pf_maxmem;
-extern bool pf_vga_local;
 extern uint32_t max_mem_per_node;
 extern int force_probefilteroff;
 extern int force_probefilteron;
