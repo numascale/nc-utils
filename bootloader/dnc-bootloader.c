@@ -581,7 +581,7 @@ static void update_acpi_tables(void)
 
 	if (oslit) {
 		odist = (uint8_t *)&(oslit->data[8]);
-		assert(odist[0] == 10);
+		assert(odist[0] <= 13);
 	} else
 		odist = NULL;
 
