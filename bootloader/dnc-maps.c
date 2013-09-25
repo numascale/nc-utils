@@ -408,7 +408,7 @@ void ranges_print(void)
 	bool en, en2, lock, lock2;
 	ht_t ht;
 
-	printf("\nNorthbridge DRAM ranges:\n");
+	printf("Northbridge DRAM ranges:\n");
 	for (node = 0; node < dnc_node_count; node++) {
 		for (range = 0; range < 8; range++) {
 			dram_range_print(nodes[node].sci, nodes[node].bsp_ht, range);

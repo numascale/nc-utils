@@ -36,10 +36,13 @@ static uint64_t tmp_base[2], tmp_lim[2];
 
 static bool size_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg, uint64_t *addr, uint64_t *len, bool *pref, bool *io)
 {
+	uint32_t cmd = dnc_read_conf(sci, bus, dev, fn, 4);
+	dnc_write_conf(sci, bus, dev, fn, 4, 0);
+
 	uint32_t save = dnc_read_conf(sci, bus, dev, fn, reg);
 	*io = save & 1;
-	uint32_t mask = *io ? 3 : 15;
-	bool s64 = ((save >> 1) & 3) == 3;
+	uint32_t mask = *io ? 1 : 15;
+	bool s64 = ((save >> 1) & 3) == 2;
 	*pref = (save >> 3) & 1;
 
 	dnc_write_conf(sci, bus, dev, fn, reg, 0xffffffff);
@@ -69,6 +72,7 @@ static bool size_bar(const uint16_t sci, const int bus, const int dev, const int
 
 out:
 	dnc_write_conf(sci, bus, dev, fn, reg, save);
+	dnc_write_conf(sci, bus, dev, fn, 4, cmd);
 	/* Return is there could be a second BAR */
 	return !s64;
 }
