@@ -119,7 +119,9 @@ static void print_node_info(const node_info_t *node)
 			ht, node->ht[ht].base, node->ht[ht].size, node->ht[ht].pdom, node->ht[ht].cores, node->ht[ht].apic_base, node->ht[ht].scrub);
 	printf("- node_mem=%d\n", node->node_mem);
 	printf("- dram_base=%d/0x%x dram_limit=%d/0x%x\n", node->dram_base, node->dram_base, node->dram_limit, node->dram_limit);
-	printf("- mmio_base=%lld mmio_limit=%lld\n", node->mmio_base, node->mmio_limit);
+	printf("- mmio32_base=0x%x mmio32_limit=0x%x\n", node->mmio32_base, node->mmio32_limit);
+	printf("- mmio64_base=0x%llx mmio64_limit=0x%llx\n", node->mmio64_base, node->mmio64_limit);
+	printf("- io_base=0x%x io_limit=0x%x\n", node->io_base, node->io_limit);
 	printf("- apic_offset=%d\n", node->apic_offset);
 	printf("- nb_ht_lo=%d nb_ht_hi=%d nc_ht=%d nc_neigh_ht=%d nc_neigh_link=%d\n",
 		node->nb_ht_lo, node->nb_ht_hi, node->nc_ht, node->nc_neigh_ht, node->nc_neigh_link);

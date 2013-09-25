@@ -81,8 +81,12 @@ typedef struct nodes_info {
 	uint32_t node_mem;          /* Amount of DRAM at dnc nodes, in 16MB chunks */
 	uint32_t dram_base;
 	uint32_t dram_limit;
-	uint64_t mmio_base;         /* Start of local MMIO mapping */
-	uint64_t mmio_limit;
+	uint32_t mmio32_base;       /* Start of local MMIO32 mapping */
+	uint32_t mmio32_limit;
+	uint64_t mmio64_base;       /* Start of local MMIO64 mapping */
+	uint64_t mmio64_limit;
+	uint32_t io_base;           /* Start of local IO mapping */
+	uint32_t io_limit;
 	ht_node_info_t ht[8];
 	sci_t sci;                  /* Maps logical DNC node ids to physical (SCI) ids */
 	uint16_t apic_offset;       /* Offset to shift APIC ids by when unifying */
