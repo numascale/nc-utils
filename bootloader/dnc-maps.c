@@ -85,12 +85,6 @@ void dram_range(const uint16_t sci, const int ht, const int range, const uint64_
 {
 	assert(dest < 8);
 	assert(range < 8);
-	if (dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8) & 3) {
-		uint64_t base2, limit2;
-		int dest2;
-		dram_range_read(sci, ht, range, &base2, &limit2, &dest2);
-		warning("Overwriting SCI%03x#%x range %d 0x%012llx - 0x%012llx to %d", sci, ht, range, base2, limit2, dest2);
-	}
 
 	if (verbose > 1)
 		printf("SCI%03x#%d adding DRAM range %d: 0x%012llx - 0x%012llx to %d\n", sci, ht, range, base, limit, dest);
@@ -233,7 +227,7 @@ unable:
 			int old_dest, old_link;
 			bool old_lock;
 			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock);
-			warning("Unable to overwrite locked range %d on SCI%03x#%d 0x%llx:0x%llx to %d.%d with 0x%llx:0x%llx to %d.%d",
+			warning("Unable to overwrite locked MMIO range %d on SCI%03x#%d 0x%llx:0x%llx to %d.%d with 0x%llx:0x%llx to %d.%d",
 				sci, ht, range, old_base, old_limit, old_dest, old_link, base, limit, dest, link);
 			return;
 		}

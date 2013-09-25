@@ -1314,15 +1314,15 @@ static void setup_remote_cores(node_info_t *const node)
 	uint32_t memhole = cht_read_conf(0, FUNC1_MAPS, 0xf0);
 
 	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
-		/* Clear all entries */
-		for (j = 0; j < 8; j++)
-			dram_range_del(sci, i, j);
-
 		/* If Memory hoisting is enabled on master BSP, copy DramHoleBase[31:24] and DramMemHoistValid[1] */
 		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf0, memhole & 0xff000002);
 
 		/* Re-direct everything below our first local address to NumaChip */
 		dram_range(sci, i, 0, (uint64_t)nodes[0].ht[0].base << DRAM_MAP_SHIFT, ((uint64_t)((node - 1)->dram_limit) << DRAM_MAP_SHIFT) - 1, node->nc_ht);
+
+		/* Clear remaining entries */
+		for (j = i; j < 8; j++)
+			dram_range_del(sci, i, j);
 	}
 
 	/* Reprogram HT node "self" ranges */
