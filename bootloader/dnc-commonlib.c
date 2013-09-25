@@ -123,7 +123,7 @@ void wait_key(void)
 	printf("\n");
 }
 
-static void read_spd_info(char p_type[16], int cdata, struct dimm_config *dimm)
+static void read_spd_info(char p_type[16], const bool cdata, struct dimm_config *dimm)
 {
 	uint16_t spd_addr;
 	uint8_t addr_bits;
@@ -398,7 +398,7 @@ uint32_t dnc_check_mctr_status(const int cdata)
 	return val;
 }
 
-static int dnc_initialize_sram(void)
+static void dnc_initialize_sram(void)
 {
 	uint32_t val;
 
@@ -412,11 +412,7 @@ static int dnc_initialize_sram(void)
 		while (((val >> 24) & 0xff) != 0x3f) {
 			udelay(100);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
-
-			if ((val & 0xc000000) != 0) {
-				printf("SRAM clock calibration overflow detected (%08x)\n", val);
-				return -1;
-			}
+			assertf(!(val & 0xc000000), "SRAM clock calibration overflow detected");
 		}
 
 		printf("SRAM clock calibration complete\n");
@@ -433,11 +429,8 @@ static int dnc_initialize_sram(void)
 
 		printf("Enabling FTag SRAM\n");
 		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
-	} else {
+	} else
 		printf("ASIC revision %d detected, no FTag SRAM\n", dnc_chip_rev);
-	}
-
-	return 0;
 }
 
 void dnc_dram_initialise(void)
@@ -465,22 +458,18 @@ void dnc_dram_initialise(void)
 	printf("done\n");
 }
 
-int dnc_init_caches(void)
+void dnc_init_caches(void)
 {
 	uint32_t val;
-	int cdata;
 
-	for (cdata = 0; cdata < 2; cdata++) {
+	for (int cdata = 0; cdata < 2; cdata++) {
 		const char *name = cdata ? "CData" : "MCTag";
 
 		if (!dnc_asic_mode) {
 			/* On FPGA, just check that the phy is initialized */
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
-
-			if (!(val & 0x1000)) {
-				printf("%s controller not calibrated (%x)\n", name, val);
-				return -1;
-			}
+			if (!(val & 0x1000))
+				fatal("%s controller not calibrated\n", name);
 		} else {
 			int mctbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 			val = dnc_read_csr(0xfff0, mctbase + (START_ADDR << 2)); /* Read the Denali START parameter */
@@ -541,11 +530,9 @@ int dnc_init_caches(void)
 					tmp = 6;
 				} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
 					tmp = 7;
-				} else {
-					error("Unsupported MCTag/CData combination (%d/%dGB)",
+				} else
+					fatal("Unsupported MCTag/CData combination (%d/%dGB)",
 					       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size));
-					return -1;
-				}
 			}
 
 			if (!cdata) {
@@ -560,14 +547,12 @@ int dnc_init_caches(void)
 			              (val & ~7) | (1 << 12) | ((tmp & 7) << 4)); /* DRAM_AVAILABLE, MEMSIZE[2:0] */
 		} else { /* Older than Rev2 */
 			/* On Rev1 and older there's a direct relationship between the MTag size and RCache size */
-			if (cdata && dimms[cdata].mem_size == 0) {
-				error("Unsupported CData size of %dGB", (1 << dimms[cdata].mem_size));
-				return -1;
-			}
+			if (cdata && dimms[cdata].mem_size == 0)
+				fatal("Unsupported CData size of %dGB", (1 << dimms[cdata].mem_size));
 
 			if (!cdata) {
 				max_mem_per_node = 16U << dimms[0].mem_size;
-				printf("%dGB MCTag_Size  %dGB Remote Cache  %3dGB Max Coherent Local Memory\n",
+				printf("%dGB tag and %dGB remote cache; %dGB max coherent local memory\n",
 				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_node);
 				max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
 			}
@@ -592,17 +577,13 @@ int dnc_init_caches(void)
 		printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev >> 16, dnc_chip_rev & 0xffff);
 	} else {
 		/* ASIC; initialize SRAM if disable_sram is unset */
-		if (!disable_sram) {
-			int ret = dnc_initialize_sram();
-			if (ret < 0)
-				return ret;
-		} else {
+		if (!disable_sram)
+			dnc_initialize_sram();
+		else {
 			printf("No SRAM will be initialized\n");
 			dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
 		}
 	}
-
-	return 0;
 }
 
 int cpu_family(const sci_t sci, const ht_t ht)

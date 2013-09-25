@@ -165,7 +165,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 bool dnc_check_fabric(struct node_info *info);
 uint32_t dnc_check_mctr_status(const int cdata);
 void dnc_dram_initialise(void);
-int dnc_init_caches(void);
+void dnc_init_caches(void);
 int handle_command(enum node_state cstate, enum node_state *rstate,
                    struct node_info *info, struct part_info *part);
 void broadcast_error(const bool persistent, const char *format, ...);

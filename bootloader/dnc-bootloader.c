@@ -2693,8 +2693,7 @@ static int nc_start(void)
 		start_user_os();
 	}
 
-	if (dnc_init_caches() < 0)
-		return ERR_INIT_CACHES;
+	dnc_init_caches();
 
 	if (!install_e820_handler())
 		return ERR_INSTALL_E820_HANDLER;
