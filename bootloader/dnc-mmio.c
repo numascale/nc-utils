@@ -381,19 +381,19 @@ void setup_mmio_late(void)
 			int range = 0;
 
 			/* Ranges to master; local range first, as it can be locked by Supermicro BIOS */
-			mmio_range(sci, ht, range++, nodes[0].mmio32_base, nodes[0].mmio32_limit, nodes[i].nc_ht, 0);
+			mmio_range(sci, ht, range++, nodes[0].mmio32_base, nodes[0].mmio32_limit, nodes[i].nc_ht, 0, 1);
 			if (nodes[0].mmio32_base > tom)
-				mmio_range(sci, ht, range++, tom, nodes[0].mmio32_base - 1, nodes[i].nc_ht, 0);
+				mmio_range(sci, ht, range++, tom, nodes[0].mmio32_base - 1, nodes[i].nc_ht, 0, 0);
 
 			/* If gap between master and local, route to fabric */
 			if (nodes[i].mmio32_base > (nodes[0].mmio32_limit + 1))
-				mmio_range(sci, ht, range++, nodes[0].mmio32_limit + 1, nodes[i].mmio32_base - 1, nodes[i].nc_ht, 0);
+				mmio_range(sci, ht, range++, nodes[0].mmio32_limit + 1, nodes[i].mmio32_base - 1, nodes[i].nc_ht, 0, 0);
 
 			/* Local range */
-			mmio_range(sci, ht, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht, ioh_link);
+			mmio_range(sci, ht, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht, ioh_link, 0);
 
 			/* After-local MMIO range routing */
-			mmio_range(sci, ht, range++, nodes[i].mmio32_limit + 1, 0xffffffff, nodes[i].nc_ht, 0);
+			mmio_range(sci, ht, range++, nodes[i].mmio32_limit + 1, 0xffffffff, nodes[i].nc_ht, 0, 0);
 
 			while (range < 8)
 				mmio_range_del(sci, ht, range++);
@@ -411,12 +411,12 @@ void setup_mmio_late(void)
 			int range = 0;
 
 			/* First range to local, as it can be locked by Supermicro BIOS */
-			mmio_range(0xfff0, ht, range++, nodes[0].mmio32_base, nodes[0].mmio32_limit, ioh_ht, ioh_link);
+			mmio_range(0xfff0, ht, range++, nodes[0].mmio32_base, nodes[0].mmio32_limit, ioh_ht, ioh_link, 0);
 
 			if (nodes[0].mmio32_base > tom)
-				mmio_range(0xfff0, ht, range++, tom, nodes[0].mmio32_base - 1, ioh_ht, ioh_link);
-			mmio_range(0xfff0, ht, range++, nodes[0].mmio32_limit + 1, nodes[dnc_node_count - 1].mmio32_limit, nodes[0].nc_ht, 0);
-			mmio_range(0xfff0, ht, range++, nodes[dnc_node_count - 1].mmio32_limit + 1, 0xffffffff, ioh_ht, ioh_link);
+				mmio_range(0xfff0, ht, range++, tom, nodes[0].mmio32_base - 1, ioh_ht, ioh_link, 0);
+			mmio_range(0xfff0, ht, range++, nodes[0].mmio32_limit + 1, nodes[dnc_node_count - 1].mmio32_limit, nodes[0].nc_ht, 0, 0);
+			mmio_range(0xfff0, ht, range++, nodes[dnc_node_count - 1].mmio32_limit + 1, 0xffffffff, ioh_ht, ioh_link, 0);
 
 			while (range < 8)
 				mmio_range_del(0xfff0, ht, range++);

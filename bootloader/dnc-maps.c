@@ -192,7 +192,7 @@ void mmio_range_print(const uint16_t sci, const int ht, const int range)
 			sci, ht, range, base, limit, dest, link, lock ? " locked" : "");
 }
 
-void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link)
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link, const bool ovw)
 {
 	if (verbose > 1)
 		printf("Adding MMIO range %d on SCI%03x#%x: 0x%08llx - 0x%08llx to %d.%d\n",
@@ -208,21 +208,39 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 		}
 
 		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
-		if (val & 8) {
-			warning("Trying to overwrite locked MMIO range %d on SCI%03x#%d", range, sci, ht);
-			return;
-		}
-		if (val & 3) {
+		if (!ovw && (val & 3)) {
 			uint64_t base2, limit2;
 			int dest2, link2;
 			bool lock2;
 			mmio_range_read(sci, ht, range, &base2, &limit2, &dest2, &link2, &lock2);
-			warning("Overwriting SCI%03x#%d MMIO range %d on 0x%08llx - 0x%08llx to %d.%d%s", sci, ht, range, base2, limit2, dest2, link2, lock2 ? " locked" : "");
+			fatal("Overwriting SCI%03x#%d MMIO range %d on 0x%08llx:0x%08llx to %d.%d%s", sci, ht, range, base2, limit2, dest2, link2, lock2 ? " locked" : "");
 		}
 
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, ((limit >> 40) << 16) | (base >> 40));
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, ((limit >> 16) << 8) | dest | (link << 4));
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, ((base >> 16) << 8 | 3));
+		uint32_t val2 = ((base >> 16) << 8) | 3;
+		uint32_t val3 = ((limit >> 16) << 8) | dest | (link << 4);
+		uint32_t val4 = ((limit >> 40) << 16) | (base >> 40);
+
+		/* Check if locked */
+		if (val & 8) {
+			if (val2 != (val & ~8))
+				goto unable;
+			if (val3 != dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8))
+				goto unable;
+			if (val4 != dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4))
+				goto unable;
+unable:
+			uint64_t old_base, old_limit;
+			int old_dest, old_link;
+			bool old_lock;
+			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock);
+			warning("Unable to overwrite locked range %d on SCI%03x#%d 0x%llx:0x%llx to %d.%d with 0x%llx:0x%llx to %d.%d",
+				sci, ht, range, old_base, old_limit, old_dest, old_link, base, limit, dest, link);
+			return;
+		}
+
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4, val4);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + loff + range * 8, val3);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8, val2);
 		return;
 	}
 
@@ -235,7 +253,7 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 		assert((val & 3) == 0); /* Unused */
 
 		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8, ((limit >> 16) << 8) | dest);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, ((base >> 16) << 8 | 3));
+		dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8, ((base >> 16) << 8) | 3);
 		return;
 	}
 

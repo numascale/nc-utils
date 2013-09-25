@@ -943,7 +943,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	node = (val >> 16) & 0xfff;
 
 	for (i = 0; i < nodes[0].nc_ht; i++)
-		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0);
+		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0, 0);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -1210,10 +1210,8 @@ static void renumber_remote_bsp(node_info_t *const node)
 
 	/* Rewrite high MMIO ranges to route CSR access to Numachip */
 	for (i = 1; i <= max_ht; i++) {
-		mmio_range_del(sci, i, 8);
-		mmio_range(sci, i, 8, DNC_CSR_BASE, DNC_CSR_LIM, 0, 0);
-		mmio_range_del(sci, i, 9);
-		mmio_range(sci, i, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, 0, 0);
+		mmio_range(sci, i, 8, DNC_CSR_BASE, DNC_CSR_LIM, 0, 0, 1);
+		mmio_range(sci, i, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, 0, 0, 1);
 	}
 
 	printf("]");
@@ -1289,16 +1287,20 @@ static void setup_remote_cores(node_info_t *const node)
 	}
 
 	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
-		/* Clear low MMIO ranges, leaving high ranges */
-		for (j = 0; j < 8; j++)
-			mmio_range_del(sci, i, j);
+		int range = 0;
 
 		/* 1st MMIO map pair is set to point to the VGA segment A0000-C0000 */
-		mmio_range(sci, i, 0, 0xa0000, 0xbffff, node->nc_ht, 0);
+		/* Note that some Supermicro systems use this for the MMIO32 window */
+		mmio_range(sci, i, range++, 0xa0000, 0xbffff, node->nc_ht, 0, 1);
 
 		/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
+		/* FIXME: scope master's PCI bus */
 		uint64_t tom = rdmsr(MSR_TOPMEM);
-		mmio_range(sci, i, 1, tom, 0xffffffff, node->nc_ht, 0);
+		mmio_range(sci, i, range++, tom, 0xffffffff, node->nc_ht, 0, 1);
+
+		/* Clear low MMIO ranges, leaving high ranges */
+		while (range < 8)
+			mmio_range_del(sci, i, range++);
 
 		/* Make sure the VGA Enable register is disabled to forward VGA transactions
 		 * (MMIO A_0000h - B_FFFFh and I/O 3B0h - 3BBh or 3C0h - 3DFh) to the NumaChip */
@@ -2025,7 +2027,7 @@ static void local_chipset_fixup(const bool master)
 		node = (val >> 16) & 0xfff;
 
 		for (i = 0; i < nodes[0].nc_ht; i++)
-			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0);
+			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0, 0);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);

@@ -1650,7 +1650,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		 * and set this value in expansion rom base address register */
 		printf("Setting default CSR maps...\n");
 		for (node = 0; node < nc_ht; node++)
-			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, nc_ht, 0);
+			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, nc_ht, 0, 0);
 
 		printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
 		mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1 << 15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
@@ -1667,9 +1667,8 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	printf("Setting CSR and MCFG maps...\n");
 	for (node = 0; node < nc_ht; node++) {
-		mmio_range_del(0xfff0, node, 8);
-		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, nc_ht, 0);
-		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, nc_ht, 0);
+		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, nc_ht, 0, 1);
+		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, nc_ht, 0, 0);
 	}
 
 	/* Set MMCFG base register so local NC will forward correctly */
