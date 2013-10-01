@@ -74,7 +74,7 @@ static int dimmtest = 1;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 0;
 bool workaround_locks = 0;
-bool pf_cstate6 = 1;
+bool pf_cstate6 = 0;
 uint64_t mem_gap = 0;
 int disable_kvm = -1;
 
