@@ -209,11 +209,12 @@ void tally_local_node(void)
 				printf("Node exceeds cachable memory range, clamping...\n");
 				nodes[0].ht[i].size -= nodes[0].node_mem - max_mem_per_node;
 				nodes[0].node_mem = max_mem_per_node;
-				limit = nodes[0].ht[i].base + nodes[0].ht[i].size - 1;
+				
+				/* Account for Cstate6 save area */
+				limit = nodes[0].ht[i].base + nodes[0].ht[i].size - 1 + pf_cstate6;
 				asm volatile("wbinvd" ::: "memory");
 
 				for (j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++)
-					/* FIXME: Use DRAM range accessors */
 					cht_write_conf(j, FUNC1_MAPS, 0x44 + i * 8, (limit << 16) |
 					               (cht_read_conf(j, FUNC1_MAPS, 0x44 + i * 8) & 0xffff));
 

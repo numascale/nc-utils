@@ -1344,8 +1344,9 @@ static void setup_remote_cores(node_info_t *const node)
 
 		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120,
 		               node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
+		/* Account for Cstate6 save area */
 		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124,
-		               (node->ht[i].base + node->ht[i].size - 1) >> (27 - DRAM_MAP_SHIFT));
+		               (node->ht[i].base + node->ht[i].size - 1 + pf_cstate6) >> (27 - DRAM_MAP_SHIFT));
 	}
 
 	/* Program our local DRAM ranges */
