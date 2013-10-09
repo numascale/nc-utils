@@ -1321,7 +1321,7 @@ static void setup_remote_cores(node_info_t *const node)
 		dram_range(sci, i, 0, (uint64_t)nodes[0].ht[0].base << DRAM_MAP_SHIFT, ((uint64_t)((node - 1)->dram_limit) << DRAM_MAP_SHIFT) - 1, node->nc_ht);
 
 		/* Clear remaining entries */
-		for (j = i; j < 8; j++)
+		for (j = 1; j < 8; j++)
 			dram_range_del(sci, i, j);
 	}
 
