@@ -224,7 +224,7 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 
 			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock);
 			warning("Unable to overwrite locked MMIO range %d on SCI%03x#%d 0x%llx:0x%llx to %d.%d with 0x%llx:0x%llx to %d.%d",
-				sci, ht, range, old_base, old_limit, old_dest, old_link, base, limit, dest, link);
+				range, sci, ht, old_base, old_limit, old_dest, old_link, base, limit, dest, link);
 			return;
 		}
 
