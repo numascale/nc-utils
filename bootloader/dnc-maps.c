@@ -78,7 +78,7 @@ void dram_range_print(const uint16_t sci, const int ht, const int range)
 	assert(range < 8);
 
 	if (dram_range_read(sci, ht, range, &base, &limit, &dest))
-		printf("SCI%03x#%d DRAM range %d: 0x%012llx - 0x%012llx to %d\n", sci, ht, range, base, limit, dest);
+		printf("SCI%03x#%d DRAM range %d: 0x%012llx:0x%012llx to %d\n", sci, ht, range, base, limit, dest);
 }
 
 void dram_range(const uint16_t sci, const int ht, const int range, const uint64_t base, const uint64_t limit, const int dest)
@@ -87,7 +87,7 @@ void dram_range(const uint16_t sci, const int ht, const int range, const uint64_
 	assert(range < 8);
 
 	if (verbose > 1)
-		printf("SCI%03x#%d adding DRAM range %d: 0x%012llx - 0x%012llx to %d\n", sci, ht, range, base, limit, dest);
+		printf("SCI%03x#%d adding DRAM range %d: 0x%012llx:0x%012llx to %d\n", sci, ht, range, base, limit, dest);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> 40);
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, ((limit >> 8) & ~0xffff) | dest);
@@ -182,14 +182,14 @@ void mmio_range_print(const uint16_t sci, const int ht, const int range)
 	assert(range < 8);
 
 	if (mmio_range_read(sci, ht, range, &base, &limit, &dest, &link, &lock))
-		printf("SCI%03x#%d MMIO range %d: 0x%08llx - 0x%08llx to %d.%d%s\n",
+		printf("SCI%03x#%d MMIO range %d: 0x%08llx:0x%08llx to %d.%d%s\n",
 			sci, ht, range, base, limit, dest, link, lock ? " locked" : "");
 }
 
 void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link, const bool ovw)
 {
 	if (verbose > 1)
-		printf("Adding MMIO range %d on SCI%03x#%x: 0x%08llx - 0x%08llx to %d.%d\n",
+		printf("Adding MMIO range %d on SCI%03x#%x: 0x%08llx:0x%08llx to %d.%d\n",
 			range, sci, ht, base, limit, dest, link);
 
 	if (family >= 0x15) {
@@ -324,7 +324,7 @@ void mmio_range_del(const uint16_t sci, const int ht, uint8_t range)
 void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht)
 {
 	if (verbose > 1)
-		printf("Adding Numachip MMIO range %d on SCI%03x: 0x%08llx - 0x%08llx to %d\n",
+		printf("Adding Numachip MMIO range %d on SCI%03x: 0x%08llx:0x%08llx to %d\n",
 			range, sci, base, limit, dht);
 
 	uint8_t ht = sci_to_node(sci)->nc_ht;
@@ -372,13 +372,13 @@ void nc_mmio_range_print(const uint16_t sci, const int range)
 	uint8_t dht;
 
 	if (nc_mmio_range_read(sci, range, &base, &limit, &dht))
-		printf("SCI%03x MMIO range %d: 0x%08llx - 0x%08llx to %d\n", sci, range, base, limit, dht);
+		printf("SCI%03x MMIO range %d: 0x%08llx:0x%08llx to %d\n", sci, range, base, limit, dht);
 }
 
 void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht)
 {
 	if (verbose > 1)
-		printf("Adding Numachip DRAM range %d on SCI%03x: 0x%012llx - 0x%012llx to %d\n",
+		printf("Adding Numachip DRAM range %d on SCI%03x: 0x%012llx:0x%012llx to %d\n",
 			range, sci, base, limit, dht);
 
 	uint8_t ht = sci_to_node(sci)->nc_ht;
@@ -426,7 +426,7 @@ void nc_dram_range_print(const uint16_t sci, const int range)
 	uint8_t dht;
 
 	if (nc_dram_range_read(sci, range, &base, &limit, &dht))
-		printf("SCI%03x DRAM range %d: 0x%012llx - 0x%012llx to %d\n", sci, range, base, limit, dht);
+		printf("SCI%03x DRAM range %d: 0x%012llx:0x%012llx to %d\n", sci, range, base, limit, dht);
 }
 
 void ranges_print(void)

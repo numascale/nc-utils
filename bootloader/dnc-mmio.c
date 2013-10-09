@@ -193,7 +193,7 @@ static void pci_search(const uint16_t sci, const int bus, const bool scope,
 						if (tmp_lim[i])
 							tmp_lim[i] = roundup(tmp_lim[i], GRAN) - 1;
 
-						printf("window %d: 0x%08llx - 0x%08llx\n", i, tmp_base[i], tmp_lim[i]);
+						printf("window %d: 0x%08llx:0x%08llx\n", i, tmp_base[i], tmp_lim[i]);
 
 						if (tmp_base[i] < nodes[0].mmio32_base)
 							nodes[0].mmio32_base = tmp_base[i];
@@ -212,7 +212,7 @@ static void pci_search(const uint16_t sci, const int bus, const bool scope,
 					uint32_t bridge_end = (mmio_cur - 1) & 0xffffffff;
 
 					if (bridge_end > bridge_start) {
-						printf("window: 0x%08x - 0x%08x\n", bridge_start, bridge_end);
+						printf("window: 0x%08x:0x%08x\n", bridge_start, bridge_end);
 						val = ((roundup(bridge_end, GRAN) - 1) & ~0xfffff) | ((bridge_start >> 16) & ~0xf);
 						dnc_write_conf(sci, bus, dev, fn, 0x20, val);
 					} else {
@@ -255,7 +255,7 @@ void setup_mmio_master(void)
 	critical_enter();
 	pci_search(0xfff0, 0, 1, scope_bar);
 	critical_leave();
-	printf("Master MMIO32 range 0x%x - 0x%x\n\n", nodes[0].mmio32_base, nodes[0].mmio32_limit);
+	printf("Master MMIO32 range 0x%x:0x%x\n\n", nodes[0].mmio32_base, nodes[0].mmio32_limit);
 
 	/* Check if there is space for another MMIO window, else wrap */
 	uint64_t len = nodes[0].mmio32_limit - nodes[0].mmio32_base + 1;
@@ -299,7 +299,7 @@ void setup_mmio_slave(const int node)
 
 	mmio_cur = roundup(mmio_cur, GRAN) - 1;
 	nodes[node].mmio32_limit = mmio_cur;
-	printf("SCI%03x MMIO32 range 0x%x - 0x%x\n\n", sci, nodes[node].mmio32_base, nodes[node].mmio32_limit);
+	printf("SCI%03x MMIO32 range 0x%x:0x%x\n\n", sci, nodes[node].mmio32_base, nodes[node].mmio32_limit);
 
 	/* Check if there is space for another MMIO window, else wrap */
 	uint64_t len = nodes[node].mmio32_limit - nodes[node].mmio32_base + 1;
@@ -324,7 +324,7 @@ void setup_mmio_late(void)
 
 	/* Skip range to SCI000, as it's default */
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
-		printf("SCI%03x: 0x%x - 0x%x\n",
+		printf("SCI%03x: 0x%x:0x%x\n",
 			nodes[dnode].sci, nodes[dnode].mmio32_base, nodes[dnode].mmio32_limit);
 
 		/* Verify constraints */

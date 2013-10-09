@@ -165,7 +165,7 @@ static void load_orig_e820_map(void)
 	__intcall(0x15, &rm, &rm);
 
 	assert(rm.eax.l == STR_DW_N("SMAP"));
-	printf("--- E820 memory map\n");
+	printf("E820 memory map:\n");
 	orig_e820_len = rm.ecx.l;
 
 	while (rm.ebx.l > 0) {
@@ -193,9 +193,9 @@ static void load_orig_e820_map(void)
 	}
 
 	for (i = 0; i < len; i++) {
-		printf(" %012llx - %012llx (%012llx) [%x]\n",
+		printf("- 0x%012llx:0x%012llx type %x\n",
 		       orig_e820_map[i].base, orig_e820_map[i].base + orig_e820_map[i].length,
-		       orig_e820_map[i].length, orig_e820_map[i].type);
+		       orig_e820_map[i].type);
 	}
 }
 
@@ -318,7 +318,7 @@ static void update_e820_map(void)
 	if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size)) {
 		e820[max].length -= trace_buf_size;
 		trace_buf = e820[max].base + e820[max].length;
-		printf("SCI%03x#%x tracebuffer reserved @ 0x%llx 0x%llx\n",
+		printf("SCI%03x#%x tracebuffer reserved @ 0x%llx:0x%llx\n",
 		       nodes[0].sci, 0, trace_buf, trace_buf + trace_buf_size - 1);
 	}
 
@@ -337,7 +337,7 @@ static void update_e820_map(void)
 			} else {
 				if ((trace_buf_size > 0) && (length > trace_buf_size)) {
 					length -= trace_buf_size;
-					printf("SCI%03x#%x tracebuffer reserved @ 0x%llx 0x%llx\n",
+					printf("SCI%03x#%x tracebuffer reserved @ 0x%llx:0x%llx\n",
 					       nodes[i].sci, j, base + length, base + length + trace_buf_size - 1);
 				}
 			}
@@ -364,7 +364,7 @@ static void update_e820_map(void)
 	printf("Updated E820 map:\n");
 
 	for (i = 0; i < *len; i++) {
-		printf(" %012llx - %012llx (%012llx) [%x]\n",
+		printf(" %012llx:%012llx (%012llx) [%x]\n",
 		       e820[i].base, e820[i].base + e820[i].length,
 		       e820[i].length, e820[i].type);
 	}
@@ -427,7 +427,7 @@ static void update_acpi_tables_early(void)
 	while (((uint32_t)dsdt < e820->base) || ((uint32_t)dsdt >= (e820->base + e820->length)))
 		e820++;
 
-	printf("Existing ACPI tables in e820 range %012llx - %012llx\n", e820->base, e820->base + e820->length);
+	printf("Existing ACPI tables in e820 range 0x%012llx:0x%010llx\n", e820->base, e820->base + e820->length);
 
 	acpi_sdt_p oemn = acpi_build_oemn();
 	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
@@ -990,7 +990,7 @@ static void setup_other_cores(void)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 12));
 	msr = rdmsr(MSR_APIC_BAR);
-	printf("MSR APIC_BAR: %012llx\n", msr);
+	printf("MSR APIC_BAR 0x%012llx\n", msr);
 	apic = (volatile uint32_t *)((uint32_t)msr & ~0xfff);
 	icr = (volatile uint32_t *)&apic[0x300 / 4];
 	printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
@@ -1884,7 +1884,7 @@ static void update_mtrr(void)
 	printf("Fixed MTRRs:\n");
 	for (int i = 0; fixed_mtrr_regs[i] != 0xffffffff; i++) {
 		new_mtrr_fixed[i] = rdmsr(fixed_mtrr_regs[i]);
-		printf("  [%d] %016llx\n", i, new_mtrr_fixed[i]);
+		printf("- 0x%016llx\n", new_mtrr_fixed[i]);
 	}
 
 	/* Store variable MTRRs */
@@ -1897,7 +1897,7 @@ static void update_mtrr(void)
 		mtrr_var_mask[i] = rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
 
 		if (mtrr_var_mask[i] & 0x800ULL) {
-			printf("  [%d] base=0x%012llx, mask=0x%012llx : %s\n", i, mtrr_var_base[i] & ~0xfffULL,
+			printf("- 0x%012llx:0x%012llx %s\n", mtrr_var_base[i] & ~0xfffULL,
 			       mtrr_var_mask[i] & ~0xfffULL, MTRR_TYPE(mtrr_var_base[i] & 0xffULL));
 		}
 	}
