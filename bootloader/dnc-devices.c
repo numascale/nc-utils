@@ -175,8 +175,12 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 			} else
 				printf("; Setting Completion Timeout unsupported");
 		}
-	} else
-		printf("no PCIe");
+	} else {
+		/* For legacy devices */
+		val = dnc_read_conf(sci, bus, dev, fn, 4);
+		dnc_write_conf(sci, bus, dev, fn, 4, val & ~(1 << 8));
+		printf("disabled SERR");
+	}
 
 	cap = extcapability(PCI_CAP_AER, bus, dev, fn);
 	if (cap != PCI_CAP_NONE) {
