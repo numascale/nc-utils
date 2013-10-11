@@ -2637,11 +2637,11 @@ static int nc_start(void)
 	nodes[0].sci = local_info->sci;
 
 	if (name_matching)
-		printf("Node: <%s> sciid: 0x%03x, partition: %d, osc: %d\n",
-		       local_info->desc, local_info->sci, local_info->partition, local_info->osc);
+		printf("Node: <%s> sciid: 0x%03x, partition: %d, osc: %d, sync_only: %d\n",
+		       local_info->desc, local_info->sci, local_info->partition, local_info->osc, local_info->sync_only);
 	else
-		printf("Node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d\n",
-		       local_info->desc, local_info->uuid, local_info->sci, local_info->partition, local_info->osc);
+		printf("Node: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d, sync_only: %d\n",
+		       local_info->desc, local_info->uuid, local_info->sci, local_info->partition, local_info->osc, local_info->sync_only);
 
 	part = get_partition_config(local_info->partition);
 	if (!part)

@@ -37,6 +37,7 @@ int escrow_populate(void *data)
 	cur->global.symmetric    = 1;
 	cur->global.renumbering  = renumber_bsp == 1;
 	cur->global.remote_io    = !!remote_io;
+	cur->global.observer     = local_info->sync_only;
 
 	if (verbose > 1)
 		printf("Escrow: numachip_rev=%d size=%dx%dx%d northbridges=%d neigh=%d.%d symmetric=%d renumbering=%d\n",

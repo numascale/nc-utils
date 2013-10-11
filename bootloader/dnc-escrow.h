@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define ESCROW_REV   2
+#define ESCROW_REV   3
 
 #define ID_CONFIG    1
 #define ID_GEOM      2
@@ -38,6 +38,7 @@ struct ent_global {
 	unsigned int symmetric : 1;
 	unsigned int renumbering : 1;
 	unsigned int remote_io : 1;
+	unsigned int observer : 1;
 } __attribute__((packed));
 
 struct ent_external {

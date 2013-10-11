@@ -56,7 +56,7 @@ static bool parse_json_bool(json_t *obj, const char *label, uint32_t *val, bool 
 	return 1;
 }
 
-static int parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt)
+static bool parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt)
 {
 	json_t *item;
 	char *end;
@@ -89,7 +89,7 @@ static int parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt
 	return 1;
 }
 
-static int parse_json_str(json_t *obj, const char *label, char *val, int len, int opt)
+static bool parse_json_str(json_t *obj, const char *label, char *val, int len, int opt)
 {
 	json_t *item;
 	val[0] = '\0';
@@ -114,7 +114,7 @@ static int parse_json_str(json_t *obj, const char *label, char *val, int len, in
 	return 1;
 }
 
-static int parse_json(json_t *root)
+static bool parse_json(json_t *root)
 {
 	json_t *fab, *list, *obj;
 	int i;
@@ -241,7 +241,7 @@ static const char *json_errors[] = {
 	"Unclassified problem",
 };
 
-int parse_config_file(char *data)
+bool parse_config_file(char *data)
 {
 	json_t *root = NULL;
 	enum json_error err;
