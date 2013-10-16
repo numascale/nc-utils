@@ -800,6 +800,33 @@ static void cht_print(int neigh, int link)
 	}
 }
 
+#ifdef UNUSED
+static void optimise_linkbuffers(const ht_t ht, const int link)
+{
+	const int IsocRspData = 0, IsocNpReqData = 0, IsocRspCmd = 0, IsocPReq = 0, IsocNpReqCmd = 1;
+	const int FreeData = 0, NpReqData = 3, ProbeCmd = 4, RspCmd = 9, PReq = 2, NpReqCmd = 8;
+
+	/* Ensure constraints are met */
+	int FreeCmd = 32 - NpReqCmd - PReq - RspCmd - ProbeCmd - IsocNpReqCmd - IsocPReq - IsocRspCmd;
+	int FreeData = 8 - NpReqData - RspData - PReq - IsocPReq - IsocNpReqData - IsocRspData;
+	assert((ProbeCmd + RspCmd + PReq + NpReqCmd + IsocRspCmd + IsocPReq + IsocNpReqCmd) <= 24);
+
+	uint32_t val = NpReqCmd | (PReq << 5) | (RspCmd << 8) | (ProbeCmd << 12) |
+	  (NpReqData << 16) | (RspData << 18) | (FreeCmd << 20) | (FreeData << 25);
+	cht_write_conf(ht, FUNC0_HT, 0x90 + link * 0x20, val | (1 << 31));
+
+	val = (IsocNpReqCmd << 16) | (IsocPReq << 19) | (IsocRspCmd << 22) |
+	  (IsocNpReqData << 25) | (IsocRspData << 27);
+	cht_write_conf(ht, FUNC0_HT, 0x94 + link * 0x20, val);
+
+	printf("Asserting LDTSTOP# to optimise HT buffer allocation (FreeCmd=%d FreeData=%d)", FreeCmd, FreeData);
+	uint8_t val8 = pmio_readb(0x8a);
+	pmio_writeb(0x8a, 0xf0);
+	pmio_writeb(0x87, 1);
+	pmio_writeb(0x8a, val8);
+	printf("done\n");
+}
+#endif
 void probefilter_tokens(const ht_t max_ht)
 {
 	/* Reprogram HT link buffering */
