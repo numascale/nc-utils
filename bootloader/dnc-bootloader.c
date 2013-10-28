@@ -1249,31 +1249,6 @@ static void setup_remote_cores(node_info_t *const node)
 		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nodes[0].sci);
 	}
 
-	if (renumber_bsp == -1) {
-		/* Check if renumbering is needed */
-		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
-			for (j = 0; j < 8; j++) {
-				if (dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + j * 8) & (1 << 3)) {
-					renumber_bsp = 1;
-					break;
-				}
-			}
-
-			if (family >= 0x15) {
-				for (j = 0; j < 4; j++) {
-					if (dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x1a0 + j * 8) & (1 << 3)) {
-						renumber_bsp = 1;
-						break;
-					}
-				}
-			}
-
-			/* Break out of outer loop if needed */
-			if (renumber_bsp == 1)
-				break;
-		}
-	}
-
 	if (renumber_bsp == 1)
 		renumber_remote_bsp(node);
 
@@ -2602,6 +2577,36 @@ static void selftest_late_memmap(void)
 	}
 }
 
+/* Assumes slaves are configured with the same BIOS */
+static void check_renumbering(void)
+{
+	if (renumber_bsp != -1)
+		return;
+
+	foreach_nb(ht, nodes) {
+		for (int i = 0; i < 8; i++) {
+			uint32_t val = dnc_read_conf(nodes->sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + i * 8);
+			if (val & (1 << 3)) {
+				renumber_bsp = 1;
+				goto out;
+			}
+		}
+
+		if (family < 0x15)
+			continue;
+
+		for (int i = 0; i < 4; i++) {
+			uint32_t val = dnc_read_conf(nodes->sci, 0, 24 + ht, FUNC1_MAPS, 0x1a0 + i * 8);
+			if (val & (1 << 3)) {
+				renumber_bsp = 1;
+				goto out;
+			}
+		}
+	}
+out:
+	printf("Renumbering flag %d\n", renumber_bsp);
+}
+
 static int nc_start(void)
 {
 	struct part_info *part;
@@ -2687,6 +2692,7 @@ static int nc_start(void)
 		debug_acpi();
 
 	load_orig_e820_map();
+	check_renumbering();
 	update_acpi_tables_early();
 
 	if (local_info->sync_only) {
