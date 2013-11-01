@@ -800,7 +800,6 @@ static void cht_print(int neigh, int link)
 	}
 }
 
-#ifdef UNUSED
 static void optimise_linkbuffers(const ht_t ht, const int link)
 {
 	const int IsocRspData = 0, IsocNpReqData = 0, IsocRspCmd = 0, IsocPReq = 0, IsocNpReqCmd = 1;
@@ -818,15 +817,30 @@ static void optimise_linkbuffers(const ht_t ht, const int link)
 	val = (IsocNpReqCmd << 16) | (IsocPReq << 19) | (IsocRspCmd << 22) |
 	  (IsocNpReqData << 25) | (IsocRspData << 27);
 	cht_write_conf(ht, FUNC0_HT, 0x94 + link * 0x20, val);
+}
 
-	printf("Asserting LDTSTOP# to optimise HT buffer allocation (FreeCmd=%d FreeData=%d)", FreeCmd, FreeData);
+static void optimise_all_linkbuffers(const ht_t max_ht)
+{
+	/* Reprogram HT link buffering */
+	for (ht_t ht = 0; ht < max_ht; ht++) {
+		for (int link = 0; link < 4; link++) {
+			/* Probe Filter doesn't affect IO link buffering */
+			uint32_t val = cht_read_conf(ht, FUNC0_HT, 0x98 + link * 0x20);
+			if ((!(val & 1)) || (val & 4))
+				continue;
+
+			optimise_linkbuffers(ht, link);
+		}
+	}
+
+	printf("Asserting LDTSTOP# to optimise HT buffer allocation...");
 	uint8_t val8 = pmio_readb(0x8a);
 	pmio_writeb(0x8a, 0xf0);
 	pmio_writeb(0x87, 1);
 	pmio_writeb(0x8a, val8);
 	printf("done\n");
 }
-#endif
+
 void probefilter_tokens(const ht_t max_ht)
 {
 	/* Reprogram HT link buffering */
@@ -853,6 +867,115 @@ void probefilter_tokens(const ht_t max_ht)
 	printf("done\n");
 }
 #endif /* __i386 */
+
+static const int ht_freqs[] = {200, 0, 400, 0, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 0, 0, 2800, 3000, 3200};
+
+static void print_ht_path(const uint32_t val)
+{
+	if (val & 1)
+		printf(" this");
+
+	for (int i = 1; i < 9; i++)
+		if (val & (1 << i))
+			printf(" L%d.%d", (i - 1) % 4, (i - 1) / 4);
+}
+
+struct ht_link {
+	int bandwidth;
+	int usage;
+};
+
+static struct ht_link ht_perf[8][4][2];
+static const int ht_neigh[4][4][2] = {
+	{{2, 8}, {8, 8}, {1, 8}, {8, 8}},
+	{{8, 8}, {0, 8}, {8, 8}, {3, 8}},
+	{{8, 8}, {8, 8}, {3, 8}, {8, 0}},
+	{{8, 8}, {2, 8}, {8, 8}, {1, 8}},
+};
+
+static void recurse(ht_t cur, const ht_t dst)
+{
+	printf(" > HT%d", cur);
+	if (cur == 8 || cur == dst)
+		return;
+
+	/* Examine request bits only */
+	uint32_t val = cht_read_conf(cur, FUNC0_HT, 0x40 + dst * 4) & 0x1ff;
+	for (int i = 1; i < 9; i++) {
+		/* Check if route is active */
+		if (val & (1 << i)) {
+			int link = (i - 1) % 4;
+			int sublink = (i - 1) / 4;
+			printf(" L%d.%d", link, sublink);
+			ht_perf[cur][link][sublink].usage += 1;
+			recurse(ht_neigh[cur][link][sublink], dst);
+		}
+	}
+}
+
+static void print_ht_routing(const ht_t max_ht)
+{
+	printf("HT config max_ht=%d:\n", max_ht);
+	for (ht_t src = 0; src < max_ht; src++) {
+		uint32_t val = cht_read_conf(src, FUNC0_HT, 0x1a0);
+		for (int link = 0; link < 4; link++) {
+			for (int sublink = 0; sublink < 2; sublink++) {
+				/* Skip links where InitComplete is unset */
+				if (!(val & (1 << (link * 2 + sublink * 8))))
+					continue;
+
+				bool internal = (val >> (16 + link + sublink * 4)) & 1;
+				bool noncoh = (val >> (link * 2 + sublink * 8 + 1)) & 1;
+				uint32_t val2 = cht_read_conf(src, FUNC0_HT, 0x170 + link * 4 + sublink * 0x10);
+				bool ganged = val2 & 1;
+
+				uint32_t val3 = cht_read_conf(src, FUNC0_HT + sublink * 4, 0x84 + link * 0x20);
+
+				/* Only look at width out */
+				uint32_t width = (val3 >> 28) ? 16 : 8;
+
+				uint32_t val4 = cht_read_conf(src, FUNC0_HT + sublink * 4, 0x88 + link * 0x20);
+				uint32_t val5 = cht_read_conf(src, FUNC0_HT + sublink * 4, 0x9c + link * 0x20);
+				uint32_t freq = ((val4 >> 8) & 0x1f) | ((val5 & 1) << 4);
+
+				if (!noncoh)
+					ht_perf[src][link][sublink].bandwidth = freq * width;
+				printf("- HT%d L%d.%d %s %s %s: %d @ %dMHz bandwidth=%d\n",
+					src, link, sublink, noncoh ? "noncoherent" : "coherent", ganged ? "ganged" : "unganged",
+					internal ? "internal" : "external", width, ht_freqs[freq], ht_perf[src][link][sublink].bandwidth);
+			}
+		}
+	}
+
+	printf("\nHT routing:\n");
+	for (ht_t src = 0; src < max_ht; src++) {
+		for (ht_t dst = 0; dst <= max_ht; dst++) {
+			printf("HT%d to HT%d:", src, dst);
+			recurse(src, dst);
+			printf("\n");
+/*			printf("- HT%d->HT%d:", src, dst);
+			print_ht_path(val & 0x1ff);
+			printf(",");
+			print_ht_path((val >> 9) & 0x1ff);
+			printf(",");
+			print_ht_path((val >> 18) & 0x1ff);
+			printf("\n"); */
+		}
+	}
+
+	printf("\nHT performance:\n");
+	for (ht_t src = 0; src < max_ht; src++) {
+		for (int link = 0; link < 4; link++) {
+			for (int sublink = 0; sublink < 2; sublink++) {
+				if (ht_perf[src][link][sublink].bandwidth == 0)
+					continue;
+
+				int goodness = ht_perf[src][link][sublink].bandwidth / ht_perf[src][link][sublink].usage;
+				printf("- HT%d L%d.%d bandwidth=%d usage=%d goodness=%d\n", src, link, sublink, ht_perf[src][link][sublink].bandwidth, ht_perf[src][link][sublink].usage, goodness);
+			}
+		}
+	}
+}
 
 static void ht_optimize_link(int nc, int rev, int asic_mode)
 {
@@ -974,13 +1097,17 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	if (ht_force_ganged == 2)
 		cht_mirror(neigh, link);
 
+/*	optimise_all_linkbuffers(nc); */
+
 	printf("done\n");
+
+	if (verbose > 1)
+		print_ht_routing(nc);
 
 	if (reboot) {
 		printf("Rebooting to make new link settings effective...");
 		reset_cf9(2, nc - 1);
 	}
-
 #endif
 }
 
