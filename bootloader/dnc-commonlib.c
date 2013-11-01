@@ -803,7 +803,7 @@ static void cht_print(int neigh, int link)
 static void optimise_linkbuffers(const ht_t ht, const int link)
 {
 	const int IsocRspData = 0, IsocNpReqData = 0, IsocRspCmd = 0, IsocPReq = 0, IsocNpReqCmd = 1;
-	const int FreeData = 0, NpReqData = 3, ProbeCmd = 4, RspCmd = 9, PReq = 2, NpReqCmd = 8;
+	const int RspData = 1, NpReqData = 3, ProbeCmd = 4, RspCmd = 9, PReq = 2, NpReqCmd = 8;
 
 	/* Ensure constraints are met */
 	int FreeCmd = 32 - NpReqCmd - PReq - RspCmd - ProbeCmd - IsocNpReqCmd - IsocPReq - IsocRspCmd;
