@@ -2171,6 +2171,51 @@ static void enable_cstate6(void)
 	printf("done\n");
 }
 
+static void calibrate_nb_tscs(void)
+{
+	uint32_t t1, t2, adjustment[8];
+
+	printf("Calibrating nortbridge timestamp counters:\n");
+
+	/* Calculate round-trip delta */
+	printf("- roundtrip in clocks:");
+	for (ht_t ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
+		adjustment[ht] = -1;
+		for (int i = 0; i < 100000; i++) {
+			t1 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+			t2 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+			if ((t2 - t1) < adjustment[ht])
+				adjustment[ht] = t2 - t1;
+		}
+		printf(" %d", adjustment[ht]);
+	}
+
+	printf("\n- uncalibrated offset in clocks:");
+	/* Show clock offsets before calibration */
+	for (ht_t ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
+		t1 = dnc_read_conf(0x000, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
+		t2 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+		printf(" %d", t2 - t1 - (adjustment[0] + adjustment[ht]) / 2);
+	}
+
+	int skip = (rdmsr(MSR_NODE_ID) >> 3) & 7;
+
+	for (ht_t ht = nodes[0].nb_ht_lo + skip + 1; ht <= nodes[0].nb_ht_hi; ht++) {
+		/* Set clock value on secondary sockets, adjusting for two half rount-trips */
+		t1 = dnc_read_conf(0x000, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
+		t1 += (adjustment[0] + adjustment[ht]) / 2;
+		dnc_write_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0, t1);
+	}
+
+	printf("\n- calibrated offset in clocks:");
+	for (ht_t ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
+		t1 = dnc_read_conf(0x000, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
+		t2 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+		printf(" %d", t2 - t1 - (adjustment[0] + adjustment[ht]) / 2);
+	}
+	printf("\n");
+}
+
 static void unify_all_nodes(void)
 {
 	uint16_t i;
@@ -2423,13 +2468,7 @@ static void unify_all_nodes(void)
 	if (pf_cstate6)
 		enable_cstate6();
 
-	/* Sync remote Northbridge TSCs against master */
-	for (node = 1; node < dnc_node_count; node++) {
-		for (ht_t ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-			uint64_t time = dnc_read_conf64(0xfff0, 0, 24 + 0, 2, 0xb0);
-			dnc_write_conf64(nodes[node].sci, 0, 24 + ht, 2, 0xb0, time);
-		}
-	}
+	calibrate_nb_tscs();
 }
 
 static void start_user_os(void)
