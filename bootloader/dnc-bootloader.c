@@ -601,10 +601,11 @@ static void update_acpi_tables(void)
 			for (sci_t dnode = 0; dnode < dnc_node_count; dnode++) {
 				for (ht_t dnb = 0; dnb < nbs; dnb++) {
 					if (snode == dnode) {
-						if (oslit)
-							dist[index] = odist[snb + dnb * nbs];
+						if (snb == dnb)
+							/* Linux requires distance to be 10 to same node */
+							dist[index] = 10;
 						else
-							dist[index] = snb == dnb ? 10 : 16;
+							dist[index] = oslit ? odist[snb + dnb * nbs] : 16;
 					} else
 						dist[index] = dist_fn(nodes[snode].sci, nodes[dnode].sci);
 					if (verbose > 1)
