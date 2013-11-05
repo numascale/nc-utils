@@ -19,6 +19,9 @@
 #define __DNC_MMIO_H 1
 
 #define MMIO_LIMIT 0xfec00000
+#define MMIO_MIN_GAP (32 << 20)
+#define MMIO_VGA_BASE 0xa0000
+#define MMIO_VGA_LIMIT 0xbffff
 
 extern void setup_mmio_master(void);
 extern void setup_mmio_slave(const int node);

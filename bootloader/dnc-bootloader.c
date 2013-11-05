@@ -1266,8 +1266,7 @@ static void setup_remote_cores(node_info_t *const node)
 		int range = 0;
 
 		/* 1st MMIO map pair is set to point to the VGA segment A0000-C0000 */
-		/* Note that some Supermicro systems use this for the MMIO32 window */
-		mmio_range(sci, i, range++, 0xa0000, 0xbffff, node->nc_ht, 0, 1);
+		mmio_range(sci, i, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, node->nc_ht, 0, 1);
 
 		/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
 		/* FIXME: scope master's PCI bus */
@@ -2352,7 +2351,7 @@ static void unify_all_nodes(void)
 	/* Decode remote coherent access to MMIO ranges to the SRI */
 	uint64_t tom = rdmsr(MSR_TOPMEM);
 	uint8_t ioh_ht = (cht_read_conf(0, FUNC0_HT, 0x60) >> 8) & 7;
-	nc_mmio_range(0xfff0, 0, 0xa0000, 0xbffff, ioh_ht);
+	nc_mmio_range(0xfff0, 0, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht);
 	nc_mmio_range(0xfff0, 1, tom, 0xffffffff, ioh_ht);
 
 	uint64_t old_mcfg = rdmsr(MSR_MCFG_BASE) & ~0x3f;

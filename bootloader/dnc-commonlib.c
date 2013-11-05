@@ -654,8 +654,7 @@ static void reorganize_mmio(int nc)
 		if (((base & ~0xff) << 8) < mmio_start)
 			mmio_start = (base & ~0xff) << 8;
 
-		printf("HT#0 MMIO range %d: %08x - %08x\n",
-		       i, base, lim);
+		printf("HT#0 MMIO range %d: %08x:%08x\n", i, base, lim);
 
 		if (base & 0x8) {
 			printf("Range locked, remapping...\n");
