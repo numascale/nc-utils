@@ -312,10 +312,10 @@ void setup_mmio_slave(const int node)
 
 void setup_mmio_late(void)
 {
-	printf("Setting up MMIO32 ATT (default SCI000):\n");
+	printf("Setting up MMIO32 ATTs (default SCI000):\n");
 	for (int i = 0; i < 16; i++) {
 		for (int node = 0; node < dnc_node_count; node++)
-			dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, (1 << 4) | i);
+			dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | i);
 
 		for (int j = 0; j < 256; j++)
 			for (int node = 0; node < dnc_node_count; node++)
@@ -324,8 +324,8 @@ void setup_mmio_late(void)
 
 	/* Skip range to SCI000, as it's default */
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
-		printf("SCI%03x: 0x%x:0x%x\n",
-			nodes[dnode].sci, nodes[dnode].mmio32_base, nodes[dnode].mmio32_limit);
+		printf("- 0x%x:0x%x -> SCI%03x\n",
+			nodes[dnode].mmio32_base, nodes[dnode].mmio32_limit, nodes[dnode].sci);
 
 		/* Verify constraints */
 		assert((nodes[dnode].mmio32_base & 0xfffff) == 0 && (nodes[dnode].mmio32_limit & 0xfffff) == 0xfffff);

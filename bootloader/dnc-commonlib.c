@@ -2134,30 +2134,26 @@ static void perform_selftest(int asic_mode, char p_type[16])
 		const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
 		uint32_t i, chunk;
 
-		/* Test PCII/O ATT */
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000000);
-
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64);
 		for (i = 0; i < 256; i++)
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, i);
 
 		for (i = 0; i < 256; i++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-			assertf(val == i, "PCIlo address map readback failed; have 0x%x, expected 0x%x", val, i);
+			assertf(val == i, "MMIO64 address map readback failed; have 0x%x, expected 0x%x", val, i);
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 		}
 
 		/* MMIO32 ATT has a slightly different layout on FPGA, so skip it for now */
 		if (asic_mode) {
-			/* Test MMIO32 ATT */
 			for (chunk = 0; chunk < maxchunk; chunk++) {
-				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
-
+				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | chunk);
 				for (i = 0; i < 256; i++)
 					dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
 			}
 
 			for (chunk = 0; chunk < maxchunk; chunk++) {
-				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | chunk);
+				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | chunk);
 
 				for (i = 0; i < 256; i++) {
 					val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
@@ -2168,16 +2164,14 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			}
 		}
 
-		/* Test APIC ATT */
 		for (chunk = 0; chunk < maxchunk; chunk++) {
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | chunk);
-
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | chunk);
 			for (i = 0; i < 256; i++)
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
 		}
 
 		for (chunk = 0; chunk < maxchunk; chunk++) {
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | chunk);
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | chunk);
 
 			for (i = 0; i < 256; i++) {
 				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
@@ -2187,16 +2181,14 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			}
 		}
 
-		/* Test IntRecNode ATT */
 		for (chunk = 0; chunk < maxchunk; chunk++) {
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000040 | chunk);
-
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_NODE | chunk);
 			for (i = 0; i < 256; i++)
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
 		}
 
 		for (chunk = 0; chunk < maxchunk; chunk++) {
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000040 | chunk);
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_NODE | chunk);
 
 			for (i = 0; i < 256; i++) {
 				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
@@ -3046,7 +3038,8 @@ static enum node_state setup_fabric(struct node_info *info)
 
 static enum node_state validate_fabric(struct node_info *info, struct part_info *part)
 {
-	int res = 1;
+	bool res = 0;
+	uint32_t val;
 
 	if (dnc_check_fabric(info))
 		return RSP_FABRIC_NOT_OK;
@@ -3055,17 +3048,15 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
 	if (part->builder == info->sci) {
 		printf("Validating fabric");
 
-		for (int iter = 0; res && iter < 10; iter++) {
+		for (int iter = 0; res || iter < 10; iter++) {
 			printf(".");
 
 			for (int i = 1; i < cfg_nodes; i++) {
 				uint16_t node = cfg_nodelist[i].sci;
-				res = (0 == dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020)) && res; /* Select APIC ATT */
+				res |= dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
 
-				for (int j = 0; res && j < 16; j++) {
-					uint32_t val;
-					res = (0 == dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, &val)) && res;
-				}
+				for (int j = 0; res && j < 16; j++)
+					res |= dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, &val);
 			}
 
 			udelay(1000);
@@ -3074,7 +3065,7 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
 		printf("done\n");
 	}
 
-	return (res) ? RSP_FABRIC_OK : RSP_FABRIC_NOT_OK;
+	return res ? RSP_FABRIC_NOT_OK : RSP_FABRIC_OK;
 }
 
 bool dnc_check_fabric(struct node_info *info)

@@ -266,15 +266,11 @@ void tally_local_node(void)
 	}
 	nodes[0].dram_limit = dnc_top_of_mem;
 
-	/* Set PCI I/O map */
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
-
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64);
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
-	/* Set IntRecCtrl */
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);
-
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_CTRL);
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 
@@ -325,7 +321,7 @@ static bool tally_remote_node(const uint16_t sci)
 	val = dnc_read_conf(sci, 0, 24, FUNC0_HT, 0x60);
 	assertf(val != 0xffffffff, "Failed to access config space on SCI%03x", sci);
 
-	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
+	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
 	for (i = 0; i < 16; i++)
 		apic_used[i] = dnc_read_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 
@@ -443,15 +439,11 @@ static bool tally_remote_node(const uint16_t sci)
 
 	printf("SCI%03x has %d cores and %dMB of memory\n", sci, tot_cores, node->node_mem << (DRAM_MAP_SHIFT - 20));
 
-	/* Set PCI I/O map */
-	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00);
-
+	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64);
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
-	/* Set IntRecCtrl */
-	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x30);
-
+	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_CTRL);
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 

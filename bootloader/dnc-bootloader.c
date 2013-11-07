@@ -402,7 +402,7 @@ static void load_existing_apic_map(void)
 	}
 
 	/* Use APIC ATT map as scratch area to communicate APIC maps to master */
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
 	for (i = 0; i < 16; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, apic_used[i]);
 }
@@ -843,7 +843,7 @@ static void setup_apic_atts(void)
 		uint16_t dnode, ht;
 
 		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
-		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020); /* Select APIC ATT */
+		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
 
 		for (j = 0; j < 64; j++)
 			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nodes[0].sci);
@@ -866,7 +866,7 @@ static void setup_apic_atts(void)
 			min = min >> apic_shift;
 			max = (max - 1) >> apic_shift;
 
-			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000020 | ((min>>8) & 0xf)); /* Select APIC ATT */
+			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((min >> 8) & 0xf));
 			for (j = min; j <= max; j++)
 				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nodes[dnode].sci);
 		}
@@ -1243,10 +1243,9 @@ static void setup_remote_cores(node_info_t *const node)
 	} while (val & 0x80000000UL);
 
 	/* Setup remote MMIO */
-	for (j = 0; j < 0x1000; j++) {
+	for (j = 0; j < 4096; j++) {
 		if ((j & 0xff) == 0)
-			dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x00000010 | j >> 8);
-
+			dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | (j >> 8));
 		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nodes[0].sci);
 	}
 
@@ -1372,7 +1371,7 @@ static void setup_remote_cores(node_info_t *const node)
 	dnc_write_csr(sci, H2S_CSR_G3_DRAM_SHARED_LIMIT, node->dram_limit);
 
 	/* "Wraparound" entry, lets APIC 0xff00 - 0xffff target 0x0 to 0xff on destination node */
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 0x0000002f);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | 0xf);
 	i = dnc_read_csr(0xfff0, H2S_CSR_G3_APIC_MAP_SHIFT) + 1;
 
 	for (j = (0xff00 >> i) & 0xff; j < 0x100; j++)

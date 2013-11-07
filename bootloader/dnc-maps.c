@@ -477,16 +477,16 @@ void ranges_print(void)
 			nc_mmio_range_print(nodes[node].sci, range);
 
 	printf("\nNumachip MMIO32 routing:\n");
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, 1 << 4);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32);
 	uint32_t last = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0);
 	printf("SCI%03x: 0x%08llx - ", last, 0ULL);
 
 	int i;
 	for (i = 0; i < 4096; i++) {
-		/* Select MMIO32 ATT RAM */
+		/* Select MMIO32 ATT RAM on all nodes */
 		if ((i % 256) == 0)
 			for (node = 0; node < dnc_node_count; node++)
-				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, (1 << 4) | (i / 256));
+				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | (i / 256));
 
 		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 
@@ -494,15 +494,45 @@ void ranges_print(void)
 		for (node = 1; node < dnc_node_count; node++) {
 			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 			if (sci2 != sci)
-				warning("MMIO32 address 0x%08llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x", (uint64_t)i << 20, sci, sci2, nodes[node].sci);
+				warning("MMIO32 address 0x%08llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
+				  (uint64_t)i << NC_MMIO32_GRAN, sci, sci2, nodes[node].sci);
 		}
 
 		if (sci != last) {
-			uint64_t addr = (uint64_t)i << 20;
+			uint64_t addr = (uint64_t)i << NC_MMIO32_GRAN;
 			printf("0x%08llx\nSCI%03x: 0x%08llx - ", addr - 1, sci, addr);
 			last = sci;
 		}
 	}
-	printf("0x%08llx\n\n", ((uint64_t)i << 20) - 1);
+	printf("0x%08llx\n\n", ((uint64_t)i << NC_MMIO32_GRAN) - 1);
+
+	printf("Numachip MMIO64 routing:\n");
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64);
+	last = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0);
+	printf("SCI%03x: 0x%010llx - ", last, 0ULL);
+
+	for (i = 0; i < 4096; i++) {
+		/* Select MMIO64 ATT RAM on all nodes */
+		if ((i % 256) == 0)
+			for (node = 0; node < dnc_node_count; node++)
+				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64 | (i / 256));
+
+		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
+
+		/* Verify consistency */
+		for (node = 1; node < dnc_node_count; node++) {
+			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
+			if (sci2 != sci)
+				warning("MMIO64 address 0x%010llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
+				  (uint64_t)i << NC_MMIO64_GRAN, sci, sci2, nodes[node].sci);
+		}
+
+		if (sci != last) {
+			uint64_t addr = (uint64_t)i << NC_MMIO64_GRAN;
+			printf("0x%010llx\nSCI%03x: 0x%010llx - ", addr - 1, sci, addr);
+			last = sci;
+		}
+	}
+	printf("0x%08llx\n\n", ((uint64_t)i << NC_MMIO64_GRAN) - 1);
 }
 
