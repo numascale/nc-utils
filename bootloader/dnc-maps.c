@@ -21,8 +21,9 @@
 
 #include "dnc-access.h"
 #include "dnc-commonlib.h"
+#include "dnc-masterlib.h"
 #include "dnc-defs.h"
-#include "../interface/numachip-autodefs.h"
+#include "dnc-regs.h"
 
 static node_info_t *sci_to_node(const uint16_t sci)
 {
@@ -476,12 +477,42 @@ void ranges_print(void)
 		for (range = 0; range < 8; range++)
 			nc_mmio_range_print(nodes[node].sci, range);
 
+	printf("\nNumachip SCC routing:\n");
+
+	/* Select SCC ATT base address */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 1 << (27 + SCC_ATT_INDEX_RANGE));
+	uint32_t i, last = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
+	printf("SCI%03x: 0x%012llx:", last, 0ULL);
+
+	/* Select SCC ATT base address, enable autoinc */
+	for (node = 0; node < dnc_node_count; node++)
+		dnc_write_csr(nodes[node].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) |  (1 << (27 + SCC_ATT_INDEX_RANGE)));
+
+	for (i = 0; i < 4096; i++) {
+		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
+
+		/* Verify consistency */
+		for (node = 1; node < dnc_node_count; node++) {
+			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G0_ATT_ENTRY);
+			if (sci2 != sci)
+				warning("SCC address 0x%012llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
+				  (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT), sci, sci2, nodes[node].sci);
+		}
+
+		if (sci != last) {
+			uint64_t addr = (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT);
+			printf("0x%012llx\nSCI%03x: 0x%012llx:", addr - 1, sci, addr);
+			last = sci;
+		}
+	}
+
+	printf("0x%012llx\n", ((uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT)) - 1);
+
 	printf("\nNumachip MMIO32 routing:\n");
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32);
-	uint32_t last = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0);
+	last = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0);
 	printf("SCI%03x: 0x%08x:", last, 0);
 
-	uint32_t i;
 	for (i = 0; i < 4096; i++) {
 		/* Select MMIO32 ATT RAM on all nodes */
 		if ((i % 256) == 0)
