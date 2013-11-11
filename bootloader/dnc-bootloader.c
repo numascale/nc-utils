@@ -2299,21 +2299,26 @@ static void unify_all_nodes(void)
 
 	for (i = 0; i < dnc_node_count; i++) {
 		uint16_t dnode;
+		uint32_t addr = 0;
 		node = (i == 0) ? 0xfff0 : nodes[i].sci;
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
-			uint32_t addr = nodes[dnode].dram_base;
+			addr = nodes[dnode].dram_base;
 			uint32_t end  = nodes[dnode].dram_limit;
 
-			dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX,
-			              0x80000000 | /* AutoInc */
-			              (0x08000000 << SCC_ATT_INDEX_RANGE) | /* Index Range */
-			              (addr / SCC_ATT_GRAN)); /* Start index for current node */
+			dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
+			  (1 << (27 + SCC_ATT_INDEX_RANGE)) | (addr / SCC_ATT_GRAN));
 
 			while (addr < end) {
 				dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[dnode].sci);
 				addr += SCC_ATT_GRAN;
 			}
+		}
+
+		/* Point the rest at the master */
+		while (addr < (4096 * SCC_ATT_GRAN)) {
+			dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, 0x000);
+			addr += SCC_ATT_GRAN;
 		}
 	}
 
