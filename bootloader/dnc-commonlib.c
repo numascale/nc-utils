@@ -1715,8 +1715,6 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		printf("NumaChip incorporated as HT node %d\n", nc_ht);
 	}
 
-	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
-	printf("Node #%d F0x00: %x\n", nc_ht, val);
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	cht_write_conf(nc_ht, 0,
 	               H2S_CSR_F0_CHTX_NODE_ID,
@@ -1777,8 +1775,6 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	/* Check if BIOS has assigned a BAR0, if so clear it */
 	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER);
-	printf("Command/Status: %08x\n", val);
-
 	if (val & (1 << 1)) {
 		cht_write_conf(nc_ht, 0,
 		               H2S_CSR_F0_STATUS_COMMAND_REGISTER, val & ~(1 << 1));
@@ -1818,7 +1814,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 #endif
 	}
 
-	printf("Setting CSR and MCFG maps...\n");
+	printf("Setting CSR and MCFG maps\n");
 	for (node = 0; node < nc_ht; node++) {
 		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, nc_ht, 0, 1);
 		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, nc_ht, 0, 0);
@@ -2770,13 +2766,8 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
 		if (family >= 0x15) {
 			val = cht_read_conf(i, FUNC5_EXTD, 0x88);
-
-			if (!(val & (1 << 9))) {
-				if (verbose > 0)
-					printf("Setting DisHintInHtMskCnt for node %d\n", i);
-
+			if (!(val & (1 << 9)))
 				cht_write_conf(i, FUNC5_EXTD, 0x88, val | (1 << 9));
-			}
 		}
 
 		/* Disable GARTs; Linux will reenable them on the master, so it's safer to disable
@@ -2812,7 +2803,7 @@ static void save_scc_routing(uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[
 {
 	uint16_t chunk, offs;
 	uint16_t maxchunk = dnc_asic_mode ? 16 : 1;
-	printf("Setting routing table on SCC...");
+	printf("Setting routing table on SCC");
 
 	for (chunk = 0; chunk < maxchunk; chunk++) {
 		dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);

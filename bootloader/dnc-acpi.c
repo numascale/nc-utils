@@ -575,7 +575,7 @@ void debug_acpi(void)
 	if (!rdsp_exists())
 		return;
 
-	printf("ACPI settings:\n");
+	printf("ACPI tables:\n");
 
 	checksum_ok((acpi_sdt_p)rptr, 20);
 	printf(" ptr:   %p, RSDP, %.6s, %d, %08x, %d\n",

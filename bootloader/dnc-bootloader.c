@@ -437,7 +437,7 @@ static void update_acpi_tables_early(void)
 		return;
 	}
 
-	printf("Adding OEMN at %08x with length %d\n", (uint32_t)gap, oemn->len);
+	printf("Adding OEMN at 0x%x\n", (uint32_t)gap);
 	memcpy((char *)gap, oemn, oemn->len);
 	free(oemn);
 
@@ -586,7 +586,7 @@ static void update_acpi_tables(void)
 		odist = NULL;
 
 	if (verbose > 1) {
-		printf("topology distances:\n   ");
+		printf("Topology distances:\n   ");
 		for (int snode = 0; snode < dnc_node_count; snode++)
 			for (ht_t snb = 0; snb < nbs; snb++)
 				printf(" %3d", snode * nbs + snb);
