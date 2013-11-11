@@ -18,14 +18,14 @@
 #ifndef __DNC_DEFS
 #define __DNC_DEFS 1
 
-#define NC_ATT_MMIO64   (0 << 4)
+#define NC_ATT_IO       (0 << 4)
 #define NC_ATT_MMIO32   (1 << 4)
 #define NC_ATT_APIC     (2 << 4)
 #define NC_ATT_INT_CTRL (3 << 4)
 #define NC_ATT_INT_NODE (4 << 4)
 
-#define NC_MMIO32_GRAN 20
-#define NC_MMIO64_GRAN 28
+#define NC_ATT_IO_GRAN      16
+#define NC_ATT_MMIO32_GRAN  20
 
 #define VECTOR_TRAMPOLINE 1
 #define VECTOR_PROBEFILTER_EARLY_f10 2

@@ -266,7 +266,7 @@ void tally_local_node(void)
 	}
 	nodes[0].dram_limit = dnc_top_of_mem;
 
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64);
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
@@ -439,7 +439,7 @@ static bool tally_remote_node(const uint16_t sci)
 
 	printf("SCI%03x has %d cores and %dMB of memory\n", sci, tot_cores, node->node_mem << (DRAM_MAP_SHIFT - 20));
 
-	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64);
+	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 

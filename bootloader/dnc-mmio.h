@@ -20,6 +20,7 @@
 
 #define MMIO_LIMIT 0xfec00000
 #define MMIO_MIN_GAP (32 << 20)
+#define MMIO64_MIN_SIZE (32 << 20)
 #define MMIO_VGA_BASE 0xa0000
 #define MMIO_VGA_LIMIT 0xbffff
 

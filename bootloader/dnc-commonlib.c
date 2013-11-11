@@ -2134,7 +2134,7 @@ static void perform_selftest(int asic_mode, char p_type[16])
 		const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
 		uint32_t i, chunk;
 
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO64);
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 		for (i = 0; i < 256; i++)
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, i);
 
