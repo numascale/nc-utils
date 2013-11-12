@@ -1686,7 +1686,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_DEVICE_VENDOR_ID_REGISTER);
 
 	if (val == 0x06011b47) {
-		printf("NumaChip already present on HT node %d\n", nc_ht);
+		printf("NumaChip already present on HT%d\n", nc_ht);
 		/* Chip already found; make sure the desired width/frequency is set */
 		val = cht_read_conf(nc_ht, 0, 0xec);
 
@@ -1712,7 +1712,7 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 			return -1;
 		}
 
-		printf("NumaChip incorporated as HT node %d\n", nc_ht);
+		printf("NumaChip incorporated as HT%d\n", nc_ht);
 	}
 
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
@@ -1741,13 +1741,8 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		set_cf8extcfg_enable(node);
 
 		val = cht_read_conf(node, FUNC0_HT, 0x68);
-		if ((val & ((1 << 25) | (1 << 18) | (1 << 17))) != ((1 << 25) | (1 << 18) | (1 << 17))) {
-			if (verbose > 0)
-				printf("Enabling cHtExtAddrEn, ApicExtId and ApicExtBrdCst on node %d\n", node);
-
-			cht_write_conf(node, FUNC0_HT, 0x68,
-			               val | (1 << 25) | (1 << 18) | (1 << 17));
-		}
+		if ((val & ((1 << 25) | (1 << 18) | (1 << 17))) != ((1 << 25) | (1 << 18) | (1 << 17)))
+			cht_write_conf(node, FUNC0_HT, 0x68, val | (1 << 25) | (1 << 18) | (1 << 17));
 
 		/* Enable 128MB-granularity on extended MMIO maps */
 		if (family < 0x15) {
@@ -1760,59 +1755,33 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		for (int i = 0; i < 4; i++) {
 			/* Skip coherent/disabled links */
 			val = cht_read_conf(node, FUNC0_HT, 0x98 + i * 0x20);
-
 			if (!(val & (1 << 2)))
 				continue;
 
 			val = cht_read_conf(node, FUNC0_HT, 0x84 + i * 0x20);
-
-			if (!(val & (1 << 15))) {
-				printf("Enabling 64bit I/O addressing on %x#%x...\n", node, i);
+			if (!(val & (1 << 15)))
 				cht_write_conf(node, FUNC0_HT, 0x84 + i * 0x20, val | (1 << 15));
-			}
 		}
 	}
 
-	/* Check if BIOS has assigned a BAR0, if so clear it */
+	/* Disable memory response, BARs and expansion ROM address */
 	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER);
-	if (val & (1 << 1)) {
-		cht_write_conf(nc_ht, 0,
-		               H2S_CSR_F0_STATUS_COMMAND_REGISTER, val & ~(1 << 1));
-		cht_write_conf(nc_ht, 0,
-		               H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0);
-		cht_write_conf(nc_ht, 0,
-		               H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
-	}
+	if (val & (1 << 1))
+		cht_write_conf(nc_ht, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER, val & ~(1 << 1));
+	cht_write_conf(nc_ht, 0, H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0);
+	cht_write_conf(nc_ht, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
 
-	/* Check the expansion rom base address register if this has already been done */
-	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS);
+	/* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
+	 * and set this value in expansion rom base address register */
+	printf("Setting default CSR maps...\n");
+	for (node = 0; node < nc_ht; node++)
+		mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, nc_ht, 0, 0);
 
-	if (val != 0 && !(val & 1)) {
-		if ((val & 0xffff0000) != (DNC_CSR_BASE >> 16)) {
-			printf("Mismatching CSR space hi addresses %04x and %04x; warm-reset needed\n",
-			       (uint32_t)(val >> 16), (uint32_t)(DNC_CSR_BASE >> 32));
-			return -1;
-		}
-	} else {
-#ifdef __i386
-		/* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
-		 * and set this value in expansion rom base address register */
-		printf("Setting default CSR maps...\n");
-		for (node = 0; node < nc_ht; node++)
-			mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, nc_ht, 0, 0);
+	mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1 << 15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
+	              uint32_tbswap(DNC_CSR_BASE >> 32));
 
-		printf("Setting CSR_BASE_ADDRESS to %04llx using default address\n", (DNC_CSR_BASE >> 32));
-		mem64_write32(DEF_DNC_CSR_BASE | (0xfff0 << 16) | (1 << 15) | H2S_CSR_G3_CSR_BASE_ADDRESS,
-		              uint32_tbswap(DNC_CSR_BASE >> 32));
-		cht_write_conf(nc_ht, 0,
-		               H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS,
-		               (DNC_CSR_BASE >> 16)); /* Put DNC_CSR_BASE[47:32] in the rom address register offset[31:16] */
-#else
-		/* XXX: Perhaps we could try default global map in userspace too ? */
-		printf("Unable to determine CSR space address\n");
-		return -1;
-#endif
-	}
+	/* Put DNC_CSR_BASE[47:32] as [15:0] */
+	cht_write_conf(nc_ht, 0, H2S_CSR_F0_CHTX_CPU_COUNT, DNC_CSR_BASE >> 32);
 
 	printf("Setting CSR and MCFG maps\n");
 	for (node = 0; node < nc_ht; node++) {
@@ -1822,9 +1791,8 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 	/* Set MMCFG base register so local NC will forward correctly */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE);
-
 	if (val != (DNC_MCFG_BASE >> 24)) {
-		printf("Setting local MCFG_BASE to %08llx\n", DNC_MCFG_BASE >> 24);
+		printf("Setting local MCFG_BASE to 0x%08llx\n", DNC_MCFG_BASE >> 24);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
 	}
 
