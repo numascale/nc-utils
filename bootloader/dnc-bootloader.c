@@ -354,6 +354,12 @@ static void update_e820_map(void)
 		}
 	}
 
+	/* Reserve IO window */
+	e820[*len].base   = 0xf00000;
+	e820[*len].length = 0x100000;
+	e820[*len].type   = 2;
+	(*len)++;
+
 	/* Reserve MCFG address range so Linux accepts it */
 	e820[*len].base   = DNC_MCFG_BASE;
 	e820[*len].length = DNC_MCFG_LIM - DNC_MCFG_BASE + 1;
@@ -2395,10 +2401,7 @@ static void unify_all_nodes(void)
 	printf("\n");
 
 	if (remote_io) {
-		setup_mmio_master();
-		for (i = 1; i < dnc_node_count; i++)
-			setup_mmio_slave(i);
-
+		setup_mmio();
 		setup_mmio_late();
 	}
 

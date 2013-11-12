@@ -24,8 +24,7 @@
 #define MMIO_VGA_BASE 0xa0000
 #define MMIO_VGA_LIMIT 0xbffff
 
-extern void setup_mmio_master(void);
-extern void setup_mmio_slave(const int node);
+extern void setup_mmio(void);
 extern void setup_mmio_late(void);
 
 #endif

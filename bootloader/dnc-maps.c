@@ -542,17 +542,16 @@ void ranges_print(void)
 	last = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0);
 	printf("SCI%03x: 0x%07x:", last, 0);
 
-	for (i = 0; i < 4096; i++) {
-		/* Select IO ATT RAM on all nodes */
-		if ((i % 256) == 0)
-			for (node = 0; node < dnc_node_count; node++)
-				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO | (i / 256));
+	/* Select IO ATT RAM on all nodes */
+	for (node = 0; node < dnc_node_count; node++)
+		dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 
-		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
+	for (i = 0; i < 256; i++) {
+		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 
 		/* Verify consistency */
 		for (node = 1; node < dnc_node_count; node++) {
-			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
+			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 			if (sci2 != sci)
 				warning("IO address 0x%07x routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
 				  i << NC_ATT_IO_GRAN, sci, sci2, nodes[node].sci);

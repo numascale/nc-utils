@@ -18,29 +18,30 @@
 #include <stdlib.h>
 
 #include "dnc-platform.h"
+#include "dnc-defs.h"
+
+void *operator new(const size_t size)
+{
+    return malloc(size);
+}
+
+void *operator new[](const size_t size)
+{
+    return malloc(size);
+}
+
+void operator delete(void *const p)
+{
+    free(p);
+}
+
+void operator delete[](void *const p)
+{
+    free(p);
+}
 
 Platform *platforms;
 int nplatforms = 0;
-
-void *operator new(size_t size)
-{
-    return malloc(size);
-}
-
-void *operator new[](size_t size)
-{
-    return malloc(size);
-}
-
-void operator delete(void *p)
-{
-    free(p);
-}
-
-void operator delete[](void *p)
-{
-    free(p);
-}
 
 uint32_t IOAPIC::reg_read(const uint16_t reg)
 {
