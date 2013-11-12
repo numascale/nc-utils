@@ -486,7 +486,7 @@ void ranges_print(void)
 
 	/* Select SCC ATT base address, enable autoinc */
 	for (node = 0; node < dnc_node_count; node++)
-		dnc_write_csr(nodes[node].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) |  (1 << (27 + SCC_ATT_INDEX_RANGE)));
+		dnc_write_csr(nodes[node].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + SCC_ATT_INDEX_RANGE)));
 
 	for (i = 0; i < 4096; i++) {
 		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);

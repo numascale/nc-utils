@@ -513,7 +513,7 @@ public:
 	bool allocate(void) {
 		bool retry = 0;
 
-		map32->next = roundup(map32->next, 1 << 20);
+		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
 		io_cur = roundup(io_cur, 1 << 12);
 
 		uint32_t io_start = io_cur, mmio32_start = map32->next;
@@ -541,8 +541,8 @@ public:
 				assert(!(*bar)->allocate(&io_cur));
 
 		/* Align start of bridge windows */
-		map32->next = roundup(map32->next, 1 << 20);
-		mmio64_cur = roundup(mmio64_cur, 1 << DRAM_MAP_SHIFT);
+		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
+		mmio64_cur = roundup(mmio64_cur, SCC_ATT_GRAN << DRAM_MAP_SHIFT);
 		io_cur = roundup(io_cur, 1 << 12);
 
 		uint32_t sec = (dnc_read_conf(node->sci, pbus, pdev, pfn, 0x18) >> 8) & 0xff;
@@ -774,13 +774,13 @@ void setup_mmio_late(void)
 	}
 
 	printf("Setting up SCC ATTs for MMIO64 (default SCI000):\n");
-	for (int i = 0; i < dnc_node_count; i++) {
-		for (uint16_t dnode = 1; dnode < dnc_node_count; dnode++) {
+	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
+		printf("- 0x%llx:0x%llx -> SCI%03x\n",
+			nodes[dnode].mmio64_base, nodes[dnode].mmio64_limit, nodes[dnode].sci);
+
+		for (int i = 0; i < dnc_node_count; i++) {
 			uint64_t addr = nodes[dnode].mmio64_base;
 			uint64_t end  = nodes[dnode].mmio64_limit;
-
-			printf("- 0x%llx:0x%llx -> SCI%03x\n",
-				nodes[dnode].mmio64_base, nodes[dnode].mmio64_limit, nodes[dnode].sci);
 
 			dnc_write_csr(nodes[i].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
 			  (1 << (27 + SCC_ATT_INDEX_RANGE)) | (addr / (SCC_ATT_GRAN << DRAM_MAP_SHIFT)));
