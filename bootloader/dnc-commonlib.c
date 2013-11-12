@@ -1715,6 +1715,15 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		printf("NumaChip incorporated as HT%d\n", nc_ht);
 	}
 
+	/* Check if already fully initialised */
+	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_CHTX_CPU_COUNT);
+	if (val) {
+		error("NumaChip already setup; check boot configuration for target '%s'", next_label);
+		printf("Retrying boot in 5s...");
+		udelay(5E6);
+		exit(0);
+	}
+
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 	cht_write_conf(nc_ht, 0,
 	               H2S_CSR_F0_CHTX_NODE_ID,
