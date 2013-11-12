@@ -482,26 +482,15 @@ public:
 				if ((type & 0x7f) == 1) {
 					*container = new Container(node, bus, dev, fn);
 					container++;
-				} else if ((type & 0x7f) == 0) {
+				} else {
+					assert((type & 0x7f) == 0);
 					device(dev, fn);
-				} else
-					error("unknown type");
+				}
 
 				/* If not multi-function, break out of function loop */
 				if (!fn && !(type & 0x80))
 					break;
 			}
-		}
-
-		if (node->sci == 0x000 && pbus == 0 && pdev == 2 && pfn == 0) {
-			node->mmio64_base = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
-			node->mmio64_limit = node->mmio64_base + 0xffffffff;
-			printf("Routing 0x%llx:0x%llx for master high MMIO\n", node->mmio64_base, node->mmio64_limit);
-
-			uint32_t val = (node->mmio64_base >> 16) | (node->mmio64_limit & 0xffff0000);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, val);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, node->mmio64_base >> 32);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, node->mmio64_limit >> 32);
 		}
 
 		/* Disable IO on slaves */
@@ -530,11 +519,13 @@ public:
 		uint32_t io_start = io_cur, mmio32_start = map32->next;
 		uint64_t mmio64_start = mmio64_cur;
 
-		for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++) {
-			retry |= (*bar)->allocate(&map32->next);
-			if (retry)
-				return 1;
-		}
+		/* Only reallocate 32-bit BARs on slaves */
+		if (node->sci)
+			for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++) {
+				retry |= (*bar)->allocate(&map32->next);
+				if (retry)
+					return 1;
+			}
 
 		/* Allocate child containers, retrying until allocation succeeds */
 		for (Container **c = containers; c < container; c++)
@@ -544,8 +535,10 @@ public:
 		for (BAR **bar = mmio64_bars; bar < mmio64_bar; bar++)
 			assert(!(*bar)->allocate(&mmio64_cur));
 
-		for (BAR **bar = io_bars; bar < io_bar; bar++)
-			assert(!(*bar)->allocate(&io_cur));
+		/* Only reallocate IO BARs on slaves */
+		if (node->sci)
+			for (BAR **bar = io_bars; bar < io_bar; bar++)
+				assert(!(*bar)->allocate(&io_cur));
 
 		/* Align start of bridge windows */
 		map32->next = roundup(map32->next, 1 << 20);
@@ -558,31 +551,34 @@ public:
 
 		uint32_t val;
 
-		/* Disable IO, clear bridge BARs, expansion ROM */
-		val = dnc_read_conf(node->sci, pbus, pdev, pfn, 4);
-		dnc_write_conf(node->sci, pbus, pdev, pfn, 4, val & ~1);
-		dnc_write_conf(node->sci, pbus, pdev, pfn, 0x10, 0);
-		dnc_write_conf(node->sci, pbus, pdev, pfn, 0x14, 0);
-		dnc_write_conf(node->sci, pbus, pdev, pfn, 0x38, 0);
+		/* Only re-allocate IO and 32-bit BARs on slaves */
+		if (node->sci) {
+			/* Disable IO, clear bridge BARs, expansion ROM */
+			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 4);
+			dnc_write_conf(node->sci, pbus, pdev, pfn, 4, val & ~1);
+			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x10, 0);
+			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x14, 0);
+			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x38, 0);
 
-		if (io_bar == io_bars) {
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, 0);
-		} else {
-			val = ((io_cur - 1) & 0xf000) | ((io_start  >> 8) & 0xf0);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, val);
-			val = (io_start >> 16) | ((io_cur - 1) & ~0xffff);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, val);
-		}
+			if (io_bar == io_bars) {
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, 0);
+			} else {
+				val = ((io_cur - 1) & 0xf000) | ((io_start  >> 8) & 0xf0);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, val);
+				val = (io_start >> 16) | ((io_cur - 1) & ~0xffff);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, val);
+			}
 
-		if (mmio32_bar == mmio32_bars)
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, 0x0000fffff);
-		else {
-			for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++)
-				assert(!(*bar)->pref);
+			if (mmio32_bar == mmio32_bars)
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, 0x0000fffff);
+			else {
+				for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++)
+					assert(!(*bar)->pref);
 
-			val = (mmio32_start >> 16) | ((map32->next - 1) & 0xffff0000);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, val);
+				val = (mmio32_start >> 16) | ((map32->next - 1) & 0xffff0000);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, val);
+			}
 		}
 
 		if (mmio64_bar == mmio64_bars) {
@@ -623,13 +619,11 @@ void setup_mmio(void) {
 	/* Scope master BARs and exclude from map */
 	Container **c = containers;
 	(*c)->exclude();
-	c++;
 	map32->dump();
 
 	mmio64_cur = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
-	mmio64_cur += 0x100000000;
 
-	/* Assign slave BARs */
+	/* Assign master 64-bit BARs and all slave BARs */
 	while (c < container) {
 		(*c)->node->mmio32_base = map32->next;
 		(*c)->node->mmio64_base = mmio64_cur;
