@@ -23,6 +23,9 @@
 #define MMIO64_MIN_SIZE (32 << 20)
 #define MMIO_VGA_BASE 0xa0000
 #define MMIO_VGA_LIMIT 0xbffff
+#define IO_BASE 0xf00000
+#define IO_STEP 0x100000
+#define IO_LIMIT 0xffffff
 
 extern void setup_mmio(void);
 extern void setup_mmio_late(void);

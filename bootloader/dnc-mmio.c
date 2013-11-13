@@ -613,7 +613,7 @@ void setup_mmio(void) {
 	}
 	critical_leave();
 
-	io_cur = 0xf00000;
+	io_cur = IO_BASE;
 	map32 = new Map();
 
 	/* Scope master BARs and exclude from map */

@@ -355,8 +355,8 @@ static void update_e820_map(void)
 	}
 
 	/* Reserve IO window */
-	e820[*len].base   = 0xf00000;
-	e820[*len].length = 0x100000;
+	e820[*len].base   = IO_BASE;
+	e820[*len].length = IO_LIMIT - IO_BASE + 1;
 	e820[*len].type   = 2;
 	(*len)++;
 
