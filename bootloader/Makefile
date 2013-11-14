@@ -2,7 +2,7 @@ IFACEPATH := ../interface
 IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS := $(IFACEPATH)/numachip-mseq.h
 CFLAGS    := -I$(IFACEPATH)
-COPT      := -g -Wall -Wextra -Wno-unused-parameter -O3 -std=gnu99
+COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -O3
 
 syslinux_version := 4.07
 syslinux_dir     := syslinux-$(syslinux_version)
@@ -118,61 +118,61 @@ dnc-aml.o: dnc-aml.c dnc-aml.h
 test-masternode: test-masternode.o dnc-test-commonlib.o dnc-test-masterlib.o dnc-test-mmio.o \
 	dnc-test-fabric.o dnc-test-access.o dnc-test-route.o dnc-test-config.o \
 	test-json.o
-	$(CC) $(COPT) $^ -o $@
+	$(CXX) $(COPT) $^ -o $@
 
 test-slavenode: test-slavenode.o dnc-test-commonlib.o dnc-test-fabric.o \
 	dnc-test-access.o dnc-test-route.o dnc-test-config.o test-json.o
-	$(CC) $(COPT) $^ -o $@
+	$(CXX) $(COPT) $^ -o $@
 
 test-routing: test-routing.o dnc-test-access.o
-	$(CC) $(COPT) $^ -o $@
+	$(CXX) $(COPT) $^ -o $@
 
 test-aml: test-aml.o dnc-aml.c
-	$(CC) $(COPT) $^ -o $@
+	$(CXX) $(COPT) $^ -o $@
 
 test-aml.o: test-aml.c dnc-aml.c
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 gen-ucode: gen-ucode.c
-	$(CC) $(COPT) $^ -o $@
+	$(CXX) $(COPT) $^ -o $@
 
 test-masternode.o: test-masternode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h \
 	dnc-masterlib.h dnc-mmio.h dnc-maps.h dnc-fabric.h dnc-regs.h dnc-access.h \
 	dnc-route.h dnc-config.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 test-slavenode.o: test-slavenode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h \
 	dnc-fabric.h dnc-regs.h dnc-access.h \
 	dnc-route.h dnc-config.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h \
 	dnc-regs.h dnc-access.h dnc-fabric.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 test-json.o: $(mjson_dir)/src/json.c
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-commonlib.o: dnc-commonlib.c dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h ../interface/regconfig_200_cl4_bl4_genericrdimm.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-masterlib.o: dnc-masterlib.c $(UCODEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-masterlib.h dnc-mmio.h dnc-maps.h dnc-access.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-mmio.o: dnc-mmio.c $(UCODEDEPS) dnc-mmio.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-fabric.o: dnc-fabric.c dnc-fabric.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-access.o: dnc-test-access.c dnc-access.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-route.o: dnc-route.c dnc-access.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-config.o: dnc-config.c dnc-config.h
-	$(CC) $(COPT) -c $< -o $@
+	$(CXX) $(COPT) -c $< -o $@
 
 $(IFACEDEPS):
 	cd $(IFACEPATH) && make $(notdir $@)
