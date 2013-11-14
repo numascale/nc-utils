@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 
 		struct stat stat;
 		assert(fstat(fd, &stat) == 0);
-		char *data = malloc(stat.st_size);
+		char *data = (char *)malloc(stat.st_size);
 
 		if (read(fd, data, stat.st_size) < stat.st_size) {
 			perror("read");
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 
 		struct stat stat;
 		assert(fstat(fd, &stat) == 0);
-		char *data = malloc(stat.st_size);
+		char *data = (char *)malloc(stat.st_size);
 		assert(data);
 
 		if (read(fd, data, stat.st_size) < 1) {

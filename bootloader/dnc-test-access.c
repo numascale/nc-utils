@@ -174,7 +174,7 @@ static void *_map_mem64(uint64_t addr, uint64_t len)
 			munmap(maps[i].mem, maps[i].len);
 		}
 
-		mem = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, memfd,
+		mem = (char *)mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, memfd,
 		           addr & ~(PAGE_LEN - 1));
 
 		if (mem == MAP_FAILED) {

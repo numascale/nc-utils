@@ -25,15 +25,8 @@ void wait_key(void)
 {
 }
 
-uint8_t checksum(void *addr, int len)
+void broadcast_error(const bool persistent, const char *format, ...)
 {
-	uint8_t sum = 0;
-	int i;
-
-	for (i = 0; i < len; i++)
-		sum += *(uint8_t *)(addr + i);
-
-	return sum;
 }
 
 int main(void)
