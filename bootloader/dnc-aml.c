@@ -57,16 +57,19 @@ protected:
 	static const uint8_t WordPrefix = 0x0b;
 	static const uint8_t DWordPrefix = 0x0c;
 	static const uint8_t QWordPrefix = 0x0e;
+	static const uint8_t BufferOp = 0x11;
+	static const uint16_t EndTag = 0x0079;
 public:
 	static unsigned char *buf, *pos;
 
 	enum ResourceUsage {ResourceConsumer, ResourceProducer};
 	enum MinType {MinNotFixed, MinFixed};
 	enum MaxType {MaxNotFixed, MaxFixed};
+	enum RangeType {NonISAOnly = 1, ISAOnly, EntireRange};
 	enum Decode {PosDecode, SubDecode};
 	enum Cacheability {Cacheable, Uncacheable}; /* FIXME check */
 	enum MemAccess {ReadWrite}; /* FIXME check */
-	enum Type {TypeMemory, TypeIO, TypeBus};
+	enum ResourceType {ResourceTypeMemory, ResourceTypeIO, ResourceTypeBus};
 
 	Container(void): nchildren(0) {}
 
@@ -163,43 +166,63 @@ public:
 	}
 };
 
-class WordBusNumber: public Container {
-	static const uint8_t BufferOp = 0x11;
-	static const uint8_t ENDTAG = 0x79;
-	static const uint8_t MARKER = 0xff;
-	static const uint8_t CHECKSUM = 0x00; /* Not checked */
-
-	const Type type;
+class DWordIO: public Container {
+	const ResourceUsage usage;
 	const MinType mint;
 	const MaxType maxt;
 	const Decode decode;
-	const uint16_t gran, mina, maxa, trans, size;
+	const RangeType ranget;
+	const uint32_t gran, mina, maxa, trans, size;
 public:
-	WordBusNumber(const Type _type, const MinType _mint, const MaxType _maxt,
-	  const Decode _decode, const uint16_t _gran, const uint16_t _mina, const uint16_t _maxa,
-	  const uint16_t _trans, const uint16_t _size):
-	  type(_type), mint(_mint), maxt(_maxt), decode(_decode), gran(_gran),
-	  mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+	DWordIO(const ResourceUsage _usage, const MinType _mint, const MaxType _maxt,
+	  const Decode _decode, const RangeType _ranget, const uint32_t _gran, const uint32_t _mina,
+	  const uint32_t _maxa, const uint32_t _trans, const uint32_t _size):
+	  usage(_usage), mint(_mint), maxt(_maxt), decode(_decode), ranget(_ranget),
+	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
 
 	int len(void) {
-		return Container::len() + 16;
+		return Container::len() + 26;
 	}
 
 	void emit(void) {
 		assert(nchildren == 0);
 
-		unsigned char *pkg_start = pos;
-		pack(BufferOp);
-		unsigned char *pkglen = pos;
-		pack(MARKER); /* PackageLength, updated later */
-		unsigned char *buf_start = pos;
-		/* FIXME replace with length */
-		pack((uint8_t)0x0a); /* BufferSize */
-		unsigned char *bufsize = pos;
-		pack((uint8_t)0); /* Buffer size byte, updated later */
+		pack((uint8_t)0x87);
+		pack((uint16_t)0x0017); /* Minimum length (23) */
+		pack((uint8_t)ResourceTypeIO);
+		pack((uint8_t)((decode << 1) | (mint << 2) | (maxt << 3)));
+		pack((uint8_t)ranget); /* Type-specific flags */
+		pack(gran);
+		pack(mina);
+		pack(maxa);
+		pack(trans);
+		pack(size);
+	}
+};
+
+class WordBusNumber: public Container {
+	const ResourceUsage usage;
+	const MinType mint;
+	const MaxType maxt;
+	const Decode decode;
+	const uint16_t gran, mina, maxa, trans, size;
+public:
+	WordBusNumber(const ResourceUsage _usage, const MinType _mint, const MaxType _maxt,
+	  const Decode _decode, const uint16_t _gran, const uint16_t _mina, const uint16_t _maxa,
+	  const uint16_t _trans, const uint16_t _size):
+	  usage(_usage), mint(_mint), maxt(_maxt), decode(_decode), gran(_gran),
+	  mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+
+	int len(void) {
+		return 16;
+	}
+
+	void emit(void) {
+		assert(nchildren == 0);
+
 		pack((uint8_t)0x88);
 		pack((uint16_t)0x000d); /* Minimum length (13) */
-		pack((uint8_t)type);
+		pack((uint8_t)ResourceTypeBus);
 		pack((uint8_t)((decode << 1) | (mint << 2) | (maxt << 3)));
 		pack((uint8_t)0); /* Type-specific flags; 0 for bus */
 		pack(gran);
@@ -207,12 +230,23 @@ public:
 		pack(maxa);
 		pack(trans);
 		pack(size);
-		pack(ENDTAG);
+	}
+};
 
-		/* Write length */
-		*pkglen = pos - pkg_start;
-		*bufsize = pos - buf_start - 1;
-		pack(CHECKSUM);
+class Package: public Container {
+public:
+	int len(void) {
+		return Container::len() + 2 + 3;
+	}
+
+	void emit(void) {
+		assert(nchildren > 0);
+
+		pack(BufferOp);
+		pack_length(len());
+		pack((uint16_t)0x2c0a); /* FIXME */
+		Container::emit();
+		pack(EndTag);
 	}
 };
 
@@ -319,6 +353,8 @@ public:
 		child(c);
 	};
 
+	Name(const char *_name): name(_name) {}
+
 	int len(void) {
 		return Container::len() + strlen(name);
 	}
@@ -370,8 +406,11 @@ public:
 		child(new Name("_UID", new Constant(0x00)));
 		child(new Name("_BBN", new Constant(0x00)));
 		child(new Name("_SEG", new Constant(node)));
-		child(new Name("_CRS", new WordBusNumber(
-		  WordBusNumber::TypeBus,
+
+		Container *package = new Package();
+
+		package->child(new WordBusNumber(
+		  WordBusNumber::ResourceProducer,
 		  WordBusNumber::MinFixed,
 		  WordBusNumber::MaxFixed,
 		  WordBusNumber::PosDecode,
@@ -379,7 +418,21 @@ public:
 		  0x0000,
 		  0x00FF,
 		  0x0000,
-		  0x0100)));
+		  0x0100));
+
+		package->child(new DWordIO(
+		  DWordIO::ResourceProducer,
+		  DWordIO::MinFixed,
+		  DWordIO::MaxFixed,
+		  DWordIO::PosDecode,
+		  DWordIO::EntireRange,
+		  0x000000,
+		  0xf00000 + (node - 1) * 0x010000,
+		  0xf0ffff + (node - 1) * 0x010000,
+		  0x000000,
+		  0x010000));
+
+		child(new Name("_CRS", package));
 
 		Container *method = new Method("_CBA", 0, Method::NotSerialised);
 		const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
@@ -389,7 +442,7 @@ public:
 	}
 
 	int len(void) {
-		return Container::len() + strlen(name) + 16;
+		return Container::len() + strlen(name) + 11;
 	}
 
 	void emit(void) {
