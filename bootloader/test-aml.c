@@ -14,9 +14,11 @@
 
 #define FNAME "SSDT.dat"
 #define MAXLEN 16384
+#define NODES 3
 
-uint16_t dnc_node_count = 3;
+uint16_t dnc_node_count = NODES;
 int verbose = 2;
+node_info_t *nodes;
 
 /* Insert SSDT dumped from booting with verbose=2 into array */
 static uint32_t table[] = {
@@ -38,6 +40,19 @@ uint8_t checksum(const acpi_sdt_p addr, const int len)
 
 int main(void)
 {
+	nodes = (node_info_t *)malloc(sizeof(*nodes) * NODES);
+	assert(nodes);
+
+	nodes[1].mmio32_base  = 0x80000000;
+	nodes[1].mmio32_limit = 0x823fffff;
+	nodes[1].mmio64_base  = 0x000700000000;
+	nodes[1].mmio64_limit = 0x000cffffffff;
+
+	nodes[2].mmio32_base  = 0x82400000;
+	nodes[2].mmio32_limit = 0x827fffff;
+	nodes[2].mmio64_base  = 0x000d00000000;
+	nodes[2].mmio64_limit = 0x0010ffffffff;
+
 	int fd = open(FNAME, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (fd == -1) {
 		perror("failed to write");
@@ -71,6 +86,7 @@ int main(void)
 
 	printf("use 'iasl -d " FNAME "' to extract\n");
 	assert(close(fd) == 0);
+	free(nodes);
 	return 0;
 }
 

@@ -62,13 +62,13 @@ protected:
 public:
 	static unsigned char *buf, *pos;
 
-	enum ResourceUsage {ResourceConsumer, ResourceProducer};
+	enum ResourceUsage {ResourceProducer, ResourceConsumer};
 	enum MinType {MinNotFixed, MinFixed};
 	enum MaxType {MaxNotFixed, MaxFixed};
 	enum RangeType {NonISAOnly = 1, ISAOnly, EntireRange};
 	enum Decode {PosDecode, SubDecode};
-	enum Cacheability {Cacheable, Uncacheable}; /* FIXME check */
-	enum MemAccess {ReadWrite}; /* FIXME check */
+	enum Cacheability {Uncacheable, Cacheable, CacheableWC, CacheablePrefetch};
+	enum ReadWriteType {ReadOnly, ReadWrite};
 	enum ResourceType {ResourceTypeMemory, ResourceTypeIO, ResourceTypeBus};
 
 	Container(void): nchildren(0) {}
@@ -166,6 +166,40 @@ public:
 	}
 };
 
+class DWordMemory: public Container {
+	const ResourceUsage usage;
+	const MinType mint;
+	const MaxType maxt;
+	const Cacheability cache;
+	const ReadWriteType access;
+	const uint32_t gran, mina, maxa, trans, size;
+public:
+	DWordMemory(const ResourceUsage _usage, const MinType _mint, const MaxType _maxt,
+	  const Cacheability _cache, const ReadWriteType _access, const uint32_t _gran, const uint32_t _mina,
+	  const uint32_t _maxa, const uint32_t _trans, const uint32_t _size):
+	  usage(_usage), mint(_mint), maxt(_maxt), cache(_cache), access(_access),
+	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+
+	int len(void) {
+		return Container::len() + 26;
+	}
+
+	void emit(void) {
+		assert(nchildren == 0);
+
+		pack((uint8_t)0x87);
+		pack((uint16_t)0x0017); /* Minimum length (23) */
+		pack((uint8_t)ResourceTypeMemory);
+		pack((uint8_t)((usage << 1) | (mint << 2) | (maxt << 3)));
+		pack((uint8_t)(access | (cache << 1))); /* Type-specific flags */
+		pack(gran);
+		pack(mina);
+		pack(maxa);
+		pack(trans);
+		pack(size);
+	}
+};
+
 class DWordIO: public Container {
 	const ResourceUsage usage;
 	const MinType mint;
@@ -236,7 +270,7 @@ public:
 class Package: public Container {
 public:
 	int len(void) {
-		return Container::len() + 2 + 3;
+		return Container::len() + 2 + 4;
 	}
 
 	void emit(void) {
@@ -431,6 +465,18 @@ public:
 		  0xf0ffff + (node - 1) * 0x010000,
 		  0x000000,
 		  0x010000));
+
+		package->child(new DWordMemory(
+		  DWordIO::ResourceProducer,
+		  DWordIO::MinFixed,
+		  DWordIO::MaxFixed,
+		  DWordIO::Cacheable,
+		  DWordIO::ReadWrite,
+		  0x000000,
+		  nodes[node].mmio32_base,
+		  nodes[node].mmio32_limit,
+		  0x000000,
+		  nodes[node].mmio32_limit - nodes[node].mmio32_base + 1));
 
 		child(new Name("_CRS", package));
 
