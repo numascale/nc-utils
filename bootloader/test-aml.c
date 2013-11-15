@@ -51,6 +51,7 @@ int main(void)
 		acpi_sdt_p ssdt = (acpi_sdt_p)malloc(MAXLEN);
 		uint32_t extra_len;
 		unsigned char *extra = remote_aml(&extra_len);
+
 		memcpy(ssdt->sig.s, "SSDT", 4);
 		ssdt->revision = ACPI_REV;
 		memcpy(ssdt->oemid, "NUMASC", 6);

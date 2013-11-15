@@ -49,13 +49,14 @@
 class Container {
 	static const int maxchildren = 12;
 	Container *children[maxchildren];
-	int nchildren;
 protected:
+	int nchildren;
 	static const int buflen = 16384;
-	static const uint8_t BYTE = 0x0a;
-	static const uint8_t WORD = 0x0b;
-	static const uint8_t DWORD = 0x0c;
-	static const uint8_t QWORD = 0x0e;
+	static const uint8_t ExtOpPrefix = 0x5b;
+	static const uint8_t BytePrefix = 0x0a;
+	static const uint8_t WordPrefix = 0x0b;
+	static const uint8_t DWordPrefix = 0x0c;
+	static const uint8_t QWordPrefix = 0x0e;
 public:
 	static unsigned char *buf, *pos;
 
@@ -63,12 +64,13 @@ public:
 	enum MinType {MinNotFixed, MinFixed};
 	enum MaxType {MaxNotFixed, MaxFixed};
 	enum Decode {PosDecode, SubDecode};
-	enum Cacheability {Cacheable, Uncacheable};
-	enum MemAccess {ReadWrite};
+	enum Cacheability {Cacheable, Uncacheable}; /* FIXME check */
+	enum MemAccess {ReadWrite}; /* FIXME check */
+	enum Type {TypeMemory, TypeIO, TypeBus};
 
 	Container(void): nchildren(0) {}
 
-	~Container(void) {
+	virtual ~Container(void) {
 		while (nchildren) {
 			delete children[nchildren - 1];
 			nchildren--;
@@ -79,8 +81,6 @@ public:
 		children[nchildren++] = c;
 		assert(nchildren < maxchildren);
 	}
-
-	void emit(void) {} /* Overridden in inheriters */
 
 	void pack(const uint8_t val) {
 		*(uint8_t *)pos = val;
@@ -112,20 +112,29 @@ public:
 		assert(pos < buf + buflen);
 	}
 
-	void pack_length(size_t len) {
-		if (len < 64) {
-			pack((uint8_t)len);
+	virtual int len(void) {
+		int n = 0;
+
+		for (int i = 0; i < nchildren; i++)
+			n += children[i]->len();
+
+		return n;
+	}
+
+	void pack_length(size_t l) {
+		if (l < 64) {
+			pack((uint8_t)l);
 			return;
 		}
 
 		unsigned char *pkglen = pos;
 		/* First octet stores 4 LSBs */
-		pack((uint8_t)(len & 0xf));
-		len >>= 4;
+		pack((uint8_t)(l & 0xf));
+		l >>= 4;
 
-		while (len) {
-			pack((uint8_t)len);
-			len >>= 8;
+		while (l) {
+			pack((uint8_t)l);
+			l >>= 8;
 		}
 
 		/* Compute and store additional octets in 7:6 of first octet */
@@ -134,13 +143,9 @@ public:
 		*pkglen |= octets << 6;
 	}
 
-	void pack_children(void) {
+	virtual void emit(void) {
 		for (int i = 0; i < nchildren; i++)
 			children[i]->emit();
-	}
-
-	uint32_t used(void) {
-		return pos - buf;
 	}
 };
 
@@ -152,45 +157,56 @@ public:
 		assert(buf);
 		pos = buf;
 	}
+
+	int len(void) {
+		return pos - buf;
+	}
 };
 
 class WordBusNumber: public Container {
+	static const uint8_t BufferOp = 0x11;
 	static const uint8_t ENDTAG = 0x79;
-	static const uint8_t CHECKSUM = 0x00; /* Not checked */
-	static const uint8_t BUFFER = 0x11;
 	static const uint8_t MARKER = 0xff;
+	static const uint8_t CHECKSUM = 0x00; /* Not checked */
 
-	const ResourceUsage resource;
+	const Type type;
 	const MinType mint;
 	const MaxType maxt;
 	const Decode decode;
-	const uint32_t gran, mina, maxa, trans, len;
+	const uint16_t gran, mina, maxa, trans, size;
 public:
-	WordBusNumber(const ResourceUsage _resource, const MinType _mint, const MaxType _maxt,
-	  const Decode _decode, const uint32_t _gran, const uint32_t _mina, const uint32_t _maxa,
-	  const uint32_t _trans, const uint32_t _len):
-	  resource(_resource), mint(_mint), maxt(_maxt), decode(_decode), gran(_gran),
-	  mina(_mina), maxa(_maxa), trans(_trans), len(_len) {}
+	WordBusNumber(const Type _type, const MinType _mint, const MaxType _maxt,
+	  const Decode _decode, const uint16_t _gran, const uint16_t _mina, const uint16_t _maxa,
+	  const uint16_t _trans, const uint16_t _size):
+	  type(_type), mint(_mint), maxt(_maxt), decode(_decode), gran(_gran),
+	  mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+
+	int len(void) {
+		return Container::len() + 16;
+	}
 
 	void emit(void) {
+		assert(nchildren == 0);
+
 		unsigned char *pkg_start = pos;
-		pack(BUFFER);
+		pack(BufferOp);
 		unsigned char *pkglen = pos;
 		pack(MARKER); /* PackageLength, updated later */
 		unsigned char *buf_start = pos;
+		/* FIXME replace with length */
 		pack((uint8_t)0x0a); /* BufferSize */
 		unsigned char *bufsize = pos;
 		pack((uint8_t)0); /* Buffer size byte, updated later */
 		pack((uint8_t)0x88);
 		pack((uint16_t)0x000d); /* Minimum length (13) */
-		pack((uint8_t)resource);
+		pack((uint8_t)type);
 		pack((uint8_t)((decode << 1) | (mint << 2) | (maxt << 3)));
 		pack((uint8_t)0); /* Type-specific flags; 0 for bus */
 		pack(gran);
 		pack(mina);
 		pack(maxa);
 		pack(trans);
-		pack(len);
+		pack(size);
 		pack(ENDTAG);
 
 		/* Write length */
@@ -205,46 +221,74 @@ class Constant: public Container {
 public:
 	Constant(const uint64_t _val): val(_val) {}
 
+	int len(void) {
+		if (val <= 1)
+			return 1;
+
+		if (val <= 0xff)
+			return 2;
+
+		if (val <= 0xffff)
+			return 3;
+
+		if (val <= 0xffffffff)
+			return 5;
+
+		return 9;
+	}
+
 	void emit(void) {
+		assert(nchildren == 0);
+
 		if (val <= 1) {
 			pack((uint8_t)val);
 			return;
 		}
 
 		if (val <= 0xff) {
-			pack(BYTE);
+			pack(BytePrefix);
 			pack((uint8_t)val);
+			return;
 		}
 
 		if (val <= 0xffff) {
-			pack(WORD);
+			pack(WordPrefix);
 			pack((uint16_t)val);
+			return;
 		}
 
 		if (val <= 0xffffffff) {
-			pack(DWORD);
+			pack(DWordPrefix);
 			pack((uint32_t)val);
+			return;
 		}
 
-		pack(QWORD);
+		pack(QWordPrefix);
 		pack(val);
 	}
 };
 
 class Method: public Container {
-	static const uint8_t METHOD = 0x14;
+	static const uint8_t MethodOp = 0x14;
 	const char *name;
 public:
 	enum Serialisation {NotSerialised, Serialised};
 
 	Method(const char *_name, const int, const Serialisation): name(_name) {}
 
+	int len(void) {
+		return Container::len() + strlen(name) + 2;
+	}
+
 	void emit(void) {
-		pack(METHOD);
-		pack_length(strlen(name));
+		assert(nchildren > 0);
+
+		pack(MethodOp);
+		pack_length(len());
 		pack(name);
 		pack((uint8_t)0); /* Field flags */
-		pack_children();
+
+		Container::emit();
 	}
 };
 
@@ -254,44 +298,72 @@ class EisaId: public Container {
 public:
 	EisaId(const uint16_t _id): id(_id) {}
 
+	int len(void) {
+		return Container::len() + 5;
+	}
+
 	void emit(void) {
-		pack(DWORD);
+		assert(nchildren == 0);
+
+		pack(DWordPrefix);
 		pack(EISAID);
 		pack(N16(id));
 	}
 };
 
 class Name: public Container {
+	static const uint8_t NameOp = 0x08;
 	const char *name;
 public:
 	Name(const char *_name, Container *c): name(_name) {
 		child(c);
 	};
 
+	int len(void) {
+		return Container::len() + strlen(name);
+	}
+
 	void emit(void) {
+		assert(nchildren > 0);
+
+		pack(NameOp);
 		pack(name);
+
+		Container::emit();
 	}
 };
 
+/* DefReturn := ReturnOp ArgObject */
+/* ArgObject := TermArg => DataRefObject */
 class Return: public Container {
-	static const uint8_t RETURN = 0xa4;
+	static const uint8_t ReturnOp = 0xa4;
 public:
 	Return(Container *c) {
 		child(c);
 	}
 
+	int len(void) {
+		return Container::len() + 1;
+	}
+
 	void emit(void) {
-		pack(RETURN);
+		assert(nchildren > 0);
+		pack(ReturnOp);
+		Container::emit();
 	}
 };
 
+/* DefDevice := DeviceOp PkgLength NameString ObjectList */
+/* DeviceOp := ExtOpPrefix 0x82 */
+/* ExtOpPrefix := 0x5b */
 class Device: public Container {
-	static const uint16_t DEVICE = 0x825b;
+	static const uint8_t DeviceOp = 0x82;
 	static const uint16_t PNP0A08 = 0x0a08;
 	static const uint16_t PNP0A03 = 0x0a03;
-	const char *name;
+	char name[4];
 public:
-	Device(const char *_name, const int node): name(_name) {
+	Device(const char *_name, const int node) {
+		strncpy(name, _name, sizeof(name));
 		child(new Name("_HID", new EisaId(PNP0A08)));
 		child(new Name("_CID", new EisaId(PNP0A03)));
 		child(new Name("_ADR", new Constant(0x00)));
@@ -299,7 +371,7 @@ public:
 		child(new Name("_BBN", new Constant(0x00)));
 		child(new Name("_SEG", new Constant(node)));
 		child(new Name("_CRS", new WordBusNumber(
-		  WordBusNumber::ResourceProducer,
+		  WordBusNumber::TypeBus,
 		  WordBusNumber::MinFixed,
 		  WordBusNumber::MaxFixed,
 		  WordBusNumber::PosDecode,
@@ -307,7 +379,7 @@ public:
 		  0x0000,
 		  0x00FF,
 		  0x0000,
-		  0x1000)));
+		  0x0100)));
 
 		Container *method = new Method("_CBA", 0, Method::NotSerialised);
 		const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
@@ -316,25 +388,40 @@ public:
 		child(method);
 	}
 
+	int len(void) {
+		return Container::len() + strlen(name) + 16;
+	}
+
 	void emit(void) {
-		pack(DEVICE);
-		pack_length(strlen(name));
+		assert(nchildren > 0);
+
+		pack(ExtOpPrefix);
+		pack(DeviceOp);
+		pack_length(len());
 		pack(name);
 
-		pack_children();
+		Container::emit();
 	}
 };
 
 class Scope: public Container {
-	static const uint8_t SCOPE = 0x10;
+	static const uint8_t ScopeOp = 0x10;
 	const char *name;
 public:
 	Scope(const char *_name): name(_name) {}
 
+	int len(void) {
+		return Container::len() + strlen(name) + 6;
+	}
+
 	void emit(void) {
-		pack(SCOPE);
-		pack_length(strlen(name));
+		assert(nchildren > 0);
+
+		pack(ScopeOp);
+		pack_length(len());
 		pack(name);
+
+		Container::emit();
 	}
 };
 
@@ -342,20 +429,21 @@ unsigned char *Container::buf = NULL, *Container::pos = NULL;
 
 unsigned char *remote_aml(uint32_t *len)
 {
-	AML sdst = AML();
+	AML ssdt = AML();
 	Container *sb = new Scope("\\_SB_");
 
 	for (int node = 1; node < dnc_node_count; node++) {
-		char name[4];
-		snprintf(name, sizeof(name), "R%03X", node);
+		char name[5];
+		snprintf(name, sizeof(name), "P%03X", node);
 
 		Container *device = new Device(name, node);
 		sb->child(device);
 	}
 
-	sdst.child(sb);
+	ssdt.child(sb);
+	ssdt.emit();
 
-	*len = sdst.used();
-	return sdst.buf;
+	*len = ssdt.len();
+	return ssdt.buf;
 }
 

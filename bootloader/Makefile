@@ -2,7 +2,7 @@ IFACEPATH := ../interface
 IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS := $(IFACEPATH)/numachip-mseq.h
 CFLAGS    := -I$(IFACEPATH)
-COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -O3
+COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -fno-inline -O0
 
 syslinux_version := 4.07
 syslinux_dir     := syslinux-$(syslinux_version)
@@ -56,7 +56,7 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 	perl -npi -e 's/SIZE_MAX/10485760/' $(mjson_dir)/src/json.h
 
 %.o: %.c $(syslinux_dir)/com32/samples/Makefile
-	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make CC="g++ -fpermissive -Wshadow" $(CURDIR)/$@ NOGPL=1)
+	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make CC="g++ -fpermissive -Wshadow -fno-rtti" $(CURDIR)/$@ NOGPL=1)
 
 %.o: %.S $(syslinux_dir)/com32/samples/Makefile
 	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make $(CURDIR)/$@ NOGPL=1)
