@@ -434,7 +434,7 @@ unsigned char *remote_aml(uint32_t *len)
 
 	for (int node = 1; node < dnc_node_count; node++) {
 		char name[5];
-		snprintf(name, sizeof(name), "P%03X", node);
+		snprintf(name, sizeof(name), "R%03X", node);
 
 		Container *device = new Device(name, node);
 		sb->child(device);
