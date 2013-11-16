@@ -67,7 +67,7 @@ public:
 	enum MaxType {MaxNotFixed, MaxFixed};
 	enum RangeType {NonISAOnly = 1, ISAOnly, EntireRange};
 	enum Decode {PosDecode, SubDecode};
-	enum Cacheability {Uncacheable, Cacheable, CacheableWC, CacheablePrefetch};
+	enum Cacheability {Uncacheable, Cacheable, CacheableWC, Prefetchable};
 	enum ReadWriteType {ReadOnly, ReadWrite};
 	enum ResourceType {ResourceTypeMemory, ResourceTypeIO, ResourceTypeBus};
 
@@ -189,6 +189,40 @@ public:
 
 		pack((uint8_t)0x87);
 		pack((uint16_t)0x0017); /* Minimum length (23) */
+		pack((uint8_t)ResourceTypeMemory);
+		pack((uint8_t)((usage << 1) | (mint << 2) | (maxt << 3)));
+		pack((uint8_t)(access | (cache << 1))); /* Type-specific flags */
+		pack(gran);
+		pack(mina);
+		pack(maxa);
+		pack(trans);
+		pack(size);
+	}
+};
+
+class QWordMemory: public Container {
+	const ResourceUsage usage;
+	const MinType mint;
+	const MaxType maxt;
+	const Cacheability cache;
+	const ReadWriteType access;
+	const uint64_t gran, mina, maxa, trans, size;
+public:
+	QWordMemory(const ResourceUsage _usage, const MinType _mint, const MaxType _maxt,
+	  const Cacheability _cache, const ReadWriteType _access, const uint64_t _gran, const uint64_t _mina,
+	  const uint64_t _maxa, const uint64_t _trans, const uint64_t _size):
+	  usage(_usage), mint(_mint), maxt(_maxt), cache(_cache), access(_access),
+	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+
+	int len(void) {
+		return Container::len() + 46;
+	}
+
+	void emit(void) {
+		assert(nchildren == 0);
+
+		pack((uint8_t)0x8a);
+		pack((uint16_t)0x002b); /* Minimum length (43) */
 		pack((uint8_t)ResourceTypeMemory);
 		pack((uint8_t)((usage << 1) | (mint << 2) | (maxt << 3)));
 		pack((uint8_t)(access | (cache << 1))); /* Type-specific flags */
@@ -467,16 +501,28 @@ public:
 		  0x010000));
 
 		package->child(new DWordMemory(
-		  DWordIO::ResourceProducer,
-		  DWordIO::MinFixed,
-		  DWordIO::MaxFixed,
-		  DWordIO::Cacheable,
-		  DWordIO::ReadWrite,
-		  0x000000,
+		  DWordMemory::ResourceProducer,
+		  DWordMemory::MinFixed,
+		  DWordMemory::MaxFixed,
+		  DWordMemory::Cacheable,
+		  DWordMemory::ReadWrite,
+		  0x00000000,
 		  nodes[node].mmio32_base,
 		  nodes[node].mmio32_limit,
-		  0x000000,
+		  0x00000000,
 		  nodes[node].mmio32_limit - nodes[node].mmio32_base + 1));
+
+		package->child(new QWordMemory(
+		  QWordMemory::ResourceProducer,
+		  QWordMemory::MinFixed,
+		  QWordMemory::MaxFixed,
+		  QWordMemory::Prefetchable,
+		  QWordMemory::ReadWrite,
+		  0x00000000,
+		  nodes[node].mmio64_base,
+		  nodes[node].mmio64_limit,
+		  0x00000000,
+		  nodes[node].mmio64_limit - nodes[node].mmio64_base + 1));
 
 		child(new Name("_CRS", package));
 
