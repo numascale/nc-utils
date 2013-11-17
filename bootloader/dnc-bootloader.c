@@ -74,6 +74,7 @@ uint8_t nodedata[4096];
 char *asm_relocated;
 static char *tables_relocated;
 char *tables_next;
+static acpi_sdt_p rsdt = NULL, xsdt = NULL;
 
 IMPORT_RELOCATED(new_e820_handler);
 IMPORT_RELOCATED(old_int15_vec);
@@ -421,11 +422,9 @@ static void tables_add(const size_t len)
 
 static void update_acpi_tables_early(void)
 {
-	acpi_sdt_p rsdt = find_root("RSDT");
+	acpi_sdt_p orsdt = find_root("RSDT");
 	assert(rsdt);
-	acpi_sdt_p xsdt = find_root("XSDT");
-	assert(xsdt);
-	acpi_sdt_p dsdt = find_child("APIC", rsdt, 4);
+	acpi_sdt_p dsdt = find_child("APIC", orsdt, 4);
 	assert(dsdt);
 
 	/* Find e820 entry with ACPI table */
@@ -472,9 +471,9 @@ static void update_acpi_tables(void)
 	/* replace_root may fail if rptr is r/o, so we read the pointers
 	 * back. In case of failure, we'll assume the existing rsdt/xsdt
 	 * tables can be extended where they are */
-	acpi_sdt_p rsdt = (acpi_sdt_p)tables_next;
+	rsdt = (acpi_sdt_p)tables_next;
 	tables_add(RSDT_MAX);
-	acpi_sdt_p xsdt = (acpi_sdt_p)tables_next;
+	xsdt = (acpi_sdt_p)tables_next;
 	tables_add(RSDT_MAX);
 
 	oroot = find_root("RSDT");
@@ -743,34 +742,35 @@ static void update_acpi_tables(void)
 
 	if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
 	if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
+}
 
-	if (remote_io) {
-		uint32_t extra_len;
-		unsigned char *extra = remote_aml(&extra_len);
+static void update_acpi_tables_late(void)
+{
+	uint32_t extra_len;
+	unsigned char *extra = remote_aml(&extra_len);
 
-		if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
-			if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len)) {
-				/* Appending to existing DSDT or SSDT failed; construct new SSDT */
-				acpi_sdt_p ssdt = (acpi_sdt_p)tables_next;
-				memset(ssdt, 0, sizeof(*ssdt) + 8);
-				memcpy(ssdt->sig.s, "SSDT", 4);
-				ssdt->revision = ACPI_REV;
-				memcpy(ssdt->oemid, "NUMASC", 6);
-				memcpy(ssdt->oemtableid, "N313NUMA", 8);
-				ssdt->oemrev = 0;
-				memcpy(ssdt->creatorid, "1B47", 4);
-				ssdt->creatorrev = 1;
-				memcpy(ssdt->data, extra, extra_len);
-				ssdt->len = offsetof(struct acpi_sdt, data) + extra_len;
-				ssdt->checksum = -checksum(ssdt, ssdt->len);
-				tables_add(ssdt->len);
+	if (!acpi_append(rsdt, 4, "SSDT", extra, extra_len))
+		if (!acpi_append(rsdt, 4, "DSDT", extra, extra_len)) {
+			/* Appending to existing DSDT or SSDT failed; construct new SSDT */
+			acpi_sdt_p ssdt = (acpi_sdt_p)tables_next;
+			memset(ssdt, 0, sizeof(*ssdt) + 8);
+			memcpy(ssdt->sig.s, "SSDT", 4);
+			ssdt->revision = ACPI_REV;
+			memcpy(ssdt->oemid, "NUMASC", 6);
+			memcpy(ssdt->oemtableid, "N313NUMA", 8);
+			ssdt->oemrev = 0;
+			memcpy(ssdt->creatorid, "1B47", 4);
+			ssdt->creatorrev = 1;
+			memcpy(ssdt->data, extra, extra_len);
+			ssdt->len = offsetof(struct acpi_sdt, data) + extra_len;
+			ssdt->checksum = -checksum(ssdt, ssdt->len);
+			tables_add(ssdt->len);
 
-				add_child(ssdt, xsdt, 8);
-				add_child(ssdt, rsdt, 4);
-			}
+			add_child(ssdt, xsdt, 8);
+			add_child(ssdt, rsdt, 4);
+		}
 
-		free(extra);
-	}
+	free(extra);
 }
 
 static struct mp_floating_pointer *find_mptable(const char *start, int len) {
@@ -2435,6 +2435,7 @@ static void unify_all_nodes(void)
 	if (remote_io) {
 		setup_mmio();
 		setup_mmio_late();
+		update_acpi_tables_late();
 	}
 
 	printf("Clearing remote memory...");

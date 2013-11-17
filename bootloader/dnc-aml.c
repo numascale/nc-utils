@@ -488,6 +488,9 @@ public:
 		  0x0000,
 		  0x0100));
 
+		assert(nodes[node].io_base);
+		assert(nodes[node].io_limit);
+
 		package->child(new DWordIO(
 		  DWordIO::ResourceProducer,
 		  DWordIO::MinFixed,
@@ -495,10 +498,13 @@ public:
 		  DWordIO::PosDecode,
 		  DWordIO::EntireRange,
 		  0x000000,
-		  0xf00000 + (node - 1) * 0x010000,
-		  0xf0ffff + (node - 1) * 0x010000,
+		  nodes[node].io_base,
+		  nodes[node].io_limit,
 		  0x000000,
-		  0x010000));
+		  nodes[node].io_limit - nodes[node].io_base + 1));
+
+		assert(nodes[node].mmio32_base);
+		assert(nodes[node].mmio32_limit);
 
 		package->child(new DWordMemory(
 		  DWordMemory::ResourceProducer,
@@ -511,6 +517,9 @@ public:
 		  nodes[node].mmio32_limit,
 		  0x00000000,
 		  nodes[node].mmio32_limit - nodes[node].mmio32_base + 1));
+
+		assert(nodes[node].mmio64_base);
+		assert(nodes[node].mmio64_limit);
 
 		package->child(new QWordMemory(
 		  QWordMemory::ResourceProducer,
