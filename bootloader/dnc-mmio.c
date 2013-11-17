@@ -53,6 +53,14 @@ void operator delete[](void *const p)
     free(p);
 }
 
+void dump_device(const sci_t sci, const int bus, const int dev, const int fn)
+{
+	printf("\nPCI device SCI%03x.%02x:%02x.%x:\n", sci, bus, dev, fn);
+	for (int offset = 0; offset <= 0x3c; offset += 4)
+		printf("%08x\n", dnc_read_conf(sci, bus, dev, fn, offset));
+	printf("\n");
+}
+
 static bool size_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg, uint64_t *addr, uint64_t *len, bool *pref, bool *io)
 {
 	uint32_t cmd = dnc_read_conf(sci, bus, dev, fn, 4);
@@ -388,7 +396,7 @@ out:
 	bool allocate(uint64_t *addr) {
 		if (!s64 && *addr > 0xffffffff) {
 			*addr = 0;
-			printf("out of space\n");
+			warning("Unable to allocate SCI%03x %02x:%02x.%x BAR 0x%x", sci, bus, dev, fn, reg);
 		} else {
 			if (io)
 				*addr = roundup(*addr, max(len, 16));
@@ -437,8 +445,7 @@ class Container {
 				continue;
 			}
 
-			/* Relocate 64-bit prefetchable ranges above TOM */
-			if (bar->s64 && bar->pref && bar->len >= MMIO64_MIN_SIZE) {
+			if (bar->s64 && bar->pref) {
 				*mmio64_bar = bar;
 				mmio64_bar++;
 				assert(mmio64_bar - mmio64_bars < UNITS);
@@ -448,6 +455,9 @@ class Container {
 				io_bar++;
 				assert(io_bar - io_bars < UNITS);
 			} else {
+				if (bar->pref)
+					warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", offset, node->sci, bus, dev, fn);
+
 				*mmio32_bar = bar;
 				mmio32_bar++;
 				assert(mmio32_bar - mmio32_bars < UNITS);
@@ -493,7 +503,7 @@ public:
 			}
 		}
 
-		/* Disable IO on slaves */
+		/* Disable IO on slaves; drivers will enable it if needed */
 		if (node->sci) {
 			uint32_t val = dnc_read_conf(node->sci, pbus, pdev, pfn, 4);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 4, val & ~1);
@@ -504,6 +514,11 @@ public:
 	void exclude(void) {
 		for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++)
 			map32->exclude((*bar)->assigned, (*bar)->len);
+
+		for (BAR **bar = mmio64_bars; bar < mmio64_bar; bar++) {
+			assert((*bar)->assigned < 0xffffffff);
+			map32->exclude((*bar)->assigned, (*bar)->len);
+		}
 
 		for (Container **c = containers; c < container; c++)
 			(*c)->exclude();
@@ -532,8 +547,9 @@ public:
 			while ((*c)->allocate())
 				printf("retrying allocation\n");
 
-		for (BAR **bar = mmio64_bars; bar < mmio64_bar; bar++)
-			assert(!(*bar)->allocate(&mmio64_cur));
+		if (node->sci)
+			for (BAR **bar = mmio64_bars; bar < mmio64_bar; bar++)
+				assert(!(*bar)->allocate(&mmio64_cur));
 
 		/* Only reallocate IO BARs on slaves */
 		if (node->sci)
@@ -556,11 +572,23 @@ public:
 			/* Disable IO, clear bridge BARs, expansion ROM */
 			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 4);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 4, val & ~1);
+
+			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x10);
+			if (val)
+				warning("SCI%3x %02x:%02x.%d has reg 0x10 as %08x", node->sci, pbus, pdev, pfn, val);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x10, 0);
+
+			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x14);
+			if (val)
+				warning("SCI%3x %02x:%02x.%d has reg 0x14 as %08x", node->sci, pbus, pdev, pfn, val);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x14, 0);
+
+			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x38);
+			if (val)
+				warning("SCI%3x %02x:%02x.%d has reg 0x38 as %08x", node->sci, pbus, pdev, pfn, val);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x38, 0);
 
-			if (io_bar == io_bars) {
+			if (io_bar == io_bars || io_cur == io_start) {
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, 0);
 			} else {
@@ -570,18 +598,15 @@ public:
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, val);
 			}
 
-			if (mmio32_bar == mmio32_bars)
+			if (mmio32_bar == mmio32_bars || map32->next == mmio32_start)
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, 0x0000fffff);
 			else {
-				for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++)
-					assert(!(*bar)->pref);
-
 				val = (mmio32_start >> 16) | ((map32->next - 1) & 0xffff0000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, val);
 			}
 		}
 
-		if (mmio64_bar == mmio64_bars) {
+		if (mmio64_bar == mmio64_bars || mmio64_cur == mmio64_start) {
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, 0x0000ffff);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, 0x00000000);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, 0x00000000);
@@ -622,6 +647,9 @@ void setup_mmio(void) {
 	map32->dump();
 
 	mmio64_cur = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
+
+	/* Skip reassigning on master */
+	c++;
 
 	/* Assign master 64-bit BARs and all slave BARs */
 	while (c < container) {
@@ -717,14 +745,6 @@ void setup_mmio_slave(const int node)
 	}
 }
 
-static void dump_device(const sci_t sci, const int bus, const int dev, const int fn)
-{
-	printf("\nPCI device SCI%03x.%02x:%02x.%x:\n", sci, bus, dev, fn);
-	for (int offset = 0; offset <= 0x3c; offset += 4)
-		printf("%08x\n", dnc_read_conf(sci, bus, dev, fn, offset));
-	printf("\n");
-}
-
 void setup_mmio_late(void)
 {
 	printf("Setting up MMIO32 ATTs (default SCI000):\n");
@@ -811,7 +831,7 @@ void setup_mmio_late(void)
 		} else
 			nc_mmio_range(sci, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht);
 
-		if (nodes[i].mmio64_base)
+		if (nodes[i].mmio64_limit > nodes[i].mmio64_base)
 			nc_mmio_range(sci, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht);
 
 		while (range < 8)
@@ -841,8 +861,8 @@ void setup_mmio_late(void)
 			/* 32-bit above local range */
 			mmio_range(sci, ht, range++, nodes[i].mmio32_limit + 1, 0xffffffff, nodes[i].nc_ht, 0, 1);
 
-			/* 64-bit under local range; skip SCI000 as no 64-bit ranges */
-			if (i)
+			/* 64-bit under local range */
+			if (nodes[i].mmio64_base > ((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT))
 				mmio_range(sci, ht, range++, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, nodes[i].mmio64_base - 1, nodes[i].nc_ht, 0, 1);
 
 			/* 64-bit local range */
@@ -875,7 +895,9 @@ void setup_mmio_late(void)
 			for (int erange = 0; erange < map32->ranges; erange++)
 				mmio_range(0xfff0, ht, range++, map32->excluded[erange].start, map32->excluded[erange].end, ioh_ht, ioh_link, 1);
 
-			mmio_range(0xfff0, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1);
+			if (nodes[0].mmio64_limit > nodes[0].mmio64_base)
+				mmio_range(0xfff0, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1);
+
 			mmio_range(0xfff0, ht, range++, nodes[1].mmio64_base, nodes[dnc_node_count - 1].mmio64_limit, nodes[0].nc_ht, 0, 1);
 
 			while (range < 8)
