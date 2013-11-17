@@ -1994,6 +1994,38 @@ static void local_chipset_fixup(const bool master)
 			dnc_write_conf(0xfff0, 4, 6, 0, 4, 0);
 			val = dnc_read_conf(0xfff0, 0, 20, 4, 0xfc);
 			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & ~0xffff);
+
+			/* Disable the LPC controller */
+			dnc_write_conf(0xfff0, 0, 14, 3, 4, 0);
+			val = dnc_read_conf(0xfff0, 0, 20, 4, 0x64);
+			dnc_write_conf(0xfff0, 0, 20, 4, 0x64, val & ~(1 << 20));
+
+			/* Disable OHCI */
+			dnc_write_conf(0xfff0, 0, 12, 0, 4, 0);
+			dnc_write_conf(0xfff0, 0, 12, 1, 4, 0);
+			dnc_write_conf(0xfff0, 0, 12, 2, 4, 0);
+			dnc_write_conf(0xfff0, 0, 13, 0, 4, 0);
+			dnc_write_conf(0xfff0, 0, 13, 1, 4, 0);
+			dnc_write_conf(0xfff0, 0, 13, 2, 4, 0);
+
+			val = dnc_read_conf(0xfff0, 0, 20, 0, 0x68);
+			dnc_write_conf(0xfff0, 0, 20, 0, 0x68, val & ~0xf7);
+
+			/* Disable and hide HD audio */
+			dnc_write_conf(0xfff0, 1, 0, 1, 4, 0);
+			val8 = pmio_readb(0x59);
+			pmio_writeb(0x59, val8 & ~(1 << 3));
+
+			val = dnc_read_conf(0xfff0, 0, 20, 4, 0x5c);
+			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & 0xffff);
+
+			/* Hide SMBus controller */
+			dnc_write_conf(0xfff0, 0, 20, 0, 4, 0);
+			val8 = pmio_readb(0xba);
+			pmio_writeb(0xba, val8 | (1 << 6));
+
+			val = dnc_read_conf(0xfff0, 0, 20, 0, 0x40);
+			dnc_write_conf(0xfff0, 0, 20, 0, 0x40, val & ~(1 << 28));
 		}
 	}
 	/* Only needed to workaround rev A/B issue */
