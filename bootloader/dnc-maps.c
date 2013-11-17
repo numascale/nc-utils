@@ -84,11 +84,12 @@ void dram_range_print(const uint16_t sci, const int ht, const int range)
 
 void dram_range(const uint16_t sci, const int ht, const int range, const uint64_t base, const uint64_t limit, const int dest)
 {
-	assert(dest < 8);
-	assert(range < 8);
-
 	if (verbose > 1)
 		printf("SCI%03x#%d adding DRAM range %d: 0x%012llx:0x%012llx to %d\n", sci, ht, range, base, limit, dest);
+
+	assert(dest < 8);
+	assert(range < 8);
+	assert(limit > base);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> 40);
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, ((limit >> 8) & ~0xffff) | dest);
@@ -192,6 +193,8 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 	if (verbose > 1)
 		printf("Adding MMIO range %d on SCI%03x#%x: 0x%08llx:0x%08llx to %d.%d\n",
 			range, sci, ht, base, limit, dest, link);
+
+	assert(limit > base);
 
 	if (family >= 0x15) {
 		assert(range < 12);
@@ -328,6 +331,9 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 		printf("Adding Numachip MMIO range %d on SCI%03x: 0x%08llx:0x%08llx to %d\n",
 			range, sci, base, limit, dht);
 
+	assert(limit > base);
+	assert(range < 8); /* FIXME check */
+
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 16) << 8) | 3;
 	uint32_t b = ((limit >> 16) << 8) | dht;
@@ -342,6 +348,7 @@ void nc_mmio_range_del(const uint16_t sci, const int range)
 	if (verbose > 2)
 		printf("Deleting Numachip MMIO range %d on SCI%03x\n", range, sci);
 
+	assert(range < 8); /* FIXME check */
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
@@ -351,6 +358,7 @@ void nc_mmio_range_del(const uint16_t sci, const int range)
 
 bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht)
 {
+	assert(range < 8); /* FIXME check */
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
@@ -382,6 +390,9 @@ void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, con
 		printf("Adding Numachip DRAM range %d on SCI%03x: 0x%012llx:0x%012llx to %d\n",
 			range, sci, base, limit, dht);
 
+	assert(limit > base);
+	assert(range < 8); /* FIXME check */
+
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 24) << 8) | 3;
 	uint32_t b = ((limit >> 24) << 8) | dht;
@@ -396,6 +407,7 @@ void nc_dram_range_del(const uint16_t sci, const int range)
 	if (verbose > 2)
 		printf("Deleting Numachip DRAM range %d on SCI%03x\n", range, sci);
 
+	assert(range < 8); /* FIXME check */
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
