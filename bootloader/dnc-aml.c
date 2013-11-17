@@ -464,7 +464,7 @@ class Device: public Container {
 	static const uint8_t DeviceOp = 0x82;
 	static const uint16_t PNP0A08 = 0x0a08;
 	static const uint16_t PNP0A03 = 0x0a03;
-	char name[4];
+	char name[5];
 public:
 	Device(const char *_name, const int node) {
 		strncpy(name, _name, sizeof(name));
