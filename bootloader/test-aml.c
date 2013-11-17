@@ -43,15 +43,19 @@ int main(void)
 	nodes = (node_info_t *)malloc(sizeof(*nodes) * NODES);
 	assert(nodes);
 
+	nodes[1].io_base      = 0xf00000;
+	nodes[1].io_limit     = 0xf0ffff;
 	nodes[1].mmio32_base  = 0x80000000;
 	nodes[1].mmio32_limit = 0x823fffff;
-	nodes[1].mmio64_base  = 0x000700000000;
-	nodes[1].mmio64_limit = 0x000cffffffff;
+	nodes[1].mmio64_base  = 0x1200000000;
+	nodes[1].mmio64_limit = 0x12ffffffff;
 
+	nodes[2].io_base      = 0xf10000;
+	nodes[2].io_limit     = 0xf1ffff;
 	nodes[2].mmio32_base  = 0x82400000;
-	nodes[2].mmio32_limit = 0x827fffff;
-	nodes[2].mmio64_base  = 0x000d00000000;
-	nodes[2].mmio64_limit = 0x0010ffffffff;
+	nodes[2].mmio32_limit = 0x843fffff;
+	nodes[2].mmio64_base  = 0x001300000000;
+	nodes[2].mmio64_limit = 0x0013ffffffff;
 
 	int fd = open(FNAME, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (fd == -1) {
