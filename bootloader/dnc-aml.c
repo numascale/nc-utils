@@ -178,7 +178,10 @@ public:
 	  const Cacheability _cache, const ReadWriteType _access, const uint32_t _gran, const uint32_t _mina,
 	  const uint32_t _maxa, const uint32_t _trans, const uint32_t _size):
 	  usage(_usage), mint(_mint), maxt(_maxt), cache(_cache), access(_access),
-	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {
+		assert(_mina);
+		assert(_maxa);
+	}
 
 	int len(void) {
 		return Container::len() + 26;
@@ -212,7 +215,10 @@ public:
 	  const Cacheability _cache, const ReadWriteType _access, const uint64_t _gran, const uint64_t _mina,
 	  const uint64_t _maxa, const uint64_t _trans, const uint64_t _size):
 	  usage(_usage), mint(_mint), maxt(_maxt), cache(_cache), access(_access),
-	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {
+		assert(_mina);
+		assert(_maxa);
+	}
 
 	int len(void) {
 		return Container::len() + 46;
@@ -246,7 +252,10 @@ public:
 	  const Decode _decode, const RangeType _ranget, const uint32_t _gran, const uint32_t _mina,
 	  const uint32_t _maxa, const uint32_t _trans, const uint32_t _size):
 	  usage(_usage), mint(_mint), maxt(_maxt), decode(_decode), ranget(_ranget),
-	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
+	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {
+		assert(_mina);
+		assert(_maxa);
+	}
 
 	int len(void) {
 		return Container::len() + 26;
@@ -372,11 +381,13 @@ public:
 
 class Method: public Container {
 	static const uint8_t MethodOp = 0x14;
-	const char *name;
+	char name[5];
 public:
 	enum Serialisation {NotSerialised, Serialised};
 
-	Method(const char *_name, const int, const Serialisation): name(_name) {}
+	Method(const char *_name, const int, const Serialisation) {
+		strncpy(name, _name, sizeof(name));
+	}
 
 	int len(void) {
 		return Container::len() + strlen(name) + 2;
@@ -398,6 +409,9 @@ class EisaId: public Container {
 	static const uint16_t EISAID = 0xd041;
 	const uint16_t id;
 public:
+	static const uint16_t PNP0A08 = 0x0a08;
+	static const uint16_t PNP0A03 = 0x0a03;
+
 	EisaId(const uint16_t _id): id(_id) {}
 
 	int len(void) {
@@ -415,13 +429,16 @@ public:
 
 class Name: public Container {
 	static const uint8_t NameOp = 0x08;
-	const char *name;
+	char name[5];
 public:
-	Name(const char *_name, Container *c): name(_name) {
+	Name(const char *_name, Container *c) {
+		strncpy(name, _name, sizeof(name));
 		child(c);
 	};
 
-	Name(const char *_name): name(_name) {}
+	Name(const char *_name) {
+		strncpy(name, _name, sizeof(name));
+	}
 
 	int len(void) {
 		return Container::len() + strlen(name);
@@ -462,84 +479,10 @@ public:
 /* ExtOpPrefix := 0x5b */
 class Device: public Container {
 	static const uint8_t DeviceOp = 0x82;
-	static const uint16_t PNP0A08 = 0x0a08;
-	static const uint16_t PNP0A03 = 0x0a03;
 	char name[5];
 public:
-	Device(const char *_name, const int node) {
+	Device(const char *_name) {
 		strncpy(name, _name, sizeof(name));
-		child(new Name("_HID", new EisaId(PNP0A08)));
-		child(new Name("_CID", new EisaId(PNP0A03)));
-		child(new Name("_ADR", new Constant(0x00)));
-		child(new Name("_UID", new Constant(0x00)));
-		child(new Name("_BBN", new Constant(0x00)));
-		child(new Name("_SEG", new Constant(node)));
-
-		Container *package = new Package();
-
-		package->child(new WordBusNumber(
-		  WordBusNumber::ResourceProducer,
-		  WordBusNumber::MinFixed,
-		  WordBusNumber::MaxFixed,
-		  WordBusNumber::PosDecode,
-		  0x0000,
-		  0x0000,
-		  0x00FF,
-		  0x0000,
-		  0x0100));
-
-		assert(nodes[node].io_base);
-		assert(nodes[node].io_limit);
-
-		package->child(new DWordIO(
-		  DWordIO::ResourceProducer,
-		  DWordIO::MinFixed,
-		  DWordIO::MaxFixed,
-		  DWordIO::PosDecode,
-		  DWordIO::EntireRange,
-		  0x000000,
-		  nodes[node].io_base,
-		  nodes[node].io_limit,
-		  0x000000,
-		  nodes[node].io_limit - nodes[node].io_base + 1));
-
-		assert(nodes[node].mmio32_base);
-		assert(nodes[node].mmio32_limit);
-
-		package->child(new DWordMemory(
-		  DWordMemory::ResourceProducer,
-		  DWordMemory::MinFixed,
-		  DWordMemory::MaxFixed,
-		  DWordMemory::Cacheable,
-		  DWordMemory::ReadWrite,
-		  0x00000000,
-		  nodes[node].mmio32_base,
-		  nodes[node].mmio32_limit,
-		  0x00000000,
-		  nodes[node].mmio32_limit - nodes[node].mmio32_base + 1));
-
-		assert(nodes[node].mmio64_base);
-		assert(nodes[node].mmio64_limit);
-
-		package->child(new QWordMemory(
-		  QWordMemory::ResourceProducer,
-		  QWordMemory::MinFixed,
-		  QWordMemory::MaxFixed,
-		  QWordMemory::Prefetchable,
-		  QWordMemory::ReadWrite,
-		  0x00000000,
-		  nodes[node].mmio64_base,
-		  nodes[node].mmio64_limit,
-		  0x00000000,
-		  nodes[node].mmio64_limit - nodes[node].mmio64_base + 1));
-
-		child(new Name("_CRS", package));
-
-		Container *method = new Method("_CBA", 0, Method::NotSerialised);
-		const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
-		Container *passed = new Return(new Constant(config));
-		method->child(passed);
-		child(method);
 	}
 
 	int len(void) {
@@ -560,9 +503,11 @@ public:
 
 class Scope: public Container {
 	static const uint8_t ScopeOp = 0x10;
-	const char *name;
+	char name[5];
 public:
-	Scope(const char *_name): name(_name) {}
+	Scope(const char *_name) {
+		strncpy(name, _name, sizeof(name));
+	}
 
 	int len(void) {
 		return Container::len() + strlen(name) + 6;
@@ -584,14 +529,84 @@ unsigned char *Container::buf = NULL, *Container::pos = NULL;
 unsigned char *remote_aml(uint32_t *len)
 {
 	AML ssdt = AML();
+
 	Container *sb = new Scope("\\_SB_");
 
-	for (int node = 1; node < dnc_node_count; node++) {
+	for (int node = 1; node < min(dnc_node_count, 15); node++) {
 		char name[5];
-		snprintf(name, sizeof(name), "R%03X", node);
+		snprintf(name, sizeof(name), "PCI%X", node);
 
-		Container *device = new Device(name, node);
-		sb->child(device);
+		Container *bus;
+		if (node == 0)
+			bus = new Scope(name);
+		else
+			bus = new Device(name);
+
+		bus->child(new Name("_HID", new EisaId(EisaId::PNP0A08)));
+		bus->child(new Name("_CID", new EisaId(EisaId::PNP0A03)));
+		bus->child(new Name("_ADR", new Constant(0x00)));
+		bus->child(new Name("_UID", new Constant(0x00)));
+		bus->child(new Name("_BBN", new Constant(0x00)));
+		bus->child(new Name("_SEG", new Constant(node)));
+
+		Container *package = new Package();
+
+		package->child(new WordBusNumber(
+		  WordBusNumber::ResourceProducer,
+		  WordBusNumber::MinFixed,
+		  WordBusNumber::MaxFixed,
+		  WordBusNumber::PosDecode,
+		  0x0000,
+		  0x0000,
+		  0x00FF,
+		  0x0000,
+		  0x0100));
+
+		package->child(new DWordIO(
+		  DWordIO::ResourceProducer,
+		  DWordIO::MinFixed,
+		  DWordIO::MaxFixed,
+		  DWordIO::PosDecode,
+		  DWordIO::EntireRange,
+		  0x000000,
+		  nodes[node].io_base,
+		  nodes[node].io_limit,
+		  0x000000,
+		  nodes[node].io_limit - nodes[node].io_base + 1));
+
+		package->child(new DWordMemory(
+		  DWordMemory::ResourceProducer,
+		  DWordMemory::MinFixed,
+		  DWordMemory::MaxFixed,
+		  DWordMemory::Cacheable,
+		  DWordMemory::ReadWrite,
+		  0x00000000,
+		  nodes[node].mmio32_base,
+		  nodes[node].mmio32_limit,
+		  0x00000000,
+		  nodes[node].mmio32_limit - nodes[node].mmio32_base + 1));
+
+		package->child(new QWordMemory(
+		  QWordMemory::ResourceProducer,
+		  QWordMemory::MinFixed,
+		  QWordMemory::MaxFixed,
+		  QWordMemory::Prefetchable,
+		  QWordMemory::ReadWrite,
+		  0x00000000,
+		  nodes[node].mmio64_base,
+		  nodes[node].mmio64_limit,
+		  0x00000000,
+		  nodes[node].mmio64_limit - nodes[node].mmio64_base + 1));
+
+		bus->child(new Name("_CRS", package));
+
+		Container *method = new Method("_CBA", 0, Method::NotSerialised);
+		const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
+		Container *passed = new Return(new Constant(config));
+
+		method->child(passed);
+		bus->child(method);
+		sb->child(bus);
 	}
 
 	ssdt.child(sb);

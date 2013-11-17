@@ -12,7 +12,7 @@
 #include "dnc-aml.h"
 #include "dnc-acpi.h"
 
-#define FNAME "SSDT.dat"
+#define FNAME "SSDT-test.aml"
 #define MAXLEN 16384
 #define NODES 3
 
@@ -42,6 +42,13 @@ int main(void)
 {
 	nodes = (node_info_t *)malloc(sizeof(*nodes) * NODES);
 	assert(nodes);
+
+	nodes[0].io_base      = 0xf00000;
+	nodes[0].io_limit     = 0xf0ffff;
+	nodes[0].mmio32_base  = 0x80000000;
+	nodes[0].mmio32_limit = 0x823fffff;
+	nodes[0].mmio64_base  = 0x1200000000;
+	nodes[0].mmio64_limit = 0x12ffffffff;
 
 	nodes[1].io_base      = 0xf00000;
 	nodes[1].io_limit     = 0xf0ffff;
