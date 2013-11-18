@@ -866,7 +866,8 @@ void setup_mmio_late(void)
 				mmio_range(sci, ht, range++, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, nodes[i].mmio64_base - 1, nodes[i].nc_ht, 0, 1);
 
 			/* 64-bit local range */
-			mmio_range(sci, ht, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht, ioh_link, 1);
+			if (nodes[i].mmio64_limit > nodes[i].mmio64_base)
+				mmio_range(sci, ht, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht, ioh_link, 1);
 
 			/* 64-bit above local range */
 			if (i < dnc_node_count - 1)
@@ -898,7 +899,8 @@ void setup_mmio_late(void)
 			if (nodes[0].mmio64_limit > nodes[0].mmio64_base)
 				mmio_range(0xfff0, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1);
 
-			mmio_range(0xfff0, ht, range++, nodes[1].mmio64_base, nodes[dnc_node_count - 1].mmio64_limit, nodes[0].nc_ht, 0, 1);
+			if (nodes[dnc_node_count - 1].mmio64_limit > nodes[1].mmio64_base)
+				mmio_range(0xfff0, ht, range++, nodes[1].mmio64_base, nodes[dnc_node_count - 1].mmio64_limit, nodes[0].nc_ht, 0, 1);
 
 			while (range < 8)
 				mmio_range_del(0xfff0, ht, range++);
