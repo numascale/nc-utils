@@ -763,6 +763,16 @@ static void update_acpi_tables_late(void)
 		}
 
 	free(extra);
+
+	/* Ensure BIOS-provided DSDT uses ACPI revision 2, to 64-bit intergers are accepted */
+	acpi_sdt_p dsdt = find_sdt("FACP");
+	memcpy(&dsdt, &dsdt->data[4], sizeof(dsdt));
+	assert(dsdt);
+	if (dsdt->revision < 2) {
+		printf("Promoting DSDT to revision 2\n");
+		dsdt->revision = 2;
+		dsdt->checksum = -checksum(dsdt, dsdt->len);
+	}
 }
 
 static struct mp_floating_pointer *find_mptable(const char *start, int len) {

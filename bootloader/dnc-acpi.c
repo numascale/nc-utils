@@ -532,7 +532,7 @@ static void debug_acpi_apic(acpi_sdt_p apic)
 }
 #endif
 
-static void acpi_dump(acpi_sdt_p table)
+static void acpi_dump(const acpi_sdt_p table)
 {
 	int i;
 	unsigned char *data = (unsigned char *)table;
@@ -630,13 +630,11 @@ void debug_acpi(void)
 		}
 
 #ifdef UNUSED
-
 		if (table->sig.l == STR_DW_H("SRAT")) {
 			debug_acpi_srat(table);
 		} else if (table->sig.l == STR_DW_H("APIC")) {
 			debug_acpi_apic(table);
 		}
-
 #endif
 	}
 
