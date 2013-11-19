@@ -1,0 +1,10 @@
+- fix ACPI checksum function so it doesn't need to be negated
+- cross-check BIOS version
+- inject slave processor AML into master
+- drop old PCI enumeration code in dnc-mmio.c
+- address build warnings
+- move to syslinux 5
+- convert _read_read et al to return bool
+- add const constraints in dnc-access and dnc-route
+- change opaque type acpi_sdt_p to struct *
+- unify find_child and find_sdt
