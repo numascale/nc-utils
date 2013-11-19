@@ -18,17 +18,13 @@
 #ifndef __DNC_BOOTLOADER_H
 #define __DNC_BOOTLOADER_H 1
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include "dnc-types.h"
 
 #define IMPORT_RELOCATED(sym) extern volatile uint8_t sym ## _relocate
 #define REL8(sym) ((uint8_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 #define REL16(sym) ((uint16_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 #define REL32(sym) ((uint32_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 #define REL64(sym) ((uint64_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
-
-typedef uint16_t sci_t;
-typedef uint8_t ht_t;
 
 struct mp_config_table {
 	union {
@@ -117,10 +113,10 @@ extern unsigned char asm_relocate_end;
 extern uint64_t ht_base;
 
 void set_cf8extcfg_enable(const int ht);
-int read_config_file(const char *filename);
+checked int read_config_file(const char *filename);
 void udp_open(void);
 void udp_broadcast_state(const void *buf, const size_t len);
-int udp_read_state(void *buf, const size_t len, uint32_t *ip);
+checked int udp_read_state(void *buf, const size_t len, uint32_t *ip);
 void mtrr_range(const uint64_t base, const uint64_t limit, const int type);
 
 #endif

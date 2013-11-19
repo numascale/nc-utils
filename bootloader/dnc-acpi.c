@@ -51,7 +51,7 @@ static void shadow_bios(void)
 	bios_shadowed = 1;
 }
 
-uint8_t checksum(acpi_sdt_p addr, int len)
+uint8_t checksum(const acpi_sdt_p addr, const int len)
 {
 	uint8_t sum = 0;
 	int i;
@@ -97,8 +97,7 @@ static bool rdsp_exists(void)
 	return 1;
 }
 
-acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent,
-                             int ptrsize)
+acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent, const int ptrsize)
 {
 	uint64_t childp;
 	acpi_sdt_p table;
@@ -428,7 +427,7 @@ acpi_sdt_p find_root(const char *sig)
 	return NULL;
 }
 
-bool replace_root(const char *sig, acpi_sdt_p replacement)
+bool replace_root(const char *sig, const acpi_sdt_p replacement)
 {
 	if (!rdsp_exists())
 		return 0;
@@ -552,7 +551,7 @@ static void acpi_dump(acpi_sdt_p table)
 	printf("\n");
 }
 
-bool acpi_append(acpi_sdt_p parent, int ptrsize, const char *sig, const unsigned char *extra, uint32_t extra_len)
+bool acpi_append(const acpi_sdt_p parent, const int ptrsize, const char *sig, const unsigned char *extra, const uint32_t extra_len)
 {
 	/* Check if enough space to append to SSDT */
 	acpi_sdt_p table = find_child(sig, parent, ptrsize);

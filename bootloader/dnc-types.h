@@ -15,11 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __DNC_ROUTE
-#define __DNC_ROUTE 1
+#ifndef __DNC_TYPES
+#define __DNC_TYPES 1
 
 #include <inttypes.h>
 #include <stdbool.h>
+
+#define checked __attribute__ ((warn_unused_result))
 
 typedef uint8_t ht_t;
 typedef uint16_t sci_t;

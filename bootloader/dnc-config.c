@@ -312,7 +312,7 @@ void get_node_config(void) {
 	fatal("Failed to find node config (hostname %s)", hostname ? hostname : "<none>");
 }
 
-struct part_info *get_partition_config(int idx) {
+struct part_info *get_partition_config(const int idx) {
 	if (idx < cfg_partitions)
 		return &cfg_partlist[idx];
 	else

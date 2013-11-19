@@ -18,8 +18,7 @@
 #ifndef __DNC_ACPI
 #define __DNC_ACPI
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include "dnc-types.h"
 #include "dnc-bootloader.h"
 
 #define RSDT_MAX 1024
@@ -123,15 +122,15 @@ struct acpi_mcfg_allocation {
 typedef struct acpi_sdt *acpi_sdt_p;
 
 void debug_acpi(void);
-uint8_t checksum(acpi_sdt_p addr, int len);
-acpi_sdt_p find_sdt(const char *sig);
-acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed);
-acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent, int ptrsize);
-bool replace_child(const char *sig, acpi_sdt_p replacement, acpi_sdt_p parent, unsigned int ptrsize);
-void add_child(acpi_sdt_p replacement, acpi_sdt_p parent, unsigned int ptrsize);
-acpi_sdt_p find_root(const char *sig);
-bool replace_root(const char *sig, acpi_sdt_p replacement);
-bool acpi_append(acpi_sdt_p parent, int ptrsize, const char *sig, const unsigned char *extra, uint32_t extra_len);
-acpi_sdt_p acpi_build_oemn(void);
+checked uint8_t checksum(const acpi_sdt_p addr, const int len);
+checked acpi_sdt_p find_sdt(const char *sig);
+checked acpi_sdt_p acpi_gap(const struct e820entry *e820, const uint32_t needed);
+checked acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent, const int ptrsize);
+checked bool replace_child(const char *sig, const acpi_sdt_p replacement, const acpi_sdt_p parent, const unsigned int ptrsize);
+void add_child(const acpi_sdt_p replacement, const acpi_sdt_p parent, unsigned int ptrsize);
+checked acpi_sdt_p find_root(const char *sig);
+checked bool replace_root(const char *sig, const acpi_sdt_p replacement);
+checked bool acpi_append(const acpi_sdt_p parent, const int ptrsize, const char *sig, const unsigned char *extra, const uint32_t extra_len);
+checked acpi_sdt_p acpi_build_oemn(void);
 
 #endif

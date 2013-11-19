@@ -28,14 +28,14 @@
 
 /* RAW CSR accesses, use the RAW engine in SCC to make remote CSR accesses */
 
-static inline void _setrawentry(uint32_t index, uint64_t entry)
+static inline void _setrawentry(const uint32_t index, const uint64_t entry)
 {
 	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_INDEX, index);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_LO, (uint32_t)(entry >> 32));
 	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_ENTRY_HI, (uint32_t)(entry & 0xffffffff));
 }
 
-static inline uint64_t _getrawentry(uint32_t index)
+static inline uint64_t _getrawentry(const uint32_t index)
 {
 	uint32_t lo, hi;
 	dnc_write_csr(0xfff0, H2S_CSR_G0_RAW_INDEX, index);
@@ -44,11 +44,10 @@ static inline uint64_t _getrawentry(uint32_t index)
 	return (uint64_t)lo << 32 | hi;
 }
 
-static int _raw_write(uint32_t dest, int geo, uint32_t addr, uint32_t val)
+static int _raw_write(const uint32_t dest, const int geo, const uint32_t addr, const uint32_t val)
 {
 	uint32_t ownnodeid;
-	uint32_t ctrl;
-	uint32_t cmd;
+	uint32_t ctrl, cmd;
 	int ret = 0;
 
 	cmd = (addr & 0xc) | 0x13; /* writesb */
@@ -91,11 +90,10 @@ reset:
 	return -1;
 }
 
-static int _raw_read(uint32_t dest, int geo, uint32_t addr, uint32_t *val)
+static int _raw_read(const uint32_t dest, const int geo, const uint32_t addr, uint32_t *val)
 {
 	uint16_t ownnodeid;
-	uint32_t ctrl;
-	uint32_t cmd;
+	uint32_t ctrl, cmd;
 	int ret = 0;
 	cmd = (addr & 0xc) | 0x3; /* readsb */
 	ownnodeid = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
@@ -152,12 +150,12 @@ reset:
 	return -1;
 }
 
-int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val)
+int dnc_raw_read_csr(const uint32_t node, const uint16_t csr, uint32_t *val)
 {
 	return _raw_read(node, 0, csr, val);
 }
 
-int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val)
+int dnc_raw_read_csr_geo(const uint32_t node, const uint8_t bid, const uint16_t csr, uint32_t *val)
 {
 	if (csr >= 0x800) {
 		printf("*** dnc_raw_read_csr_geo: read from unsupported range: "
@@ -170,12 +168,12 @@ int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val
 	return _raw_read(node, 1, (bid << 11) | csr, val);
 }
 
-int dnc_raw_write_csr(uint32_t node, uint16_t csr, uint32_t val)
+int dnc_raw_write_csr(const uint32_t node, const uint16_t csr, const uint32_t val)
 {
 	return _raw_write(node, 0, csr, val);
 }
 
-int dnc_raw_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val)
+int dnc_raw_write_csr_geo(const uint32_t node, const uint8_t bid, const uint16_t csr, const uint32_t val)
 {
 	if (csr >= 0x800) {
 		printf("*** dnc_raw_write_csr_geo: read from unsupported range: "
@@ -189,7 +187,7 @@ int dnc_raw_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val
 
 /* Fabric routines */
 
-void dnc_reset_phy(int phy)
+void dnc_reset_phy(const int phy)
 {
 	uint32_t val;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * phy);
@@ -200,7 +198,7 @@ void dnc_reset_phy(int phy)
 	udelay(1000);
 }
 
-void dnc_reset_lc3(int lc)
+void dnc_reset_lc3(const int lc)
 {
 	uint32_t val;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_CTR + 0x40 * lc);
@@ -294,7 +292,7 @@ bool dnc_check_lc3(const int lc)
 	return 0;
 }
 
-bool dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
+bool dnc_init_lc3(const uint16_t nodeid, int lc, const uint16_t maxchunk,
                  uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[])
 {
 	uint16_t expected_id = (nodeid | ((lc + 1) << 13));

@@ -64,5 +64,5 @@ public:
 extern Platform *platforms;
 extern int nplatforms;
 
-extern void platform_init(void);
+void platform_init(void);
 

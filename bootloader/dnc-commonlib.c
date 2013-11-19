@@ -505,7 +505,8 @@ void dnc_init_caches(void)
 				printf("done\n");
 			} else {
 				/* Controller has already been started, just check for interrupts */
-				(void)dnc_check_mctr_status(cdata);
+				if (dnc_check_mctr_status(cdata))
+					warning("Memory controller errors detected");
 			}
 		}
 
@@ -2845,7 +2846,7 @@ static void test_route(uint8_t bxbarid, uint16_t dest)
 }
 #endif
 
-static bool _verify_save_id(uint16_t nodeid, int lc)
+static bool _verify_save_id(const uint16_t nodeid, const int lc)
 {
 	const char *linkname = _get_linkname(lc);
 	uint16_t expected_id = (nodeid | ((lc + 1) << 13));
@@ -2918,7 +2919,7 @@ static uint8_t route1(sci_t src, sci_t dst) {
 	return out;
 }
 
-static enum node_state setup_fabric(struct node_info *info)
+static enum node_state setup_fabric(const struct node_info *info)
 {
 	int i;
 	uint8_t lc;
@@ -3004,7 +3005,7 @@ static enum node_state setup_fabric(struct node_info *info)
 	return res ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
 }
 
-static enum node_state validate_fabric(struct node_info *info, struct part_info *part)
+static enum node_state validate_fabric(const struct node_info *info, const struct part_info *part)
 {
 	bool res = 0;
 	uint32_t val;
@@ -3036,7 +3037,7 @@ static enum node_state validate_fabric(struct node_info *info, struct part_info 
 	return res ? RSP_FABRIC_NOT_OK : RSP_FABRIC_OK;
 }
 
-bool dnc_check_fabric(struct node_info *info)
+bool dnc_check_fabric(const struct node_info *info)
 {
 	bool err = 0;
 
@@ -3117,7 +3118,7 @@ static bool phy_check_status(const int phy, const bool print)
 	return 0;
 }
 
-static enum node_state reset_fabric(struct node_info *info __attribute__((unused)))
+static enum node_state reset_fabric(const struct node_info *info __attribute__((unused)))
 {
 	printf("Resetting fabric...");
 	_pic_reset_ctrl();
@@ -3126,7 +3127,7 @@ static enum node_state reset_fabric(struct node_info *info __attribute__((unused
 	return RSP_RESET_COMPLETE;
 }
 
-static enum node_state train_fabric(struct node_info *info __attribute__((unused)))
+static enum node_state train_fabric(const struct node_info *info __attribute__((unused)))
 {
 	printf("Training fabric phys...");
 
@@ -3181,7 +3182,7 @@ static bool lc_check_status(int lc, int dimidx)
 	return 1;
 }
 
-static enum node_state validate_rings(struct node_info *info)
+static enum node_state validate_rings(const struct node_info *info)
 {
 	int pending, i;
 	printf("Validating rings\n");
@@ -3215,9 +3216,8 @@ static enum node_state validate_rings(struct node_info *info)
 	}
 }
 
-int handle_command(enum node_state cstate, enum node_state *rstate,
-                   struct node_info *info,
-                   struct part_info *part)
+bool handle_command(const enum node_state cstate, enum node_state *rstate,
+                   const struct node_info *info, const struct part_info *part)
 {
 	switch (cstate) {
 	case CMD_RESET_FABRIC:

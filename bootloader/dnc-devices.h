@@ -18,7 +18,7 @@
 #ifndef __DNC_DEVICES
 #define __DNC_DEVICES 1
 
-#include <inttypes.h>
+#include "dnc-types.h"
 
 #define HcRevision 0x00
 
@@ -110,5 +110,5 @@ void disable_dma_all(void);
 void handover_legacy(void);
 void pci_setup(void);
 void disable_device(const uint16_t sci, const int bus, const int dev, const int fn);
-uint16_t capability(const uint16_t sci, const uint8_t cap, const int bus, const int dev, const int fn);
+checked uint16_t capability(const uint16_t sci, const uint8_t cap, const int bus, const int dev, const int fn);
 #endif

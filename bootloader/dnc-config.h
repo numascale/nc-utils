@@ -52,15 +52,15 @@ extern struct node_info *cfg_nodelist;
 extern struct part_info *cfg_partlist;
 extern int cfg_nodes, cfg_partitions;
 extern bool name_matching;
-
-bool parse_config_file(char *data);
-void make_singleton_config(void);
-void get_node_config(void);
-struct part_info *get_partition_config(int idx);
-const char *get_master_name(const sci_t sci);
 extern char *hostname;
 
-static inline int config_local(struct node_info *info, uint32_t uuid)
+checked bool parse_config_file(char *data);
+void make_singleton_config(void);
+void get_node_config(void);
+checked struct part_info *get_partition_config(const int idx);
+checked const char *get_master_name(const sci_t sci);
+
+checked static inline int config_local(const struct node_info *info, const uint32_t uuid)
 {
 	if (name_matching && hostname) {
 		return strcmp(info->desc, hostname) == 0;

@@ -18,8 +18,7 @@
 #ifndef __DNC_ESCROW
 #define __DNC_ESCROW 1
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "dnc-types.h"
 
 #define ESCROW_REV   3
 
@@ -55,7 +54,7 @@ union escrow_ent {
 	struct ent_external external;
 } __attribute__((packed));
 
-extern int escrow_populate(void *data);
+checked int escrow_populate(void *data);
 
 #endif
 

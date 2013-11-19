@@ -64,7 +64,7 @@ extern int lirq_nest;
 extern int cht_config_use_extd_addressing;
 extern int ht_testmode;
 
-static inline uint64_t rdtscll(void)
+checked static inline uint64_t rdtscll(void)
 {
 	uint64_t val;
 	/* rdtscp doesn't work on Fam10h, so use mfence to serialise */
@@ -72,52 +72,52 @@ static inline uint64_t rdtscll(void)
 	return val;
 }
 
-static inline uint32_t uint32_tbswap(uint32_t val)
+checked static inline uint32_t uint32_tbswap(uint32_t val)
 {
 	asm volatile("bswap %0" : "+r"(val));
 	return val;
 }
 
-uint8_t rtc_read(const int addr);
+checked uint8_t rtc_read(const int addr);
 void pmio_writeb(uint16_t offset, uint8_t val);
 void pmio_writel(uint16_t offset, uint32_t val);
-uint8_t pmio_readb(uint16_t offset);
-uint16_t pmio_reads(uint16_t offset);
-uint32_t pmio_readl(uint16_t offset);
+checked uint8_t pmio_readb(uint16_t offset);
+checked uint16_t pmio_reads(uint16_t offset);
+checked uint32_t pmio_readl(uint16_t offset);
 void pmio_setb(uint16_t offset, uint8_t val);
 void pmio_clearb(uint16_t offset, uint8_t val);
 void pmio_setl(uint16_t offset, uint32_t val);
 void pmio_clearl(uint16_t offset, uint32_t val);
-uint32_t ioh_nbmiscind_read(const sci_t sci, uint8_t reg);
+checked uint32_t ioh_nbmiscind_read(const sci_t sci, uint8_t reg);
 void ioh_nbmiscind_write(const sci_t sci, uint8_t reg, uint32_t val);
-uint32_t ioh_htiu_read(const sci_t sci, uint8_t reg);
+checked uint32_t ioh_htiu_read(const sci_t sci, uint8_t reg);
 void ioh_htiu_write(const sci_t sci, uint8_t reg, uint32_t val);
-uint32_t ioh_ioapicind_read(const uint16_t sci, const uint8_t reg);
+checked uint32_t ioh_ioapicind_read(const uint16_t sci, const uint8_t reg);
 void ioh_ioapicind_write(const uint16_t sci, const uint8_t reg, const uint32_t val);
 void watchdog_setup(void);
 void reset_cf9(int mode, int last);
 void cht_test(uint8_t node, int neigh, int neigh_link);
-uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg);
+checked uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg);
 void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val);
-uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg);
+checked uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg);
 void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg, uint32_t val);
-uint64_t mem64_read64(const uint64_t addr);
-uint32_t mem64_read32(const uint64_t addr);
+checked uint64_t mem64_read64(const uint64_t addr);
+checked uint32_t mem64_read32(const uint64_t addr);
 void mem64_write64(const uint64_t addr, const uint64_t val);
 void mem64_write32(const uint64_t addr, const uint32_t val);
-uint16_t mem64_read16(const uint64_t addr);
+checked uint16_t mem64_read16(const uint64_t addr);
 void mem64_write16(uint64_t addr, uint16_t val);
-uint8_t mem64_read8(uint64_t addr);
+checked uint8_t mem64_read8(uint64_t addr);
 void mem64_write8(uint64_t addr, uint8_t val);
 uint32_t dnc_read_csr(uint32_t node, uint16_t csr);
 void dnc_write_csr(uint32_t node, uint16_t csr, uint32_t val);
-uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr);
+checked uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr);
 void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val);
-uint32_t dnc_read_conf(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg);
-uint64_t dnc_read_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg);
+checked uint32_t dnc_read_conf(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg);
+checked uint64_t dnc_read_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg);
 void dnc_write_conf(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint32_t val);
 void dnc_write_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val);
-uint64_t rdmsr(uint32_t msr);
-void wrmsr(uint32_t msr, uint64_t v);
+checked uint64_t rdmsr(const uint32_t msr);
+void wrmsr(const uint32_t msr, const uint64_t v);
 
 #endif

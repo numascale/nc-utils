@@ -482,7 +482,7 @@ static void update_acpi_tables(void)
 	oroot = find_root("RSDT");
 	if (oroot) {
 		memcpy(rsdt, oroot, oroot->len);
-		replace_root("RSDT", rsdt);
+		assert(replace_root("RSDT", rsdt));
 		rsdt = find_root("RSDT");
 	} else
 		rsdt = NULL;
@@ -490,7 +490,7 @@ static void update_acpi_tables(void)
 	oroot = find_root("XSDT");
 	if (oroot) {
 		memcpy(xsdt, oroot, oroot->len);
-		replace_root("XSDT", xsdt);
+		assert(replace_root("XSDT", xsdt));
 		xsdt = find_root("XSDT");
 	} else
 		xsdt = NULL;
@@ -567,8 +567,8 @@ static void update_acpi_tables(void)
 	apic->checksum -= checksum(apic, apic->len);
 	tables_add(apic->len);
 
-	if (rsdt) replace_child("APIC", apic, rsdt, 4);
-	if (xsdt) replace_child("APIC", apic, xsdt, 8);
+	if (rsdt) assert(replace_child("APIC", apic, rsdt, 4));
+	if (xsdt) assert(replace_child("APIC", apic, xsdt, 8));
 
 	acpi_sdt_p oslit = find_sdt("SLIT");
 
@@ -632,19 +632,8 @@ static void update_acpi_tables(void)
 	slit->checksum -= checksum(slit, slit->len);
 	tables_add(slit->len);
 
-	if (rsdt) {
-		/* If original bios doesn't have room/entry for SLIT table
-		 * see if we can use the BOOT entry instead */
-		if (!replace_child("SLIT", slit, rsdt, 4))
-			replace_child("BOOT", slit, rsdt, 4);
-	}
-
-	if (xsdt) {
-		/* If original bios doesn't have room/entry for SLIT table
-		 * see if we can use the BOOT entry instead */
-		if (!replace_child("SLIT", slit, xsdt, 8))
-			replace_child("BOOT", slit, xsdt, 8);
-	}
+	if (rsdt) assert(replace_child("SLIT", slit, rsdt, 4));
+	if (xsdt) assert(replace_child("SLIT", slit, xsdt, 8));
 
 	/* With SRAT we reuse the old info and add our new entries */
 	acpi_sdt_p osrat = find_sdt("SRAT");
@@ -714,8 +703,8 @@ static void update_acpi_tables(void)
 	srat->checksum -= checksum(srat, srat->len);
 	tables_add(srat->len);
 
-	if (rsdt) replace_child("SRAT", srat, rsdt, 4);
-	if (xsdt) replace_child("SRAT", srat, xsdt, 8);
+	if (rsdt) assert(replace_child("SRAT", srat, rsdt, 4));
+	if (xsdt) assert(replace_child("SRAT", srat, xsdt, 8));
 
 	/* MCFG table */
 	acpi_sdt_p mcfg = (acpi_sdt_p)tables_next;
@@ -743,8 +732,8 @@ static void update_acpi_tables(void)
 	mcfg->checksum = -checksum(mcfg, mcfg->len);
 	tables_add(mcfg->len);
 
-	if (rsdt) replace_child("MCFG", mcfg, rsdt, 4);
-	if (xsdt) replace_child("MCFG", mcfg, xsdt, 8);
+	if (rsdt) assert(replace_child("MCFG", mcfg, rsdt, 4));
+	if (xsdt) assert(replace_child("MCFG", mcfg, xsdt, 8));
 }
 
 static void update_acpi_tables_late(void)
@@ -2811,8 +2800,9 @@ static int nc_start(void)
 #endif
 		unify_all_nodes();
 
-		(void)dnc_check_mctr_status(0);
-		(void)dnc_check_mctr_status(1);
+		if (dnc_check_mctr_status(0) || dnc_check_mctr_status(1))
+			warning("Memory controller errors detected");
+
 		update_e820_map();
 
 		/* Release resources to reduce allocator fragmentation */

@@ -21,19 +21,19 @@
 /* These functions can be used to do remote CSR accesses without the risk of locking the CPU
    typically used when performing fabric requests */
 
-int dnc_raw_read_csr(uint32_t node, uint16_t csr, uint32_t *val);
-int dnc_raw_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t *val);
-int dnc_raw_write_csr(uint32_t node, uint16_t csr, uint32_t val);
-int dnc_raw_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val);
+checked int dnc_raw_read_csr(const uint32_t node, const uint16_t csr, uint32_t *val);
+checked int dnc_raw_read_csr_geo(const uint32_t node, const uint8_t bid, const uint16_t csr, uint32_t *val);
+checked int dnc_raw_write_csr(const uint32_t node, const uint16_t csr, const uint32_t val);
+checked int dnc_raw_write_csr_geo(const uint32_t node, const uint8_t bid, const uint16_t csr, const uint32_t val);
 
-void dnc_reset_phy(int phy);
-void dnc_reset_lc3(int lc);
-bool dnc_check_phy(const int phy);
-bool dnc_check_lc3(const int lc);
-bool dnc_init_lc3(uint16_t nodeid, int lc, uint16_t maxchunk,
+void dnc_reset_phy(const int phy);
+void dnc_reset_lc3(const int lc);
+checked bool dnc_check_phy(const int phy);
+checked bool dnc_check_lc3(const int lc);
+checked bool dnc_init_lc3(const uint16_t nodeid, const int lc, const uint16_t maxchunk,
                  uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[], uint16_t ltbl[]);
 
-static inline const char *_get_linkname(int linkno)
+checked static inline const char *_get_linkname(const int linkno)
 {
 	switch (linkno) {
 	case 0:

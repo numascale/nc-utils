@@ -150,39 +150,9 @@ struct kvm_port {
 	int port;
 };
 
-const char *pr_size(uint64_t val);
-void udelay(uint32_t usecs);
-void wait_key(void);
-int cpu_family(uint16_t scinode, uint8_t node);
-void probefilter_tokens(const ht_t max_ht);
-void detect_southbridge(void);
-void disable_smi(void);
-void enable_smi(void);
-void critical_enter(void);
-void critical_leave(void);
-void adjust_oscillator(const char p_type[16], const uint32_t osc_setting);
-int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode);
-bool dnc_check_fabric(struct node_info *info);
-uint32_t dnc_check_mctr_status(const int cdata);
-void dnc_dram_initialise(void);
-void dnc_init_caches(void);
-int handle_command(enum node_state cstate, enum node_state *rstate,
-                   struct node_info *info, struct part_info *part);
-void broadcast_error(const bool persistent, const char *format, ...);
-void check_error(void);
-void wait_for_master(struct node_info *info, struct part_info *part);
-void wake_core_local(const int apicid, const int vector);
-void wake_core_global(const int apicid, const int vector);
-void enable_probefilter(const ht_t max_ht);
-void selftest_late_msrs(void);
-void selftest_late_apiclvt(void);
-void parse_cmdline(const int argc, const char *argv[]);
-void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2]);
-
 extern bool dnc_asic_mode;
 extern uint32_t dnc_chip_rev;
 extern char dnc_card_type[16];
-
 extern const char *config_file_name;
 extern const char *next_label;
 extern const char *microcode_path;
@@ -211,7 +181,35 @@ extern bool workaround_locks;
 extern int enable_nbwdt;
 extern bool pf_cstate6;
 extern int disable_kvm;
-
 extern const char *node_state_name[];
+
+checked const char *pr_size(uint64_t val);
+void udelay(uint32_t usecs);
+void wait_key(void);
+checked int cpu_family(const uint16_t scinode, const uint8_t node);
+void probefilter_tokens(const ht_t max_ht);
+void detect_southbridge(void);
+void disable_smi(void);
+void enable_smi(void);
+void critical_enter(void);
+void critical_leave(void);
+void adjust_oscillator(const char p_type[16], const uint32_t osc_setting);
+checked int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode);
+checked bool dnc_check_fabric(const struct node_info *info);
+checked uint32_t dnc_check_mctr_status(const int cdata);
+void dnc_dram_initialise(void);
+void dnc_init_caches(void);
+checked bool handle_command(const enum node_state cstate, enum node_state *rstate,
+                   const struct node_info *info, const struct part_info *part);
+void broadcast_error(const bool persistent, const char *format, ...);
+void check_error(void);
+void wait_for_master(struct node_info *info, struct part_info *part);
+void wake_core_local(const int apicid, const int vector);
+void wake_core_global(const int apicid, const int vector);
+void enable_probefilter(const ht_t max_ht);
+void selftest_late_msrs(void);
+void selftest_late_apiclvt(void);
+void parse_cmdline(const int argc, const char *argv[]);
+void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2]);
 
 #endif

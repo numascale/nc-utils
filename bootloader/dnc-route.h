@@ -19,7 +19,6 @@
 #define __DNC_ROUTE 1
 
 #include "dnc-bootloader.h"
-#include "dnc-types.h"
 
 void add_chunk_route(uint16_t dest, const sci_t sci, uint8_t link);
 void del_chunk_route(uint16_t dest, const sci_t sci);

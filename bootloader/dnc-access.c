@@ -586,7 +586,7 @@ void dnc_write_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, 
 	mem64_write32(addr + 4, val >> 32);
 }
 
-uint64_t rdmsr(uint32_t msr)
+uint64_t rdmsr(const uint32_t msr)
 {
 	union {
 		uint32_t dw[2];
@@ -597,7 +597,7 @@ uint64_t rdmsr(uint32_t msr)
 }
 
 
-void wrmsr(uint32_t msr, uint64_t v)
+void wrmsr(const uint32_t msr, const uint64_t v)
 {
 	union {
 		uint32_t dw[2];
