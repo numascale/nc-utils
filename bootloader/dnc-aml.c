@@ -110,6 +110,8 @@ public:
 	}
 
 	void pack(const char *str) {
+		assert(strlen(str) >= 4);
+
 		strcpy((char *)pos, str);
 		pos += strlen(str);
 		assert(pos < buf + buflen);
@@ -514,8 +516,6 @@ public:
 	}
 
 	void emit(void) {
-		assert(nchildren > 0);
-
 		pack(ScopeOp);
 		pack_length(len());
 		pack(name);
@@ -530,12 +530,11 @@ unsigned char *remote_aml(uint32_t *len)
 {
 	AML ssdt = AML();
 
-	Container *sb = new Scope("\\_SB");
+	Container *sb = new Scope("\\_SB_");
 
 	for (int node = 1; node < min(dnc_node_count, AML_MAXNODES); node++) {
 		char name[5];
 		snprintf(name, sizeof(name), "PCI%c", node < 10 ? '0' + node : 'A' + node - 10);
-		printf("node %d, root %s\n", node, name);
 
 		Container *bus;
 		if (node == 0)
