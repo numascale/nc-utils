@@ -36,7 +36,7 @@ uint8_t checksum(const acpi_sdt_p addr, const int len)
 	return sum;
 }
 
-void gen(const int nnodes)
+static void gen(const int nnodes)
 {
 	char filename[32];
 
@@ -72,6 +72,10 @@ void gen(const int nnodes)
 	}
 
 	assert(close(fd) == 0);
+
+	char cmdline[64];
+	snprintf(cmdline, sizeof(cmdline), "iasl -vs -w3 -d %s 2>/dev/null", filename);
+	assert(system(cmdline) == 0);
 }
 
 int main(void)
@@ -97,7 +101,10 @@ int main(void)
 		node->mmio64_limit = node->mmio64_base + (last->mmio64_limit - last->mmio64_base);
 	}
 
+	gen(0);
 	gen(1);
+	gen(2);
+	gen(3);
 	gen(8);
 	gen(AML_MAXNODES);
 

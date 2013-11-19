@@ -2,7 +2,7 @@ IFACEPATH := ../interface
 IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS := $(IFACEPATH)/numachip-mseq.h
 CFLAGS    := -I$(IFACEPATH)
-COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -fno-inline -O0
+COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -fno-inline -Os
 
 syslinux_version := 4.07
 syslinux_dir     := syslinux-$(syslinux_version)
@@ -19,7 +19,7 @@ all: dnc-bootloader.c32 test-routing gen-ucode
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig *.aml test-masternode test-slavenode test-routing test-aml gen-ucode dnc-version.h
+	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig *.aml *.dsl test-masternode test-slavenode test-routing test-aml gen-ucode dnc-version.h
 
 .PHONY: realclean
 realclean: clean
@@ -56,7 +56,7 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 	perl -npi -e 's/SIZE_MAX/10485760/' $(mjson_dir)/src/json.h
 
 %.o: %.c $(syslinux_dir)/com32/samples/Makefile
-	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make CC="g++ -fpermissive -Wshadow -fno-rtti" $(CURDIR)/$@ NOGPL=1)
+	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make CC="g++ -fno-rtti -fpermissive -Wall -Wextra" $(CURDIR)/$@ NOGPL=1)
 
 %.o: %.S $(syslinux_dir)/com32/samples/Makefile
 	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make $(CURDIR)/$@ NOGPL=1)
@@ -173,6 +173,9 @@ dnc-test-route.o: dnc-route.c dnc-access.h
 
 dnc-test-config.o: dnc-config.c dnc-config.h
 	$(CXX) $(COPT) -c $< -o $@
+
+run-tests: test-aml
+	valgrind -q --track-origins=yes ./test-aml
 
 $(IFACEDEPS):
 	cd $(IFACEPATH) && make $(notdir $@)
