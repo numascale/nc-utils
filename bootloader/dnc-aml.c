@@ -47,7 +47,7 @@
     (((x) & 0xff00000000000000ULL) >> 56))
 
 class Container {
-	static const int maxchildren = 12;
+	static const int maxchildren = AML_MAXNODES;
 	Container *children[maxchildren];
 protected:
 	int nchildren;
@@ -390,7 +390,7 @@ public:
 	}
 
 	int len(void) {
-		return Container::len() + strlen(name) + 2;
+		return Container::len() + strnlen(name, sizeof(name)) + 2;
 	}
 
 	void emit(void) {
@@ -441,7 +441,7 @@ public:
 	}
 
 	int len(void) {
-		return Container::len() + strlen(name);
+		return Container::len() + strnlen(name, sizeof(name));
 	}
 
 	void emit(void) {
@@ -486,7 +486,7 @@ public:
 	}
 
 	int len(void) {
-		return Container::len() + strlen(name) + 11;
+		return Container::len() + strnlen(name, sizeof(name)) + 11;
 	}
 
 	void emit(void) {
@@ -503,14 +503,14 @@ public:
 
 class Scope: public Container {
 	static const uint8_t ScopeOp = 0x10;
-	char name[5];
+	char name[16];
 public:
 	Scope(const char *_name) {
 		strncpy(name, _name, sizeof(name));
 	}
 
 	int len(void) {
-		return Container::len() + strlen(name) + 6;
+		return Container::len() + strnlen(name, sizeof(name)) + 6;
 	}
 
 	void emit(void) {
@@ -530,11 +530,12 @@ unsigned char *remote_aml(uint32_t *len)
 {
 	AML ssdt = AML();
 
-	Container *sb = new Scope("\\_SB_");
+	Container *sb = new Scope("\\_SB");
 
-	for (int node = 1; node < min(dnc_node_count, 15); node++) {
+	for (int node = 1; node < min(dnc_node_count, AML_MAXNODES); node++) {
 		char name[5];
-		snprintf(name, sizeof(name), "PCI%X", node);
+		snprintf(name, sizeof(name), "PCI%c", node < 10 ? '0' + node : 'A' + node - 10);
+		printf("node %d, root %s\n", node, name);
 
 		Container *bus;
 		if (node == 0)

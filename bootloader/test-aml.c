@@ -12,11 +12,9 @@
 #include "dnc-aml.h"
 #include "dnc-acpi.h"
 
-#define FNAME "SSDT-test.aml"
-#define MAXLEN 16384
-#define NODES 3
+#define MAXLEN 65536
 
-uint16_t dnc_node_count = NODES;
+uint16_t dnc_node_count = 0;
 int verbose = 2;
 node_info_t *nodes;
 
@@ -38,44 +36,22 @@ uint8_t checksum(const acpi_sdt_p addr, const int len)
 	return sum;
 }
 
-int main(void)
+void gen(const int nnodes)
 {
-	nodes = (node_info_t *)malloc(sizeof(*nodes) * NODES);
-	assert(nodes);
+	char filename[32];
 
-	nodes[0].io_base      = 0xf00000;
-	nodes[0].io_limit     = 0xf0ffff;
-	nodes[0].mmio32_base  = 0x80000000;
-	nodes[0].mmio32_limit = 0x823fffff;
-	nodes[0].mmio64_base  = 0x1200000000;
-	nodes[0].mmio64_limit = 0x12ffffffff;
+	snprintf(filename, sizeof(filename), "SSDT-%dnodes.aml", nnodes);
 
-	nodes[1].io_base      = 0xf00000;
-	nodes[1].io_limit     = 0xf0ffff;
-	nodes[1].mmio32_base  = 0x80000000;
-	nodes[1].mmio32_limit = 0x823fffff;
-	nodes[1].mmio64_base  = 0x1200000000;
-	nodes[1].mmio64_limit = 0x12ffffffff;
-
-	nodes[2].io_base      = 0xf10000;
-	nodes[2].io_limit     = 0xf1ffff;
-	nodes[2].mmio32_base  = 0x82400000;
-	nodes[2].mmio32_limit = 0x843fffff;
-	nodes[2].mmio64_base  = 0x001300000000;
-	nodes[2].mmio64_limit = 0x0013ffffffff;
-
-	int fd = open(FNAME, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	if (fd == -1) {
-		perror("failed to write");
-		return 1;
-	}
+	int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	assert(fd != -1);
 
 	if (sizeof(table)) {
 		assert(write(fd, table, sizeof(table)) == sizeof(table));
-		printf("wrote " FNAME " (%zd bytes)\n", sizeof(table));
+		printf("wrote %s (%zd bytes, %d nodes)\n", filename, sizeof(table), nnodes);
 	} else {
 		acpi_sdt_p ssdt = (acpi_sdt_p)malloc(MAXLEN);
 		uint32_t extra_len;
+		dnc_node_count = nnodes;
 		unsigned char *extra = remote_aml(&extra_len);
 
 		memcpy(ssdt->sig.s, "SSDT", 4);
@@ -91,13 +67,42 @@ int main(void)
 		ssdt->checksum = checksum(ssdt, ssdt->len);
 
 		assert(write(fd, ssdt, ssdt->len) == ssdt->len);
-		printf("wrote " FNAME " (%d bytes)\n", ssdt->len);
+		printf("wrote %s (%d bytes, %d nodes)\n", filename, ssdt->len, nnodes);
 		free(ssdt);
 	}
 
-	printf("use 'iasl -d " FNAME "' to extract\n");
 	assert(close(fd) == 0);
+}
+
+int main(void)
+{
+	nodes = (node_info_t *)malloc(sizeof(*nodes) * AML_MAXNODES);
+	assert(nodes);
+
+	nodes[0].io_base      = 0x000000;
+	nodes[0].io_limit     = 0x00ffff;
+	nodes[0].mmio32_base  = 0x80000000;
+	nodes[0].mmio32_limit = 0x823fffff;
+	nodes[0].mmio64_base  = 0x1200000000;
+	nodes[0].mmio64_limit = 0x12ffffffff;
+
+	for (node_info_t *node = &nodes[1]; node < &nodes[AML_MAXNODES]; node++) {
+		node_info_t *last = node - 1;
+
+		node->io_base      = last->io_limit + 1;
+		node->io_limit     = node->io_base + (last->io_limit - last->io_base);
+		node->mmio32_base  = last->mmio32_base + 1;
+		node->mmio32_limit = node->mmio32_base + (last->mmio32_limit - last->mmio32_base);
+		node->mmio64_base  = last->mmio64_base + 1;
+		node->mmio64_limit = node->mmio64_base + (last->mmio64_limit - last->mmio64_base);
+	}
+
+	gen(1);
+	gen(8);
+	gen(AML_MAXNODES);
+
 	free(nodes);
+	printf("use 'iasl -d file.aml to extract\n");
 	return 0;
 }
 
