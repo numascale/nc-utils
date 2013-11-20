@@ -103,6 +103,14 @@ acpi_sdt_p find_child(const char *sig, acpi_sdt_p parent, const int ptrsize)
 	acpi_sdt_p table;
 	int i;
 
+	/* DSDT is linked from FACP table */
+	if (!strcmp("DSDT", sig)) {
+		acpi_sdt_p dsdt, facp = find_child("FACP", parent, ptrsize);
+		assert(facp);
+		memcpy(&dsdt, &facp->data[4], sizeof(facp));
+		return dsdt;
+	}
+
 	for (i = 0; i + sizeof(*parent) < parent->len; i += ptrsize) {
 		childp = 0;
 		memcpy(&childp, &parent->data[i], ptrsize);
@@ -369,7 +377,7 @@ void add_child(const acpi_sdt_p replacement, const acpi_sdt_p parent, const unsi
 			}
 		}
 
-		fatal("Unable to add table");
+		fatal("Out of space when adding entry for ACPI table %s to %s", replacement->sig.s, parent->sig.s);
 	}
 
 	checksum_ok(replacement, replacement->len);
@@ -458,9 +466,7 @@ bool replace_root(const char *sig, const acpi_sdt_p replacement)
 
 acpi_sdt_p find_sdt(const char *sig)
 {
-	acpi_sdt_p root;
-	root = find_root("XSDT");
-
+	acpi_sdt_p root = find_root("XSDT");
 	if (root)
 		return find_child(sig, root, 8);
 

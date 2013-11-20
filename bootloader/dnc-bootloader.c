@@ -427,12 +427,12 @@ static void update_acpi_tables_early(void)
 	acpi_sdt_p xsdt = find_root("XSDT");
 	assert(xsdt);
 
-	acpi_sdt_p dsdt = find_child("APIC", rsdt, 4);
-	assert(dsdt);
+	acpi_sdt_p apic = find_child("APIC", rsdt, 4);
+	assert(apic);
 
 	/* Find e820 entry with ACPI table */
 	struct e820entry *e820 = orig_e820_map;
-	while (((uint32_t)dsdt < e820->base) || ((uint32_t)dsdt >= (e820->base + e820->length)))
+	while (((uint32_t)apic < e820->base) || ((uint32_t)apic >= (e820->base + e820->length)))
 		e820++;
 
 	printf("Existing ACPI tables in e820 range 0x%012llx:0x%010llx\n", e820->base, e820->base + e820->length);
@@ -765,12 +765,11 @@ static void update_acpi_tables_late(void)
 	free(extra);
 
 	/* Ensure BIOS-provided DSDT uses ACPI revision 2, to 64-bit intergers are accepted */
-	acpi_sdt_p dsdt = find_sdt("FACP");
-	memcpy(&dsdt, &dsdt->data[4], sizeof(dsdt));
-	assert(dsdt);
+	acpi_sdt_p dsdt = find_child("DSDT", rsdt, 4);
 	if (dsdt->revision < 2) {
 		printf("Promoting DSDT to revision 2\n");
 		dsdt->revision = 2;
+		dsdt->checksum = 0;
 		dsdt->checksum = -checksum(dsdt, dsdt->len);
 	}
 }
