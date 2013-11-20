@@ -332,7 +332,7 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 			range, sci, base, limit, dht);
 
 	assert(limit > base);
-	assert(range < 8); /* FIXME check */
+	assert(range < 8);
 
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 16) << 8) | 3;
@@ -348,7 +348,7 @@ void nc_mmio_range_del(const uint16_t sci, const int range)
 	if (verbose > 2)
 		printf("Deleting Numachip MMIO range %d on SCI%03x\n", range, sci);
 
-	assert(range < 8); /* FIXME check */
+	assert(range < 8);
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
@@ -358,7 +358,7 @@ void nc_mmio_range_del(const uint16_t sci, const int range)
 
 bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht)
 {
-	assert(range < 8); /* FIXME check */
+	assert(range < 8);
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
@@ -391,7 +391,7 @@ void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, con
 			range, sci, base, limit, dht);
 
 	assert(limit > base);
-	assert(range < 8); /* FIXME check */
+	assert(range < 8);
 
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 24) << 8) | 3;
@@ -407,7 +407,7 @@ void nc_dram_range_del(const uint16_t sci, const int range)
 	if (verbose > 2)
 		printf("Deleting Numachip DRAM range %d on SCI%03x\n", range, sci);
 
-	assert(range < 8); /* FIXME check */
+	assert(range < 8);
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
