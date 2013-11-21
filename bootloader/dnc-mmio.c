@@ -588,7 +588,8 @@ public:
 				warning("SCI%3x %02x:%02x.%d has reg 0x38 as %08x", node->sci, pbus, pdev, pfn, val);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x38, 0);
 
-			if (io_bar == io_bars || io_cur == io_start) {
+			if (io_bar == io_bars || io_cur == io_start ||
+			  (pbus == 0 && pdev == 0 && pfn == 0)) {
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, 0);
 			} else {
@@ -598,7 +599,8 @@ public:
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, val);
 			}
 
-			if (mmio32_bar == mmio32_bars || map32->next == mmio32_start)
+			if (mmio32_bar == mmio32_bars || map32->next == mmio32_start ||
+			  (pbus == 0 && pdev == 0 && pfn == 0))
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, 0x0000fffff);
 			else {
 				val = (mmio32_start >> 16) | ((map32->next - 1) & 0xffff0000);
@@ -606,7 +608,8 @@ public:
 			}
 		}
 
-		if (mmio64_bar == mmio64_bars || mmio64_cur == mmio64_start) {
+		if (mmio64_bar == mmio64_bars || mmio64_cur == mmio64_start ||
+		  (pbus == 0 && pdev == 0 && pfn == 0)) {
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, 0x0000ffff);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, 0x00000000);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, 0x00000000);
