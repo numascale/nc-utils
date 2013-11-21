@@ -196,7 +196,7 @@ void critical_leave(void);
 void adjust_oscillator(const char p_type[16], const uint32_t osc_setting);
 checked int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode);
 checked bool dnc_check_fabric(const struct node_info *info);
-checked uint32_t dnc_check_mctr_status(const int cdata);
+uint32_t dnc_check_mctr_status(const int cdata);
 void dnc_dram_initialise(void);
 void dnc_init_caches(void);
 checked bool handle_command(const enum node_state cstate, enum node_state *rstate,

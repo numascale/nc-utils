@@ -2807,8 +2807,8 @@ static int nc_start(void)
 #endif
 		unify_all_nodes();
 
-		if (dnc_check_mctr_status(0) || dnc_check_mctr_status(1))
-			warning("Memory controller errors detected");
+		dnc_check_mctr_status(0);
+		dnc_check_mctr_status(1);
 
 		update_e820_map();
 
