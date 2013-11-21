@@ -394,6 +394,9 @@ out:
 	}
 
 	bool allocate(uint64_t *addr) {
+		if (!s64 && pref)
+			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
+
 		if (!s64 && *addr > 0xffffffff) {
 			*addr = 0;
 			warning("Unable to allocate SCI%03x %02x:%02x.%x BAR 0x%x", sci, bus, dev, fn, reg);
@@ -455,9 +458,6 @@ class Container {
 				io_bar++;
 				assert(io_bar - io_bars < UNITS);
 			} else {
-				if (bar->pref)
-					warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", offset, node->sci, bus, dev, fn);
-
 				*mmio32_bar = bar;
 				mmio32_bar++;
 				assert(mmio32_bar - mmio32_bars < UNITS);
