@@ -57,7 +57,7 @@ uint8_t checksum(const acpi_sdt_p addr, const int len)
 	int i;
 
 	for (i = 0; i < len; i++)
-		sum += *((uint8_t *)addr + i);
+		sum -= *((uint8_t *)addr + i);
 
 	return sum;
 }
@@ -335,7 +335,7 @@ bool replace_child(const char *sig, const acpi_sdt_p replacement, const acpi_sdt
 			if (memcmp(&parent->data[i], &newp, ptrsize))
 				goto again;
 
-			parent->checksum -= checksum(parent, parent->len);
+			parent->checksum += checksum(parent, parent->len);
 			return 1;
 		}
 	}
@@ -353,7 +353,7 @@ bool replace_child(const char *sig, const acpi_sdt_p replacement, const acpi_sdt
 
 	parent->len += ptrsize;
 	assert(parent->len < RSDT_MAX);
-	parent->checksum -= checksum(parent, parent->len);
+	parent->checksum += checksum(parent, parent->len);
 	return 1;
 
 again:
@@ -390,7 +390,7 @@ void add_child(const acpi_sdt_p replacement, const acpi_sdt_p parent, const unsi
 
 	parent->len += ptrsize;
 	assert(parent->len < RSDT_MAX);
-	parent->checksum -= checksum(parent, parent->len);
+	parent->checksum += checksum(parent, parent->len);
 	return;
 
 again:
@@ -444,10 +444,10 @@ bool replace_root(const char *sig, const acpi_sdt_p replacement)
 
 	if (STR_DW_H(sig) == STR_DW_H("RSDT")) {
 		rptr->rsdt_addr = (uint32_t)replacement;
-		rptr->checksum -= checksum((acpi_sdt_p)rptr, 20);
+		rptr->checksum += checksum((acpi_sdt_p)rptr, 20);
 
 		if (rptr->len > 20)
-			rptr->echecksum -= checksum((acpi_sdt_p)rptr, rptr->len);
+			rptr->echecksum += checksum((acpi_sdt_p)rptr, rptr->len);
 
 		return 1;
 	}
@@ -456,7 +456,7 @@ bool replace_root(const char *sig, const acpi_sdt_p replacement)
 		if (rptr->len >= 33) {
 			checksum_ok((acpi_sdt_p)rptr, rptr->len);
 			rptr->xsdt_addr = (uint32_t)replacement;
-			rptr->echecksum -= checksum((acpi_sdt_p)rptr, rptr->len);
+			rptr->echecksum += checksum((acpi_sdt_p)rptr, rptr->len);
 			return 1;
 		}
 	}
@@ -567,7 +567,7 @@ bool acpi_append(const acpi_sdt_p parent, const int ptrsize, const char *sig, co
 
 	memcpy((unsigned char *)table + table->len, extra, extra_len);
 	table->len += extra_len;
-	table->checksum -= checksum(table, table->len);
+	table->checksum += checksum(table, table->len);
 
 	if (verbose > 2)
 		acpi_dump(table);
@@ -725,7 +725,8 @@ acpi_sdt_p acpi_build_oemn(void)
 	memcpy(oemn->creatorid, "1B47", 4);
 	oemn->creatorrev = ESCROW_REV;
 	oemn->len = offsetof(struct acpi_sdt, data) + escrow_populate(oemn->data);
-	oemn->checksum = -checksum(oemn, oemn->len);
+	oemn->checksum = 0;
+	oemn->checksum = checksum(oemn, oemn->len);
 
 	return oemn;
 }

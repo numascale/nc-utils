@@ -495,10 +495,7 @@ static void update_acpi_tables(void)
 	} else
 		xsdt = NULL;
 
-	if (!rsdt && !xsdt) {
-		printf("Neither RSDT or XSDT found!\n");
-		return;
-	}
+	assert(rsdt || rsdt);
 
 	acpi_sdt_p oapic = find_sdt("APIC");
 	if (!oapic) {
@@ -564,7 +561,7 @@ static void update_acpi_tables(void)
 		}
 	}
 
-	apic->checksum -= checksum(apic, apic->len);
+	apic->checksum += checksum(apic, apic->len);
 	tables_add(apic->len);
 
 	if (rsdt) assert(replace_child("APIC", apic, rsdt, 4));
@@ -582,6 +579,7 @@ static void update_acpi_tables(void)
 	slit->oemrev = 1;
 	memcpy(slit->creatorid, "1B47", 4);
 	slit->creatorrev = 1;
+	slit->checksum = 0;
 	memset(slit->data, 0, 8); /* Number of System Localities */
 	int index = 0;
 	const int nbs = nodes->nb_ht_hi - nodes->nb_ht_lo + 1;
@@ -629,7 +627,7 @@ static void update_acpi_tables(void)
 
 	memcpy(slit->data, &ht_pdom_count, sizeof(ht_pdom_count));
 	slit->len = 44 + ht_pdom_count * ht_pdom_count;
-	slit->checksum -= checksum(slit, slit->len);
+	slit->checksum = checksum(slit, slit->len);
 	tables_add(slit->len);
 
 	if (rsdt) assert(replace_child("SLIT", slit, rsdt, 4));
@@ -700,7 +698,7 @@ static void update_acpi_tables(void)
 		}
 	}
 
-	srat->checksum -= checksum(srat, srat->len);
+	srat->checksum += checksum(srat, srat->len);
 	tables_add(srat->len);
 
 	if (rsdt) assert(replace_child("SRAT", srat, rsdt, 4));
@@ -719,17 +717,17 @@ static void update_acpi_tables(void)
 	mcfg->creatorrev = 1;
 
 	for (node = 0; node < (remote_io ? dnc_node_count : 1); node++) {
-		struct acpi_mcfg_allocation mcfg_allocation;
-		memset(&mcfg_allocation, 0, sizeof(mcfg_allocation));
-		mcfg_allocation.address = DNC_MCFG_BASE | ((uint64_t)nodes[node].sci << 28ULL);
-		mcfg_allocation.pci_segment = node;
-		mcfg_allocation.start_bus_number = 0;
-		mcfg_allocation.end_bus_number = 255;
-		memcpy((unsigned char *)mcfg + mcfg->len, &mcfg_allocation, sizeof(mcfg_allocation));
-		mcfg->len += sizeof(mcfg_allocation);
+		struct acpi_mcfg_allocation *mcfg_allocation = (struct acpi_mcfg_allocation *)((unsigned char *)mcfg + mcfg->len);
+		memset(mcfg_allocation, 0, sizeof(*mcfg_allocation));
+		mcfg_allocation->address = DNC_MCFG_BASE | ((uint64_t)nodes[node].sci << 28ULL);
+		mcfg_allocation->pci_segment = node;
+		mcfg_allocation->start_bus_number = 0;
+		mcfg_allocation->end_bus_number = 255;
+		mcfg->len += sizeof(*mcfg_allocation);
 	}
 
-	mcfg->checksum = -checksum(mcfg, mcfg->len);
+	mcfg->checksum = 0;
+	mcfg->checksum = checksum(mcfg, mcfg->len);
 	tables_add(mcfg->len);
 
 	if (rsdt) assert(replace_child("MCFG", mcfg, rsdt, 4));
@@ -755,7 +753,8 @@ static void update_acpi_tables_late(void)
 			ssdt->creatorrev = 1;
 			memcpy(ssdt->data, extra, extra_len);
 			ssdt->len = offsetof(struct acpi_sdt, data) + extra_len;
-			ssdt->checksum = -checksum(ssdt, ssdt->len);
+			ssdt->checksum = 0;
+			ssdt->checksum = checksum(ssdt, ssdt->len);
 			tables_add(ssdt->len);
 
 			add_child(ssdt, xsdt, 8);
@@ -769,8 +768,7 @@ static void update_acpi_tables_late(void)
 	if (dsdt->revision < 2) {
 		printf("Promoting DSDT to revision 2\n");
 		dsdt->revision = 2;
-		dsdt->checksum = 0;
-		dsdt->checksum = -checksum(dsdt, dsdt->len);
+		dsdt->checksum += checksum(dsdt, dsdt->len);
 	}
 }
 
@@ -819,7 +817,7 @@ static void update_mptable(void)
 	memcpy((void *)REL32(new_mptable), mptable, 512);
 	mptable = (mp_config_table *)REL32(new_mptable);
 	mpfp->mptable = mptable;
-	mpfp->checksum -= checksum((acpi_sdt_p)mpfp, mpfp->len);
+	mpfp->checksum += checksum((acpi_sdt_p)mpfp, mpfp->len);
 	printf("sig: %.4s, len: %d, rev: %d, chksum: %x, oemid: %.8s, prodid: %.12s,\n"
 	       "oemtable: %p, oemsz: %d, entries: %d, lapicaddr: %08x, elen: %d, echk: %x\n",
 	       mptable->sig.s, mptable->len,  mptable->revision,  mptable->checksum,
@@ -828,7 +826,7 @@ static void update_mptable(void)
 	i = 0x1d8; /* First unused entry */
 	memcpy(&(mptable->data[i]), &(mptable->data[20]), 20); /* Copy AP 1 data */
 	mptable->data[i + 1] = 0xf;
-	mptable->checksum -= checksum((acpi_sdt_p)mptable, mptable->len);
+	mptable->checksum += checksum((acpi_sdt_p)mptable, mptable->len);
 }
 
 static void setup_apic_atts(void)
