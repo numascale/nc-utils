@@ -532,22 +532,28 @@ unsigned char *remote_aml(uint32_t *len)
 
 	Container *sb = new Scope("\\_SB_");
 
-	for (int node = 1; node < min(dnc_node_count, AML_MAXNODES); node++) {
+	for (int n = 0; n < min(dnc_node_count, AML_MAXNODES); n++) {
+		const node_info_t *node = &nodes[n];
 		char name[5];
-		snprintf(name, sizeof(name), "PCI%c", node < 10 ? '0' + node : 'A' + node - 10);
+		snprintf(name, sizeof(name), "PCI%c", n < 10 ? '0' + n : 'A' + n - 10);
 
-		Container *bus;
-		if (node == 0)
-			bus = new Scope(name);
-		else
-			bus = new Device(name);
+		/* For the master's PCI bus, add a proximity object */
+		if (n == 0) {
+			Container *bus = new Scope(name);
+			bus->child(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
+			sb->child(bus);
+			continue;
+		}
+
+		Container *bus = new Device(name);
 
 		bus->child(new Name("_HID", new EisaId(EisaId::PNP0A08)));
 		bus->child(new Name("_CID", new EisaId(EisaId::PNP0A03)));
-		bus->child(new Name("_ADR", new Constant(0x00)));
-		bus->child(new Name("_UID", new Constant(0x00)));
+		bus->child(new Name("_UID", new Constant(n)));
 		bus->child(new Name("_BBN", new Constant(0x00)));
-		bus->child(new Name("_SEG", new Constant(node)));
+		bus->child(new Name("_SEG", new Constant(n)));
+		bus->child(new Name("_ADR", new Constant(0x00)));
+		bus->child(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 
 		Container *package = new Package();
 
@@ -562,6 +568,7 @@ unsigned char *remote_aml(uint32_t *len)
 		  0x0000,
 		  0x0100));
 
+		assert(node->io_limit > node->io_base);
 		package->child(new DWordIO(
 		  DWordIO::ResourceProducer,
 		  DWordIO::MinFixed,
@@ -569,11 +576,12 @@ unsigned char *remote_aml(uint32_t *len)
 		  DWordIO::PosDecode,
 		  DWordIO::EntireRange,
 		  0x000000,
-		  nodes[node].io_base,
-		  nodes[node].io_limit,
+		  node->io_base,
+		  node->io_limit,
 		  0x000000,
-		  nodes[node].io_limit - nodes[node].io_base + 1));
+		  node->io_limit - node->io_base + 1));
 
+		assert(node->mmio32_limit > node->mmio32_base);
 		package->child(new DWordMemory(
 		  DWordMemory::ResourceProducer,
 		  DWordMemory::MinFixed,
@@ -581,22 +589,23 @@ unsigned char *remote_aml(uint32_t *len)
 		  DWordMemory::Cacheable,
 		  DWordMemory::ReadWrite,
 		  0x00000000,
-		  nodes[node].mmio32_base,
-		  nodes[node].mmio32_limit,
+		  node->mmio32_base,
+		  node->mmio32_limit,
 		  0x00000000,
-		  nodes[node].mmio32_limit - nodes[node].mmio32_base + 1));
+		  node->mmio32_limit - node->mmio32_base + 1));
 
-		package->child(new QWordMemory(
-		  QWordMemory::ResourceProducer,
-		  QWordMemory::MinFixed,
-		  QWordMemory::MaxFixed,
-		  QWordMemory::Prefetchable,
-		  QWordMemory::ReadWrite,
-		  0x00000000,
-		  nodes[node].mmio64_base,
-		  nodes[node].mmio64_limit,
-		  0x00000000,
-		  nodes[node].mmio64_limit - nodes[node].mmio64_base + 1));
+		if (node->mmio64_limit > node->mmio64_base)
+			package->child(new QWordMemory(
+			  QWordMemory::ResourceProducer,
+			  QWordMemory::MinFixed,
+			  QWordMemory::MaxFixed,
+			  QWordMemory::Prefetchable,
+			  QWordMemory::ReadWrite,
+			  0x00000000,
+			  node->mmio64_base,
+			  node->mmio64_limit,
+			  0x00000000,
+			  node->mmio64_limit - node->mmio64_base + 1));
 
 		bus->child(new Name("_CRS", package));
 
