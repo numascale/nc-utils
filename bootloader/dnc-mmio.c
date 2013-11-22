@@ -784,13 +784,11 @@ void setup_mmio_late(void)
 		const uint32_t mask = (1 << NC_ATT_MMIO32_GRAN) - 1;
 		assert((nodes[dnode].mmio32_base & mask) == 0 && (nodes[dnode].mmio32_limit & mask) == mask);
 
-		for (uint64_t k = nodes[dnode].mmio32_base >> NC_ATT_MMIO32_GRAN; k < (nodes[dnode].mmio32_limit + 1) >> NC_ATT_MMIO32_GRAN; k++) {
-			if ((k % 256) == 0)
-				for (int node = 0; node < dnc_node_count; node++)
-					dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | (k / 256));
-
-			for (int node = 0; node < dnc_node_count; node++)
+		for (uint32_t k = nodes[dnode].mmio32_base >> NC_ATT_MMIO32_GRAN; k < ((nodes[dnode].mmio32_limit + 1) >> NC_ATT_MMIO32_GRAN); k++) {
+			for (int node = 0; node < dnc_node_count; node++) {
+				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | (k / 256));
 				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (k % 256) * 4, nodes[dnode].sci);
+			}
 		}
 	}
 
