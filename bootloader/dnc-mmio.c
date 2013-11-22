@@ -426,11 +426,34 @@ out:
 	}
 };
 
+class BarList {
+public:
+	BAR *elements[UNITS];
+	int used;
+	BarList(void): used(0) {};
+
+	/* Order BARs by descending size for optimal packing */
+	void insert(BAR *bar) {
+		assert(bar->len);
+
+		int i = 0;
+
+		/* Locate next smaller BAR */
+		while (i < used && elements[i]->len >= bar->len)
+			i++;
+
+		/* Ensure space, move down and insert */
+		assert((used + 1) < UNITS);
+		memmove(&elements[i + 1], &elements[i], (used - i) * sizeof(*elements));
+		elements[i] = bar;
+		used++;
+	}
+};
+
 class Container {
 	Container *containers[UNITS];
 	Container **container;
-	BAR *io_bars[UNITS], *mmio32_bars[UNITS], *mmio64_bars[UNITS];
-	BAR **io_bar, **mmio32_bar, **mmio64_bar;
+	BarList io_bars, mmio32_bars, mmio64_bars;
 	int bus;
 	const int pbus, pdev, pfn;
 
@@ -449,19 +472,14 @@ class Container {
 			}
 
 			if (bar->s64 && bar->pref) {
-				*mmio64_bar = bar;
-				mmio64_bar++;
-				assert(mmio64_bar - mmio64_bars < UNITS);
+				mmio64_bars.insert(bar);
+
+				/* Skip second register of 64-bit BAR */
 				offset += 4;
-			} else if (bar->io) {
-				*io_bar = bar;
-				io_bar++;
-				assert(io_bar - io_bars < UNITS);
-			} else {
-				*mmio32_bar = bar;
-				mmio32_bar++;
-				assert(mmio32_bar - mmio32_bars < UNITS);
-			}
+			} else if (bar->io)
+				io_bars.insert(bar);
+			else
+				mmio32_bars.insert(bar);
 		}
 		printf("\n");
 	}
@@ -473,9 +491,6 @@ public:
 	Container(node_info_t *const _node, const int _pbus, const int _pdev, const int _pfn):
 		pbus(_pbus), pdev(_pdev), pfn(_pfn), node(_node) {
 		container = containers;
-		io_bar = io_bars;
-		mmio32_bar = mmio32_bars;
-		mmio64_bar = mmio64_bars;
 
 		bus = (dnc_read_conf(node->sci, pbus, pdev, pfn, 0x18) >> 8) & 0xff;
 		printf("- bus %x\n", bus);
@@ -512,10 +527,10 @@ public:
 
 	/* Exclude existing allocated ranges from map */
 	void exclude(void) {
-		for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++)
+		for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.elements + mmio32_bars.used; bar++)
 			map32->exclude((*bar)->assigned, (*bar)->len);
 
-		for (BAR **bar = mmio64_bars; bar < mmio64_bar; bar++) {
+		for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.elements + mmio64_bars.used; bar++) {
 			assert((*bar)->assigned < 0xffffffff);
 			map32->exclude((*bar)->assigned, (*bar)->len);
 		}
@@ -536,7 +551,7 @@ public:
 
 		/* Only reallocate 32-bit BARs on slaves */
 		if (node->sci)
-			for (BAR **bar = mmio32_bars; bar < mmio32_bar; bar++) {
+			for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.elements + mmio32_bars.used; bar++) {
 				retry |= (*bar)->allocate(&map32->next);
 				if (retry)
 					return 1;
@@ -548,12 +563,12 @@ public:
 				printf("retrying allocation\n");
 
 		if (node->sci)
-			for (BAR **bar = mmio64_bars; bar < mmio64_bar; bar++)
+			for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.elements + mmio64_bars.used; bar++)
 				assert(!(*bar)->allocate(&mmio64_cur));
 
 		/* Only reallocate IO BARs on slaves */
 		if (node->sci)
-			for (BAR **bar = io_bars; bar < io_bar; bar++)
+			for (BAR **bar = io_bars.elements; bar < io_bars.elements + io_bars.used; bar++)
 				assert(!(*bar)->allocate(&io_cur));
 
 		/* Align start of bridge windows */
@@ -588,7 +603,7 @@ public:
 				warning("SCI%3x %02x:%02x.%d has reg 0x38 as %08x", node->sci, pbus, pdev, pfn, val);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x38, 0);
 
-			if (io_bar == io_bars || io_cur == io_start ||
+			if (io_bars.used == 0 || io_cur == io_start ||
 			  (pbus == 0 && pdev == 0 && pfn == 0)) {
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, 0);
@@ -599,28 +614,28 @@ public:
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, val);
 			}
 
-			if (mmio32_bar == mmio32_bars || map32->next == mmio32_start ||
+			if (mmio32_bars.used == 0 || map32->next == mmio32_start ||
 			  (pbus == 0 && pdev == 0 && pfn == 0))
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, 0x0000fffff);
 			else {
 				val = (mmio32_start >> 16) | ((map32->next - 1) & 0xffff0000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, val);
 			}
-		}
 
-		if (mmio64_bar == mmio64_bars || mmio64_cur == mmio64_start ||
-		  (pbus == 0 && pdev == 0 && pfn == 0)) {
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, 0x0000ffff);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, 0x00000000);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, 0x00000000);
-		} else {
-			for (BAR **bar = mmio64_bars; bar < mmio64_bar; bar++)
-				assert((*bar)->pref);
+			if (mmio64_bars.used == 0 || mmio64_cur == mmio64_start ||
+			  (pbus == 0 && pdev == 0 && pfn == 0)) {
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, 0x0000ffff);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, 0x00000000);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, 0x00000000);
+			} else {
+				for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.elements + mmio64_bars.used; bar++)
+					assert((*bar)->pref);
 
-			val = (mmio64_start >> 16) | ((mmio64_cur - 1) & 0xffff0000);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, val);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, mmio64_start >> 32);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, (mmio64_cur - 1) >> 32);
+				val = (mmio64_start >> 16) | ((mmio64_cur - 1) & 0xffff0000);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, val);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, mmio64_start >> 32);
+				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, (mmio64_cur - 1) >> 32);
+			}
 		}
 
 		return 0;
