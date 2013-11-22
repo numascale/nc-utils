@@ -394,6 +394,8 @@ out:
 	}
 
 	bool allocate(uint64_t *addr) {
+		assert(len);
+
 		if (!s64 && pref)
 			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
 
@@ -811,8 +813,10 @@ void setup_mmio_late(void)
 
 	printf("Setting up SCC ATTs for MMIO64 (default SCI000):\n");
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
-		printf("- 0x%llx:0x%llx -> SCI%03x\n",
-			nodes[dnode].mmio64_base, nodes[dnode].mmio64_limit, nodes[dnode].sci);
+		if (nodes[dnode].mmio64_limit < nodes[dnode].mmio64_base)
+			continue;
+
+		printf("- 0x%llx:0x%llx -> SCI%03x\n", nodes[dnode].mmio64_base, nodes[dnode].mmio64_limit, nodes[dnode].sci);
 
 		for (int i = 0; i < dnc_node_count; i++) {
 			uint64_t addr = nodes[dnode].mmio64_base;
@@ -886,7 +890,7 @@ void setup_mmio_late(void)
 				mmio_range(sci, ht, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht, ioh_link, 1);
 
 			/* 64-bit above local range */
-			if (i < dnc_node_count - 1)
+			if (nodes[dnc_node_count - 1].mmio64_limit > nodes[i].mmio64_limit && i < (dnc_node_count - 1))
 				mmio_range(sci, ht, range++, nodes[i].mmio64_limit + 1, nodes[dnc_node_count - 1].mmio64_limit, nodes[i].nc_ht, 0, 1);
 
 			while (range < 8)
@@ -906,8 +910,21 @@ void setup_mmio_late(void)
 
 			mmio_range(0xfff0, ht, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht, ioh_link, 1);
 
-			for (int i = 1; i < dnc_node_count; i++)
-				mmio_range(0xfff0, ht, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, nodes[i].nc_ht, 0, 1);
+			/* Merge adjacent remote ranges */
+			uint32_t start = nodes[1].mmio32_base;
+			uint32_t end = nodes[1].mmio32_limit;
+
+			for (int i = 2; i < dnc_node_count; i++) {
+				if (nodes[i].mmio32_base == (end + 1)) {
+					end = nodes[i].mmio32_limit;
+					continue;
+				}
+
+				mmio_range(0xfff0, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
+				start = nodes[i].mmio32_base;
+				end = nodes[i].mmio32_limit;
+			}
+			mmio_range(0xfff0, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
 
 			for (int erange = 0; erange < map32->ranges; erange++)
 				mmio_range(0xfff0, ht, range++, map32->excluded[erange].start, map32->excluded[erange].end, ioh_ht, ioh_link, 1);
