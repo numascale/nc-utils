@@ -2183,6 +2183,21 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			}
 		}
 	}
+
+
+	/* Zero out MMIO32 ATT */
+	for (int i = 0; i < 16; i++) {
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | i);
+
+		for (int j = 0; j < 256; j++)
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, 0);
+        }
+
+	/* Zero out SCC ATT */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + SCC_ATT_INDEX_RANGE)));
+	for (int i = 0; i < 4096; i++) /* FIXME: check */
+		dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, 0);
+
 	printf("done\n");
 
 	if (asic_mode && _is_pic_present(p_type)) {

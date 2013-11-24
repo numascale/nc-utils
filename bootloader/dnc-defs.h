@@ -18,6 +18,9 @@
 #ifndef __DNC_DEFS
 #define __DNC_DEFS 1
 
+#define SCC_ATT_INDEX_RANGE 2   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
+#define SCC_ATT_GRAN            ((0x1000000ULL << (SCC_ATT_INDEX_RANGE * 4)) >> DRAM_MAP_SHIFT)
+
 #define NC_ATT_IO       (0 << 4)
 #define NC_ATT_MMIO32   (1 << 4)
 #define NC_ATT_APIC     (2 << 4)
