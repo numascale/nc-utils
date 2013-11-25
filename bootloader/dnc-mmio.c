@@ -230,11 +230,11 @@ static void pci_search(const uint16_t sci, const int bus, const bool scope,
 				} else {
 					mmio_cur = roundup(mmio_cur, NC_ATT_MMIO32_GRAN);
 
-					assert(mmio_cur < 0xffffffff);
+					assert(mmio_cur < MMIO32_LIMIT);
 					uint32_t bridge_start = mmio_cur & 0xffffffff;
 					pci_search(sci, sec, scope, barfn);
 					mmio_cur = roundup(mmio_cur, NC_ATT_MMIO32_GRAN);
-					assert(mmio_cur < 0xffffffff);
+					assert(mmio_cur < MMIO32_LIMIT);
 					uint32_t bridge_end = (mmio_cur - 1) & 0xffffffff;
 
 					if (bridge_end > bridge_start) {
@@ -284,9 +284,8 @@ public:
 	Map(void) {
 		next = rdmsr(MSR_TOPMEM);
 
-		/* Exclude APICs */
-		/* FIXME: derive from e820 map */
-		excluded[0].start = 0xe0000000; //0xfec00000;
+		/* Exclude APICs and magic at 0xf0000000 */
+		excluded[0].start = 0xf0000000;
 		excluded[0].end = 0xffffffff;
 		ranges = 1;
 	}
@@ -399,7 +398,7 @@ out:
 		if (!s64 && pref)
 			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
 
-		if (!s64 && *addr > 0xffffffff) {
+		if (!s64 && *addr >= MMIO32_LIMIT) {
 			*addr = 0;
 			warning("Unable to allocate SCI%03x %02x:%02x.%x BAR 0x%x", sci, bus, dev, fn, reg);
 		} else {
@@ -533,7 +532,7 @@ public:
 			map32->exclude((*bar)->assigned, (*bar)->len);
 
 		for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.elements + mmio64_bars.used; bar++) {
-			assert((*bar)->assigned < 0xffffffff);
+			assert((*bar)->assigned < MMIO32_LIMIT);
 			map32->exclude((*bar)->assigned, (*bar)->len);
 		}
 
@@ -715,7 +714,7 @@ void setup_mmio_master(void)
 	/* Check if there is space for another MMIO window, else wrap */
 	uint64_t len = nodes[0].mmio32_limit - nodes[0].mmio32_base + 1;
 	mmio_cur = nodes[0].mmio32_limit + 1;
-	if ((mmio_cur + len) >= MMIO_LIMIT) {
+	if ((mmio_cur + len) >= MMIO32_LIMIT) {
 		nodes[0].mmio32_limit = 0xffffffff;
 		mmio_cur = rdmsr(MSR_TOPMEM);
 	}
@@ -759,7 +758,7 @@ void setup_mmio_slave(const int node)
 	/* Check if there is space for another MMIO window, else wrap */
 	uint64_t len = nodes[node].mmio32_limit - nodes[node].mmio32_base + 1;
 	mmio_cur = nodes[node].mmio32_limit + 1;
-	if ((mmio_cur + len) >= MMIO_LIMIT) {
+	if ((mmio_cur + len) >= MMIO32_LIMIT) {
 		nodes[node].mmio32_limit = 0xffffffff;
 		mmio_cur = rdmsr(MSR_TOPMEM);
 	}

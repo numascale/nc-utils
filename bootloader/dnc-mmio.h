@@ -18,7 +18,7 @@
 #ifndef __DNC_MMIO_H
 #define __DNC_MMIO_H 1
 
-#define MMIO_LIMIT 0xfec00000
+#define MMIO32_LIMIT 0xfec00000
 #define MMIO_MIN_GAP (32 << 20)
 #define MMIO64_MIN_SIZE (32 << 20)
 #define MMIO_VGA_BASE 0xa0000

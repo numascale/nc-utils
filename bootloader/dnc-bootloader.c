@@ -2434,8 +2434,9 @@ static void unify_all_nodes(void)
 	if (remote_io) {
 		setup_mmio();
 		setup_mmio_late();
-		update_acpi_tables_late();
 	}
+
+	update_acpi_tables_late();
 
 	printf("Clearing remote memory...");
 	for (node = 1; node < dnc_node_count; node++) {

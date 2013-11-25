@@ -532,7 +532,9 @@ unsigned char *remote_aml(uint32_t *len)
 
 	Container *sb = new Scope("\\_SB_");
 
-	for (int n = 0; n < min(dnc_node_count, AML_MAXNODES); n++) {
+	const int nnodes = remote_io ? min(dnc_node_count, AML_MAXNODES) : 1;
+
+	for (int n = 0; n < nnodes; n++) {
 		const node_info_t *node = &nodes[n];
 		char name[5];
 		snprintf(name, sizeof(name), "PCI%c", n < 10 ? '0' + n : 'A' + n - 10);
