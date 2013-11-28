@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect diagnostics r24
+# NumaConnect diagnostics r25
 
 import mmap, time, os, sys, struct, optparse, ctypes, random, subprocess
 
@@ -290,11 +290,15 @@ class Platform:
 		elif typ == 0x01:
 			print 'bridge  ',
 
-		status = self.read(bus, dev, fn, 0x8)
-		print 'Correctable%s NonFatal%s Fatal%s Unsupported%s Pending%s' % \
-			(en(status, 8), en(status, 9), en(status, 10), en(status, 11), en(status, 13))
+		status = self.read(bus, dev, fn, 0x4) >> 16
+		print '<ParErr%s <SysErr%s <MAbort%s <TAbort%s >TAbort%s MParErr%s Int%s' % \
+		  (en(status, 15), en(status, 14), en(status, 13), en(status, 12), en(status, 11), \
+		  en(status, 8), en(status, 3))
 
-		if typ == 0x01:
+		if typ == 0x01: # bridge
+			s = self.read(bus, dev, fn, 0x1c) >> 16
+			print '                 sec      <ParErr%s <SysErr%s <MAbort%s <TAbort%s >TAbort%s MParErr%s' % \
+			  (en(s, 15), en(s, 14), en(s, 13), en(s, 12), en(s, 11), en(s, 8))
 			sec = (self.read(bus, dev, fn, 0x18) >> 8) & 0xff
 			self.walk(sec)
 
