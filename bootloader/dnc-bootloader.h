@@ -83,6 +83,7 @@ typedef struct nodes_info {
 	uint64_t mmio64_limit;
 	uint32_t io_base;           /* Start of local IO mapping */
 	uint32_t io_limit;
+	uint32_t ioapic_addr;
 	ht_node_info_t ht[8];
 	sci_t sci;                  /* Maps logical DNC node ids to physical (SCI) ids */
 	uint16_t apic_offset;       /* Offset to shift APIC ids by when unifying */
