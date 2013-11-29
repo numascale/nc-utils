@@ -495,7 +495,7 @@ static void update_acpi_tables(void)
 	} else
 		xsdt = NULL;
 
-	assert(rsdt || rsdt);
+	assert(rsdt || xsdt);
 
 	acpi_sdt_p oapic = find_sdt("APIC");
 	if (!oapic) {
@@ -1945,7 +1945,6 @@ static void lvt_setup(void)
 static void local_chipset_fixup(const bool master)
 {
 	uint32_t val;
-	printf("Performing local chipset configuration:\n");
 	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
 
 	if (val == VENDEV_SP5100) {
