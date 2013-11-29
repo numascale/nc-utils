@@ -277,29 +277,26 @@ struct range {
 
 class Map {
 public:
-	struct range excluded[UNITS];
-	int ranges;
+	Vector<struct range> excluded;
 	uint64_t next;
 
 	Map(void) {
 		next = rdmsr(MSR_TOPMEM);
 
 		/* Exclude APICs and magic at 0xf0000000 */
-		excluded[0].start = 0xf0000000;
-		excluded[0].end = 0xffffffff;
-		ranges = 1;
+		struct range ent = {0xf0000000, 0xffffffff};
+		excluded.add(ent);
 	}
 
 	bool merge(void) {
-		for (int range = 1; range < ranges; range++) {
-			if ((excluded[range].start - excluded[range - 1].end > MMIO_MIN_GAP) &&
-			  (excluded[range].end < excluded[range - 1].start || excluded[range].start > excluded[range - 1].end))
+		for (int range = 1; range < excluded.used; range++) {
+			if ((excluded.elements[range].start - excluded.elements[range - 1].end > MMIO_MIN_GAP) &&
+			  (excluded.elements[range].end < excluded.elements[range - 1].start || excluded.elements[range].start > excluded.elements[range - 1].end))
 				continue;
 
-			excluded[range - 1].start = min(excluded[range - 1].start, excluded[range].start);
-			excluded[range - 1].end = max(excluded[range - 1].end, excluded[range].end);
-			memmove(&excluded[range], &excluded[range + 1], (ranges - range - 1) * sizeof(excluded[0]));
-			ranges--;
+			excluded.elements[range - 1].start = min(excluded.elements[range - 1].start, excluded.elements[range].start);
+			excluded.elements[range - 1].end = max(excluded.elements[range - 1].end, excluded.elements[range].end);
+			excluded.del(range);
 			return 1;
 		}
 
@@ -311,17 +308,11 @@ public:
 
 		/* Find appropriate position */
 		int range = 0;
-		while (range < ranges && start > excluded[range].start)
+		while (range < excluded.used && start > excluded.elements[range].start)
 			range++;
 
-		/* Move any later elements down */
-		if (ranges > range)
-			memmove(&excluded[range + 1], &excluded[range], (ranges - range) * sizeof(excluded[0]));
-		assert(ranges++ < UNITS);
-
-		/* Insert */
-		excluded[range].start = start;
-		excluded[range].end = start + len - 1;
+		struct range elem = {start, start + len - 1};
+		excluded.insert(elem, range);
 
 		while (merge());
 	}
@@ -330,9 +321,9 @@ public:
 		const uint32_t end = start + len;
 
 		/* If overlap, return amount */
-		for (int i = 0; i < ranges; i++)
-			if (end > excluded[i].start && start < excluded[i].end)
-				return end - excluded[i].start;
+		for (int i = 0; i < excluded.used; i++)
+			if (end > excluded.elements[i].start && start < excluded.elements[i].end)
+				return end - excluded.elements[i].start;
 
 		/* No overlap */
 		return 0;
@@ -340,8 +331,8 @@ public:
 
 	void dump(void) {
 		printf("MMIO ranges excluded from master:\n");
-		for (int i = 0; i < ranges; i++)
-			printf("- 0x%x:0x%x\n", excluded[i].start, excluded[i].end);
+		for (int i = 0; i < excluded.used; i++)
+			printf("- 0x%x:0x%x\n", excluded.elements[i].start, excluded.elements[i].end);
 	}
 };
 
@@ -846,8 +837,8 @@ void setup_mmio_late(void)
 		if (i == 0) {
 			nc_mmio_range(sci, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht);
 
-			for (int erange = 0; erange < map32->ranges; erange++)
-				nc_mmio_range(sci, range++, map32->excluded[erange].start, map32->excluded[erange].end, ioh_ht);
+			for (int erange = 0; erange < map32->excluded.used; erange++)
+				nc_mmio_range(sci, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht);
 
 		} else
 			nc_mmio_range(sci, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht);
@@ -927,8 +918,8 @@ void setup_mmio_late(void)
 			}
 			mmio_range(0xfff0, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
 
-			for (int erange = 0; erange < map32->ranges; erange++)
-				mmio_range(0xfff0, ht, range++, map32->excluded[erange].start, map32->excluded[erange].end, ioh_ht, ioh_link, 1);
+			for (int erange = 0; erange < map32->excluded.used; erange++)
+				mmio_range(0xfff0, ht, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht, ioh_link, 1);
 
 			if (nodes[0].mmio64_limit > nodes[0].mmio64_base)
 				mmio_range(0xfff0, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1);

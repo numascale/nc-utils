@@ -29,26 +29,39 @@ typedef uint16_t sci_t;
 
 template<class T> class Vector {
 	int max;
+
+	void ensure(void) {
+		if (used >= max) {
+			max += 8;
+			elements = (T *)realloc((void *)elements, sizeof(T) * max);
+		}
+	}
 public:
 	int used;
 	T *elements;
 	Vector(void): max(0), used(0), elements(NULL) {}
 	~Vector(void) {
-		while (used) {
-			delete elements[used - 1];
-			used--;
-		}
-
 		free(elements);
 	}
 
 	void add(T elem) {
-		if (used >= max) {
-			max += 8;
-			elements = (T *)realloc((void *)elements, sizeof(T) * max);
-		}
-
+		ensure();
 		elements[used++] = elem;
+	}
+
+	void del(const int offset) {
+		memmove(&elements[offset], &elements[offset + 1], (used - offset - 1) * sizeof(T));
+		used--;
+	}
+
+	void insert(T elem, const int pos) {
+		ensure();
+
+		/* Move any later elements down */
+		if (used > pos)
+			memmove(&elements[pos + 1], &elements[pos], (used - pos) * sizeof(T));
+
+		elements[pos] = elem;
 	}
 };
 
