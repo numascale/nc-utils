@@ -7,3 +7,4 @@
 - add const constraints in dnc-access and dnc-route
 - change opaque type acpi_sdt_p to struct *
 - unify find_child and find_sdt
+- allocate PCIe capability BARs eg [160] Single Root I/O Virtualization (SR-IOV)

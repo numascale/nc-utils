@@ -19,7 +19,7 @@ all: dnc-bootloader.c32 test-routing gen-ucode
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig *.aml *.dsl test-masternode test-slavenode test-routing test-aml gen-ucode dnc-version.h
+	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig *.aml *.amx *.dsl test-masternode test-slavenode test-routing test-aml gen-ucode dnc-version.h
 
 .PHONY: realclean
 realclean: clean
