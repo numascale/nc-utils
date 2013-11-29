@@ -48,9 +48,7 @@
 
 class Container {
 	int maxchildren;
-	Container **children;
 protected:
-	int nchildren;
 	static const uint8_t ExtOpPrefix = 0x5b;
 	static const uint8_t BytePrefix = 0x0a;
 	static const uint8_t WordPrefix = 0x0b;
@@ -60,6 +58,7 @@ protected:
 	static const uint16_t EndTag = 0x0079;
 	int offset, bufsize;
 public:
+	Vector<Container *> children;
 	unsigned char *buf;
 	enum ResourceUsage {ResourceProducer, ResourceConsumer};
 	enum MinType {MinNotFixed, MinFixed};
@@ -71,26 +70,10 @@ public:
 	enum ResourceType {ResourceTypeMemory, ResourceTypeIO, ResourceTypeBus};
 	enum Serialisation {NotSerialised, Serialised};
 
-	Container(void): maxchildren(0), children(0), nchildren(0), offset(0), bufsize(0), buf(NULL) {}
+	Container(void): offset(0), bufsize(0), buf(NULL) {}
 
 	virtual ~Container(void) {
-		while (nchildren) {
-			delete children[nchildren - 1];
-			nchildren--;
-		}
-
-		free(children);
 		free(buf);
-	}
-
-	void child(Container *c) {
-		/* Increase storage if needed */
-		if (nchildren >= maxchildren) {
-			maxchildren += 4;
-			children = (Container **)realloc((void *)children, sizeof(*children) * maxchildren);
-		}
-
-		children[nchildren++] = c;
 	}
 
 	void ensure(int need) {
@@ -99,6 +82,7 @@ public:
 
 		bufsize += 1024;
 		buf = (unsigned char *)realloc((void *)buf, bufsize);
+		assert(buf);
 	}
 
 	void pack(const uint8_t val) {
@@ -176,17 +160,17 @@ public:
 	virtual int build(void) {
 		int l = 0;
 
-		for (int i = 0; i < nchildren; i++)
-			l += children[i]->build();
+		for (int i = 0; i < children.used; i++)
+			l += children.elements[i]->build();
 
 		return l;
 	}
 
 	void insert(void) {
-		for (int i = 0; i < nchildren; i++) {
-			ensure(children[i]->offset);
-			memcpy((void *)&buf[offset], (const void *)&children[i]->buf[0], children[i]->offset);
-			offset += children[i]->offset;
+		for (int i = 0; i < children.used; i++) {
+			ensure(children.elements[i]->offset);
+			memcpy((void *)&buf[offset], (const void *)&children.elements[i]->buf[0], children.elements[i]->offset);
+			offset += children.elements[i]->offset;
 		}
 	}
 };
@@ -209,7 +193,7 @@ public:
 	}
 
 	int build(void) {
-		assert(nchildren == 0);
+		assert(children.used == 0);
 
 		pack((uint8_t)0x87);
 		pack((uint16_t)0x0017); /* Minimum length (23) */
@@ -244,7 +228,7 @@ public:
 	}
 
 	int build(void) {
-		assert(nchildren == 0);
+		assert(children.used == 0);
 
 		pack((uint8_t)0x8a);
 		pack((uint16_t)0x002b); /* Minimum length (43) */
@@ -279,7 +263,7 @@ public:
 	}
 
 	int build(void) {
-		assert(nchildren == 0);
+		assert(children.used == 0);
 
 		pack((uint8_t)0x87);
 		pack((uint16_t)0x0017); /* Minimum length (23) */
@@ -310,7 +294,7 @@ public:
 	  mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
 
 	int build(void) {
-		assert(nchildren == 0);
+		assert(children.used == 0);
 
 		pack((uint8_t)0x88);
 		pack((uint16_t)0x000d); /* Minimum length (13) */
@@ -348,7 +332,7 @@ public:
 	Constant(const uint64_t _val): val(_val) {}
 
 	int build(void) {
-		assert(nchildren == 0);
+		assert(children.used == 0);
 
 		if (val <= 1) {
 			pack((uint8_t)val);
@@ -388,7 +372,7 @@ public:
 	}
 
 	int build(void) {
-		assert(nchildren > 0);
+		assert(children.used > 0);
 
 		pack(MethodOp);
 		int l = strlen(name) + 1 + Container::build();
@@ -411,7 +395,7 @@ public:
 	EisaId(const uint16_t _id): id(_id) {}
 
 	int build(void) {
-		assert(nchildren == 0);
+		assert(children.used == 0);
 
 		pack(DWordPrefix);
 		pack(EISAID);
@@ -427,7 +411,7 @@ class Name: public Container {
 public:
 	Name(const char *_name, Container *c) {
 		strncpy(name, _name, sizeof(name));
-		child(c);
+		children.add(c);
 	};
 
 	Name(const char *_name) {
@@ -435,7 +419,7 @@ public:
 	}
 
 	int build(void) {
-		assert(nchildren == 1);
+		assert(children.used == 1);
 
 		pack(NameOp);
 		pack(name);
@@ -452,11 +436,11 @@ class Return: public Container {
 	static const uint8_t ReturnOp = 0xa4;
 public:
 	Return(Container *c) {
-		child(c);
+		children.add(c);
 	}
 
 	int build(void) {
-		assert(nchildren == 1);
+		assert(children.used == 1);
 
 		pack(ReturnOp);
 		Container::build();
@@ -521,24 +505,24 @@ unsigned char *remote_aml(uint32_t *len)
 		/* For the master's PCI bus, add a proximity object */
 		if (n == 0) {
 			Container *bus = new Scope(name);
-			bus->child(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
-			sb->child(bus);
+			bus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
+			sb->children.add(bus);
 			continue;
 		}
 
 		Container *bus = new Device(name);
 
-		bus->child(new Name("_HID", new EisaId(EisaId::PNP0A08)));
-		bus->child(new Name("_CID", new EisaId(EisaId::PNP0A03)));
-		bus->child(new Name("_UID", new Constant(n)));
-		bus->child(new Name("_BBN", new Constant(0x00)));
-		bus->child(new Name("_SEG", new Constant(n)));
-		bus->child(new Name("_ADR", new Constant(0x00)));
-		bus->child(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
+		bus->children.add(new Name("_HID", new EisaId(EisaId::PNP0A08)));
+		bus->children.add(new Name("_CID", new EisaId(EisaId::PNP0A03)));
+		bus->children.add(new Name("_UID", new Constant(n)));
+		bus->children.add(new Name("_BBN", new Constant(0x00)));
+		bus->children.add(new Name("_SEG", new Constant(n)));
+		bus->children.add(new Name("_ADR", new Constant(0x00)));
+		bus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 
 		Container *package = new Package();
 
-		package->child(new WordBusNumber(
+		package->children.add(new WordBusNumber(
 		  WordBusNumber::ResourceProducer,
 		  WordBusNumber::MinFixed,
 		  WordBusNumber::MaxFixed,
@@ -550,7 +534,7 @@ unsigned char *remote_aml(uint32_t *len)
 		  0x0100));
 
 		assert(node->io_limit > node->io_base);
-		package->child(new DWordIO(
+		package->children.add(new DWordIO(
 		  DWordIO::ResourceProducer,
 		  DWordIO::MinFixed,
 		  DWordIO::MaxFixed,
@@ -563,7 +547,7 @@ unsigned char *remote_aml(uint32_t *len)
 		  node->io_limit - node->io_base + 1));
 
 		assert(node->mmio32_limit > node->mmio32_base);
-		package->child(new DWordMemory(
+		package->children.add(new DWordMemory(
 		  DWordMemory::ResourceProducer,
 		  DWordMemory::MinFixed,
 		  DWordMemory::MaxFixed,
@@ -576,7 +560,7 @@ unsigned char *remote_aml(uint32_t *len)
 		  node->mmio32_limit - node->mmio32_base + 1));
 
 		if (node->mmio64_limit > node->mmio64_base)
-			package->child(new QWordMemory(
+			package->children.add(new QWordMemory(
 			  QWordMemory::ResourceProducer,
 			  QWordMemory::MinFixed,
 			  QWordMemory::MaxFixed,
@@ -588,16 +572,16 @@ unsigned char *remote_aml(uint32_t *len)
 			  0x00000000,
 			  node->mmio64_limit - node->mmio64_base + 1));
 
-		bus->child(new Name("_CRS", package));
+		bus->children.add(new Name("_CRS", package));
 
 		Container *method = new Method("_CBA", 0, Method::NotSerialised);
 		const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
 		Container *passed = new Return(new Constant(config));
 
-		method->child(passed);
-		bus->child(method);
+		method->children.add(passed);
+		bus->children.add(method);
 
-		sb->child(bus);
+		sb->children.add(bus);
 	}
 
 	*len = sb->build();

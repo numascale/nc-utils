@@ -20,11 +20,37 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define checked __attribute__ ((warn_unused_result))
 
 typedef uint8_t ht_t;
 typedef uint16_t sci_t;
+
+template<class T> class Vector {
+	int max;
+public:
+	int used;
+	T *elements;
+	Vector(void): max(0), used(0), elements(NULL) {}
+	~Vector(void) {
+		while (used) {
+			delete elements[used - 1];
+			used--;
+		}
+
+		free(elements);
+	}
+
+	void add(T elem) {
+		if (used >= max) {
+			max += 8;
+			elements = (T *)realloc((void *)elements, sizeof(T) * max);
+		}
+
+		elements[used++] = elem;
+	}
+};
 
 #endif
 
