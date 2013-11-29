@@ -12,10 +12,9 @@
 #include "dnc-aml.h"
 #include "dnc-acpi.h"
 
-#define MAXLEN 65536
-
 uint16_t dnc_node_count = 0;
 int verbose = 2;
+bool remote_io = 1;
 node_info_t *nodes;
 
 /* Insert SSDT dumped from booting with verbose=2 into array */
@@ -36,11 +35,19 @@ uint8_t checksum(const acpi_sdt_p addr, const int len)
 	return sum;
 }
 
+static void launch(const char *cmdline)
+{
+	printf("[%s]\n", cmdline);
+	int rc = system(cmdline);
+	if (rc)
+		 printf("warning: command returned rc %d\n", rc);
+}
+
 static void gen(const int nnodes)
 {
 	char filename[32];
 
-	snprintf(filename, sizeof(filename), "SSDT-%dnodes.aml", nnodes);
+	snprintf(filename, sizeof(filename), "SSDT-%dnodes.amx", nnodes);
 
 	int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	assert(fd != -1);
@@ -49,18 +56,18 @@ static void gen(const int nnodes)
 		assert(write(fd, table, sizeof(table)) == sizeof(table));
 		printf("wrote %s (%zd bytes, %d nodes)\n", filename, sizeof(table), nnodes);
 	} else {
-		acpi_sdt_p ssdt = (acpi_sdt_p)malloc(MAXLEN);
 		uint32_t extra_len;
 		dnc_node_count = nnodes;
 		unsigned char *extra = remote_aml(&extra_len);
 
+		acpi_sdt_p ssdt = (acpi_sdt_p)malloc(sizeof(struct acpi_sdt) + extra_len);
 		memcpy(ssdt->sig.s, "SSDT", 4);
 		ssdt->revision = ACPI_REV;
 		memcpy(ssdt->oemid, "NUMASC", 6);
 		memcpy(ssdt->oemtableid, "N313NUMA", 8);
 		ssdt->oemrev = 0;
-		memcpy(ssdt->creatorid, "1B47", 4);
-		ssdt->creatorrev = 1;
+		memcpy(ssdt->creatorid, "INTL", 4);
+		ssdt->creatorrev = 0x20100528;
 		memcpy(ssdt->data, extra, extra_len);
 		ssdt->len = offsetof(struct acpi_sdt, data) + extra_len;
 		ssdt->checksum = 0;
@@ -73,9 +80,22 @@ static void gen(const int nnodes)
 
 	assert(close(fd) == 0);
 
-	char cmdline[64];
+	char cmdline[64], filename2[32];
+
+	/* Disassemble generated AML to .dsl file */
 	snprintf(cmdline, sizeof(cmdline), "iasl -vs -w3 -d %s 2>/dev/null", filename);
-	assert(system(cmdline) == 0);
+	launch(cmdline);
+	strncpy(filename2, filename, sizeof(filename2));
+	strcpy(strrchr(filename2, '.'), ".dsl");
+
+	/* Reassemble to .aml file */
+	snprintf(cmdline, sizeof(cmdline), "iasl -vs -w3 %s >/dev/null", filename2);
+	launch(cmdline);
+	strcpy(strrchr(filename2, '.'), ".aml");
+
+	/* Diff output */
+	snprintf(cmdline, sizeof(cmdline), "diff %s %s", filename, filename2);
+	launch(cmdline);
 }
 
 int main(void)
@@ -89,27 +109,32 @@ int main(void)
 	nodes[0].mmio32_limit = 0x823fffff;
 	nodes[0].mmio64_base  = 0x1200000000;
 	nodes[0].mmio64_limit = 0x12ffffffff;
+	nodes[0].bsp_ht       = 0;
+	nodes[0].ht[nodes[0].bsp_ht].pdom = 0;
 
 	for (node_info_t *node = &nodes[1]; node < &nodes[AML_MAXNODES]; node++) {
 		node_info_t *last = node - 1;
 
 		node->io_base      = last->io_limit + 1;
 		node->io_limit     = node->io_base + (last->io_limit - last->io_base);
-		node->mmio32_base  = last->mmio32_base + 1;
+		node->mmio32_base  = last->mmio32_limit + 1;
 		node->mmio32_limit = node->mmio32_base + (last->mmio32_limit - last->mmio32_base);
-		node->mmio64_base  = last->mmio64_base + 1;
+		node->mmio64_base  = last->mmio64_limit + 1;
 		node->mmio64_limit = node->mmio64_base + (last->mmio64_limit - last->mmio64_base);
+		node->bsp_ht       = last->bsp_ht;
+		node->ht[node->bsp_ht].pdom = last->ht[last->bsp_ht].pdom + 4;
 	}
 
 	gen(0);
 	gen(1);
-	gen(2);
 	gen(3);
+	gen(4);
 	gen(8);
+	gen(16);
+	gen(32);
 	gen(AML_MAXNODES);
 
 	free(nodes);
-	printf("use 'iasl -d file.aml to extract\n");
 	return 0;
 }
 
