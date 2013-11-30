@@ -311,7 +311,8 @@ public:
 		while (range < excluded.used && start > excluded.elements[range].start)
 			range++;
 
-		struct range elem = {start, start + len - 1};
+		/* Align start and end to 1MB boundaries */
+		struct range elem = {start & ~0xfffff, roundup(start + len, 0x100000) - 1};
 		excluded.insert(elem, range);
 
 		while (merge());
