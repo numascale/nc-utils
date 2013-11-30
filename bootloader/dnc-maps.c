@@ -90,6 +90,8 @@ void dram_range(const uint16_t sci, const int ht, const int range, const uint64_
 	assert(dest < 8);
 	assert(range < 8);
 	assert(limit > base);
+	assert((base & 0xffffff) == 0);
+	assert((limit & 0xffffff) == 0xffffff);
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x144 + range * 8, limit >> 40);
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x44 + range * 8, ((limit >> 8) & ~0xffff) | dest);
@@ -195,6 +197,8 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 			range, sci, ht, base, limit, dest, link);
 
 	assert(limit > base);
+	assert((base & 0xffff) == 0);
+	assert((limit & 0xffff) == 0xffff);
 
 	if (family >= 0x15) {
 		assert(range < 12);
@@ -333,6 +337,8 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 
 	assert(limit > base);
 	assert(range < 8);
+	assert((base & 0xffff) == 0);
+	assert((limit & 0xffff) == 0xffff);
 
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 16) << 8) | 3;
@@ -392,6 +398,8 @@ void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, con
 
 	assert(limit > base);
 	assert(range < 8);
+	assert((base & 0xffffff) == 0);
+	assert((limit & 0xffffff) == 0xffffff);
 
 	uint8_t ht = sci_to_node(sci)->nc_ht;
 	uint32_t a = ((base >> 24) << 8) | 3;
