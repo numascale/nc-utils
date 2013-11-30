@@ -267,7 +267,7 @@ out:
 
 ////////////////////
 
-#define UNITS 32
+#define UNITS 64
 
 static uint64_t io_cur, mmio64_cur;
 
