@@ -267,8 +267,6 @@ out:
 
 ////////////////////
 
-#define UNITS 64
-
 static uint64_t io_cur, mmio64_cur;
 
 struct range {
@@ -283,7 +281,7 @@ public:
 	Map(void) {
 		next = rdmsr(MSR_TOPMEM);
 
-		/* Exclude APICs and magic at 0xf0000000 */
+		/* Exclude APICs and magic */
 		struct range ent = {0xf0000000, 0xffffffff};
 		excluded.add(ent);
 	}
@@ -419,36 +417,21 @@ out:
 	}
 };
 
-class BarList {
-public:
-	BAR *elements[UNITS];
-	int used;
-	BarList(void): used(0) {};
-
-	/* Order BARs by descending size for optimal packing */
-	void insert(BAR *bar) {
-		assert(bar->len);
-
-		int i = 0;
-
-		/* Locate next smaller BAR */
-		while (i < used && elements[i]->len >= bar->len)
-			i++;
-
-		/* Ensure space, move down and insert */
-		assert((used + 1) < UNITS);
-		memmove(&elements[i + 1], &elements[i], (used - i) * sizeof(*elements));
-		elements[i] = bar;
-		used++;
-	}
-};
-
 class Container {
-	Container *containers[UNITS];
+	Vector<Container *> containers;
 	Container **container;
-	BarList io_bars, mmio32_bars, mmio64_bars;
+	Vector<BAR *> io_bars, mmio32_bars, mmio64_bars;
 	int bus;
 	const int pbus, pdev, pfn;
+
+	/* Order by descending length */
+	void insert(Vector<BAR *> &v, BAR *bar) {
+		int i = 0;
+		while (i < v.used && v.elements[i]->len >= bar->len)
+			i++;
+
+		v.insert(bar, i);
+	}
 
 	void device(const int dev, const int fn) {
 		printf(" > dev %x:%02x.%x", bus, dev, fn);
@@ -465,14 +448,14 @@ class Container {
 			}
 
 			if (bar->s64 && bar->pref) {
-				mmio64_bars.insert(bar);
+				insert(mmio64_bars, bar);
 
 				/* Skip second register of 64-bit BAR */
 				offset += 4;
 			} else if (bar->io)
-				io_bars.insert(bar);
+				insert(io_bars, bar);
 			else
-				mmio32_bars.insert(bar);
+				insert(mmio32_bars, bar);
 		}
 		printf("\n");
 	}
@@ -482,9 +465,7 @@ public:
 	uint64_t window_io, window32, window64; /* Length of MMIO window needed */
 
 	Container(node_info_t *const _node, const int _pbus, const int _pdev, const int _pfn):
-		pbus(_pbus), pdev(_pdev), pfn(_pfn), node(_node) {
-		container = containers;
-
+	  pbus(_pbus), pdev(_pdev), pfn(_pfn), node(_node) {
 		bus = (dnc_read_conf(node->sci, pbus, pdev, pfn, 0x18) >> 8) & 0xff;
 		printf("- bus %x\n", bus);
 		const int limit = bus == 0 ? 24 : 32;
@@ -520,22 +501,20 @@ public:
 
 	/* Exclude existing allocated ranges from map */
 	void exclude(void) {
-		for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.elements + mmio32_bars.used; bar++)
+		for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++)
 			map32->exclude((*bar)->assigned, (*bar)->len);
 
-		for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.elements + mmio64_bars.used; bar++) {
+		for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++) {
 			assert((*bar)->assigned < MMIO32_LIMIT);
 			map32->exclude((*bar)->assigned, (*bar)->len);
 		}
 
-		for (Container **c = containers; c < container; c++)
+		for (Container **c = containers.elements; c < containers.limit; c++)
 			(*c)->exclude();
 	}
 
 	/* Set BAR addresses; return 1 if ran into an exclusion zone; caller will retry */
 	bool allocate(void) {
-		bool retry = 0;
-
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
 		io_cur = roundup(io_cur, 1 << 12);
 
@@ -543,25 +522,28 @@ public:
 		uint64_t mmio64_start = mmio64_cur;
 
 		/* Only reallocate 32-bit BARs on slaves */
-		if (node->sci)
-			for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.elements + mmio32_bars.used; bar++) {
+		if (node->sci) {
+			bool retry = 0;
+
+			for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++) {
 				retry |= (*bar)->allocate(&map32->next);
 				if (retry)
 					return 1;
 			}
+		}
 
 		/* Allocate child containers, retrying until allocation succeeds */
-		for (Container **c = containers; c < container; c++)
+		for (Container **c = containers.elements; c < containers.limit; c++)
 			while ((*c)->allocate())
 				printf("retrying allocation\n");
 
 		if (node->sci)
-			for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.elements + mmio64_bars.used; bar++)
+			for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++)
 				assert(!(*bar)->allocate(&mmio64_cur));
 
 		/* Only reallocate IO BARs on slaves */
 		if (node->sci)
-			for (BAR **bar = io_bars.elements; bar < io_bars.elements + io_bars.used; bar++)
+			for (BAR **bar = io_bars.elements; bar < io_bars.limit; bar++)
 				assert(!(*bar)->allocate(&io_cur));
 
 		/* Align start of bridge windows */
@@ -621,7 +603,7 @@ public:
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, 0x00000000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, 0x00000000);
 			} else {
-				for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.elements + mmio64_bars.used; bar++)
+				for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++)
 					assert((*bar)->pref);
 
 				val = (mmio64_start >> 16) | ((mmio64_cur - 1) & 0xffff0000);
@@ -636,16 +618,13 @@ public:
 };
 
 void setup_mmio(void) {
-	Container *containers[UNITS];
-	Container **container = containers;
+	Vector<Container *> containers;
 
 	critical_enter();
 	/* Enumerate PCI busses */
 	foreach_node(node) {
 		printf("SCI%03x\n", node->sci);
-		*container = new Container(node, 0, 0, 0);
-		container++;
-		assert(container - containers < UNITS);
+		containers.add(new Container(node, 0, 0, 0));
 	}
 	critical_leave();
 
@@ -653,7 +632,7 @@ void setup_mmio(void) {
 	map32 = new Map();
 
 	/* Scope master BARs and exclude from map */
-	Container **c = containers;
+	Container **c = containers.elements;
 	(*c)->exclude();
 	map32->dump();
 
@@ -663,7 +642,7 @@ void setup_mmio(void) {
 	c++;
 
 	/* Assign master 64-bit BARs and all slave BARs */
-	while (c < container) {
+	while (c < containers.limit) {
 		(*c)->node->mmio32_base = map32->next;
 		(*c)->node->mmio64_base = mmio64_cur;
 		(*c)->node->io_base = io_cur;

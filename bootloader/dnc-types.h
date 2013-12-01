@@ -38,8 +38,8 @@ template<class T> class Vector {
 	}
 public:
 	int used;
-	T *elements;
-	Vector(void): max(0), used(0), elements(NULL) {}
+	T *elements, *limit;
+	Vector(void): max(0), used(0), elements(NULL), limit(NULL) {}
 	~Vector(void) {
 		free(elements);
 	}
@@ -47,11 +47,13 @@ public:
 	void add(T elem) {
 		ensure();
 		elements[used++] = elem;
+		limit = &elements[used];
 	}
 
 	void del(const int offset) {
 		memmove(&elements[offset], &elements[offset + 1], (used - offset - 1) * sizeof(T));
 		used--;
+		limit = &elements[used];
 	}
 
 	void insert(T elem, const int pos) {
@@ -62,6 +64,8 @@ public:
 			memmove(&elements[pos + 1], &elements[pos], (used - pos) * sizeof(T));
 
 		elements[pos] = elem;
+		used++;
+		limit = &elements[used];
 	}
 };
 
