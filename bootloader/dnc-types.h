@@ -32,7 +32,7 @@ typedef uint8_t ht_t;
 typedef uint16_t sci_t;
 
 template<class T> class Vector {
-	int max;
+	unsigned max;
 
 	void ensure(void) {
 		lassert(used <= max);
@@ -42,7 +42,7 @@ template<class T> class Vector {
 		}
 	}
 public:
-	int used;
+	unsigned used;
 	T *elements, *limit;
 	Vector(void): max(0), used(0), elements(NULL), limit(NULL) {}
 	~Vector(void) {

@@ -160,14 +160,14 @@ public:
 	virtual int build(void) {
 		int l = 0;
 
-		for (int i = 0; i < children.used; i++)
+		for (unsigned i = 0; i < children.used; i++)
 			l += children.elements[i]->build();
 
 		return l;
 	}
 
 	void insert(void) {
-		for (int i = 0; i < children.used; i++) {
+		for (unsigned int i = 0; i < children.used; i++) {
 			ensure(children.elements[i]->offset);
 			memcpy((void *)&buf[offset], (const void *)&children.elements[i]->buf[0], children.elements[i]->offset);
 			offset += children.elements[i]->offset;

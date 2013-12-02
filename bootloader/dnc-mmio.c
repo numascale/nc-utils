@@ -193,7 +193,7 @@ public:
 	}
 
 	bool merge(void) {
-		for (int range = 1; range < excluded.used; range++) {
+		for (unsigned range = 1; range < excluded.used; range++) {
 			if ((excluded.elements[range].start - excluded.elements[range - 1].end > MMIO_MIN_GAP) &&
 			  (excluded.elements[range].end < excluded.elements[range - 1].start || excluded.elements[range].start > excluded.elements[range - 1].end))
 				continue;
@@ -211,7 +211,7 @@ public:
 		assert(len);
 
 		/* Find appropriate position */
-		int range = 0;
+		unsigned range = 0;
 		while (range < excluded.used && start > excluded.elements[range].start)
 			range++;
 
@@ -226,7 +226,7 @@ public:
 		const uint32_t end = start + len;
 
 		/* If overlap, return amount */
-		for (int i = 0; i < excluded.used; i++)
+		for (unsigned i = 0; i < excluded.used; i++)
 			if (end > excluded.elements[i].start && start < excluded.elements[i].end)
 				return end - excluded.elements[i].start;
 
@@ -236,7 +236,7 @@ public:
 
 	void dump(void) {
 		printf("MMIO ranges excluded from master:\n");
-		for (int i = 0; i < excluded.used; i++)
+		for (unsigned i = 0; i < excluded.used; i++)
 			printf("- 0x%x:0x%x\n", excluded.elements[i].start, excluded.elements[i].end);
 	}
 };
@@ -332,7 +332,7 @@ class Container {
 
 	/* Order by descending length */
 	void insert(Vector<BAR *> &v, BAR *bar) {
-		int i = 0;
+		unsigned i = 0;
 		while (i < v.used && v.elements[i]->len >= bar->len)
 			i++;
 
@@ -685,7 +685,7 @@ void setup_mmio_late(void)
 		if (i == 0) {
 			nc_mmio_range(sci, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht);
 
-			for (int erange = 0; erange < map32->excluded.used; erange++)
+			for (unsigned erange = 0; erange < map32->excluded.used; erange++)
 				nc_mmio_range(sci, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht);
 
 		} else
@@ -766,7 +766,7 @@ void setup_mmio_late(void)
 			}
 			mmio_range(0xfff0, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
 
-			for (int erange = 0; erange < map32->excluded.used; erange++)
+			for (unsigned erange = 0; erange < map32->excluded.used; erange++)
 				mmio_range(0xfff0, ht, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht, ioh_link, 1);
 
 			if (nodes[0].mmio64_limit > nodes[0].mmio64_base)
