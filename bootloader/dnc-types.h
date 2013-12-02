@@ -23,6 +23,10 @@
 #include <stdlib.h>
 
 #define checked __attribute__ ((warn_unused_result))
+#define lassert(cond) do { if (!(cond)) { \
+        printf("Error: assertion '%s' failed in %s at %s:%d\n", \
+            #cond, __FUNCTION__, __FILE__, __LINE__); while (1); \
+    } } while (0)
 
 typedef uint8_t ht_t;
 typedef uint16_t sci_t;
@@ -31,7 +35,8 @@ template<class T> class Vector {
 	int max;
 
 	void ensure(void) {
-		if (used >= max) {
+		lassert(used <= max);
+		if (used == max) {
 			max += 8;
 			elements = (T *)realloc((void *)elements, sizeof(T) * max);
 		}
@@ -50,13 +55,14 @@ public:
 		limit = &elements[used];
 	}
 
-	void del(const int offset) {
+	void del(const unsigned offset) {
+		lassert(offset < used);
 		memmove(&elements[offset], &elements[offset + 1], (used - offset - 1) * sizeof(T));
 		used--;
 		limit = &elements[used];
 	}
 
-	void insert(T elem, const int pos) {
+	void insert(T elem, const unsigned pos) {
 		ensure();
 
 		/* Move any later elements down */
