@@ -104,19 +104,6 @@ out:
 	return !s64;
 }
 
-static void assign_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg, uint64_t addr)
-{
-	uint32_t val = dnc_read_conf(sci, bus, dev, fn, reg);
-	bool s64 = ((val >> 1) & 3) == 3;
-
-	dnc_write_conf(sci, bus, dev, fn, reg, addr & 0xffffffff);
-	if (s64)
-		dnc_write_conf(sci, bus, dev, fn, reg + 4, addr >> 32);
-	else
-		assert(addr < 0xffffffff);
-	printf(":0x%llx", addr);
-}
-
 static bool scope_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg)
 {
 	uint64_t len, addr;
@@ -133,32 +120,7 @@ static bool scope_bar(const uint16_t sci, const int bus, const int dev, const in
 	return more;
 }
 
-static bool setup_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg)
-{
-	uint64_t len, addr;
-	bool pref, io, more = size_bar(sci, bus, dev, fn, reg, &addr, &len, &pref, &io);
-
-	/* FIXME: Can't handle prefetchable memory ranges for now */
-	assert(!pref);
-
-	/* Disable slave IO BARs */
-	if (io) {
-		printf("[dis]");
-		dnc_write_conf(sci, bus, dev, fn, reg, 0);
-		return more;
-	}
-
-	if (len) {
-		/* BARs are aligned to their size, or page */
-		mmio_cur = roundup(mmio_cur, max(len, 4096));
-		assign_bar(sci, bus, dev, fn, reg, mmio_cur);
-		mmio_cur += len;
-	}
-
-	return more;
-}
-
-static void pci_search(const uint16_t sci, const int bus, const bool scope,
+static void pci_search(const uint16_t sci, const int bus,
 	bool (*barfn)(const uint16_t sci, const int bus, const int dev, const int fn, const int reg))
 {
 	for (int dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
@@ -170,31 +132,6 @@ static void pci_search(const uint16_t sci, const int bus, const bool scope,
 
 			uint8_t type = val >> 16;
 			printf("%s @ %02x:%02x.%x:", (type & 0x7f) == 0 ? " - endpoint" : "bridge", bus, dev, fn);
-
-			if (!scope) {
-				/* Disable IO response */
-				val = dnc_read_conf(sci, bus, dev, fn, 0x4);
-				dnc_write_conf(sci, bus, dev, fn, 0x4, val & ~(1 | (1 << 10)));
-
-				if ((type & 0x7f) == 0x00) {
-					/* Disable device EEPROM */
-					if ((type & 0x7f) == 0x00)
-						dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
-
-#ifdef EXPERIMENTAL
-					/* Set interrupt line to unconnected */
-					val = dnc_read_conf(sci, bus, dev, fn, 0x3c);
-					dnc_write_conf(sci, bus, dev, fn, 0x3c, (val & ~0xffff) | 0x00ff);
-#endif
-
-					/* If no MSI capability, disable device and continue */
-					if (capability(sci, PCI_CAP_MSI, bus, dev, fn) == PCI_CAP_NONE) {
-						printf(" [no MSI] ");
-						disable_device(sci, bus, dev, fn);
-						goto out;
-					}
-				}
-			}
 
 			if (barfn(sci, bus, dev, fn, 0x10))
 				barfn(sci, bus, dev, fn, 0x14);
@@ -211,53 +148,22 @@ static void pci_search(const uint16_t sci, const int bus, const bool scope,
 			/* Recurse down bridges */
 			if ((type & 0x7f) == 0x01) {
 				int sec = (dnc_read_conf(sci, bus, dev, fn, 0x18) >> 8) & 0xff;
+				pci_search(sci, sec, barfn);
 
-				if (scope) {
-					pci_search(sci, sec, scope, barfn);
+				for (int i = 0; i < 2; i++) {
+					/* Round up limit */
+					if (tmp_lim[i])
+						tmp_lim[i] = roundup(tmp_lim[i], NC_ATT_MMIO32_GRAN) - 1;
 
-					for (int i = 0; i < 2; i++) {
-						/* Round up limit */
-						if (tmp_lim[i])
-							tmp_lim[i] = roundup(tmp_lim[i], NC_ATT_MMIO32_GRAN) - 1;
+					printf("window %d: 0x%08llx:0x%08llx\n", i, tmp_base[i], tmp_lim[i]);
 
-						printf("window %d: 0x%08llx:0x%08llx\n", i, tmp_base[i], tmp_lim[i]);
-
-						if (tmp_base[i] < nodes[0].mmio32_base)
-							nodes[0].mmio32_base = tmp_base[i];
-						if (tmp_lim[i] > nodes[0].mmio32_limit)
-							nodes[0].mmio32_limit = tmp_lim[i];
-					}
-				} else {
-					mmio_cur = roundup(mmio_cur, NC_ATT_MMIO32_GRAN);
-
-					assert(mmio_cur < MMIO32_LIMIT);
-					uint32_t bridge_start = mmio_cur & 0xffffffff;
-					pci_search(sci, sec, scope, barfn);
-					mmio_cur = roundup(mmio_cur, NC_ATT_MMIO32_GRAN);
-					assert(mmio_cur < MMIO32_LIMIT);
-					uint32_t bridge_end = (mmio_cur - 1) & 0xffffffff;
-
-					if (bridge_end > bridge_start) {
-						printf("window: 0x%08x:0x%08x\n", bridge_start, bridge_end);
-						val = ((roundup(bridge_end, NC_ATT_MMIO32_GRAN) - 1) & ~0xfffff) | ((bridge_start >> 16) & ~0xf);
-						dnc_write_conf(sci, bus, dev, fn, 0x20, val);
-					} else {
-						printf("window: disabled\n");
-						dnc_write_conf(sci, bus, dev, fn, 0x20, 0x0000ffff);
-					}
-					/* FIXME: Can't handle prefetchable range for now */
-					dnc_write_conf(sci, bus, dev, fn, 0x24, 0x0000ffff);
-					dnc_write_conf(sci, bus, dev, fn, 0x28, 0x0);
-					dnc_write_conf(sci, bus, dev, fn, 0x2c, 0x0);
-
-					/* Disable IO base/limit and expansion ROM */
-					val = dnc_read_conf(sci, bus, dev, fn, 0x1c);
-					dnc_write_conf(sci, bus, dev, fn, 0x1c, (val & ~0xffff) | 0xff00);
-					dnc_write_conf(sci, bus, dev, fn, 0x30, 0x0000ffff);
-					dnc_write_conf(sci, bus, dev, fn, 0x38, 0);
+					if (tmp_base[i] < nodes[0].mmio32_base)
+						nodes[0].mmio32_base = tmp_base[i];
+					if (tmp_lim[i] > nodes[0].mmio32_limit)
+						nodes[0].mmio32_limit = tmp_lim[i];
 				}
 			}
-out:
+
 			/* If not multi-function, break out of function loop */
 			if (!fn && !(type & 0x80))
 				break;
@@ -686,7 +592,7 @@ void setup_mmio_master(void)
 
 	printf("\nScoping master PCI tree:\n");
 	critical_enter();
-	pci_search(0xfff0, 0, 1, scope_bar);
+	pci_search(0xfff0, 0, scope_bar);
 	critical_leave();
 	printf("Master MMIO32 range 0x%x:0x%x\n\n", nodes[0].mmio32_base, nodes[0].mmio32_limit);
 
@@ -703,44 +609,6 @@ void setup_mmio_master(void)
 	uint32_t val = ioh_nbmiscind_read(0xfff0, 0x75);
 	ioh_nbmiscind_write(0xfff0, 0x75, (val & ~6) | 2);
 #endif
-}
-
-void setup_mmio_slave(const int node)
-{
-	assert(node > 0);
-	uint16_t sci = nodes[node].sci;
-
-	printf("Setting up PCI routing on SCI%03x from 0x%llx\n", sci, mmio_cur);
-	nodes[node].mmio32_base = mmio_cur;
-	critical_enter();
-	pci_search(sci, 0, 0, setup_bar);
-	critical_leave();
-
-	mmio_cur = roundup(mmio_cur, 0x1000);
-
-#ifdef EXPERIMENTAL
-	ioh_ioapicind_write(sci, 0x1, (mmio_cur & 0xffffffff) | 8);
-	ioh_ioapicind_write(sci, 0x2, mmio_cur >> 32);
-	printf("SCI%03x IOAPIC at 0x%08llx\n", sci, mmio_cur);
-
-	/* Forward interrupts to primary SP5100 */
-	uint32_t val = ioh_nbmiscind_read(sci, 0x75);
-	ioh_nbmiscind_write(sci, 0x75, (val & ~6) | 4);
-#endif
-	ioh_ioapicind_write(sci, 0x0, 0);
-	printf("SCI%03x IOAPIC disabled\n", sci);
-
-	mmio_cur = roundup(mmio_cur, NC_ATT_MMIO32_GRAN) - 1;
-	nodes[node].mmio32_limit = mmio_cur;
-	printf("SCI%03x MMIO32 range 0x%x:0x%x\n\n", sci, nodes[node].mmio32_base, nodes[node].mmio32_limit);
-
-	/* Check if there is space for another MMIO window, else wrap */
-	uint64_t len = nodes[node].mmio32_limit - nodes[node].mmio32_base + 1;
-	mmio_cur = nodes[node].mmio32_limit + 1;
-	if ((mmio_cur + len) >= MMIO32_LIMIT) {
-		nodes[node].mmio32_limit = 0xffffffff;
-		mmio_cur = rdmsr(MSR_TOPMEM);
-	}
 }
 
 void setup_mmio_late(void)
