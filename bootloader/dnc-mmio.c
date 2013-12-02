@@ -325,7 +325,6 @@ out:
 
 class Container {
 	Vector<Container *> containers;
-	Container **container;
 	Vector<BAR *> io_bars, mmio32_bars, mmio64_bars;
 	int bus;
 	const int pbus, pdev, pfn;
@@ -384,10 +383,9 @@ public:
 					continue;
 
 				uint8_t type = val >> 16;
-				if ((type & 0x7f) == 1) {
-					*container = new Container(node, bus, dev, fn);
-					container++;
-				} else {
+				if ((type & 0x7f) == 1)
+					containers.add(new Container(node, bus, dev, fn));
+				else {
 					assert((type & 0x7f) == 0);
 					device(dev, fn);
 				}
@@ -547,7 +545,7 @@ void setup_mmio(void) {
 	/* Skip reassigning on master */
 	c++;
 
-	/* Assign master 64-bit BARs and all slave BARs */
+	/* Assign slave BARs */
 	while (c < containers.limit) {
 		(*c)->node->mmio32_base = map32->next;
 		(*c)->node->mmio64_base = mmio64_cur;
@@ -557,7 +555,7 @@ void setup_mmio(void) {
 		while ((*c)->allocate())
 			printf("retrying allocation\n");
 
-		/* Assign node's IOAPIC address */
+		/* Assign IOAPIC address */
 		assert((map32->next & 0xfff) == 0);
 		printf("IOAPIC at 0x%08llx\n", map32->next);
 		(*c)->node->ioapic_addr = map32->next;
