@@ -2819,7 +2819,9 @@ static int nc_start(void)
 		if (disable_kvm > -1)
 			disable_kvm_ports(disable_kvm);
 
+#if BROKEN	/* Disabling APIC LVT entries causes boot failure on eg Dell R815s */
 		selftest_late_apiclvt();
+#endif
 		if (verbose) {
 			ranges_print();
 			selftest_late_memmap();
