@@ -426,20 +426,15 @@ public:
 		uint64_t mmio64_start = mmio64_cur;
 
 		/* Only reallocate 32-bit BARs on slaves */
-		if (node->sci) {
-			bool retry = 0;
-
-			for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++) {
-				retry |= (*bar)->allocate(&map32->next);
-				if (retry)
+		if (node->sci)
+			for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++)
+				if ((*bar)->allocate(&map32->next))
 					return 1;
-			}
-		}
 
 		/* Allocate child containers, retrying until allocation succeeds */
 		for (Container **c = containers.elements; c < containers.limit; c++)
-			while ((*c)->allocate())
-				printf("retrying allocation\n");
+			if ((*c)->allocate())
+				return 1;
 
 		if (node->sci)
 			for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++)
@@ -547,13 +542,13 @@ void setup_mmio(void) {
 
 	/* Assign slave BARs */
 	while (c < containers.limit) {
-		(*c)->node->mmio32_base = map32->next;
-		(*c)->node->mmio64_base = mmio64_cur;
-		(*c)->node->io_base = io_cur;
-
-		/* Retry until allocation succeeds */
-		while ((*c)->allocate())
-			printf("retrying allocation\n");
+		do {
+			map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
+			/* Retry until allocation succeeds */
+			(*c)->node->mmio32_base = map32->next;
+			(*c)->node->mmio64_base = mmio64_cur;
+			(*c)->node->io_base = io_cur;
+		} while ((*c)->allocate());
 
 		/* Assign IOAPIC address */
 		assert((map32->next & 0xfff) == 0);
