@@ -496,25 +496,28 @@ unsigned char *remote_aml(uint32_t *len)
 	Container *sb = new Scope("\\_SB_");
 
 	const int nnodes = remote_io ? min(dnc_node_count, AML_MAXNODES) : 1;
+	char name[5];
+	node_info_t *node = &nodes[0];
 
-	for (int n = 0; n < nnodes; n++) {
-		const node_info_t *node = &nodes[n];
-		char name[5];
+	/* For the master's PCI busses, add a proximity object */
+	for (int n = 0; n < 2; n++) {
 		snprintf(name, sizeof(name), "PCI%c", n < 10 ? '0' + n : 'A' + n - 10);
+		Container *bus = new Scope(name);
+		bus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
+		sb->children.add(bus);
+		continue;
+	}
 
-		/* For the master's PCI bus, add a proximity object */
-		if (n == 0) {
-			Container *bus = new Scope(name);
-			bus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
-			sb->children.add(bus);
-			continue;
-		}
+	/* Add each slave starting from PCI2 */
+	for (int n = 1; n < nnodes; n++) {
+		node = &nodes[n];
+		snprintf(name, sizeof(name), "PCI%c", (n + 1) < 10 ? '0' + (n + 1) : 'A' + (n + 1) - 10);
 
 		Container *bus = new Device(name);
 
 		bus->children.add(new Name("_HID", new EisaId(EisaId::PNP0A08)));
 		bus->children.add(new Name("_CID", new EisaId(EisaId::PNP0A03)));
-		bus->children.add(new Name("_UID", new Constant(n)));
+		bus->children.add(new Name("_UID", new Constant(0x80 + n)));
 		bus->children.add(new Name("_BBN", new Constant(0x00)));
 		bus->children.add(new Name("_SEG", new Constant(n)));
 		bus->children.add(new Name("_ADR", new Constant(0x00)));
