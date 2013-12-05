@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
 
 		assert(close(fd) == 0);
 		convert_buf_uint16_t(data, stat.st_size / sizeof(data[0]));
+		free(data);
 	}
 
 	{
@@ -99,11 +100,13 @@ int main(int argc, char *argv[])
 
 		if (read(fd, data, stat.st_size) < 1) {
 			perror("read");
+			free(data);
 			exit(1);
 		}
 
 		assert(close(fd) == 0);
 		convert_buf_uint32_t(data, stat.st_size / sizeof(data[0]));
+		free(data);
 	}
 
 	return 0;
