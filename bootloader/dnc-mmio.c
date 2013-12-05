@@ -208,6 +208,7 @@ public:
 	}
 
 	void exclude(const uint32_t start, const uint32_t len) {
+		assert(start > rdmsr(MSR_TOPMEM));
 		assert(len);
 
 		/* Find appropriate position */
@@ -300,15 +301,18 @@ out:
 		} else {
 			if (io)
 				*addr = roundup(*addr, max(len, 16));
-			else
+			else {
 				/* MMIO BARs are aligned from page size to their size */
 				*addr = roundup(*addr, max(len, 4096));
 
-			/* If space is allocated, move past and get parent to retry */
-			uint64_t skip = map32->overlap(*addr, len);
-			if (skip) {
-				*addr += skip;
-				return 1;
+				if (!s64) {
+					/* If space is allocated, move past and get parent to retry */
+					uint64_t skip = map32->overlap(*addr, len);
+					if (skip) {
+						*addr += skip;
+						return 1;
+					}
+				}
 			}
 		}
 
@@ -347,9 +351,8 @@ class Container {
 			return 0;
 		}
 
-		if (bar->s64 && bar->pref) {
+		if (bar->s64) {
 			insert(mmio64_bars, bar);
-
 			/* Skip second register of 64-bit BAR */
 			return 4;
 		} else if (bar->io)
@@ -390,7 +393,7 @@ public:
 	Container(node_info_t *const _node, const int _pbus, const int _pdev, const int _pfn):
 	  pbus(_pbus), pdev(_pdev), pfn(_pfn), node(_node) {
 		bus = (dnc_read_conf(node->sci, pbus, pdev, pfn, 0x18) >> 8) & 0xff;
-		printf("- bus %x\n", bus);
+		printf("- bus %d\n", bus);
 		const int limit = bus == 0 ? 24 : 32;
 
 		/* Allocate bridge BARs and expansion ROM */
@@ -426,12 +429,15 @@ public:
 
 	/* Exclude existing allocated ranges from map */
 	void exclude(void) {
-		for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++)
-			map32->exclude((*bar)->assigned, (*bar)->len);
+		for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++) {
+			if ((*bar)->assigned)
+				map32->exclude((*bar)->assigned, (*bar)->len);
+		}
 
 		for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++) {
 			assert((*bar)->assigned < MMIO32_LIMIT);
-			map32->exclude((*bar)->assigned, (*bar)->len);
+			if ((*bar)->assigned)
+				map32->exclude((*bar)->assigned, (*bar)->len);
 		}
 
 		for (Container **c = containers.elements; c < containers.limit; c++)
@@ -512,9 +518,6 @@ public:
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, 0x00000000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, 0x00000000);
 			} else {
-				for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++)
-					assert((*bar)->pref);
-
 				val = (mmio64_start >> 16) | ((mmio64_cur - 1) & 0xffff0000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, val);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, mmio64_start >> 32);
