@@ -294,9 +294,9 @@ out:
 		if (!s64 && pref)
 			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
 
-		if (!s64 && *addr >= MMIO32_LIMIT) {
+		if (!s64 && (*addr + len) > MMIO32_LIMIT) {
 			*addr = 0;
-			warning("Unable to allocate SCI%03x %02x:%02x.%x BAR 0x%x", sci, bus, dev, fn, reg);
+			warning("Out of MMIO32 address space when allocating SCI%03x %02x:%02x.%x BAR 0x%x with len %s", sci, bus, dev, fn, reg, pr_size(len));
 		} else {
 			if (io)
 				*addr = roundup(*addr, max(len, 16));
@@ -313,7 +313,8 @@ out:
 		}
 
 		assigned = *addr;
-		printf("SCI%03x %02x:%02x.%x allocating %s BAR 0x%x at 0x%llx\n", sci, bus, dev, fn, pr_size(len), reg, assigned);
+		printf("SCI%03x %02x:%02x.%x allocating %d-bit %s %s BAR 0x%x at 0x%llx\n",
+			sci, bus, dev, fn, s64 ? 64 : 32, pref ? "P" : "NP", pr_size(len), reg, assigned);
 		dnc_write_conf(sci, bus, dev, fn, reg, assigned);
 		if (s64)
 			dnc_write_conf(sci, bus, dev, fn, reg + 4, *addr >> 32);
@@ -338,6 +339,27 @@ class Container {
 		v.insert(bar, i);
 	}
 
+	/* Returns offset to skip for 64-bit BAR */
+	int probe(const int bus, const int dev, const int fn, const int offset) {
+		BAR *bar = new BAR(node->sci, bus, dev, fn, offset);
+		if (bar->len == 0) {
+			delete bar;
+			return 0;
+		}
+
+		if (bar->s64 && bar->pref) {
+			insert(mmio64_bars, bar);
+
+			/* Skip second register of 64-bit BAR */
+			return 4;
+		} else if (bar->io)
+			insert(io_bars, bar);
+		else
+			insert(mmio32_bars, bar);
+
+		return 0;
+	}
+
 	void device(const int dev, const int fn) {
 		printf(" > dev %x:%02x.%x", bus, dev, fn);
 
@@ -346,23 +368,19 @@ class Container {
 			if (offset == 0x28)
 				offset = 0x30;
 
-			BAR *bar = new BAR(node->sci, bus, dev, fn, offset);
-			if (bar->len == 0) {
-				delete bar;
-				continue;
-			}
-
-			if (bar->s64 && bar->pref) {
-				insert(mmio64_bars, bar);
-
-				/* Skip second register of 64-bit BAR */
-				offset += 4;
-			} else if (bar->io)
-				insert(io_bars, bar);
-			else
-				insert(mmio32_bars, bar);
+			offset += probe(bus, dev, fn, offset);
 		}
 		printf("\n");
+
+#if TEST
+		/* Disable IO and interrupt line on slaves */
+		if (node->sci) {
+			uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 4);
+			dnc_write_conf(node->sci, bus, dev, fn, 4, val & ~1);
+			val = dnc_read_conf(node->sci, bus, dev, fn, 0x3c);
+			dnc_write_conf(node->sci, bus, dev, fn, 0x3c, val & ~0xffff);
+		}
+#endif
 	}
 
 public:
@@ -374,6 +392,15 @@ public:
 		bus = (dnc_read_conf(node->sci, pbus, pdev, pfn, 0x18) >> 8) & 0xff;
 		printf("- bus %x\n", bus);
 		const int limit = bus == 0 ? 24 : 32;
+
+		/* Allocate bridge BARs and expansion ROM */
+		for (int offset = 0x10; offset <= 0x38; offset += 4) {
+			/* Skip gap between last BAR and expansion ROM address */
+			if (offset == 0x18)
+				offset = 0x38;
+
+			offset += probe(pbus, pdev, pfn, offset);
+		}
 
 		for (int dev = 0; dev < limit; dev++) {
 			for (int fn = 0; fn < 8; fn++) {
@@ -394,12 +421,6 @@ public:
 				if (!fn && !(type & 0x80))
 					break;
 			}
-		}
-
-		/* Disable IO on slaves; drivers will enable it if needed */
-		if (node->sci) {
-			uint32_t val = dnc_read_conf(node->sci, pbus, pdev, pfn, 4);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 4, val & ~1);
 		}
 	}
 
@@ -458,24 +479,13 @@ public:
 
 		/* Only re-allocate IO and 32-bit BARs on slaves */
 		if (node->sci) {
-			/* Disable IO, clear bridge BARs, expansion ROM */
+			/* Disable IO */
 			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 4);
 			dnc_write_conf(node->sci, pbus, pdev, pfn, 4, val & ~1);
 
-			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x10);
-			if (val)
-				warning("SCI%3x %02x:%02x.%d has reg 0x10 as %08x", node->sci, pbus, pdev, pfn, val);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x10, 0);
-
-			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x14);
-			if (val)
-				warning("SCI%3x %02x:%02x.%d has reg 0x14 as %08x", node->sci, pbus, pdev, pfn, val);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x14, 0);
-
-			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x38);
-			if (val)
-				warning("SCI%3x %02x:%02x.%d has reg 0x38 as %08x", node->sci, pbus, pdev, pfn, val);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x38, 0);
+			/* Disable interrupt line */
+			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x3c);
+			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x3c, val & ~0xffff);
 
 			if (io_bars.used == 0 || io_cur == io_start ||
 			  (pbus == 0 && pdev == 0 && pfn == 0)) {
@@ -518,6 +528,9 @@ public:
 
 void setup_mmio(void) {
 	Vector<Container *> containers;
+
+	uint64_t tom = rdmsr(MSR_TOPMEM);
+	printf("MMIO32 window 0x%08llx:0xffffffff\n", tom);
 
 	critical_enter();
 	/* Enumerate PCI busses */
