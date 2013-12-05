@@ -30,6 +30,9 @@
 #include "dnc-devices.h"
 #include "dnc-platform.h"
 
+IMPORT_RELOCATED(new_e820_map);
+IMPORT_RELOCATED(new_e820_len);
+
 static uint64_t mmio_cur;
 static uint64_t tmp_base[2], tmp_lim[2];
 
@@ -184,14 +187,6 @@ public:
 	Vector<struct range> excluded;
 	uint64_t next;
 
-	Map(void) {
-		next = rdmsr(MSR_TOPMEM);
-
-		/* Exclude APICs and magic */
-		struct range ent = {0xf0000000, 0xffffffff};
-		excluded.add(ent);
-	}
-
 	bool merge(void) {
 		for (unsigned range = 1; range < excluded.used; range++) {
 			if ((excluded.elements[range].start - excluded.elements[range - 1].end > MMIO_MIN_GAP) &&
@@ -205,6 +200,12 @@ public:
 		}
 
 		return 0;
+	}
+
+	void dump(void) {
+		printf("After master MMIO32 BARs:\n");
+		for (unsigned i = 0; i < excluded.used; i++)
+			printf("- 0x%x:0x%x\n", excluded.elements[i].start, excluded.elements[i].end);
 	}
 
 	void exclude(const uint32_t start, const uint32_t len) {
@@ -223,6 +224,18 @@ public:
 		while (merge());
 	}
 
+	Map(void) {
+		next = rdmsr(MSR_TOPMEM);
+
+		printf("Reserved MMIO32 ranges above TOM 0x%08llx:\n", next);
+		for (unsigned i = 0; i < orig_e820_len / sizeof(*orig_e820_map); i++) {
+			if (orig_e820_map[i].type == 2 && orig_e820_map[i].base >= next && orig_e820_map[i].base <= 0xffffffff) {
+				printf("- excluding 0x%08llx:0x%08llx\n", orig_e820_map[i].base, orig_e820_map[i].base + orig_e820_map[i].length - 1);
+				exclude(orig_e820_map[i].base, orig_e820_map[i].length - 1);
+			}
+		}
+	}
+
 	uint32_t overlap(const uint32_t start, const uint32_t len) {
 		const uint32_t end = start + len;
 
@@ -233,12 +246,6 @@ public:
 
 		/* No overlap */
 		return 0;
-	}
-
-	void dump(void) {
-		printf("MMIO ranges excluded from master:\n");
-		for (unsigned i = 0; i < excluded.used; i++)
-			printf("- 0x%x:0x%x\n", excluded.elements[i].start, excluded.elements[i].end);
 	}
 };
 
@@ -531,9 +538,6 @@ public:
 
 void setup_mmio(void) {
 	Vector<Container *> containers;
-
-	uint64_t tom = rdmsr(MSR_TOPMEM);
-	printf("MMIO32 window 0x%08llx:0xffffffff\n", tom);
 
 	critical_enter();
 	/* Enumerate PCI busses */

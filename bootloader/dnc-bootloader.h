@@ -20,12 +20,6 @@
 
 #include "dnc-types.h"
 
-#define IMPORT_RELOCATED(sym) extern volatile uint8_t sym ## _relocate
-#define REL8(sym) ((uint8_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
-#define REL16(sym) ((uint16_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
-#define REL32(sym) ((uint32_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
-#define REL64(sym) ((uint64_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
-
 struct mp_config_table {
 	union {
 		char s[4];
@@ -112,6 +106,8 @@ extern char *asm_relocated;
 extern unsigned char asm_relocate_start;
 extern unsigned char asm_relocate_end;
 extern uint64_t ht_base;
+extern struct e820entry *orig_e820_map;
+extern int orig_e820_len;
 
 void set_cf8extcfg_enable(const int ht);
 checked int read_config_file(const char *filename);

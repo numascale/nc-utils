@@ -114,8 +114,8 @@ IMPORT_RELOCATED(msr_readback);
 extern uint8_t smm_handler_start;
 extern uint8_t smm_handler_end;
 
-static struct e820entry *orig_e820_map;
-static int orig_e820_len;
+struct e820entry *orig_e820_map = NULL;
+int orig_e820_len = 0;
 
 void set_cf8extcfg_enable(const int ht)
 {
@@ -275,7 +275,6 @@ static int install_e820_handler(void)
 			last_32b = j - 1;
 	}
 
-	lfree(orig_e820_map);
 	*REL16(new_e820_len)  = j;
 	*REL32(old_int15_vec) = int_vecs[0x15];
 
@@ -435,7 +434,7 @@ static void update_acpi_tables_early(void)
 	while (((uint32_t)apic < e820->base) || ((uint32_t)apic >= (e820->base + e820->length)))
 		e820++;
 
-	printf("Existing ACPI tables in e820 range 0x%012llx:0x%010llx\n", e820->base, e820->base + e820->length);
+	printf("Existing ACPI tables in e820 range 0x%012llx:0x%010llx\n", e820->base, e820->base + e820->length - 1);
 
 	acpi_sdt_p oemn = acpi_build_oemn();
 	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
@@ -2777,6 +2776,7 @@ static int nc_start(void)
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
 		free(cfg_partlist);
+		lfree(orig_e820_map);
 		start_user_os();
 	}
 
@@ -2815,6 +2815,7 @@ static int nc_start(void)
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
 		free(cfg_partlist);
+		lfree(orig_e820_map);
 
 		if (disable_kvm > -1)
 			disable_kvm_ports(disable_kvm);

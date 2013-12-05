@@ -27,6 +27,11 @@
         printf("Error: assertion '%s' failed in %s at %s:%d\n", \
             #cond, __FUNCTION__, __FILE__, __LINE__); while (1); \
     } } while (0)
+#define IMPORT_RELOCATED(sym) extern volatile uint8_t sym ## _relocate
+#define REL8(sym) ((uint8_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+#define REL16(sym) ((uint16_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+#define REL32(sym) ((uint32_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
+#define REL64(sym) ((uint64_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))
 
 typedef uint8_t ht_t;
 typedef uint16_t sci_t;
