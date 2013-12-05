@@ -166,15 +166,16 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 			val = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
 			dnc_write_conf(sci, bus, dev, fn, cap + 0x28, (val & ~0xf) | 0xe);
 			printf("; Completion Timeout 17-64s");
-		} else {
-			if (val & (1 << 4)) {
-				/* Disable Completion Timeout instead */
-				val = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
-				dnc_write_conf(sci, bus, dev, fn, cap + 0x28, val | (1 << 4));
-				printf("; Completion Timeout disabled");
-			} else
-				printf("; Setting Completion Timeout unsupported");
-		}
+		} else
+			printf("; Setting Completion Timeout unsupported");
+
+		if (val & (1 << 4)) {
+			/* Disable Completion Timeout instead */
+			val = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
+			dnc_write_conf(sci, bus, dev, fn, cap + 0x28, val | (1 << 4));
+			printf("; Completion Timeout disabled");
+		} else
+			printf("; Disabling Completion Timeout unsupported");
 	} else {
 		/* For legacy devices */
 		val = dnc_read_conf(sci, bus, dev, fn, 4);
