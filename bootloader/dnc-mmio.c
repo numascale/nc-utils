@@ -227,6 +227,11 @@ public:
 	Map(void) {
 		next = rdmsr(MSR_TOPMEM);
 
+		if (!disable_smm) {
+			warning("256MB of MMIO32 space is reserved for MCFG as SMM is enabled");
+			exclude(old_mcfg, 0xfffffff);
+		}
+
 		printf("Reserved MMIO32 ranges above TOM 0x%08llx:\n", next);
 		for (unsigned i = 0; i < orig_e820_len / sizeof(*orig_e820_map); i++) {
 			if (orig_e820_map[i].type == 2 && orig_e820_map[i].base >= next && orig_e820_map[i].base <= 0xffffffff) {
