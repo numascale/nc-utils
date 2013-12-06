@@ -402,35 +402,34 @@ static void dnc_initialize_sram(void)
 {
 	uint32_t val;
 
-	/* ASIC */
-	if (dnc_chip_rev < 2) {
+	/* RevC and later has no SRAM */
+	if (dnc_chip_rev > 1)
+		return;
+
+	val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
+
+	if (((val >> 24) & 0xff) != 0x3f)
+		printf("Waiting for SRAM clock calibration\n");
+
+	while (((val >> 24) & 0xff) != 0x3f) {
+		udelay(100);
 		val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
+		assertf(!(val & 0xc000000), "SRAM clock calibration overflow detected");
+	}
 
-		if (((val >> 24) & 0xff) != 0x3f)
-			printf("Waiting for SRAM clock calibration\n");
+	printf("SRAM clock calibration complete\n");
+	/* Zero out FTag SRAM */
+	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
 
-		while (((val >> 24) & 0xff) != 0x3f) {
-			udelay(100);
-			val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
-			assertf(!(val & 0xc000000), "SRAM clock calibration overflow detected");
-		}
+	while (1) {
+		udelay(100);
+		val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
+		if ((val & 1) == 0)
+			break;
+	}
 
-		printf("SRAM clock calibration complete\n");
-		/* Zero out FTag SRAM */
-		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
-
-		while (1) {
-			udelay(100);
-			val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
-
-			if ((val & 1) == 0)
-				break;
-		}
-
-		printf("Enabling FTag SRAM\n");
-		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
-	} else
-		printf("ASIC revision %d detected, no FTag SRAM\n", dnc_chip_rev);
+	printf("Enabling FTag SRAM\n");
+	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
 }
 
 void dnc_dram_initialise(void)
@@ -2972,7 +2971,7 @@ static enum node_state setup_fabric(const struct node_info *info)
 	save_scc_routing(shadow_rtbll[0], shadow_rtblm[0], shadow_rtblh[0]);
 	/* Make sure all necessary links are up and working */
 	int res = 1;
-	printf("Initialising LC3s:");
+	printf("Initialising LC3s...");
 
 	if (cfg_fabric.x_size > 0) {
 		if (_check_dim(0))
@@ -2981,11 +2980,9 @@ static enum node_state setup_fabric(const struct node_info *info)
 		res = (0 == dnc_init_lc3(info->sci, 0, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[1], shadow_rtblm[1],
 		                         shadow_rtblh[1], shadow_ltbl[1])) && res;
-		printf(" XA");
 		res = (0 == dnc_init_lc3(info->sci, 1, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[2], shadow_rtblm[2],
 		                         shadow_rtblh[2], shadow_ltbl[2])) && res;
-		printf(" XB");
 	}
 
 	if (cfg_fabric.y_size > 0) {
@@ -2995,11 +2992,9 @@ static enum node_state setup_fabric(const struct node_info *info)
 		res = (0 == dnc_init_lc3(info->sci, 2, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[3], shadow_rtblm[3],
 		                         shadow_rtblh[3], shadow_ltbl[3])) && res;
-		printf(" YA");
 		res = (0 == dnc_init_lc3(info->sci, 3, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[4], shadow_rtblm[4],
 		                         shadow_rtblh[4], shadow_ltbl[4])) && res;
-		printf(" YB");
 	}
 
 	if (cfg_fabric.z_size > 0) {
@@ -3009,14 +3004,12 @@ static enum node_state setup_fabric(const struct node_info *info)
 		res = (0 == dnc_init_lc3(info->sci, 4, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[5], shadow_rtblm[5],
 		                         shadow_rtblh[5], shadow_ltbl[5])) && res;
-		printf(" ZA");
 		res = (0 == dnc_init_lc3(info->sci, 5, dnc_asic_mode ? 16 : 1,
 		                         shadow_rtbll[6], shadow_rtblm[6],
 		                         shadow_rtblh[6], shadow_ltbl[6])) && res;
-		printf(" ZB");
 	}
 
-	printf("\n");
+	printf("done\n");
 	return res ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
 }
 

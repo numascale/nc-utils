@@ -996,7 +996,6 @@ static void setup_other_cores(void)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 12));
 	msr = rdmsr(MSR_APIC_BAR);
-	printf("MSR APIC_BAR 0x%012llx\n", msr);
 	apic = (volatile uint32_t *)((uint32_t)msr & ~0xfff);
 	icr = (volatile uint32_t *)&apic[0x300 / 4];
 	printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
@@ -1817,8 +1816,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			cmd.tid++;
 			count = 0;
 			backoff = 1;
-			printf("Issuing %s, desired response %s (tid = %d)\n",
-			       node_state_name[cmd.state], node_state_name[waitfor], cmd.tid);
+			printf("Issuing %s; expecting %s\n",
+			       node_state_name[cmd.state], node_state_name[waitfor]);
 		}
 	}
 }
