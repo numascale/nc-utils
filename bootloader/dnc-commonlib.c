@@ -912,6 +912,8 @@ static void recurse(ht_t cur, const ht_t dst)
 	}
 }
 
+#ifdef BROKEN
+/* XXX: print_ht_routing goes into an infinite loop when you have >2 sockets populated on G34 based systems */
 static void print_ht_routing(const ht_t max_ht)
 {
 	printf("HT config max_ht=%d:\n", max_ht);
@@ -975,6 +977,7 @@ static void print_ht_routing(const ht_t max_ht)
 		}
 	}
 }
+#endif
 
 static void ht_optimize_link(int nc, int rev, int asic_mode)
 {
@@ -1100,8 +1103,10 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 
 	printf("done\n");
 
+#ifdef BROKEN
 	if (verbose > 1)
 		print_ht_routing(nc);
+#endif
 
 	if (reboot) {
 		printf("Rebooting to make new link settings effective...");
