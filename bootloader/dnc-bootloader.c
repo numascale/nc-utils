@@ -201,6 +201,16 @@ static void load_orig_e820_map(void)
 	}
 }
 
+extern void *__mem_end;
+extern size_t __stack_size;
+
+static inline size_t sp(void)
+{
+	size_t sp;
+	asm volatile ("movl %%esp,%0":"=rm" (sp));
+	return sp;
+}
+
 static int install_e820_handler(void)
 {
 	uint32_t *int_vecs = 0x0;
@@ -271,7 +281,7 @@ static int install_e820_handler(void)
 		}
 
 		if ((orig_end < 0x100000000ULL) &&
-		    (orig_e820_map[i].length > TABLE_AREA_SIZE) &&
+		    (orig_e820_map[i].length > (TABLE_AREA_SIZE + __stack_size)) &&
 		    (orig_e820_map[i].type == 1))
 			last_32b = j - 1;
 	}
@@ -282,15 +292,18 @@ static int install_e820_handler(void)
 	if (last_32b < 0) {
 		error("Unable to allocate room for ACPI tables");
 		return 0;
-    }
+	}
 
-	e820[last_32b].length -= TABLE_AREA_SIZE;
+	e820[last_32b].length -= (TABLE_AREA_SIZE + __stack_size);
 	tables_relocated = (char *)(long)e820[last_32b].base + (long)e820[last_32b].length;
 	tables_next = tables_relocated;
 	int_vecs[0x15] = (((uint32_t)asm_relocated) << 12) |
 	                 ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
 	printf("Persistent code relocated to %p\n", asm_relocated);
-	printf("Allocating ACPI tables at %p\n", tables_relocated);
+	printf("Allocating ACPI tables at %p - %p\n", tables_relocated, tables_relocated + TABLE_AREA_SIZE);
+	if (verbose > 0)
+		printf("__mem_end = %p, __stack_size = 0x%x, sp() = 0x%x\n", __mem_end, __stack_size, sp());
+
 	return 1;
 }
 
