@@ -195,7 +195,7 @@ static void load_orig_e820_map(void)
 	}
 
 	for (i = 0; i < len; i++) {
-		printf("- 0x%012llx:0x%012llx type %x\n",
+		printf("- 0x%011llx:0x%011llx type %x\n",
 		       orig_e820_map[i].base, orig_e820_map[i].base + orig_e820_map[i].length,
 		       orig_e820_map[i].type);
 	}
@@ -384,7 +384,7 @@ static void update_e820_map(void)
 	printf("Updated E820 map:\n");
 
 	for (i = 0; i < *len; i++) {
-		printf(" %012llx:%012llx (%012llx) [%x]\n",
+		printf(" %011llx:%011llx (%011llx) [%x]\n",
 		       e820[i].base, e820[i].base + e820[i].length,
 		       e820[i].length, e820[i].type);
 	}
@@ -448,7 +448,7 @@ static void update_acpi_tables_early(void)
 	while (((uint32_t)apic < e820->base) || ((uint32_t)apic >= (e820->base + e820->length)))
 		e820++;
 
-	printf("Existing ACPI tables in e820 range 0x%012llx:0x%010llx\n", e820->base, e820->base + e820->length - 1);
+	printf("Existing ACPI tables in e820 range 0x%011llx:0x%010llx\n", e820->base, e820->base + e820->length - 1);
 
 	acpi_sdt_p oemn = acpi_build_oemn();
 	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
@@ -1888,7 +1888,7 @@ static void update_mtrr(void)
 		mtrr_var_mask[i] = rdmsr(MSR_MTRR_PHYS_MASK0 + i * 2);
 
 		if (mtrr_var_mask[i] & 0x800ULL) {
-			printf("- 0x%012llx:0x%012llx %s\n", mtrr_var_base[i] & ~0xfffULL,
+			printf("- 0x%011llx:0x%011llx %s\n", mtrr_var_base[i] & ~0xfffULL,
 			       mtrr_var_mask[i] & ~0xfffULL, MTRR_TYPE(mtrr_var_base[i] & 0xffULL));
 		}
 	}
@@ -2647,7 +2647,7 @@ static void selftest_late_memmap(void)
 
 		uint64_t start = e820[i].base;
 		uint64_t end = e820[i].base + e820[i].length;
-		printf("Testing memory permissions from %012llx to %012llx...", start, end - 1);
+		printf("Testing memory permissions from %011llx to %011llx...", start, end - 1);
 
 		uint64_t pos = start;
 		uint64_t mid = start + (end - start) / 2;

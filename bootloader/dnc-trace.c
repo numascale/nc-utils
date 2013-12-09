@@ -34,7 +34,7 @@ void system_trace(void)
 		return;
 	}
 
-	printf("Tracing HT activity...buf @ 0x%012llx for 0x%08x\n", trace_buf, trace_buf_size);
+	printf("Tracing HT activity...buf @ 0x%011llx for 0x%08x\n", trace_buf, trace_buf_size);
 	start_ht_trace(0);
 	udelay(100);
 	stop_ht_trace(0);

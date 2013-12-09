@@ -79,13 +79,13 @@ void dram_range_print(const uint16_t sci, const int ht, const int range)
 	assert(range < 8);
 
 	if (dram_range_read(sci, ht, range, &base, &limit, &dest))
-		printf("SCI%03x#%d DRAM range %d: 0x%012llx:0x%012llx to %d\n", sci, ht, range, base, limit, dest);
+		printf("SCI%03x#%d DRAM range %d: 0x%011llx:0x%011llx to %d\n", sci, ht, range, base, limit, dest);
 }
 
 void dram_range(const uint16_t sci, const int ht, const int range, const uint64_t base, const uint64_t limit, const int dest)
 {
 	if (verbose > 1)
-		printf("SCI%03x#%d adding DRAM range %d: 0x%012llx:0x%012llx to %d\n", sci, ht, range, base, limit, dest);
+		printf("SCI%03x#%d adding DRAM range %d: 0x%011llx:0x%011llx to %d\n", sci, ht, range, base, limit, dest);
 
 	assert(dest < 8);
 	assert(range < 8);
@@ -393,7 +393,7 @@ void nc_mmio_range_print(const uint16_t sci, const int range)
 void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht)
 {
 	if (verbose > 1)
-		printf("Adding Numachip DRAM range %d on SCI%03x: 0x%012llx:0x%012llx to %d\n",
+		printf("Adding Numachip DRAM range %d on SCI%03x: 0x%011llx:0x%011llx to %d\n",
 			range, sci, base, limit, dht);
 
 	assert(limit > base);
@@ -447,7 +447,7 @@ void nc_dram_range_print(const uint16_t sci, const int range)
 	uint8_t dht;
 
 	if (nc_dram_range_read(sci, range, &base, &limit, &dht))
-		printf("SCI%03x DRAM range %d: 0x%012llx:0x%012llx to %d\n", sci, range, base, limit, dht);
+		printf("SCI%03x DRAM range %d: 0x%011llx:0x%011llx to %d\n", sci, range, base, limit, dht);
 }
 
 void ranges_print(void)
@@ -502,7 +502,7 @@ void ranges_print(void)
 	/* Select SCC ATT base address */
 	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 1 << (27 + SCC_ATT_INDEX_RANGE));
 	uint32_t i, last = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
-	printf("SCI%03x: 0x%012llx:", last, 0ULL);
+	printf("SCI%03x: 0x%011llx:", last, 0ULL);
 
 	/* Select SCC ATT base address, enable autoinc */
 	for (node = 0; node < dnc_node_count; node++)
@@ -515,18 +515,18 @@ void ranges_print(void)
 		for (node = 1; node < dnc_node_count; node++) {
 			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G0_ATT_ENTRY);
 			if (sci2 != sci)
-				warning("SCC address 0x%012llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
+				warning("SCC address 0x%011llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
 				  (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT), sci, sci2, nodes[node].sci);
 		}
 
 		if (sci != last) {
 			uint64_t addr = (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT);
-			printf("0x%012llx\nSCI%03x: 0x%012llx:", addr - 1, sci, addr);
+			printf("0x%011llx\nSCI%03x: 0x%011llx:", addr - 1, sci, addr);
 			last = sci;
 		}
 	}
 
-	printf("0x%012llx\n", ((uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT)) - 1);
+	printf("0x%011llx\n", ((uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT)) - 1);
 
 	printf("\nNumachip MMIO32 routing:\n");
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32);
