@@ -209,9 +209,9 @@ public:
 			printf("- 0x%x:0x%x\n", excluded.elements[i].start, excluded.elements[i].end);
 	}
 
-	void exclude(const uint32_t start, const uint32_t len) {
-		assert(start > rdmsr(MSR_TOPMEM));
-		assert(len);
+	void exclude(const uint32_t start, const uint32_t end) {
+		assertf(start >= rdmsr(MSR_TOPMEM), "BAR 0x%08x starts before MMIO32 window at 0x%08llx", start, rdmsr(MSR_TOPMEM));
+		assert(end > start);
 
 		/* Find appropriate position */
 		unsigned range = 0;
@@ -219,7 +219,7 @@ public:
 			range++;
 
 		/* Align start and end to 1MB boundaries */
-		struct range elem = {start & ~0xfffff, roundup(start + len, 0x100000) - 1};
+		struct range elem = {start & ~0xfffff, end | 0xfffff};
 		excluded.insert(elem, range);
 
 		while (merge());
@@ -230,14 +230,18 @@ public:
 
 		if (!disable_smm) {
 			warning("256MB of MMIO32 space is reserved for MCFG as SMM is enabled");
-			exclude(old_mcfg, 0xfffffff);
+			exclude(old_mcfg, old_mcfg + 0xfffffff);
 		}
+
+		/* Reserve IOAPIC, HPET and LAPICs in case e820 doesn't */
+		exclude(0xfec00000, 0xfeefffff);
 
 		printf("Reserved MMIO32 ranges above TOM 0x%08llx:\n", next);
 		for (unsigned i = 0; i < orig_e820_len / sizeof(*orig_e820_map); i++) {
 			if (orig_e820_map[i].type == 2 && orig_e820_map[i].base >= next && orig_e820_map[i].base <= 0xffffffff) {
-				printf("- excluding 0x%08llx:0x%08llx\n", orig_e820_map[i].base, orig_e820_map[i].base + orig_e820_map[i].length - 1);
-				exclude(orig_e820_map[i].base, orig_e820_map[i].length - 1);
+				uint32_t limit = orig_e820_map[i].base + orig_e820_map[i].length - 1;
+				printf("- excluding 0x%08llx:0x%08x\n", orig_e820_map[i].base, limit);
+				exclude(orig_e820_map[i].base, limit);
 			}
 		}
 	}
@@ -330,6 +334,8 @@ out:
 		}
 
 		assigned = *addr;
+		assert(s64 || assigned < 0xffffffff);
+
 		printf("SCI%03x %02x:%02x.%x allocating %d-bit %s %s BAR 0x%x at 0x%llx\n",
 			sci, bus, dev, fn, s64 ? 64 : 32, pref ? "P" : "NP", pr_size(len), reg, assigned);
 		dnc_write_conf(sci, bus, dev, fn, reg, assigned);
@@ -444,14 +450,12 @@ public:
 	void exclude(void) {
 		for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++) {
 			if ((*bar)->assigned)
-				map32->exclude((*bar)->assigned, (*bar)->len);
+				map32->exclude((*bar)->assigned, (*bar)->assigned + (*bar)->len - 1);
 		}
 
-		for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++) {
-			assert((*bar)->assigned < MMIO32_LIMIT);
-			if ((*bar)->assigned)
-				map32->exclude((*bar)->assigned, (*bar)->len);
-		}
+		for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++)
+			if ((*bar)->assigned && (*bar)->assigned < 0xffffffff)
+				map32->exclude((*bar)->assigned, (*bar)->assigned + (*bar)->len - 1);
 
 		for (Container **c = containers.elements; c < containers.limit; c++)
 			(*c)->exclude();
