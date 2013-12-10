@@ -91,7 +91,7 @@ void disable_dma_all(void)
 	pci_search_start(devices);
 }
 
-uint16_t capability(const uint16_t sci, const uint8_t cap, const int bus, const int dev, const int fn)
+static uint16_t capability(const uint8_t cap, const sci_t sci, const int bus, const int dev, const int fn)
 {
 	/* Check for capability list */
 	if (!(dnc_read_conf(sci, bus, dev, fn, 0x4) & (1 << 20)))
@@ -115,20 +115,20 @@ uint16_t capability(const uint16_t sci, const uint8_t cap, const int bus, const 
 	return PCI_CAP_NONE;
 }
 
-uint16_t extcapability(const uint8_t cap, const int bus, const int dev, const int fn)
+uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const int dev, const int fn)
 {
 	uint16_t offset = 0x100;
-	uint32_t val;
 
 	do {
-		val = dnc_read_conf(0xfff0, bus, dev, fn, offset);
-		if (val == 0xffffffff)
+		uint32_t val = dnc_read_conf(sci, bus, dev, fn, offset);
+		if (val == 0xffffffff || val == 0)
 			return PCI_CAP_NONE;
+
 		if (cap == (val & 0xffff))
 			return offset;
 
-		offset >>= 20;
-	} while (offset);
+		offset = val >> 20;
+	} while (offset > 0xff);
 
 	return PCI_CAP_NONE;
 }
@@ -136,10 +136,9 @@ uint16_t extcapability(const uint8_t cap, const int bus, const int dev, const in
 static void completion_timeout(const uint16_t sci, const int bus, const int dev, const int fn)
 {
 	uint32_t val;
-	uint16_t cap;
 	printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
 
-	cap = capability(sci, PCI_CAP_PCIE, bus, dev, fn);
+	uint16_t cap = capability(PCI_CAP_PCIE, sci, bus, dev, fn);
 	if (cap != PCI_CAP_NONE) {
 		/* Device Control */
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x8);
@@ -161,16 +160,16 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 		/* Device Capabilities/Control 2 */
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x24);
 
-		/* Select Completion Timeout range D, else disable */
+		/* Select Completion Timeout range D if possible */
 		if (val & (1 << 3)) {
-			val = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
-			dnc_write_conf(sci, bus, dev, fn, cap + 0x28, (val & ~0xf) | 0xe);
+			uint32_t val2 = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
+			dnc_write_conf(sci, bus, dev, fn, cap + 0x28, (val2 & ~0xf) | 0xe);
 			printf("; Completion Timeout 17-64s");
 		} else
 			printf("; Setting Completion Timeout unsupported");
 
+		/* Disable Completion Timeout if possible */
 		if (val & (1 << 4)) {
-			/* Disable Completion Timeout instead */
 			val = dnc_read_conf(sci, bus, dev, fn, cap + 0x28);
 			dnc_write_conf(sci, bus, dev, fn, cap + 0x28, val | (1 << 4));
 			printf("; Completion Timeout disabled");
@@ -183,7 +182,7 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 		printf("disabled SERR");
 	}
 
-	cap = extcapability(PCI_CAP_AER, bus, dev, fn);
+	cap = extcapability(PCI_ECAP_AER, sci, bus, dev, fn);
 	if (cap != PCI_CAP_NONE) {
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x0c);
 		if (val & (1 << 14)) {

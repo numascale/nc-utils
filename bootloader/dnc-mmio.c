@@ -26,6 +26,7 @@
 #include "dnc-masterlib.h"
 #include "dnc-bootloader.h"
 #include "dnc-mmio.h"
+#include "dnc-devices.h"
 #include "dnc-maps.h"
 #include "dnc-devices.h"
 #include "dnc-platform.h"

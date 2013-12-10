@@ -75,9 +75,10 @@
 #define HceControl 0x100
 
 #define PCI_CAP_NONE					0x00
-#define PCI_CAP_PCIE					0x10
-#define PCI_CAP_AER						0x01
 #define PCI_CAP_MSI						0x05
+#define PCI_CAP_PCIE					0x10
+#define PCI_ECAP_AER					0x0001
+#define PCI_ECAP_SRIOV					0x0010
 
 #define PCI_CLASS_ANY					0xfffffffe
 #define PCI_CLASS_FINAL					0xffffffff
@@ -110,5 +111,5 @@ void disable_dma_all(void);
 void handover_legacy(void);
 void pci_setup(void);
 void disable_device(const uint16_t sci, const int bus, const int dev, const int fn);
-checked uint16_t capability(const uint16_t sci, const uint8_t cap, const int bus, const int dev, const int fn);
+checked uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const int dev, const int fn);
 #endif
