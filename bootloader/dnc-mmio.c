@@ -392,8 +392,14 @@ class Container {
 
 			offset += probe(bus, dev, fn, offset);
 		}
-		printf("\n");
 
+		/* Assign BARs in particular capabilities */
+		uint16_t cap = extcapability(PCI_ECAP_SRIOV, node->sci, bus, dev, fn);
+		if (cap != PCI_CAP_NONE)
+			for (int offset = 0x24; offset <= 0x38; offset += 4)
+				offset += probe(bus, dev, fn, cap + offset);
+
+		printf("\n");
 #if TEST
 		/* Disable IO and interrupt line on slaves */
 		if (node->sci) {
