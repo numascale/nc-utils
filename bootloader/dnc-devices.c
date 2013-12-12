@@ -109,7 +109,7 @@ static uint16_t capability(const uint8_t cap, const sci_t sci, const int bus, co
 		if ((val & 0xff) == cap)
 			return pos;
 
-		pos = (val >> 8) & 0xff;
+		pos = (val >> 8) & 0xfc;
 	}
 
 	return PCI_CAP_NONE;
@@ -117,7 +117,10 @@ static uint16_t capability(const uint8_t cap, const sci_t sci, const int bus, co
 
 uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const int dev, const int fn)
 {
+	uint8_t visited[0x1000];
 	uint16_t offset = 0x100;
+
+	memset(visited, 0, sizeof(visited));
 
 	do {
 		uint32_t val = dnc_read_conf(sci, bus, dev, fn, offset);
@@ -127,8 +130,8 @@ uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const
 		if (cap == (val & 0xffff))
 			return offset;
 
-		offset = val >> 20;
-	} while (offset > 0xff);
+		offset = (val >> 20) & ~3;
+	} while (offset > 0xff && visited[offset]++ == 0);
 
 	return PCI_CAP_NONE;
 }
