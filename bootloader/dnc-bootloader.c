@@ -998,21 +998,16 @@ static void disable_smm_handler(uint64_t smm_base)
 
 static void setup_other_cores(void)
 {
-	uint16_t node = nodes[0].sci;
-	uint32_t ht, apicid, oldid, i;
-	volatile uint32_t *icr;
-	volatile uint32_t *apic;
-	uint32_t val;
-	uint64_t msr;
+	uint32_t ht, apicid, oldid, i, val;
+	volatile uint32_t *icr, *apic;
+
 	/* Set H2S_Init */
-	printf("Setting SCI%03x H2S_Init...\n", node);
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 12));
-	msr = rdmsr(MSR_APIC_BAR);
+
+	uint64_t msr = rdmsr(MSR_APIC_BAR);
 	apic = (volatile uint32_t *)((uint32_t)msr & ~0xfff);
 	icr = (volatile uint32_t *)&apic[0x300 / 4];
-	printf("apic: %08x, apicid: %08x, icr: %08x, %08x\n",
-	       (uint32_t)apic, apic[0x20 / 4], (uint32_t)icr, *icr);
 
 	/* Set core watchdog timer to 21s */
 	msr = (9 << 3);
