@@ -586,12 +586,13 @@ void setup_mmio(void) {
 			(*c)->node->io_base = io_cur;
 		} while ((*c)->allocate());
 
+#ifdef EXPERIMENTAL
 		/* Assign IOAPIC address */
 		assert((map32->next & 0xfff) == 0);
 		printf("IOAPIC at 0x%08llx\n", map32->next);
 		(*c)->node->ioapic_addr = map32->next;
 		map32->next += 0x1000;
-
+#endif
 		io_cur = roundup(io_cur, 1 << NC_ATT_IO_GRAN);
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
 
@@ -700,8 +701,18 @@ void setup_mmio_late(void)
 	uint64_t tom = rdmsr(MSR_TOPMEM);
 
 	/* Program IOAPIC address */
-	for (int i = 1; i < dnc_node_count; i++)
+	for (int i = 1; i < dnc_node_count; i++) {
+#ifdef EXPERIMENTAL
 		dnc_write_conf(nodes[i].sci, 0, 0x14, 0, 0x74, nodes[i].ioapic_addr | (1 << 3));
+#else
+		/* Disable IOAPIC memory decode */
+		uint32_t val = dnc_read_conf(nodes[i].sci, 0, 0x14, 0, 0x64);
+		dnc_write_conf(nodes[i].sci, 0, 0x14, 0, 0x64, val & ~(1 << 3));
+
+		/* Disable IOAPIC */
+		ioh_ioapicind_write(nodes[i].sci, 0, 0);
+#endif
+	}
 
 	for (int i = 0; i < dnc_node_count; i++) {
 		uint16_t sci = nodes[i].sci;
