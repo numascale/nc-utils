@@ -529,18 +529,18 @@ unsigned char *remote_aml(uint32_t *len)
 		  0x0000,
 		  0x0100));
 
-		assert(node->io_limit > node->io_base);
-		package->children.add(new DWordIO(
-		  DWordIO::ResourceProducer,
-		  DWordIO::MinFixed,
-		  DWordIO::MaxFixed,
-		  DWordIO::PosDecode,
-		  DWordIO::EntireRange,
-		  0x000000,
-		  node->io_base,
-		  node->io_limit,
-		  0x000000,
-		  node->io_limit - node->io_base + 1));
+		if (node->io_limit > node->io_base)
+			package->children.add(new DWordIO(
+			  DWordIO::ResourceProducer,
+			  DWordIO::MinFixed,
+			  DWordIO::MaxFixed,
+			  DWordIO::PosDecode,
+			  DWordIO::EntireRange,
+			  0x000000,
+			  node->io_base,
+			  node->io_limit,
+			  0x000000,
+			  node->io_limit - node->io_base + 1));
 
 		assert(node->mmio32_limit > node->mmio32_base);
 		package->children.add(new DWordMemory(
