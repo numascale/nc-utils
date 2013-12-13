@@ -731,11 +731,11 @@ void setup_mmio_late(void)
 		} else
 			nc_mmio_range(sci, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht);
 
-		if (nodes[i].mmio64_limit > nodes[i].mmio64_base)
-			nc_mmio_range(sci, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht);
-
 		while (range < 8)
 			nc_mmio_range_del(sci, range++);
+
+		if (nodes[i].mmio64_limit > nodes[i].mmio64_base)
+			nc_mmio_range_high(sci, 0, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht);
 	}
 
 	/* Slaves */
@@ -761,6 +761,12 @@ void setup_mmio_late(void)
 			/* 32-bit above local range */
 			mmio_range(sci, ht, range++, nodes[i].mmio32_limit + 1, 0xffffffff, nodes[i].nc_ht, 0, 1);
 
+			while (range < 8)
+				mmio_range_del(sci, ht, range++);
+
+			/* Skip CSR ranges */
+			range = 10;
+
 			/* 64-bit under local range */
 			if (nodes[i].mmio64_base > ((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT))
 				mmio_range(sci, ht, range++, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, nodes[i].mmio64_base - 1, nodes[i].nc_ht, 0, 1);
@@ -769,12 +775,13 @@ void setup_mmio_late(void)
 			if (nodes[i].mmio64_limit > nodes[i].mmio64_base)
 				mmio_range(sci, ht, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht, ioh_link, 1);
 
+			/* Fam15h has 12 MMIO ranges, so use 7 */
+			if (family > 0x10)
+				range = 7;
+
 			/* 64-bit above local range */
 			if (nodes[dnc_node_count - 1].mmio64_limit > nodes[i].mmio64_limit && i < (dnc_node_count - 1))
 				mmio_range(sci, ht, range++, nodes[i].mmio64_limit + 1, nodes[dnc_node_count - 1].mmio64_limit, nodes[i].nc_ht, 0, 1);
-
-			while (range < 8)
-				mmio_range_del(sci, ht, range++);
 		}
 	}
 
@@ -809,14 +816,17 @@ void setup_mmio_late(void)
 			for (unsigned erange = 0; erange < map32->excluded.used; erange++)
 				mmio_range(0xfff0, ht, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht, ioh_link, 1);
 
+			while (range < 8)
+				mmio_range_del(0xfff0, ht, range++);
+
+			/* Skip CSR ranges */
+			range = 10;
+
 			if (nodes[0].mmio64_limit > nodes[0].mmio64_base)
 				mmio_range(0xfff0, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1);
 
 			if (nodes[dnc_node_count - 1].mmio64_limit > nodes[1].mmio64_base)
 				mmio_range(0xfff0, ht, range++, nodes[1].mmio64_base, nodes[dnc_node_count - 1].mmio64_limit, nodes[0].nc_ht, 0, 1);
-
-			while (range < 8)
-				mmio_range_del(0xfff0, ht, range++);
 		}
 		critical_leave();
 	}

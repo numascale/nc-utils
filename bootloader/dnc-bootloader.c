@@ -2081,8 +2081,8 @@ static void global_chipset_fixup(void)
 
 	for (i = 0; i < dnc_node_count; i++) {
 		node = nodes[i].sci;
-		uint32_t vendev = dnc_read_conf(node, 0, 0, 0, 0);
 
+		uint32_t vendev = dnc_read_conf(node, 0, 0, 0, 0);
 		if ((vendev == VENDEV_SR5690) || (vendev == VENDEV_SR5670) || (vendev == VENDEV_SR5650)) {
 			/* Limit TOM2 to HyperTransport address */
 			uint64_t limit = min(ht_base, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
