@@ -309,6 +309,14 @@ out:
 	bool allocate(uint64_t *addr) {
 		assert(len);
 
+		if (io) {
+			if ((*addr + len) > IO_LIMIT)
+				*addr = 0;
+			else
+				roundup(*addr, max(len, 16));
+			return 0;
+		}
+
 		if (!s64 && pref)
 			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
 
@@ -316,19 +324,15 @@ out:
 			*addr = 0;
 			warning("Out of MMIO32 address space when allocating SCI%03x %02x:%02x.%x BAR 0x%x with len %s", sci, bus, dev, fn, reg, pr_size(len));
 		} else {
-			if (io)
-				*addr = roundup(*addr, max(len, 16));
-			else {
-				/* MMIO BARs are aligned from page size to their size */
-				*addr = roundup(*addr, max(len, 4096));
+			/* MMIO BARs are aligned from page size to their size */
+			*addr = roundup(*addr, max(len, 4096));
 
-				if (!s64) {
-					/* If space is allocated, move past and get parent to retry */
-					uint64_t skip = map32->overlap(*addr, len);
-					if (skip) {
-						*addr += skip;
-						return 1;
-					}
+			if (!s64) {
+				/* If space is allocated, move past and get parent to retry */
+				uint64_t skip = map32->overlap(*addr, len);
+				if (skip) {
+					*addr += skip;
+					return 1;
 				}
 			}
 		}
