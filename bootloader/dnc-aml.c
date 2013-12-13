@@ -257,10 +257,7 @@ public:
 	  const Decode _decode, const RangeType _ranget, const uint32_t _gran, const uint32_t _mina,
 	  const uint32_t _maxa, const uint32_t _trans, const uint32_t _size):
 	  usage(_usage), mint(_mint), maxt(_maxt), decode(_decode), ranget(_ranget),
-	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {
-		assert(_mina);
-		assert(_maxa);
-	}
+	  gran(_gran), mina(_mina), maxa(_maxa), trans(_trans), size(_size) {}
 
 	int build(void) {
 		assert(children.used == 0);

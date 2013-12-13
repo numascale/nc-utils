@@ -275,7 +275,9 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 		return;
 	}
 
-	assert(range < 12);
+	assert(range < 24);
+	assert((base & 0xffffffff) == 0);
+	assert((limit & 0xffffffff) == 0xffffffff);
 	range -= 8;
 
 	/* Reading an uninitialised extended MMIO ranges results in MCE, so can't assert */
@@ -336,6 +338,7 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 			range, sci, base, limit, dht);
 
 	assert(limit > base);
+	assert(limit < (1ULL << 40));
 	assert(range < 8);
 	assert((base & 0xffff) == 0);
 	assert((limit & 0xffff) == 0xffff);
@@ -347,6 +350,30 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS, a);
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, b);
+}
+
+void nc_mmio_range_high(const uint16_t sci, const int range, uint64_t base, uint64_t limit, const uint8_t dht)
+{
+	if (verbose > 1)
+		printf("Adding Numachip high MMIO range %d on SCI%03x: 0x%08llx:0x%08llx to %d\n",
+			range, sci, base, limit, dht);
+
+	assert(limit > base);
+	assert(range < 8);
+	assert((base & 0xffffffff) == 0);
+	assert((limit & 0xffffffff) == 0xffffffff);
+
+	uint8_t ht = sci_to_node(sci)->nc_ht;
+	uint64_t mask = 0;
+	base  >>= 27;
+	limit >>= 27;
+
+	while ((base | mask) != (limit | mask))
+		mask = (mask << 1) | 1;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS, ht | (base << 8));
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS, 1 | (limit << 8));
 }
 
 void nc_mmio_range_del(const uint16_t sci, const int range)
