@@ -105,6 +105,7 @@ struct devspec {
 	void (*handler)(const uint16_t, const int, const int, const int);
 };
 
+void pci_search(const struct devspec *list, const int bus);
 void stop_acpi(void);
 void disable_kvm_ports(const int port);
 void disable_dma_all(void);

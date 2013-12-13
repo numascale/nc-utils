@@ -23,7 +23,7 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 
-static void pci_search(const struct devspec *list, const int bus)
+void pci_search(const struct devspec *list, const int bus)
 {
 	const struct devspec *listp;
 

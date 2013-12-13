@@ -1990,39 +1990,45 @@ static void local_chipset_fixup(const bool master)
 		dnc_write_conf(0xfff0, 0, 17, 0, 0x40, val2);
 
 		if (!master) {
+			/* Disable devices (eg VGA controller) behind bridge */
+			val = dnc_read_conf(0xfff0, 0, 20, 4, 0x18);
+			int sec = (val >> 8) & 0xff;
+
+			const struct devspec devices[] = {
+				{PCI_CLASS_ANY, 0, PCI_TYPE_ANY, disable_device},
+				{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
+			};
+
+			pci_search(devices, sec);
+
+			dnc_write_conf(0xfff0, 0, 20, 4, 0x3e, 0); /* Bridge Control */
+
+			/* Hide devices behind bridge (eg VGA controller) */
+			val = dnc_read_conf(0xfff0, 0, 20, 4, 0xfc);
+			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & ~0xffff);
+
 			/* Disable and hide SP5100 IDE controller */
 			dnc_write_conf(0xfff0, 0, 20, 1, 4, 0);
 			val = dnc_read_conf(0xfff0, 0, 20, 0, 0xac);
 			dnc_write_conf(0xfff0, 0, 20, 0, 0xac, val | (1 << 19));
 
-			/* Disable and hide VGA controller */
-			dnc_write_conf(0xfff0, 4, 6, 0, 4, 0);
-			val = dnc_read_conf(0xfff0, 0, 20, 4, 0xfc);
-			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & ~0xffff);
+			/* Disable the LPC controller; hiding it causes hanging */
+			dnc_write_conf(0xfff0, 0, 20, 3, 4, 0);
 
-			/* Disable the LPC controller */
-			dnc_write_conf(0xfff0, 0, 14, 3, 4, 0);
-			val = dnc_read_conf(0xfff0, 0, 20, 4, 0x64);
-			dnc_write_conf(0xfff0, 0, 20, 4, 0x64, val & ~(1 << 20));
-
-			/* Disable OHCI */
-			dnc_write_conf(0xfff0, 0, 12, 0, 4, 0);
-			dnc_write_conf(0xfff0, 0, 12, 1, 4, 0);
-			dnc_write_conf(0xfff0, 0, 12, 2, 4, 0);
-			dnc_write_conf(0xfff0, 0, 13, 0, 4, 0);
-			dnc_write_conf(0xfff0, 0, 13, 1, 4, 0);
-			dnc_write_conf(0xfff0, 0, 13, 2, 4, 0);
+			/* Disable and hide OHCI */
+			dnc_write_conf(0xfff0, 0, 18, 0, 4, 0);
+			dnc_write_conf(0xfff0, 0, 18, 1, 4, 0);
+			dnc_write_conf(0xfff0, 0, 18, 2, 4, 0);
+			dnc_write_conf(0xfff0, 0, 19, 0, 4, 0);
+			dnc_write_conf(0xfff0, 0, 19, 1, 4, 0);
+			dnc_write_conf(0xfff0, 0, 19, 2, 4, 0);
 
 			val = dnc_read_conf(0xfff0, 0, 20, 0, 0x68);
 			dnc_write_conf(0xfff0, 0, 20, 0, 0x68, val & ~0xf7);
 
 			/* Disable and hide HD audio */
-			dnc_write_conf(0xfff0, 1, 0, 1, 4, 0);
 			val8 = pmio_readb(0x59);
 			pmio_writeb(0x59, val8 & ~(1 << 3));
-
-			val = dnc_read_conf(0xfff0, 0, 20, 4, 0x5c);
-			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & 0xffff);
 
 			/* Hide SMBus controller */
 			dnc_write_conf(0xfff0, 0, 20, 0, 4, 0);
