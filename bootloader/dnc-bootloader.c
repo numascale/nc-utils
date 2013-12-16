@@ -848,7 +848,7 @@ static void setup_apic_atts(void)
 	uint16_t i, j;
 	apic_shift = 1;
 
-	while (apic_per_node > (1 << apic_shift)) apic_shift++;
+	while (apic_per_node >= (1 << apic_shift)) apic_shift++;
 
 	if (apic_shift > 4)
 		apic_shift = 4;
