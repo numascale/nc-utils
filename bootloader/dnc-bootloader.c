@@ -861,10 +861,13 @@ static void setup_apic_atts(void)
 		uint16_t dnode, ht;
 
 		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
-		dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
 
-		for (j = 0; j < 64; j++)
-			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, nodes[0].sci);
+		/* Ensure MSI or spurious interrupts are decoded locally only */
+		for (j = 0; j < 4096; j++) {
+			if (j % 256 == 0)
+				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((j >> 8) & 0xf));
+			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j % 256) * 4, nodes[i].sci);
+		}
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
 			uint16_t cur, min, max;
