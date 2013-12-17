@@ -1046,14 +1046,19 @@ static void setup_other_cores(void)
 	/* Start all local cores (not BSP) and let them run our init_trampoline */
 	for (ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
 		for (i = 0; i < nodes[0].ht[ht].cores; i++) {
-			if ((ht == 0) && (i == 0))
-				continue; /* Skip BSP */
-
 			oldid = nodes[0].ht[ht].apic_base + i;
 			apicid = nodes[0].apic_offset + oldid;
 
-			*REL8(cpu_apic_renumber) = apicid;
-			*REL8(cpu_apic_hi)       = 0;
+			if ((ht == 0) && (i == 0)) {
+				uint32_t val = apic[0x20 / 4];
+				apic[0x20 / 4] = (val & 0xffffff) | (apicid << 24);
+				msr = rdmsr(MSR_NODE_ID);
+				wrmsr(MSR_NODE_ID, (msr & ~0xfc0) | ((apicid & ~0xff) >> 2));
+				continue;
+			}
+
+			*REL8(cpu_apic_renumber) = apicid & 0xff;
+			*REL8(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
 			*REL32(cpu_status) = VECTOR_TRAMPOLINE;
 			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
@@ -1067,7 +1072,8 @@ static void setup_other_cores(void)
 			while (*icr & 0x1000)
 				cpu_relax();
 
-			apic[0x310 / 4] = apicid << 24;
+			apic[0x310 / 4] = oldid << 24;
+
 			assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
 			*icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
 

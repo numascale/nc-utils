@@ -249,7 +249,7 @@ void tally_local_node(void)
 		}
 
 		nodes[0].ht[i].apic_base = post_apic_mapping[tot_cores];
-		ht_next_apic = nodes[0].ht[i].apic_base + apic_per_node;
+		ht_next_apic = nodes[0].apic_offset + nodes[0].ht[i].apic_base + apic_per_node;
 		tot_cores += nodes[0].ht[i].cores;
 	}
 
