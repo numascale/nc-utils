@@ -209,7 +209,7 @@ void tally_local_node(void)
 				printf("Node exceeds cachable memory range, clamping...\n");
 				nodes[0].ht[i].size -= nodes[0].node_mem - max_mem_per_node;
 				nodes[0].node_mem = max_mem_per_node;
-				
+
 				/* Account for Cstate6 save area */
 				limit = nodes[0].ht[i].base + nodes[0].ht[i].size - 1 + pf_cstate6;
 				asm volatile("wbinvd" ::: "memory");

@@ -268,7 +268,7 @@ break:
 	   and since all upper bits of this MSR appear to be r/w, we
 	   could just take some liberties with the register. */
 	and	$~0xfc0, %eax
-	xor	%ebx,%ebx
+	xor	%ebx, %ebx
 	mov	%cs:SYM_OFFSET(cpu_apic_hi), %bl
 	shl	$6, %ebx
 	or	%ebx, %eax
@@ -283,7 +283,7 @@ break:
 	rdmsr
 	mov	%eax, %cs:SYM_OFFSET(rem_smm_base_msr)
 	mov	%edx, %cs:SYM_OFFSET(rem_smm_base_msr + 4)
-		
+
 	mov	$SYM_OFFSET(cpu_done2), %si
 	call	print_strz
 

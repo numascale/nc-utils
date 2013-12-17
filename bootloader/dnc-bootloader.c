@@ -1058,6 +1058,9 @@ static void setup_other_cores(void)
 			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
 
+			if (verbose > 1)
+				printf(" %d", apicid);
+
 			apic[0x310 / 4] = oldid << 24;
 			*icr = 0x00004500;
 
@@ -1074,11 +1077,10 @@ static void setup_other_cores(void)
 			while (*REL32(cpu_status) != 0)
 				cpu_relax();
 
-			msr = *REL64(rem_smm_base_msr);
-			if (verbose > 1)
-				printf(" %d/0x%llx", apicid, msr);
-			if (disable_smm)
+			if (disable_smm) {
+				msr = *REL64(rem_smm_base_msr);
 				disable_smm_handler(msr);
+			}
 		}
 	}
 
