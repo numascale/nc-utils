@@ -211,7 +211,7 @@ static inline size_t sp(void)
 	return sp;
 }
 
-static int install_e820_handler(void)
+static void install_e820_handler(void)
 {
 	uint32_t *int_vecs = 0x0;
 	struct e820entry *e820;
@@ -282,17 +282,14 @@ static int install_e820_handler(void)
 
 		if ((orig_end < 0x100000000ULL) &&
 		    (orig_e820_map[i].length > (TABLE_AREA_SIZE + __stack_size)) &&
-		    (orig_e820_map[i].type == 1))
+		    (orig_e820_map[i].type == E820_RAM))
 			last_32b = j - 1;
 	}
 
 	*REL16(new_e820_len)  = j;
 	*REL32(old_int15_vec) = int_vecs[0x15];
 
-	if (last_32b < 0) {
-		error("Unable to allocate room for ACPI tables");
-		return 0;
-	}
+	assertf(last_32b, "Unable to allocate room for ACPI tables");
 
 	e820[last_32b].length -= (TABLE_AREA_SIZE + __stack_size);
 	tables_relocated = (char *)(long)e820[last_32b].base + (long)e820[last_32b].length;
@@ -303,8 +300,80 @@ static int install_e820_handler(void)
 	printf("Allocating ACPI tables at %p - %p\n", tables_relocated, tables_relocated + TABLE_AREA_SIZE);
 	if (verbose > 0)
 		printf("__mem_end = %p, __stack_size = 0x%x, sp() = 0x%x\n", __mem_end, __stack_size, sp());
+}
 
-	return 1;
+static struct e820entry *e820_position(const uint64_t base)
+{
+	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
+	int i;
+
+	for (i = 0; i < *REL16(new_e820_len); i++)
+		if (e820[i].base + e820[i].length > base)
+			return &e820[i];
+
+	return &e820[i];
+}
+
+static void e820_insert(struct e820entry *pos)
+{
+	struct e820entry *start = (e820entry *)REL32(new_e820_map);
+	uint16_t *len = REL16(new_e820_len);
+
+	int n = *len - (pos - start);
+	if (n > 0)
+		memmove(pos + 1, pos, sizeof(*pos) * n);
+
+	(*len)++;
+}
+
+static void e820_add(const uint64_t base, const uint64_t length, const uint32_t type)
+{
+	if (verbose)
+		printf("Adding e820 %011llx:%011llx (%011llx) [%d]\n", base, base + length, length, type);
+
+	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
+	struct e820entry *end = &e820[*REL16(new_e820_len)];
+	struct e820entry *pos = e820_position(base);
+	const uint64_t orig_base = pos->base, orig_length = pos->length;
+	const uint32_t orig_type = pos->type;
+
+	/* Split start of existing memory range */
+	if (pos < end && base > pos->base) {
+		pos->length = base - pos->base;
+		pos++;
+	}
+
+	/* Add new range */
+	e820_insert(pos);
+	pos->base = base;
+	pos->length = length;
+	pos->type = type;
+	pos++;
+
+	/* Need to split end of existing memory range */
+	if (pos < end && (base + length) < (orig_base + orig_length)) {
+		e820_insert(pos);
+		pos->base = base + length;
+		pos->length = (orig_base + orig_length) - pos->base;
+		pos->type = orig_type;
+	}
+}
+
+static void e820_dump(void)
+{
+	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
+	uint64_t last_base = e820->base, last_length = e820->length;
+
+	for (int i = 0; i < *REL16(new_e820_len); i++) {
+		printf(" %011llx:%011llx (%011llx) [%x]\n", e820[i].base, e820[i].base + e820[i].length, e820[i].length, e820[i].type);
+
+		if (i) {
+			assert(e820[i].base >= (last_base + last_length));
+			assert(e820[i].length);
+			last_base = e820[i].base;
+			last_length = e820[i].length;
+		}
+	}
 }
 
 static void update_e820_map(void)
@@ -362,32 +431,21 @@ static void update_e820_map(void)
 			else {
 				e820[*len].base = base;
 				e820[*len].length = length;
-				e820[*len].type = 1;
+				e820[*len].type = E820_RAM;
 				(*len)++;
 			}
 		}
 	}
 
 	/* Reserve IO window */
-	e820[*len].base   = IO_BASE;
-	e820[*len].length = IO_LIMIT - IO_BASE + 1;
-	e820[*len].type   = 2;
-	(*len)++;
+	e820_add(IO_BASE, IO_LIMIT - IO_BASE + 1, E820_RESERVED);
 
 	/* Reserve MCFG address range so Linux accepts it */
-	e820[*len].base   = DNC_MCFG_BASE;
-	e820[*len].length = DNC_MCFG_LIM - DNC_MCFG_BASE + 1;
-	e820[*len].type   = 2;
-	(*len)++;
+	e820_add(DNC_MCFG_BASE, DNC_MCFG_LIM - DNC_MCFG_BASE + 1, E820_RESERVED);
 
 	assert((len - REL16(new_e820_len)) < E820_MAX_LEN);
 	printf("Updated E820 map:\n");
-
-	for (i = 0; i < *len; i++) {
-		printf(" %011llx:%011llx (%011llx) [%x]\n",
-		       e820[i].base, e820[i].base + e820[i].length,
-		       e820[i].length, e820[i].type);
-	}
+	e820_dump();
 }
 
 static void load_existing_apic_map(void)
@@ -2654,7 +2712,7 @@ static void selftest_late_memmap(void)
 
 	for (int i = 0; i < *len; i++) {
 		/* Test only regions marked usable */
-		if (e820[i].type != 1)
+		if (e820[i].type != E820_RAM)
 			continue;
 
 		uint64_t start = e820[i].base;
@@ -2808,9 +2866,7 @@ static int nc_start(void)
 	}
 
 	dnc_init_caches();
-
-	if (!install_e820_handler())
-		return ERR_INSTALL_E820_HANDLER;
+	install_e820_handler();
 
 	if (force_probefilteron && !force_probefilteroff) {
 		enable_probefilter(nodes[0].nc_ht - 1);
