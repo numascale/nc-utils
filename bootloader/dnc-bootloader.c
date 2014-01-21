@@ -73,8 +73,7 @@ uint64_t old_mcfg = 0;
 uint8_t nodedata[4096];
 
 char *asm_relocated;
-static char *tables_relocated;
-char *tables_next;
+static char *tables_relocated, *tables_next;
 static acpi_sdt_p rsdt = NULL, xsdt = NULL;
 
 IMPORT_RELOCATED(new_e820_handler);
@@ -291,8 +290,7 @@ static void install_e820_handler(void)
 
 	assertf(last_32b, "Unable to allocate room for ACPI tables");
 
-	e820[last_32b].length -= (TABLE_AREA_SIZE + __stack_size);
-	tables_relocated = (char *)(long)e820[last_32b].base + (long)e820[last_32b].length;
+	tables_relocated = (char *)(long)zalloc_persist(TABLE_AREA_SIZE);
 	tables_next = tables_relocated;
 	int_vecs[0x15] = (((uint32_t)asm_relocated) << 12) |
 	                 ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
@@ -302,13 +300,30 @@ static void install_e820_handler(void)
 		printf("__mem_end = %p, __stack_size = 0x%x, sp() = 0x%x\n", __mem_end, __stack_size, sp());
 }
 
+static void e820_dump(void)
+{
+	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
+	uint64_t last_base = e820->base, last_length = e820->length;
+
+	for (int i = 0; i < *REL16(new_e820_len); i++) {
+		printf(" %011llx:%011llx (%011llx) [%x]\n", e820[i].base, e820[i].base + e820[i].length, e820[i].length, e820[i].type);
+
+		if (i) {
+			assert(e820[i].base >= (last_base + last_length));
+			assert(e820[i].length);
+			last_base = e820[i].base;
+			last_length = e820[i].length;
+		}
+	}
+}
+
 static struct e820entry *e820_position(const uint64_t base)
 {
 	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
 	int i;
 
 	for (i = 0; i < *REL16(new_e820_len); i++)
-		if (e820[i].base + e820[i].length > base)
+		if (e820[i].base + e820[i].length >= base)
 			return &e820[i];
 
 	return &e820[i];
@@ -356,23 +371,6 @@ static void e820_add(const uint64_t base, const uint64_t length, const uint32_t 
 		pos->base = base + length;
 		pos->length = (orig_base + orig_length) - pos->base;
 		pos->type = orig_type;
-	}
-}
-
-static void e820_dump(void)
-{
-	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
-	uint64_t last_base = e820->base, last_length = e820->length;
-
-	for (int i = 0; i < *REL16(new_e820_len); i++) {
-		printf(" %011llx:%011llx (%011llx) [%x]\n", e820[i].base, e820[i].base + e820[i].length, e820[i].length, e820[i].type);
-
-		if (i) {
-			assert(e820[i].base >= (last_base + last_length));
-			assert(e820[i].length);
-			last_base = e820[i].base;
-			last_length = e820[i].length;
-		}
 	}
 }
 
@@ -436,6 +434,9 @@ static void update_e820_map(void)
 			}
 		}
 	}
+
+	/* Add new ACPI tables */
+	e820_add((unsigned)tables_relocated, TABLE_AREA_SIZE, E820_ACPI);
 
 	/* Reserve IO window */
 	e820_add(IO_BASE, IO_LIMIT - IO_BASE + 1, E820_RESERVED);

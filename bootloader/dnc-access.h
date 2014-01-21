@@ -119,5 +119,6 @@ void dnc_write_conf(const sci_t sci, const uint8_t bus, const uint8_t device, co
 void dnc_write_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val);
 checked uint64_t rdmsr(const uint32_t msr);
 void wrmsr(const uint32_t msr, const uint64_t v);
+void *zalloc_persist(const size_t size);
 
 #endif

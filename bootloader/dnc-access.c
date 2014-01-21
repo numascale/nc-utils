@@ -44,6 +44,9 @@ int lirq_nest = 0;
 #define DEBUG(...) do { } while (0)
 #define WATCHDOG_BASE (uint32_t *)0xfec000f0 /* AMD recommended */
 
+/* Pre-OS and OS may overwrite areas under this */
+#define MALLOC_SAFE_START (64 << 20)
+
 static volatile uint32_t *watchdog_ctl = WATCHDOG_BASE;
 static volatile uint32_t *watchdog_timer = WATCHDOG_BASE + 1;
 
@@ -612,4 +615,17 @@ void wrmsr(const uint32_t msr, const uint64_t v)
 		if (v2 != v)
 			warning("MSR 0x%08x readback (0x%016llx) differs from write (0x%016llx)", msr, v2, v);
 	}
+}
+
+void *zalloc_persist(const size_t size)
+{
+	void *addr;
+
+	do {
+		addr = malloc(size);
+		assert(addr);
+	} while ((long)addr < MALLOC_SAFE_START);
+
+	memset(addr, 0, size);
+	return addr;
 }
