@@ -349,6 +349,19 @@ static void e820_add(const uint64_t base, const uint64_t length, const uint32_t 
 	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
 	struct e820entry *end = &e820[*REL16(new_e820_len)];
 	struct e820entry *pos = e820_position(base);
+
+	/* Extend end of existing range if adjacent */
+	if (base == (pos - 1)->base + (pos - 1)->length && type == (pos - 1)->type) {
+		(pos - 1)->length += length;
+		return;
+	}
+
+	/* Extend start of existing range if adjacent */
+	if (base + length == pos->base) {
+		pos->base -= length;
+		return;
+	}
+
 	const uint64_t orig_base = pos->base, orig_length = pos->length;
 	const uint32_t orig_type = pos->type;
 
@@ -423,15 +436,7 @@ static void update_e820_map(void)
 				}
 			}
 
-			/* Extend any previous adjacent segment */
-			if ((e820[(*len) - 1].base + e820[(*len) - 1].length) == base)
-				e820[(*len) - 1].length += length;
-			else {
-				e820[*len].base = base;
-				e820[*len].length = length;
-				e820[*len].type = E820_RAM;
-				(*len)++;
-			}
+			e820_add(base, length, E820_RAM);
 		}
 	}
 
