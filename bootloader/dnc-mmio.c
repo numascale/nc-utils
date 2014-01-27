@@ -563,7 +563,9 @@ void setup_mmio(void) {
 	/* Enumerate PCI busses */
 	foreach_node(node) {
 		printf("SCI%03x\n", node->sci);
-		containers.add(new Container(node, 0, 0, 0));
+		/* Broadcom HT1000 PCI host bridges start at device 1 */
+		int dev = southbridge_id == 0x43851002 ? 0 : 1;
+		containers.add(new Container(node, 0, dev, 0));
 	}
 	critical_leave();
 

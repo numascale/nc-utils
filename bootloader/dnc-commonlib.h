@@ -182,6 +182,7 @@ extern int enable_nbwdt;
 extern bool pf_cstate6;
 extern int disable_kvm;
 extern const char *node_state_name[];
+extern uint32_t southbridge_id;
 
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);

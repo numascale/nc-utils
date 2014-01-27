@@ -665,7 +665,7 @@ static void reorganize_mmio(int nc)
 }
 #endif /* UNUSED */
 
-static uint32_t southbridge_id = -1;
+uint32_t southbridge_id = -1;
 static uint8_t smi_state;
 
 void detect_southbridge(void)
