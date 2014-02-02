@@ -2066,6 +2066,8 @@ void parse_cmdline(const int argc, const char *argv[])
 	int errors = 0;
 	printf("Options:");
 	for (int arg = 1; arg < argc; arg++) {
+		printf(" %s", argv[arg]);
+
 		/* Break into two strings where '=' found */
 		char *val = strchr(argv[arg], '=');
 		if (val) {
@@ -2076,24 +2078,35 @@ void parse_cmdline(const int argc, const char *argv[])
 		bool handled = 0;
 		for (unsigned int i = 0; i < (sizeof(options) / sizeof(options[0])); i++) {
 			if (!strcmp(argv[arg], options[i].label)) {
-				printf(" %s", argv[arg]);
-				if (val)
-					printf("=%s", val);
-
 				options[i].handler(val, options[i].result);
 				handled = 1;
 				break;
 			}
 		}
 
-		if (!handled) {
-			printf(" %s (!)", argv[arg]);
-			errors++;
+		for (int larg = 1; larg < argc; larg++) {
+			/* Skip comparing against current argument */
+			if (larg == arg)
+				continue;
+
+			char *val2 = strchr(argv[arg], '=');
+			int len;
+			if (val2)
+				len = val2 - argv[arg];
+			else
+				len = 64;
+
+			/* Also test for invalid option */
+			if (!handled || !strncmp(argv[arg], argv[larg], len)) {
+				printf(" (!)");
+				errors++;
+				break;
+			}
 		}
 	}
 	printf("\n");
 
-	assertf(!errors, "Invalid arguments specified");
+	assertf(!errors, "Invalid or duplicate options specified");
 
 	/* Constraints */
 	if (trace_buf_size && pf_cstate6) {
