@@ -989,13 +989,13 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	int ganged;
 	int neigh;
 	int link;
-	int next, i;
+	int i;
 	uint32_t rqrt, val;
 	/* Start looking from node 0 */
 	neigh = 0;
 
 	while (1) {
-		next = 0;
+		int next = 0;
 		rqrt = cht_read_conf(neigh, FUNC0_HT, 0x40 + 4 * nc) & 0x1f;
 
 		/* Look for other CPUs routed on same link as NC */
@@ -3197,12 +3197,11 @@ static bool lc_check_status(int lc, int dimidx)
 
 static enum node_state validate_rings(const struct node_info *info)
 {
-	int pending, i;
 	printf("Validating rings\n");
-	i = 0;
+	int i = 0;
 
 	while (1) {
-		pending = 0;
+		int pending = 0;
 
 		if (cfg_fabric.x_size > 0) {
 			pending += lc_check_status(0, info->sci & 0x00f);
@@ -3342,12 +3341,10 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 			count = 0;
 		}
 
-		int len;
-
 		/* In order to avoid jamming, broadcast own status at least
 		 * once every 2*cfg_nodes packet seen */
 		for (i = 0; i < 2 * cfg_nodes; i++) {
-			len = udp_read_state(&cmd, sizeof(cmd), &ip);
+			int len = udp_read_state(&cmd, sizeof(cmd), &ip);
 
 			if (!len)
 				break;
