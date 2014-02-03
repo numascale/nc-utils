@@ -331,7 +331,7 @@ static struct e820entry *e820_position(const uint64_t base)
 
 static void e820_insert(struct e820entry *pos)
 {
-	struct e820entry *start = (e820entry *)REL32(new_e820_map);
+	const struct e820entry *start = (e820entry *)REL32(new_e820_map);
 	uint16_t *len = REL16(new_e820_len);
 
 	int n = *len - (pos - start);
@@ -359,6 +359,7 @@ static void e820_add(const uint64_t base, const uint64_t length, const uint32_t 
 	/* Extend start of existing range if adjacent */
 	if (base + length == pos->base) {
 		pos->base -= length;
+		pos->length += length;
 		return;
 	}
 
