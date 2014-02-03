@@ -351,8 +351,8 @@ static void e820_add(const uint64_t base, const uint64_t length, const uint32_t 
 	struct e820entry *pos = e820_position(base);
 
 	/* Extend end of existing range if adjacent */
-	if (base == (pos - 1)->base + (pos - 1)->length && type == (pos - 1)->type) {
-		(pos - 1)->length += length;
+	if (base == pos->base + pos->length && type == pos->type) {
+		pos->length += length;
 		return;
 	}
 
