@@ -51,7 +51,7 @@ int force_probefilteroff = 0;
 int force_probefilteron = 0;
 static int ht_force_ganged = 1;
 bool disable_smm = 0;
-bool disable_c1e = 1;
+bool disable_c1e = 0;
 int renumber_bsp = -1;
 int remote_io = 0;
 bool boot_wait = false;
@@ -2742,14 +2742,14 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		val = cht_read_conf(i, FUNC3_MISC, 0x180);
 		cht_write_conf(i, FUNC3_MISC, 0x180, val | (1 << 2));
 
-		if (disable_c1e) {
-			/* Disable C1E sleep mode in northbridge */
-			val = cht_read_conf(i, FUNC3_MISC, 0xd4);
-
-			if (val & (1 << 13)) {
-				printf("Disabling C1E sleep state on HT#%d\n", i);
+		/* Disable C1E sleep mode in northbridge */
+		val = cht_read_conf(i, FUNC3_MISC, 0xd4);
+		if (val & (1 << 13)) {
+			if (disable_c1e) {
+				warning("Disabling C1E sleep state on HT#%d; this may cause hangs\n", i);
 				cht_write_conf(i, FUNC3_MISC, 0xd4, val & ~(1 << 13));
-			}
+			} else
+				fatal("Please disable C1E support in the BIOS");
 		}
 
 #ifdef WORKAROUND_NOT_NEEDED
