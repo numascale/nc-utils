@@ -294,7 +294,7 @@ static void install_e820_handler(void)
 	tables_next = tables_relocated;
 	int_vecs[0x15] = (((uint32_t)asm_relocated) << 12) |
 	                 ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
-	printf("Persistent code relocated to %p\n", asm_relocated);
+	printf("Persistent code relocated to %p:%p\n", asm_relocated, asm_relocated + relocate_size);
 	printf("Allocating ACPI tables at %p - %p\n", tables_relocated, tables_relocated + TABLE_AREA_SIZE);
 	if (verbose > 0)
 		printf("__mem_end = %p, __stack_size = 0x%x, sp() = 0x%x\n", __mem_end, __stack_size, sp());
@@ -444,8 +444,7 @@ static void update_e820_map(void)
 	/* Add new ACPI tables */
 	e820_add((unsigned)tables_relocated, TABLE_AREA_SIZE, E820_ACPI);
 
-	/* Reserve IO window */
-	e820_add(IO_BASE, IO_LIMIT - IO_BASE + 1, E820_RESERVED);
+	/* Note that linux will reserve any I/O window BARs; reserving it here causes GRUB issues  */
 
 	/* Reserve MCFG address range so Linux accepts it */
 	e820_add(DNC_MCFG_BASE, DNC_MCFG_LIM - DNC_MCFG_BASE + 1, E820_RESERVED);
