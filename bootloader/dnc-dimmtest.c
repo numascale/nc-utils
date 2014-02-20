@@ -109,7 +109,7 @@ static void dnc_dimmtest_start(const int cdata, const struct dimm_config *dimm, 
 	dnc_write_csr(0xfff0, denalibase + (BIST_GO_ADDR << 2), reg | (1 << BIST_GO_OFFSET));
 }
 
-static void dnc_dimmtest_wait(const int cdata)
+static void dnc_dimmtest_wait(const int cdata, const struct dimm_config *dimm)
 {
 	uint32_t reg;
 	const int denalibase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
@@ -147,7 +147,7 @@ static void dnc_dimmtest_wait(const int cdata)
 	}
 
 	if ((result & 3) != 3)
-		fatal("Memory errors detected on DIMM %d", cdata);
+		fatal("Memory errors detected on %dGB %s DIMM", 1 << dimm->mem_size, dimm->name);
 
 	/* Reset BIST Go bit */
 	reg = dnc_read_csr(0xfff0, denalibase + ((BIST_GO_ADDR) << 2));
@@ -279,7 +279,7 @@ void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2])
 	}
 
 	for (cdata = 0; cdata < 2; cdata++)
-		dnc_dimmtest_wait(cdata);
+		dnc_dimmtest_wait(cdata, &dimms[cdata]);
 	printf("passed\n");
 
 	for (cdata = 0; cdata < 2; cdata++)
@@ -287,7 +287,7 @@ void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2])
 
 	for (cdata = 0; cdata < 2; cdata++) {
 		uint32_t val = dnc_check_mctr_status(cdata);
-		assertf(!(val & 0x03c), "ECC errors detected in DIMM %d", cdata);
+		assertf(!(val & 0x03c), "ECC errors detected on %dGB %s DIMM", 1 << dimms[cdata].mem_size, dimms[cdata].name);
 	}
 
 	/* Reinitialise DRAM to clear it */

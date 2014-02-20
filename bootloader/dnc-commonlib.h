@@ -143,6 +143,7 @@ struct dimm_config {
 	uint8_t width;
 	uint8_t eight_bank;
 	int mem_size; /* Size of DIMM in GByte powers of 2 */
+	char name[6];
 };
 
 struct kvm_port {

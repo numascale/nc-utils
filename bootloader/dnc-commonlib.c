@@ -238,6 +238,8 @@ static void _denali_mctr_reset(int cdata, struct dimm_config *dimm)
 	#define COEFF 12
 	const static int part[] = {0, COEFF / 4, COEFF / 3, COEFF / 2, 4 * COEFF / 6, 3 * COEFF / 4};
 
+	strcpy(dimm->name, cdata ? "Cache" : "MCTag");
+
 	int mctrbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 	dnc_write_csr(0xfff0, (cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00) + (0 << 2), DENALI_CTL_00_DATA);
 
@@ -345,7 +347,6 @@ uint32_t dnc_check_mctr_status(const int cdata)
 	uint32_t val;
 	uint32_t ack = 0;
 	const int mctrbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
-	const char *me = cdata ? "CData" : "MCTag";
 
 	if (!dnc_asic_mode)
 		return 0;
@@ -354,39 +355,39 @@ uint32_t dnc_check_mctr_status(const int cdata)
 #ifdef BROKEN
 
 	if (val & 0x001) {
-		error("%s single access outside the defined physical memory space detected", me);
+		error("%s single access outside the defined physical memory space detected", dimms[cdata].name);
 		ack |= 0x001;
 	}
 
 	if (val & 0x002) {
-		error("%s multiple access outside the defined physical memory space detected", me);
+		error("%s multiple access outside the defined physical memory space detected", dimms[cdata].name);
 		ack |= 0x002;
 	}
 
 #endif
 
 	if (val & 0x004) {
-		error("%s single correctable ECC event detected", me);
+		error("%s single correctable ECC event detected", dimms[cdata].name);
 		ack |= 0x004;
 	}
 
 	if (val & 0x008) {
-		error("%s multiple correctable ECC event detected", me);
+		error("%s multiple correctable ECC event detected", dimms[cdata].name);
 		ack |= 0x008;
 	}
 
 	if (val & 0x010) {
-		error("%s single uncorrectable ECC event detected", me);
+		error("%s single uncorrectable ECC event detected", dimms[cdata].name);
 		ack |= 0x010;
 	}
 
 	if (val & 0x020) {
-		error("%s multiple uncorrectable ECC event detected", me);
+		error("%s multiple uncorrectable ECC event detected", dimms[cdata].name);
 		ack |= 0x020;
 	}
 
 	if (val & 0xf80) {
-		error("%s error interrupts detected INT_STATUS=%03x", me, val & 0xfff);
+		error("%s error interrupts detected INT_STATUS=%03x", dimms[cdata].name, val & 0xfff);
 		ack |= (val & 0xf80);
 	}
 
@@ -462,13 +463,11 @@ void dnc_init_caches(void)
 	uint32_t val;
 
 	for (int cdata = 0; cdata < 2; cdata++) {
-		const char *name = cdata ? "CData" : "MCTag";
-
 		if (!dnc_asic_mode) {
 			/* On FPGA, just check that the phy is initialized */
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
 			if (!(val & 0x1000))
-				fatal("%s controller not calibrated\n", name);
+				fatal("%s controller not calibrated\n", dimms[cdata].name);
 		} else {
 			int mctbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 			val = dnc_read_csr(0xfff0, mctbase + (START_ADDR << 2)); /* Read the Denali START parameter */
