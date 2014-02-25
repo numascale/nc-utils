@@ -233,15 +233,13 @@ void reset_cf9(int mode, int last)
 {
 	int i;
 
-	/* Ensure last lines are sent from management controller */
-	printf("\n");
-	fflush(stdout);
-	fflush(stderr);
-
 	for (i = 0; i <= last; i++) {
 		uint32_t val = cht_read_conf(i, FUNC0_HT, 0x6c);
 		cht_write_conf(i, FUNC0_HT, 0x6c, val | 0x20); /* BiosRstDet */
 	}
+
+	/* Ensure console drains */
+	udelay(500000);
 
 	outb(mode, 0xcf9);
 	outb(mode | 4, 0xcf9);
