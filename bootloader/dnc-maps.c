@@ -68,7 +68,7 @@ int dram_range_unused(const uint16_t sci, const int ht)
 		if (!dram_range_read(sci, ht, range, &base, &limit, &dest))
 			return range;
 
-	fatal("No free DRAM ranges on SCI%03x\n", sci);
+	fatal("No free DRAM ranges on SCI%03x", sci);
 }
 
 void dram_range_print(const uint16_t sci, const int ht, const int range)

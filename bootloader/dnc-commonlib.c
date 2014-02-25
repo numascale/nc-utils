@@ -467,7 +467,7 @@ void dnc_init_caches(void)
 			/* On FPGA, just check that the phy is initialized */
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_STATR : H2S_CSR_G4_MCTAG_COM_STATR);
 			if (!(val & 0x1000))
-				fatal("%s controller not calibrated\n", dimms[cdata].name);
+				fatal("%s controller not calibrated", dimms[cdata].name);
 		} else {
 			int mctbase = cdata ? H2S_CSR_G4_CDATA_DENALI_CTL_00 : H2S_CSR_G4_MCTAG_DENALI_CTL_00;
 			val = dnc_read_csr(0xfff0, mctbase + (START_ADDR << 2)); /* Read the Denali START parameter */
@@ -2745,7 +2745,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		val = cht_read_conf(i, FUNC3_MISC, 0xd4);
 		if (val & (1 << 13)) {
 			if (disable_c1e) {
-				warning("Disabling C1E sleep state on HT#%d; this may cause hangs\n", i);
+				warning("Disabling C1E sleep state on HT#%d; this may cause hangs", i);
 				cht_write_conf(i, FUNC3_MISC, 0xd4, val & ~(1 << 13));
 			} else
 				fatal("Please disable C1E support in the BIOS");

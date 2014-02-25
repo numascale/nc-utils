@@ -17,6 +17,15 @@ all: dnc-bootloader.c32 test-routing gen-ucode
 
 .PRECIOUS: %.bz2 %.tar.gz
 
+.PHONY: check
+check:
+	-grep 'assertf(".\+\\n"' *.c *.h
+	-grep 'fatal(".\+\\n"' *.c *.h
+	-grep 'fatal_reboot(".\+\\n"' *.c *.h
+	-grep 'warning(".\+\\n"' *.c *.h
+	-grep 'error(".\+\\n"' *.c *.h
+	-grep 'error_remote(".\+\\n"' *.c *.h
+
 .PHONY: clean
 clean:
 	rm -f *~ *.o *.c32 *.elf .*.o.d *.orig *.aml *.amx *.dsl test-masternode test-slavenode test-routing test-aml test-vector gen-ucode dnc-version.h

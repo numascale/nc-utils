@@ -2990,7 +2990,7 @@ int main(const int argc, const char *argv[])
 
 	ret = nc_start();
 	if (ret < 0) {
-		error("nc_start() failed with error code %d; check configuration files match hardware and UUIDs\n", ret);
+		error("nc_start() failed with error code %d; check configuration files match hardware and UUIDs", ret);
 		wait_key();
 	}
 
