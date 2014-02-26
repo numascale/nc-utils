@@ -77,6 +77,7 @@ bool workaround_locks = 0;
 bool pf_cstate6 = 0;
 uint64_t mem_gap = 0;
 int disable_kvm = -1;
+bool link_up = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -980,6 +981,11 @@ static void print_ht_routing(const ht_t max_ht)
 
 static void ht_optimize_link(int nc, int rev, int asic_mode)
 {
+	if (ht_200mhz_only && asic_mode) {
+		warning("200MHz-only operation not possible on ASIC; option ignored");
+		ht_200mhz_only = 0;
+	}
+
 #ifndef __i386
 	printf("(Only doing HT reconfig in 32-bit mode)\n");
 	return;
@@ -3027,6 +3033,10 @@ static enum node_state setup_fabric(const struct node_info *info)
 	}
 
 	printf("done\n");
+
+	/* Allow link errors to be reported */
+	link_up = 1;
+
 	return res ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
 }
 
@@ -3040,11 +3050,9 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 
 	/* Builder is checking that it can access all other nodes via CSR */
 	if (part->builder == info->sci) {
-		printf("Validating fabric");
+		printf("Validating fabric...");
 
-		for (int iter = 0; res || iter < 10; iter++) {
-			printf(".");
-
+		for (int iter = 0; res || iter < (500000 / cfg_nodes); iter++) {
 			for (int i = 1; i < cfg_nodes; i++) {
 				uint16_t node = cfg_nodelist[i].sci;
 				res |= dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
@@ -3052,8 +3060,6 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 				for (int j = 0; res && j < 16; j++)
 					res |= dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, &val);
 			}
-
-			udelay(1000);
 		}
 
 		printf("done\n");
@@ -3129,14 +3135,14 @@ static bool phy_check_status(const int phy, const bool print)
 	/* Other errors */
 	if (val > 0) {
 		if (print)
-			warning("Fabric %s ELOG 0x%x", _get_linkname(phy), val);
+			warning("Fabric error ELOG 0x%x; check %s link cables", val, _get_linkname(phy));
 		return 1;
 	}
 
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
 	if (val != 0x1fff) {
 		if (print)
-			warning("Fabric %s link status 0x%x", _get_linkname(phy), val);
+			warning("Fabric link error 0x%x; check %s link cables", val, _get_linkname(phy));
 		return 1;
 	}
 
@@ -3338,12 +3344,8 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 
 	while (!go_ahead) {
 		if (++count >= backoff) {
-			if (name_matching)
-				printf("Broadcasting state: %s (sciid 0x%03x, tid %d)\n",
-				       node_state_name[rsp.state], rsp.sci, rsp.tid);
-			else
-				printf("Broadcasting state: %s (sciid 0x%03x, uuid %08X, tid %d)\n",
-				       node_state_name[rsp.state], rsp.sci, rsp.uuid, rsp.tid);
+			fabric_stat();
+			printf("Replying with %s\n", node_state_name[rsp.state]);
 			udp_broadcast_state(&rsp, sizeof(rsp));
 			udelay(100 * backoff);
 

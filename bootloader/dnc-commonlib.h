@@ -34,6 +34,7 @@
 #define COL_DEFAULT   "\033[0m"
 #define COL_RED       "\033[31m"
 #define COL_YELLOW    "\033[33m"
+#define WRAP          "\033[7h"
 #define CLEAR         "\033\143"
 #define BANNER        "\033[1m\033[34m"
 #define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
@@ -73,7 +74,7 @@
 
 #define error_remote(sci, name, ip, msg) do { \
 	if (sci != 0xffffffff) \
-		printf(COL_RED "Error on SCI%03x (%s): %s" COL_DEFAULT "\n", sci, name, msg); \
+		printf(COL_RED "Error on SCI%03x/%s: %s" COL_DEFAULT "\n", sci, name, msg); \
 	else \
 		printf(COL_RED "Error on %d.%d.%d.%d: %s" COL_DEFAULT "\n", \
 			ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff, msg); \
@@ -184,6 +185,7 @@ extern bool pf_cstate6;
 extern int disable_kvm;
 extern const char *node_state_name[];
 extern uint32_t southbridge_id;
+extern bool link_up;
 
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);

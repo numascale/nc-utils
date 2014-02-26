@@ -21,10 +21,10 @@
 #include <console.h>
 #include <inttypes.h>
 #include <sys/io.h>
-
 extern "C" {
 	#include <com32.h>
 	#include <syslinux/pxe.h>
+	#include <consoles.h>
 }
 
 #include "dnc-regs.h"
@@ -1843,7 +1843,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 				           (rsp->state == RSP_FABRIC_NOT_READY) ||
 				           (rsp->state == RSP_FABRIC_NOT_OK)) {
 					if (nodedata[rsp->sci] != 0x80) {
-						printf("SCI%03x (%s) aborted with state %d; restarting process...\n",
+						printf("SCI%03x/%s aborted with state %d; restarting process...\n",
 						       rsp->sci, cfg_nodelist[i].desc, rsp->state);
 						do_restart = 1;
 						nodedata[rsp->sci] = 0x80;
@@ -2370,14 +2370,14 @@ static void unify_all_nodes(void)
 			if (!model_first)
 				model_first = model;
 			else if (model != model_first) {
-				error("SCI%03x (%s) has varying processor models 0x%08x and 0x%08x",
+				error("SCI%03x/%s has varying processor models 0x%08x and 0x%08x",
 					nodes[node].sci, get_master_name(nodes[node].sci), model_first, model);
 				abort = 1;
 			}
 
 			/* 6200/4200 processors lack the HT lock mechanism, so abort */
 			if ((family >> 8) == 0x1501) {
-				error("SCI%03x (%s) has incompatible 6200/4200 processors; please use 6300/4300 or later",
+				error("SCI%03x/%s has incompatible 6200/4200 processors; please use 6300/4300 or later",
 					nodes[node].sci, get_master_name(nodes[node].sci));
 				abort = 1;
 			}
@@ -2386,7 +2386,7 @@ static void unify_all_nodes(void)
 				uint32_t val = dnc_read_conf(nodes[node].sci, 0, 24 + i, FUNC2_DRAM, 0x118);
 
 				if (val & (1 << 19)) {
-					error("SCI%03x (%s) has CState C6 enabled in the BIOS",
+					error("SCI%03x/%s has CState C6 enabled in the BIOS",
 					       nodes[node].sci, get_master_name(nodes[node].sci));
 					abort = 1;
 				}
@@ -2973,8 +2973,8 @@ static int nc_start(void)
 int main(const int argc, const char *argv[])
 {
 	int ret;
-	openconsole(&dev_rawcon_r, &dev_stdcon_w);
-
+	udelay(100000);
+	console_ansi_std();
 	printf(CLEAR BANNER "NumaConnect system unification module " VER " at 20%02d-%02d-%02d %02d:%02d:%02d" COL_DEFAULT "\n",
 		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
 		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS));

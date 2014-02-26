@@ -26,6 +26,7 @@ checked int dnc_raw_read_csr_geo(const uint32_t node, const uint8_t bid, const u
 checked int dnc_raw_write_csr(const uint32_t node, const uint16_t csr, const uint32_t val);
 checked int dnc_raw_write_csr_geo(const uint32_t node, const uint8_t bid, const uint16_t csr, const uint32_t val);
 
+void fabric_stat(void);
 void dnc_reset_phy(const int phy);
 void dnc_reset_lc3(const int lc);
 checked bool dnc_check_phy(const int phy);

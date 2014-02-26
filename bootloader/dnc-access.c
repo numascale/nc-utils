@@ -239,7 +239,7 @@ void reset_cf9(int mode, int last)
 	}
 
 	/* Ensure console drains */
-	udelay(500000);
+	udelay(1000000);
 
 	outb(mode, 0xcf9);
 	outb(mode | 4, 0xcf9);

@@ -26,6 +26,24 @@
 #include "dnc-commonlib.h"
 #include "dnc-bootloader.h"
 
+void fabric_stat(void)
+{
+	/* Only report errors after the links have been synchronised */
+	if (!link_up)
+		return;
+
+	for (int phy = 0; phy < 6; phy++) {
+		uint32_t val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
+		/* Check up links only to avoid blocking XBar */
+		if (!(val & 1))
+			continue;
+
+		val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
+		if (val)
+			error("Check %s cable (ELOG %x)", _get_linkname(phy), val);
+	}
+}
+
 /* RAW CSR accesses, use the RAW engine in SCC to make remote CSR accesses */
 
 static inline void _setrawentry(const uint32_t index, const uint64_t entry)
@@ -69,13 +87,14 @@ static int _raw_write(const uint32_t dest, const int geo, const uint32_t addr, c
 		ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
 
 		if (++tries > 10000) { /* >10ms */
-			printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
+			error("Timeout writing to SCI%03x (raw status 0x%x)", dest, ctrl);
+			fabric_stat();
 			goto reset;
 		}
 	} while (ctrl & 0xc00);
 
 	if (((ctrl >> 5) & 0xf) != 2) {
-		printf("Wrong response packet size : %08x\n", ctrl);
+		printf("Wrong response packet size: %08x\n", ctrl);
 		printf("Entry 0: %016llx\n", _getrawentry(0));
 		printf("Entry 1: %016llx\n", _getrawentry(1));
 		printf("Entry 2: %016llx\n", _getrawentry(2));
@@ -112,7 +131,8 @@ static int _raw_read(const uint32_t dest, const int geo, const uint32_t addr, ui
 		ctrl = dnc_read_csr(0xfff0, H2S_CSR_G0_RAW_CONTROL);
 
 		if (++tries > 10000) { /* >10ms */
-			printf("RAW packet timeout to SCI%03x : %08x\n", dest, ctrl);
+			error("Timeout reading from SCI%03x (raw status 0x%x)", dest, ctrl);
+			fabric_stat();
 			goto reset;
 		}
 	} while (ctrl & 0xc00);
