@@ -71,6 +71,7 @@ int family = 0;
 uint32_t tsc_mhz = 2200;
 uint32_t max_mem_per_node;
 static int dimmtest = 1;
+static bool test_fabric = 1;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 0;
 bool workaround_locks = 0;
@@ -2061,6 +2062,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"remote-io",       &parse_int,    &remote_io},
 		{"boot-wait",       &parse_bool,   &boot_wait},
 		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
+		{"test.fabric",     &parse_bool,   &test_fabric},
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
 		{"workaround.rtt",  &parse_bool,   &workaround_rtt},  /* Prevent failure when HT Rtt calibration fails */
 		{"workaround.locks", &parse_bool,  &workaround_locks},/* Prevent failure when SMI triggers are locked */
@@ -2255,8 +2257,8 @@ again:
 			}
 		}
 
-		/* Run test for 200msec */
-		udelay(200000);
+		/* Run test for 5s/200msec */
+		udelay(test_fabric ? 5000000 : 200000);
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
@@ -2289,8 +2291,8 @@ again:
 			}
 		}
 
-		/* Run test for 200msec */
-		udelay(200000);
+		/* Run test for 5s/200msec */
+		udelay(test_fabric ? 5000000 : 200000);
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
@@ -3048,11 +3050,13 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 	if (dnc_check_fabric(info))
 		return RSP_FABRIC_NOT_OK;
 
+	const int loops = test_fabric ? 5000000 : 500000;
+
 	/* Builder is checking that it can access all other nodes via CSR */
 	if (part->builder == info->sci) {
 		printf("Validating fabric...");
 
-		for (int iter = 0; res || iter < (500000 / cfg_nodes); iter++) {
+		for (int iter = 0; res || iter < (loops / cfg_nodes); iter++) {
 			for (int i = 1; i < cfg_nodes; i++) {
 				uint16_t node = cfg_nodelist[i].sci;
 				res |= dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
