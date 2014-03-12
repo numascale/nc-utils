@@ -2489,17 +2489,19 @@ static void unify_all_nodes(void)
 	wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));
 
 	/* Drop redundant MMIO ranges pointing to old MCFG space */
-	for (int range = 0; range < 8; range++) {
-		uint64_t base, limit;
-		int dest, link;
-		bool lock;
+	for (i = 0; i < nodes[0].nc_ht; i++) {
+		for (int range = 0; range < 8; range++) {
+			uint64_t base, limit;
+			int dest, link;
+			bool lock;
 
-		if (!mmio_range_read(0xfff0, i, range, &base, &limit, &dest, &link, &lock))
-			continue;
+			if (!mmio_range_read(0xfff0, i, range, &base, &limit, &dest, &link, &lock))
+				continue;
 
-		if (base == old_mcfg) {
-			mmio_range_del(0xfff0, i, range);
-			break;
+			if (base == old_mcfg) {
+				mmio_range_del(0xfff0, i, range);
+				break;
+			}
 		}
 	}
 
