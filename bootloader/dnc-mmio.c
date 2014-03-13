@@ -577,7 +577,8 @@ void setup_mmio(void) {
 	(*c)->exclude();
 	map32->dump();
 
-	mmio64_cur = (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT;
+	/* Start MMIO64 after the HyperTransport decode range to avoid interference */
+	mmio64_cur = max((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, HT_LIMIT);
 
 	/* Skip reassigning on master */
 	c++;
