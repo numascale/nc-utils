@@ -27,9 +27,10 @@
 #define IO_STEP 0x100000
 #define IO_LIMIT 0xffffff
 
+extern uint64_t mmio64_base, mmio64_limit;
+
 void dump_device(const sci_t sci, const int bus, const int dev, const int fn);
 void setup_mmio(void);
-void setup_mmio_late(void);
 
 #endif
 

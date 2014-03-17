@@ -31,10 +31,9 @@
 #include "dnc-devices.h"
 #include "dnc-platform.h"
 
-IMPORT_RELOCATED(new_e820_map);
-IMPORT_RELOCATED(new_e820_len);
-
+#ifdef LEGACY
 static uint64_t mmio_cur;
+#endif
 static uint64_t tmp_base[2], tmp_lim[2];
 
 void *operator new(const size_t size)
@@ -65,6 +64,7 @@ void dump_device(const sci_t sci, const int bus, const int dev, const int fn)
 	printf("\n");
 }
 
+#ifdef LEGACY
 static bool size_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg, uint64_t *addr, uint64_t *len, bool *pref, bool *io)
 {
 	uint32_t cmd = dnc_read_conf(sci, bus, dev, fn, 4);
@@ -123,6 +123,7 @@ static bool scope_bar(const uint16_t sci, const int bus, const int dev, const in
 
 	return more;
 }
+#endif
 
 static void pci_search(const uint16_t sci, const int bus,
 	bool (*barfn)(const uint16_t sci, const int bus, const int dev, const int fn, const int reg))
@@ -177,6 +178,7 @@ static void pci_search(const uint16_t sci, const int bus,
 
 ////////////////////
 
+uint64_t mmio64_base, mmio64_limit;
 static uint64_t io_cur, mmio64_cur;
 
 struct range {
@@ -556,6 +558,41 @@ public:
 	}
 };
 
+#ifdef LEGACY
+/* Called for the master only */
+void setup_mmio_master(void)
+{
+	nodes[0].mmio32_base = 0xffffffff;
+	nodes[0].mmio32_limit = 0x00000000;
+
+	/* Adjusted down later */
+	for (int i = 0; i < 2; i++) {
+		tmp_base[i] = 0xffffffff;
+		tmp_lim[i] = 0;
+	}
+
+	printf("\nScoping master PCI tree:\n");
+	critical_enter();
+	pci_search(0xfff0, 0, scope_bar);
+	critical_leave();
+	printf("Master MMIO32 range 0x%x:0x%x\n\n", nodes[0].mmio32_base, nodes[0].mmio32_limit);
+
+	/* Check if there is space for another MMIO window, else wrap */
+	uint64_t len = nodes[0].mmio32_limit - nodes[0].mmio32_base + 1;
+	mmio_cur = nodes[0].mmio32_limit + 1;
+	if ((mmio_cur + len) >= MMIO32_LIMIT) {
+		nodes[0].mmio32_limit = 0xffffffff;
+		mmio_cur = rdmsr(MSR_TOPMEM);
+	}
+
+#ifdef EXPERIMENTAL
+	/* Accept interrupts from slave SR56x0s */
+	uint32_t val = ioh_nbmiscind_read(0xfff0, 0x75);
+	ioh_nbmiscind_write(0xfff0, 0x75, (val & ~6) | 2);
+#endif
+}
+#endif
+
 void setup_mmio(void) {
 	Vector<Container *> containers;
 
@@ -578,7 +615,7 @@ void setup_mmio(void) {
 	map32->dump();
 
 	/* Start MMIO64 after the HyperTransport decode range to avoid interference */
-	mmio64_cur = max((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, HT_LIMIT);
+	mmio64_base = mmio64_cur = max((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, HT_LIMIT);
 
 	/* Skip reassigning on master */
 	c++;
@@ -613,43 +650,9 @@ void setup_mmio(void) {
 			(*c)->node->mmio64_base, (*c)->node->mmio64_limit);
 		c++;
 	}
-}
 
-/* Called for the master only */
-void setup_mmio_master(void)
-{
-	nodes[0].mmio32_base = 0xffffffff;
-	nodes[0].mmio32_limit = 0x00000000;
+	mmio64_limit = mmio64_cur;
 
-	/* Adjusted down later */
-	for (int i = 0; i < 2; i++) {
-		tmp_base[i] = 0xffffffff;
-		tmp_lim[i] = 0;
-	}
-
-	printf("\nScoping master PCI tree:\n");
-	critical_enter();
-	pci_search(0xfff0, 0, scope_bar);
-	critical_leave();
-	printf("Master MMIO32 range 0x%x:0x%x\n\n", nodes[0].mmio32_base, nodes[0].mmio32_limit);
-
-	/* Check if there is space for another MMIO window, else wrap */
-	uint64_t len = nodes[0].mmio32_limit - nodes[0].mmio32_base + 1;
-	mmio_cur = nodes[0].mmio32_limit + 1;
-	if ((mmio_cur + len) >= MMIO32_LIMIT) {
-		nodes[0].mmio32_limit = 0xffffffff;
-		mmio_cur = rdmsr(MSR_TOPMEM);
-	}
-
-#ifdef EXPERIMENTAL
-	/* Accept interrupts from slave SR56x0s */
-	uint32_t val = ioh_nbmiscind_read(0xfff0, 0x75);
-	ioh_nbmiscind_write(0xfff0, 0x75, (val & ~6) | 2);
-#endif
-}
-
-void setup_mmio_late(void)
-{
 	printf("Setting up MMIO32 ATTs (default SCI000):\n");
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
 		printf("- 0x%x:0x%x -> SCI%03x\n",

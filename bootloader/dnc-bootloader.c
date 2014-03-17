@@ -446,6 +446,9 @@ static void update_e820_map(void)
 
 	/* Note that linux will reserve any I/O window BARs; reserving it here causes GRUB issues  */
 
+	if (mmio64_limit > mmio64_base)
+		e820_add(mmio64_base, mmio64_limit - mmio64_base, E820_RESERVED);
+
 	/* Reserve MCFG address range so Linux accepts it */
 	e820_add(DNC_MCFG_BASE, DNC_MCFG_LIM - DNC_MCFG_BASE + 1, E820_RESERVED);
 
@@ -2524,10 +2527,8 @@ static void unify_all_nodes(void)
 		setup_remote_cores(&nodes[i]);
 	printf("\n");
 
-	if (remote_io) {
+	if (remote_io)
 		setup_mmio();
-		setup_mmio_late();
-	}
 
 	update_acpi_tables_late();
 
