@@ -31,10 +31,15 @@
 #include "dnc-devices.h"
 #include "dnc-platform.h"
 
-#ifdef LEGACY
-static uint64_t mmio_cur;
-#endif
+uint64_t mmio64_base, mmio64_limit;
+static uint64_t io_cur, mmio64_cur;
 static uint64_t tmp_base[2], tmp_lim[2];
+class Map;
+static Map *map32;
+
+struct range {
+	uint32_t start, end;
+};
 
 void *operator new(const size_t size)
 {
@@ -63,67 +68,6 @@ void dump_device(const sci_t sci, const int bus, const int dev, const int fn)
 		printf("%08x\n", dnc_read_conf(sci, bus, dev, fn, offset));
 	printf("\n");
 }
-
-#ifdef LEGACY
-static bool size_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg, uint64_t *addr, uint64_t *len, bool *pref, bool *io)
-{
-	uint32_t cmd = dnc_read_conf(sci, bus, dev, fn, 4);
-	dnc_write_conf(sci, bus, dev, fn, 4, 0);
-
-	uint32_t save = dnc_read_conf(sci, bus, dev, fn, reg);
-	*io = save & 1;
-	uint32_t mask = *io ? 1 : 15;
-	bool s64 = ((save >> 1) & 3) == 2;
-	*pref = (save >> 3) & 1;
-
-	dnc_write_conf(sci, bus, dev, fn, reg, 0xffffffff);
-	uint32_t val = dnc_read_conf(sci, bus, dev, fn, reg);
-
-	/* Skip unimplemented BARs */
-	if (val == 0x00000000 || val == 0xffffffff) {
-		*len = 0;
-		*addr = 0;
-		goto out;
-	}
-
-	*len = val & ~mask;
-	*addr = save & ~mask;
-
-	if (s64) {
-		uint32_t save2 = dnc_read_conf(sci, bus, dev, fn, reg + 4);
-		*addr |= (uint64_t)save2 << 32;
-		dnc_write_conf(sci, bus, dev, fn, reg + 4, 0xffffffff);
-		*len |= (uint64_t)dnc_read_conf(sci, bus, dev, fn, reg + 4) << 32;
-		dnc_write_conf(sci, bus, dev, fn, reg + 4, save2);
-	}
-
-	*len &= ~(*len - 1);
-	if (*len)
-		printf(" 0x%llx,%s%s", *addr, pr_size(*len), *pref ? "(P)" : "");
-
-out:
-	dnc_write_conf(sci, bus, dev, fn, reg, save);
-	dnc_write_conf(sci, bus, dev, fn, 4, cmd);
-	/* Return is there could be a second BAR */
-	return !s64;
-}
-
-static bool scope_bar(const uint16_t sci, const int bus, const int dev, const int fn, const int reg)
-{
-	uint64_t len, addr;
-	bool pref, io, more = size_bar(sci, bus, dev, fn, reg, &addr, &len, &pref, &io);
-
-	if (!io && len) {
-		if (addr < tmp_base[pref])
-			tmp_base[pref] = addr;
-
-		if ((addr + len) > tmp_lim[pref])
-			tmp_lim[pref] = addr + len;
-	}
-
-	return more;
-}
-#endif
 
 static void pci_search(const uint16_t sci, const int bus,
 	bool (*barfn)(const uint16_t sci, const int bus, const int dev, const int fn, const int reg))
@@ -175,15 +119,6 @@ static void pci_search(const uint16_t sci, const int bus,
 		}
 	}
 }
-
-////////////////////
-
-uint64_t mmio64_base, mmio64_limit;
-static uint64_t io_cur, mmio64_cur;
-
-struct range {
-	uint32_t start, end;
-};
 
 class Map {
 public:
@@ -260,8 +195,6 @@ public:
 		return 0;
 	}
 };
-
-static Map *map32;
 
 class BAR {
 	const sci_t sci;
@@ -558,41 +491,6 @@ public:
 	}
 };
 
-#ifdef LEGACY
-/* Called for the master only */
-void setup_mmio_master(void)
-{
-	nodes[0].mmio32_base = 0xffffffff;
-	nodes[0].mmio32_limit = 0x00000000;
-
-	/* Adjusted down later */
-	for (int i = 0; i < 2; i++) {
-		tmp_base[i] = 0xffffffff;
-		tmp_lim[i] = 0;
-	}
-
-	printf("\nScoping master PCI tree:\n");
-	critical_enter();
-	pci_search(0xfff0, 0, scope_bar);
-	critical_leave();
-	printf("Master MMIO32 range 0x%x:0x%x\n\n", nodes[0].mmio32_base, nodes[0].mmio32_limit);
-
-	/* Check if there is space for another MMIO window, else wrap */
-	uint64_t len = nodes[0].mmio32_limit - nodes[0].mmio32_base + 1;
-	mmio_cur = nodes[0].mmio32_limit + 1;
-	if ((mmio_cur + len) >= MMIO32_LIMIT) {
-		nodes[0].mmio32_limit = 0xffffffff;
-		mmio_cur = rdmsr(MSR_TOPMEM);
-	}
-
-#ifdef EXPERIMENTAL
-	/* Accept interrupts from slave SR56x0s */
-	uint32_t val = ioh_nbmiscind_read(0xfff0, 0x75);
-	ioh_nbmiscind_write(0xfff0, 0x75, (val & ~6) | 2);
-#endif
-}
-#endif
-
 void setup_mmio(void) {
 	Vector<Container *> containers;
 
@@ -630,13 +528,6 @@ void setup_mmio(void) {
 			(*c)->node->io_base = io_cur;
 		} while ((*c)->allocate());
 
-#ifdef EXPERIMENTAL
-		/* Assign IOAPIC address */
-		assert((map32->next & 0xfff) == 0);
-		printf("IOAPIC at 0x%08llx\n", map32->next);
-		(*c)->node->ioapic_addr = map32->next;
-		map32->next += 0x1000;
-#endif
 		io_cur = roundup(io_cur, 1 << NC_ATT_IO_GRAN);
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
 
@@ -715,16 +606,12 @@ void setup_mmio(void) {
 
 	/* Program IOAPIC address */
 	for (int i = 1; i < dnc_node_count; i++) {
-#ifdef EXPERIMENTAL
-		dnc_write_conf(nodes[i].sci, 0, 0x14, 0, 0x74, nodes[i].ioapic_addr | (1 << 3));
-#else
 		/* Disable IOAPIC memory decode */
 		uint32_t val = dnc_read_conf(nodes[i].sci, 0, 0x14, 0, 0x64);
 		dnc_write_conf(nodes[i].sci, 0, 0x14, 0, 0x64, val & ~(1 << 3));
 
 		/* Disable IOAPIC */
 		ioh_ioapicind_write(nodes[i].sci, 0, 0);
-#endif
 	}
 
 	for (int i = 0; i < dnc_node_count; i++) {
