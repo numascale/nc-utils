@@ -73,7 +73,7 @@ uint32_t max_mem_per_node;
 static int dimmtest = 1;
 static bool test_fabric = 1;
 static bool workaround_hreq = 1;
-static bool workaround_rtt = 0;
+static bool workaround_rtt = 1;
 bool workaround_locks = 0;
 bool pf_cstate6 = 0;
 uint64_t mem_gap = 0;
