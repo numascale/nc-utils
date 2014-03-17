@@ -673,6 +673,9 @@ void setup_mmio_late(void)
 
 	/* Skip range to SCI000, as it's default */
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
+		if (nodes[dnode].io_limit < nodes[dnode].io_base)
+			continue;
+
 		printf("- 0x%x:0x%x -> SCI%03x\n", nodes[dnode].io_base, nodes[dnode].io_limit, nodes[dnode].sci);
 
 		/* Ensure alignment */
