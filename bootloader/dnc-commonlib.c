@@ -1510,7 +1510,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	printf("HT#%d L%d is coherent and unrouted\n", neigh_ht, link);
 
 	if (disable_nc) {
-		printf("Disabling NC link.\n");
+		printf("Disabling NC link\n");
 		disable_link(neigh_ht, link);
 		return -1;
 	}
@@ -2753,7 +2753,11 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		val = cht_read_conf(i, FUNC3_MISC, 0xd4);
 		if (val & (1 << 13)) {
 			if (disable_c1e) {
-				warning("Disabling C1E sleep state on HT#%d; this may cause hangs", i);
+				static bool printed = 0;
+				if (!printed) {
+					warning("Disabling C1E sleep state; this may cause hangs");
+					printed = 1;
+				}
 				cht_write_conf(i, FUNC3_MISC, 0xd4, val & ~(1 << 13));
 			} else
 				fatal("Please disable C1E support in the BIOS");
