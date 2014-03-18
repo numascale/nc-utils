@@ -982,7 +982,7 @@ static void print_ht_routing(const ht_t max_ht)
 
 static void ht_optimize_link(int nc, int rev, int asic_mode)
 {
-	if (ht_200mhz_only && asic_mode) {
+	if (ht_200mhz_only && asic_mode && !init_only) {
 		warning("200MHz-only operation not possible on ASIC; option ignored");
 		ht_200mhz_only = 0;
 	}
