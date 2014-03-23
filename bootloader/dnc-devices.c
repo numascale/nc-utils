@@ -145,12 +145,22 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 	if (cap != PCI_CAP_NONE) {
 		/* Device Control */
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x8);
-		dnc_write_conf(sci, bus, dev, fn, cap + 0x8, val | (1 << 4));
+		dnc_write_conf(sci, bus, dev, fn, cap + 0x8, val | (1 << 4) | (1 << 8) | (1 << 11));
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x8);
 		if (val & (1 << 4))
 			printf("Relaxed Ordering enabled");
 		else
-			printf("failed to enable Relaxed Ordering");
+			warning("failed to enable Relaxed Ordering");
+
+		if (val & (1 << 8))
+			printf("; Extended Tag enabled");
+		else
+			warning("; failed to enable Extended Tag");
+
+		if (val & (1 << 11))
+			printf("; No Snoop enabled");
+		else
+			warning("; failed to enable No Snoop");
 
 		/* Root Control */
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x1c);
