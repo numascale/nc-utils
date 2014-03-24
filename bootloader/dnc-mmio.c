@@ -166,8 +166,8 @@ public:
 		next = rdmsr(MSR_TOPMEM);
 
 		if (!disable_smm) {
-			warning("256MB of MMIO32 space is reserved for MCFG as SMM is enabled");
-			exclude(old_mcfg, old_mcfg + 0xfffffff);
+			warning("%dMB of MMIO32 space is reserved for MCFG as SMM is enabled", old_mcfg_len >> 20);
+			exclude(old_mcfg_base, old_mcfg_base + old_mcfg_len);
 		}
 
 		/* Reserve IOAPIC, HPET and LAPICs in case e820 doesn't */
@@ -175,6 +175,10 @@ public:
 
 		printf("Reserved MMIO32 ranges above TOM 0x%08llx:\n", next);
 		for (unsigned i = 0; i < orig_e820_len / sizeof(*orig_e820_map); i++) {
+			/* Skip excluding e820 reservation for MCFG if it is usable */
+			if (disable_smm && orig_e820_map[i].base == old_mcfg_base && orig_e820_map[i].length >= old_mcfg_len)
+				continue;
+
 			if (orig_e820_map[i].type == 2 && orig_e820_map[i].base >= next && orig_e820_map[i].base <= 0xffffffff) {
 				uint32_t limit = orig_e820_map[i].base + orig_e820_map[i].length - 1;
 				printf("- excluding 0x%08llx:0x%08x\n", orig_e820_map[i].base, limit);

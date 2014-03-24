@@ -67,7 +67,8 @@ uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static bool scc_started = 0;
 static struct in_addr myip = {0xffffffff};
 uint64_t ht_base = HT_BASE;
-uint64_t old_mcfg = 0;
+uint64_t old_mcfg_base = 0;
+uint32_t old_mcfg_len = 0;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -2486,8 +2487,10 @@ static void unify_all_nodes(void)
 	nc_mmio_range(0xfff0, 0, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht);
 	nc_mmio_range(0xfff0, 1, tom, 0xffffffff, ioh_ht);
 
-	old_mcfg = rdmsr(MSR_MCFG_BASE) & ~0x3f;
-	printf("Old MCFG space 0x%08llx\n", old_mcfg);
+	uint64_t old_mcfg = rdmsr(MSR_MCFG_BASE);
+	old_mcfg_base = old_mcfg & ~0x3f;
+	old_mcfg_len = 1 << (((old_mcfg >> 2) & 0xf) + 20);
+	printf("Old MCFG space %dMB @ 0x%08llx\n", old_mcfg_len >> 20, old_mcfg_base);
 
 	*REL64(new_mcfg_msr) = DNC_MCFG_BASE | ((uint64_t)nodes[0].sci << 28ULL) | 0x21ULL;
 	wrmsr(MSR_MCFG_BASE, *REL64(new_mcfg_msr));

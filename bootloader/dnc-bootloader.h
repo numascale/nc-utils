@@ -108,7 +108,8 @@ extern unsigned char asm_relocate_end;
 extern uint64_t ht_base;
 extern struct e820entry *orig_e820_map;
 extern int orig_e820_len;
-extern uint64_t old_mcfg;
+extern uint64_t old_mcfg_base;
+extern uint32_t old_mcfg_len;
 
 void set_cf8extcfg_enable(const int ht);
 checked int read_config_file(const char *filename);
