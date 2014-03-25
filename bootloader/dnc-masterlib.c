@@ -261,7 +261,6 @@ void tally_local_node(void)
 		rest = SCC_ATT_GRAN - rest;
 		printf("Adding %dMB to SCI%03x to accommodate granularity requirements\n",
 		       rest << (DRAM_MAP_SHIFT - 20), nodes[0].sci);
-		mtrr_range((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, (uint64_t)(dnc_top_of_mem + rest) << DRAM_MAP_SHIFT, MTRR_UC);
 		dnc_top_of_mem += rest;
 	}
 	nodes[0].dram_limit = dnc_top_of_mem;
