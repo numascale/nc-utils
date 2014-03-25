@@ -313,16 +313,19 @@ class Container {
 			return 0;
 		}
 
-		if (bar->s64) {
-			insert(mmio64_bars, bar);
-			/* Skip second register of 64-bit BAR */
-			return 4;
-		} else if (bar->io)
+		/* Skip second register is a 64-bit BAR */
+		int skip = bar->s64 ? 4 : 0;
+
+		/* Non-prefetchable BARs can't be in prefetchable windows */
+		if (bar->io)
 			insert(io_bars, bar);
+		else if (bar->s64 && bar->pref)
+			insert(mmio64_bars, bar);
 		else
+			/* 32-bit prefetchable and 32/64-bit non-prefetchable */
 			insert(mmio32_bars, bar);
 
-		return 0;
+		return skip;
 	}
 
 	void device(const int dev, const int fn) {
