@@ -470,7 +470,7 @@ uint16_t mem64_read16(const uint64_t addr)
 	return ret;
 }
 
-void mem64_write16(uint64_t addr, uint16_t val)
+void mem64_write16(const uint64_t addr, const uint16_t val)
 {
 	cli();
 	setup_fs(addr);
@@ -478,7 +478,7 @@ void mem64_write16(uint64_t addr, uint16_t val)
 	sti();
 }
 
-uint8_t mem64_read8(uint64_t addr)
+uint8_t mem64_read8(const uint64_t addr)
 {
 	uint8_t ret;
 	cli();
@@ -488,7 +488,7 @@ uint8_t mem64_read8(uint64_t addr)
 	return ret;
 }
 
-void mem64_write8(uint64_t addr, uint8_t val)
+void mem64_write8(const uint64_t addr, const uint8_t val)
 {
 	cli();
 	setup_fs(addr);
