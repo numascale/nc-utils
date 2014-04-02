@@ -38,6 +38,7 @@ struct ent_global {
 	unsigned int renumbering : 1;
 	unsigned int remote_io : 1;
 	unsigned int observer : 1;
+	unsigned int cores : 8;
 } __attribute__((packed));
 
 struct ent_external {
