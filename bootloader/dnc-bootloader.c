@@ -546,7 +546,7 @@ static uint8_t dist_fn(const sci_t src, const sci_t dst)
 		if (mask & (0xf << shift))
 			changes++;
 
-	return 70 + changes * 30;
+	return 120 + changes * 40;
 }
 
 static void update_acpi_tables(void)
