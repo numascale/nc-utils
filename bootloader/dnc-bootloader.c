@@ -347,6 +347,8 @@ static void e820_add(const uint64_t base, const uint64_t length, const uint32_t 
 	if (verbose)
 		printf("Adding e820 %011llx:%011llx (%011llx) [%d]\n", base, base + length, length, type);
 
+	assert(base < (base + length));
+
 	struct e820entry *e820 = (e820entry *)REL32(new_e820_map);
 	struct e820entry *end = &e820[*REL16(new_e820_len)];
 	struct e820entry *pos = e820_position(base);
@@ -1912,6 +1914,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
 {
+	assert(poweroftwo(limit - base));
+
 	uint64_t val;
 	int i = -1;
 
@@ -2688,14 +2692,8 @@ static void get_hostname(void)
 	hostname = NULL;
 }
 
-#define ERR_API_VERSION            -1
-#define ERR_MASTER_HT_ID           -2
 #define ERR_NODE_CONFIG            -3
 #define ERR_PARTITION_CONFIG       -4
-#define ERR_SETUP_FABRIC           -5
-#define ERR_INIT_CACHES            -6
-#define ERR_INSTALL_E820_HANDLER   -7
-#define ERR_UNIFY_ALL_NODES        -8
 #define ERR_GENERAL_NC_START_ERROR -9
 
 static void constants(void)

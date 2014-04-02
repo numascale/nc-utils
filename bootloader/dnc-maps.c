@@ -278,10 +278,12 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 	assert(range < 24);
 	assert((base & 0xffffffff) == 0);
 	assert((limit & 0xffffffff) == 0xffffffff);
+	assert(poweroftwo(limit - base) + 1);
 	range -= 8;
 
 	/* Reading an uninitialised extended MMIO ranges results in MCE, so can't assert */
 
+	/* FIXME: Use 2's complement */
 	uint64_t mask = 0;
 	base  >>= 27;
 	limit >>= 27;
@@ -362,8 +364,11 @@ void nc_mmio_range_high(const uint16_t sci, const int range, uint64_t base, uint
 	assert(range < 8);
 	assert((base & 0xffffffff) == 0);
 	assert((limit & 0xffffffff) == 0xffffffff);
+	assert(poweroftwo(limit - base + 1));
 
 	uint8_t ht = sci_to_node(sci)->nc_ht;
+
+	/* FIXME: Use 2's complement */
 	uint64_t mask = 0;
 	base  >>= 27;
 	limit >>= 27;
