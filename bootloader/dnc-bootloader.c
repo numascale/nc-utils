@@ -1850,8 +1850,8 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 				           (rsp->state == RSP_FABRIC_NOT_READY) ||
 				           (rsp->state == RSP_FABRIC_NOT_OK)) {
 					if (nodedata[rsp->sci] != 0x80) {
-						printf("SCI%03x/%s aborted with state %d; restarting process...\n",
-						       rsp->sci, cfg_nodelist[i].desc, rsp->state);
+						printf("SCI%03x/%s failed with %s; restarting synchronisation\n",
+						       rsp->sci, cfg_nodelist[i].desc, node_state_name[rsp->state]);
 						do_restart = 1;
 						nodedata[rsp->sci] = 0x80;
 					}
