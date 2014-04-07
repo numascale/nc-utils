@@ -2541,14 +2541,18 @@ static void unify_all_nodes(void)
 	update_acpi_tables_late();
 
 	printf("Clearing remote memory...");
-	for (node = 1; node < dnc_node_count; node++) {
+	critical_enter();
+
+	for (node = 0; node < dnc_node_count; node++) {
 		uint16_t sci = nodes[node].sci;
 
 		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-			uint32_t val;
+			/* Skip clearing first NB */
+			if (node == 0 && ht == nodes[node].bsp_ht)
+				continue;
 
 			/* Disable memory controller prefetch */
-			val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
+			uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
 			dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c, val | (3 << 12));
 
 			/* Start memory clearing */
@@ -2558,24 +2562,27 @@ static void unify_all_nodes(void)
 	}
 
 	/* Wait for clear to finish */
-	for (node = 1; node < dnc_node_count; node++) {
+	for (node = 0; node < dnc_node_count; node++) {
 		uint16_t sci = nodes[node].sci;
 
 		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-			uint32_t val;
+			/* Skip waiting for first NB */
+			if (node == 0 && ht == nodes[node].bsp_ht)
+				continue;
 
 			while (1) {
-				val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x110);
+				uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x110);
 				if (!(val & (1 << 9)))
 					break;
 				udelay(100);
 			}
 
 			/* Reenable memory controller prefetch */
-			val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
+			uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
 			dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c, val & ~(3 << 12));
 		}
 	}
+	critical_leave();
 	printf("done\n");
 
 	/* Re-enable DRAM scrubbers with our new memory map, required by fam15h BKDG; see D18F2xC0 b0 */
