@@ -150,17 +150,17 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 		if (val & (1 << 4))
 			printf("Relaxed Ordering enabled");
 		else
-			warning("failed to enable Relaxed Ordering");
+			printf("failed to enable Relaxed Ordering");
 
 		if (val & (1 << 8))
 			printf("; Extended Tag enabled");
 		else
-			warning("; failed to enable Extended Tag");
+			printf("; failed to enable Extended Tag");
 
 		if (val & (1 << 11))
 			printf("; No Snoop enabled");
 		else
-			warning("; failed to enable No Snoop");
+			printf("; failed to enable No Snoop");
 
 		/* Root Control */
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x1c);
