@@ -43,11 +43,12 @@ int escrow_populate(void *data)
 	for (int i = 0; i < nodes[0].nc_ht; i++)
 		cur->global.cores += nodes[0].ht[i].cores;
 
-	if (verbose > 1)
-		printf("Escrow: numachip_rev=%d size=%dx%dx%d northbridges=%d neigh=%d.%d symmetric=%d renumbering=%d\n cores=%d",
+	if (verbose)
+		printf("Escrow: numachip_rev=%d size=%dx%dx%d northbridges=%d neigh=%d.%d symmetric=%d renumbering=%d remote-io=%d observer=%d cores=%d\n",
 			cur->global.numachip_rev, cur->global.size_x, cur->global.size_y, cur->global.size_z,
 			cur->global.northbridges, cur->global.neigh_ht, cur->global.neigh_link,
-			cur->global.symmetric, cur->global.renumbering, cur->global.cores);
+			cur->global.symmetric, cur->global.renumbering, cur->global.remote_io,
+			cur->global.observer, cur->global.cores);
 	cur++;
 
 	return (cur - start) * sizeof(cur[0]);

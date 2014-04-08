@@ -2875,9 +2875,10 @@ static int nc_start(void)
 
 	load_orig_e820_map();
 	check_renumbering();
-	update_acpi_tables_early();
 
 	if (local_info->sync_only) {
+		/* OEMN cores will be reported as 0 */
+		update_acpi_tables_early();
 		/* Release resources to reduce allocator fragmentation */
 		free(cfg_nodelist);
 		free(cfg_partlist);
@@ -2913,6 +2914,7 @@ static int nc_start(void)
 		dnc_check_mctr_status(0);
 		dnc_check_mctr_status(1);
 
+		update_acpi_tables_early();
 		update_e820_map();
 
 		/* Release resources to reduce allocator fragmentation */
