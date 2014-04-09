@@ -2988,9 +2988,12 @@ static int nc_start(void)
 
 int main(const int argc, const char *argv[])
 {
-	int ret;
+	/* Workaround IBM x3755 local boot hang by sending reset sequence as non-ANSI */
 	udelay(100000);
-	console_ansi_std();
+	openconsole(&dev_rawcon_r, &dev_stdcon_w);
+	printf(RESET);
+	openconsole(&dev_stdcon_r, &dev_ansiserial_w);
+
 	printf(CLEAR BANNER "NumaConnect system unification module " VER " at 20%02d-%02d-%02d %02d:%02d:%02d" COL_DEFAULT "\n",
 		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
 		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS));
@@ -3004,7 +3007,7 @@ int main(const int argc, const char *argv[])
 	constants();
 	parse_cmdline(argc, argv);
 
-	ret = nc_start();
+	int ret = nc_start();
 	if (ret < 0) {
 		error("nc_start() failed with error code %d; check configuration files match hardware and UUIDs", ret);
 		wait_key();
