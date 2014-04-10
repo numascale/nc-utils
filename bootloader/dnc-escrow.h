@@ -20,7 +20,7 @@
 
 #include "dnc-types.h"
 
-#define ESCROW_REV   3
+#define ESCROW_REV   4
 
 #define ID_CONFIG    1
 #define ID_GEOM      2
