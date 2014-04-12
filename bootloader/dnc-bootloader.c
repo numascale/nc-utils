@@ -521,7 +521,7 @@ static void update_acpi_tables_early(void)
 	while (((uint32_t)apic < e820->base) || ((uint32_t)apic >= (e820->base + e820->length)))
 		e820++;
 
-	printf("Existing ACPI tables in e820 range 0x%011llx:0x%010llx\n", e820->base, e820->base + e820->length - 1);
+	printf("Existing ACPI tables in e820 range 0x%llx:0x%llx\n", e820->base, e820->base + e820->length - 1);
 
 	acpi_sdt_p oemn = acpi_build_oemn();
 	acpi_sdt_p gap = acpi_gap(e820, oemn->len);
