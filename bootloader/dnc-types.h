@@ -54,6 +54,11 @@ public:
 		free(elements);
 	}
 
+	T operator[](const unsigned pos) {
+		lassert(pos < used);
+		return elements[pos];
+	}
+
 	void add(T elem) {
 		ensure();
 		elements[used++] = elem;
