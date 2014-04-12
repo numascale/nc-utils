@@ -27,28 +27,28 @@ int escrow_populate(void *data)
 	union escrow_ent *start = (escrow_ent *)data;
 	union escrow_ent *cur = start;
 
-	cur->global.numachip_rev = dnc_chip_rev;
-	cur->global.size_x       = cfg_fabric.x_size;
-	cur->global.size_y       = cfg_fabric.y_size;
-	cur->global.size_z       = cfg_fabric.z_size;
-	cur->global.northbridges = nodes[0].nc_ht;
-	cur->global.neigh_ht     = nodes[0].nc_neigh_ht;
-	cur->global.neigh_link   = nodes[0].nc_neigh_link;
-	cur->global.symmetric    = 1;
-	cur->global.renumbering  = renumber_bsp == 1;
-	cur->global.remote_io    = !!remote_io;
-	cur->global.observer     = local_info->sync_only;
-	cur->global.cores        = 0;
+	cur->numachip_rev = dnc_chip_rev;
+	cur->size_x       = cfg_fabric.x_size;
+	cur->size_y       = cfg_fabric.y_size;
+	cur->size_z       = cfg_fabric.z_size;
+	cur->northbridges = nodes[0].nc_ht;
+	cur->neigh_ht     = nodes[0].nc_neigh_ht;
+	cur->neigh_link   = nodes[0].nc_neigh_link;
+	cur->symmetric    = 1;
+	cur->renumbering  = renumber_bsp == 1;
+	cur->remote_io    = !!remote_io;
+	cur->observer     = local_info->sync_only;
+	cur->cores        = 0;
 
 	for (int i = 0; i < nodes[0].nc_ht; i++)
-		cur->global.cores += nodes[0].ht[i].cores;
+		cur->cores += nodes[0].ht[i].cores;
 
 	if (verbose)
 		printf("Escrow: numachip_rev=%d size=%dx%dx%d northbridges=%d neigh=%d.%d symmetric=%d renumbering=%d remote-io=%d observer=%d cores=%d\n",
-			cur->global.numachip_rev, cur->global.size_x, cur->global.size_y, cur->global.size_z,
-			cur->global.northbridges, cur->global.neigh_ht, cur->global.neigh_link,
-			cur->global.symmetric, cur->global.renumbering, cur->global.remote_io,
-			cur->global.observer, cur->global.cores);
+			cur->numachip_rev, cur->size_x, cur->size_y, cur->size_z,
+			cur->northbridges, cur->neigh_ht, cur->neigh_link,
+			cur->symmetric, cur->renumbering, cur->remote_io,
+			cur->observer, cur->cores);
 	cur++;
 
 	return (cur - start) * sizeof(cur[0]);

@@ -22,11 +22,8 @@
 
 #define ESCROW_REV   4
 
-#define ID_CONFIG    1
-#define ID_GEOM      2
-#define ID_BOOTLOG   3
-
-struct ent_global {
+union escrow_ent {
+	uint8_t id;
 	unsigned int numachip_rev : 4;
 	unsigned int size_x : 4;
 	unsigned int size_y : 4;
@@ -39,20 +36,6 @@ struct ent_global {
 	unsigned int remote_io : 1;
 	unsigned int observer : 1;
 	unsigned int cores : 8;
-} __attribute__((packed));
-
-struct ent_external {
-	uint8_t id;
-	uint8_t flags;
-	uint64_t base : 48;
-	uint16_t reserved;
-	uint64_t limit : 48;	
-} __attribute__((packed));
-
-union escrow_ent {
-	uint8_t id;
-	struct ent_global global;
-	struct ent_external external;
 } __attribute__((packed));
 
 checked int escrow_populate(void *data);
