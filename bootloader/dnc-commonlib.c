@@ -2952,6 +2952,32 @@ static bool _check_dim(const int dim)
 	return err;
 }
 
+struct dim {
+	uint32_t dim, size;
+};
+
+static int shortest(void)
+{
+	Vector<struct dim> dims;
+	const uint32_t sizes[] = {cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size};
+
+	/* Ascending insertion sort; later insertions first where equal */
+	for (uint32_t i = 0; i < 3; i++) {
+		/* Ship unconnected axes */
+		if (!sizes[i])
+			continue;
+
+		unsigned pos = 0;
+		while (pos < dims.used && sizes[i] > dims[pos].size)
+			pos++;
+
+		struct dim d = {.dim = i, .size = sizes[i]};
+		dims.insert(d, pos);
+	}
+
+	return dims[0].dim;
+}
+
 static uint8_t route1(sci_t src, sci_t dst) {
 	uint8_t dim = 0;
 
@@ -2970,19 +2996,17 @@ static uint8_t route1(sci_t src, sci_t dst) {
 static enum node_state setup_fabric(const struct node_info *info)
 {
 	int i;
-	uint8_t lc;
 	dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, info->sci << 16);
 	memset(shadow_ltbl, 0, sizeof(shadow_ltbl));
 	memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
 	memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
 	memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
 
-	if (cfg_fabric.x_size > 0)
-		_add_route(info->sci, 0, 1); /* Self route via LC3XA */
-	else if (cfg_fabric.y_size > 0)
-		_add_route(info->sci, 0, 3); /* Self route via LC3YA */
-	else
-		_add_route(info->sci, 0, 5); /* Self route via LC3ZA */
+	uint8_t lc = shortest() * 2 + 1;
+	lc += ((info->sci & 0xf) + ((info->sci >> 4) & 0xf) + ((info->sci >> 8) & 0xf)) & 1;  /* Load balance */
+
+	printf("Shortest route to self via LC%d\n", lc);
+	_add_route(info->sci, 0, lc);
 
 	/* Make sure responses get back to SCC */
 	for (lc = 1; lc <= 6; lc++)
