@@ -2843,7 +2843,7 @@ static int nc_start(void)
 
 	printf("Partition master: 0x%03x; builder: 0x%03x\n", part->master, part->builder);
 	printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
-	       cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
+	       cfg_fabric.size[0], cfg_fabric.size[1], cfg_fabric.size[2]);
 
 	for (int i = 0; i < cfg_nodes; i++) {
 		if (config_local(&cfg_nodelist[i], local_info->uuid))

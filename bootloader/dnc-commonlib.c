@@ -2959,19 +2959,18 @@ struct dim {
 static int shortest(void)
 {
 	Vector<struct dim> dims;
-	const uint32_t sizes[] = {cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size};
 
 	/* Ascending insertion sort; later insertions first where equal */
 	for (uint32_t i = 0; i < 3; i++) {
 		/* Ship unconnected axes */
-		if (!sizes[i])
+		if (cfg_fabric.size[i])
 			continue;
 
 		unsigned pos = 0;
-		while (pos < dims.used && sizes[i] > dims[pos].size)
+		while (pos < dims.used && cfg_fabric.size[i] > dims[pos].size)
 			pos++;
 
-		struct dim d = {.dim = i, .size = sizes[i]};
+		struct dim d = {.dim = i, .size = cfg_fabric.size[i]};
 		dims.insert(d, pos);
 	}
 
@@ -3031,7 +3030,7 @@ static enum node_state setup_fabric(const struct node_info *info)
 	int res = 1;
 	printf("Initialising LC3s...");
 
-	if (cfg_fabric.x_size > 0) {
+	if (cfg_fabric.size[0] > 0) {
 		if (_check_dim(0))
 			return RSP_FABRIC_NOT_READY;
 
@@ -3043,7 +3042,7 @@ static enum node_state setup_fabric(const struct node_info *info)
 		                         shadow_rtblh[2], shadow_ltbl[2])) && res;
 	}
 
-	if (cfg_fabric.y_size > 0) {
+	if (cfg_fabric.size[1] > 0) {
 		if (_check_dim(1))
 			return RSP_FABRIC_NOT_READY;
 
@@ -3055,7 +3054,7 @@ static enum node_state setup_fabric(const struct node_info *info)
 		                         shadow_rtblh[4], shadow_ltbl[4])) && res;
 	}
 
-	if (cfg_fabric.z_size > 0) {
+	if (cfg_fabric.size[2] > 0) {
 		if (_check_dim(2))
 			return RSP_FABRIC_NOT_READY;
 
@@ -3138,7 +3137,7 @@ bool dnc_check_fabric(const struct node_info *info)
 {
 	bool err = 0;
 
-	if (cfg_fabric.x_size > 0) {
+	if (cfg_fabric.size[0] > 0) {
 		if (_check_dim(0))
 			return 1;
 
@@ -3153,7 +3152,7 @@ bool dnc_check_fabric(const struct node_info *info)
 			                         shadow_rtblh[2], shadow_ltbl[2]);
 	}
 
-	if (cfg_fabric.y_size > 0) {
+	if (cfg_fabric.size[1] > 0) {
 		if (_check_dim(1))
 			return 1;
 
@@ -3168,7 +3167,7 @@ bool dnc_check_fabric(const struct node_info *info)
 			                         shadow_rtblh[4], shadow_ltbl[4]);
 	}
 
-	if (cfg_fabric.z_size > 0) {
+	if (cfg_fabric.size[2] > 0) {
 		if (_check_dim(2))
 			return 1;
 
@@ -3239,17 +3238,17 @@ static enum node_state train_fabric(const struct node_info *info __attribute__((
 		udelay(500);
 		bool pending = 0;
 
-		if (cfg_fabric.x_size > 0) {
+		if (cfg_fabric.size[0] > 0) {
 			pending |= phy_check_status(0, i == last);
 			pending |= phy_check_status(1, i == last);
 		}
 
-		if (cfg_fabric.y_size > 0) {
+		if (cfg_fabric.size[1] > 0) {
 			pending |= phy_check_status(2, i == last);
 			pending |= phy_check_status(3, i == last);
 		}
 
-		if (cfg_fabric.z_size > 0) {
+		if (cfg_fabric.size[2] > 0) {
 			pending |= phy_check_status(4, i == last);
 			pending |= phy_check_status(5, i == last);
 		}
@@ -3287,17 +3286,17 @@ static enum node_state validate_rings(const struct node_info *info)
 	while (1) {
 		int pending = 0;
 
-		if (cfg_fabric.x_size > 0) {
+		if (cfg_fabric.size[0] > 0) {
 			pending += lc_check_status(0, info->sci & 0x00f);
 			pending += lc_check_status(1, info->sci & 0x00f);
 		}
 
-		if (cfg_fabric.y_size > 0) {
+		if (cfg_fabric.size[1] > 0) {
 			pending += lc_check_status(2, info->sci & 0x0f0);
 			pending += lc_check_status(3, info->sci & 0x0f0);
 		}
 
-		if (cfg_fabric.z_size > 0) {
+		if (cfg_fabric.size[2] > 0) {
 			pending += lc_check_status(4, info->sci & 0xf00);
 			pending += lc_check_status(5, info->sci & 0xf00);
 		}

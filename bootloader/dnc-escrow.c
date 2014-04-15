@@ -24,13 +24,13 @@
 
 int escrow_populate(void *data)
 {
-	union escrow_ent *start = (escrow_ent *)data;
-	union escrow_ent *cur = start;
+	struct escrow_ent *start = (escrow_ent *)data;
+	struct escrow_ent *cur = start;
 
 	cur->numachip_rev = dnc_chip_rev;
-	cur->size_x       = cfg_fabric.x_size;
-	cur->size_y       = cfg_fabric.y_size;
-	cur->size_z       = cfg_fabric.z_size;
+	cur->size_x       = cfg_fabric.size[0];
+	cur->size_y       = cfg_fabric.size[1];
+	cur->size_z       = cfg_fabric.size[2];
 	cur->northbridges = nodes[0].nc_ht;
 	cur->neigh_ht     = nodes[0].nc_neigh_ht;
 	cur->neigh_link   = nodes[0].nc_neigh_link;

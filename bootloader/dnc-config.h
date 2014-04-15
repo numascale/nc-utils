@@ -27,9 +27,7 @@
 /* #define DEBUG_CONFIG 1 */
 
 struct fabric_info {
-	uint32_t x_size;
-	uint32_t y_size;
-	uint32_t z_size;
+	uint32_t size[3];
 	uint32_t strict;
 };
 

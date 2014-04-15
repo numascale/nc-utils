@@ -22,23 +22,21 @@
 
 #define ESCROW_REV   4
 
-union escrow_ent {
-	uint8_t id;
-	unsigned int numachip_rev : 4;
-	unsigned int size_x : 4;
-	unsigned int size_y : 4;
-	unsigned int size_z : 4;
-	unsigned int northbridges : 3;
-	unsigned int neigh_ht : 3;
-	unsigned int neigh_link : 2;
-	unsigned int symmetric : 1;
-	unsigned int renumbering : 1;
-	unsigned int remote_io : 1;
-	unsigned int observer : 1;
-	unsigned int cores : 8;
+struct escrow_ent {
+	unsigned numachip_rev : 4;
+	unsigned size_x : 4;
+	unsigned size_y : 4;
+	unsigned size_z : 4;
+	unsigned northbridges : 3;
+	unsigned neigh_ht : 3;
+	unsigned neigh_link : 2;
+	unsigned symmetric : 1;
+	unsigned renumbering : 1;
+	unsigned remote_io : 1;
+	unsigned observer : 1;
+	unsigned cores : 8;
 } __attribute__((packed));
 
 checked int escrow_populate(void *data);
 
 #endif
-

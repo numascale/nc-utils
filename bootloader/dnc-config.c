@@ -126,17 +126,17 @@ static bool parse_json(json_t *root)
 		goto out1;
 	}
 
-	if (!parse_json_num(fab->child, "x-size", &cfg_fabric.x_size, 0)) {
+	if (!parse_json_num(fab->child, "x-size", &cfg_fabric.size[0], 0)) {
 		error("Label <x-size> not found in fabric configuration file");
 		goto out1;
 	}
 
-	if (!parse_json_num(fab->child, "y-size", &cfg_fabric.y_size, 0)) {
+	if (!parse_json_num(fab->child, "y-size", &cfg_fabric.size[1], 0)) {
 		error("Label <y-size> not found in fabric configuration file");
 		goto out1;
 	}
 
-	if (!parse_json_num(fab->child, "z-size", &cfg_fabric.z_size, 0)) {
+	if (!parse_json_num(fab->child, "z-size", &cfg_fabric.size[2], 0)) {
 		error("Label <z-size> not found in fabric configuration file");
 		goto out1;
 	}
@@ -261,7 +261,7 @@ bool parse_config_file(char *data)
 	}
 
 	printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
-	       cfg_fabric.x_size, cfg_fabric.y_size, cfg_fabric.z_size);
+	       cfg_fabric.size[0], cfg_fabric.size[1], cfg_fabric.size[2]);
 
 	for (i = 0; i < cfg_nodes; i++)
 		printf("Node %d: <%s> uuid: %08X, sciid: 0x%03x, partition: %d, osc: %d, sync-only: %d\n",
@@ -278,9 +278,9 @@ bool parse_config_file(char *data)
 
 void make_singleton_config(void)
 {
-	cfg_fabric.x_size = 1;
-	cfg_fabric.y_size = 0;
-	cfg_fabric.z_size = 0;
+	cfg_fabric.size[0] = 1;
+	cfg_fabric.size[1] = 0;
+	cfg_fabric.size[2] = 0;
 	cfg_nodes = 1;
 	cfg_nodelist = (node_info *)malloc(sizeof(*cfg_nodelist));
 	assert(cfg_nodelist);
