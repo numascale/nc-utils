@@ -276,8 +276,9 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 	}
 
 	assert(range < 24);
-	assert((base & 0xffffffff) == 0);
-	assert((limit & 0xffffffff) == 0xffffffff);
+	// Fam10h extended MMIO 128MB granularity
+	assert((base & 0x7ffffff) == 0);
+	assert((limit & 0x7ffffff) ==  0x7ffffff);
 	assert(poweroftwo(limit - base) + 1);
 	range -= 8;
 
