@@ -22,10 +22,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define nelements(x) (sizeof(x) / sizeof((x)[0]))
 #define checked __attribute__ ((warn_unused_result))
+#define cpu_relax() asm volatile("pause" ::: "memory")
 #define lassert(cond) do { if (!(cond)) { \
         printf("Error: assertion '%s' failed in %s at %s:%d\n", \
-            #cond, __FUNCTION__, __FILE__, __LINE__); while (1); \
+            #cond, __FUNCTION__, __FILE__, __LINE__); while (1) cpu_relax(); \
     } } while (0)
 #define IMPORT_RELOCATED(sym) extern volatile uint8_t sym ## _relocate
 #define REL8(sym) ((uint8_t *)((volatile uint8_t *)asm_relocated + ((volatile uint8_t *)&sym ## _relocate - (volatile uint8_t *)&asm_relocate_start)))

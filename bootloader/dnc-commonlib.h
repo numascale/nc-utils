@@ -30,7 +30,6 @@
 #define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
 #define poweroftwo(x) (!((x) & ((x) - 1)))
 #define roundup_pow2(x, y) ({uint64_t power = (y); while (power < (x)) power <<=1; power;})
-#define cpu_relax() asm volatile("pause" ::: "memory")
 #define PRInode "node 0x%03x (%s)"
 #define nodestr_offset(x) cfg_nodelist[x].sci, cfg_nodelist[x].desc
 
