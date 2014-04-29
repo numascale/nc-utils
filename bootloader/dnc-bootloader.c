@@ -2877,6 +2877,16 @@ static int nc_start(void)
 	load_orig_e820_map();
 	check_renumbering();
 
+	if (test_manufacture) {
+		if (selftest_loopback())
+			msg_failed();
+		else
+			msg_passed();
+
+		while (1)
+			cpu_relax();
+	}
+
 	if (local_info->sync_only) {
 		/* OEMN cores will be reported as 0 */
 		update_acpi_tables_early();
@@ -2895,7 +2905,10 @@ static int nc_start(void)
 		probefilter_tokens(nodes[0].nc_ht - 1);
 	}
 
+printf("FOO\n");
+
 	if (part->master == local_info->sci) {
+printf("FOO2\n");
 		/* Master */
 		for (int i = 0; i < cfg_nodes; i++) {
 			if (config_local(&cfg_nodelist[i], local_info->uuid))
@@ -3007,6 +3020,11 @@ int main(const int argc, const char *argv[])
 
 	constants();
 	parse_cmdline(argc, argv);
+
+	if (test_manufacture) {
+		msg_testing();
+		printf(COL_DEFAULT "\n");
+	}
 
 	int ret = nc_start();
 	if (ret < 0) {

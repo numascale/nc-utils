@@ -79,6 +79,7 @@ bool pf_cstate6 = 0;
 uint64_t mem_gap = 0;
 int disable_kvm = -1;
 bool link_up = 0;
+bool test_manufacture = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -355,7 +356,6 @@ uint32_t dnc_check_mctr_status(const int cdata)
 
 	val = dnc_read_csr(0xfff0, mctrbase + (INT_STATUS_ADDR << 2));
 #ifdef BROKEN
-
 	if (val & 0x001) {
 		error("%s single access outside the defined physical memory space detected", dimms[cdata].name);
 		ack |= 0x001;
@@ -365,7 +365,6 @@ uint32_t dnc_check_mctr_status(const int cdata)
 		error("%s multiple access outside the defined physical memory space detected", dimms[cdata].name);
 		ack |= 0x002;
 	}
-
 #endif
 
 	if (val & 0x004) {
@@ -2068,6 +2067,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"workaround.locks", &parse_bool,  &workaround_locks},/* Prevent failure when SMI triggers are locked */
 		{"mem-gap",         &parse_int64,  &mem_gap},
 		{"disable-kvm",     &parse_bool,   &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
+		{"test.manufacture",&parse_bool,   &test_manufacture},       /* Manufacture testing */
 	};
 
 	int errors = 0;
@@ -2120,6 +2120,9 @@ void parse_cmdline(const int argc, const char *argv[])
 		warning("Tracing is exclusive of C-state 6; disabling C-state 6");
 		pf_cstate6 = 0;
 	}
+
+	if (test_manufacture)
+		singleton = 1;
 }
 
 static void perform_selftest(int asic_mode, char p_type[16])
@@ -3044,6 +3047,35 @@ static enum node_state setup_fabric(const struct node_info *info)
 	link_up = 1;
 
 	return res ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
+}
+
+bool selftest_loopback(void)
+{
+	bool status = 0;
+	uint32_t val;
+
+	for (int lc = 1; lc <= 6; lc++) {
+		printf("Testing %s...", _get_linkname(lc - 1));
+		_add_route(local_info->sci, 0, lc);
+		_add_route(local_info->sci, lc, 0);
+
+		uint64_t errors = 0;
+		for (int loop = 0; loop < 200000; loop++) {
+			errors += dnc_raw_write_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
+
+			for (int i = 0; !errors && i < 16; i++)
+				errors += dnc_raw_read_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, &val);
+
+			errors += dnc_check_lc3(lc - 1);
+		}
+
+		if (errors)
+			printf("failed with %llu errors\n", errors);
+		else
+			printf("success\n");
+	}
+
+	return status;
 }
 
 static enum node_state validate_fabric(const struct node_info *info, const struct part_info *part)

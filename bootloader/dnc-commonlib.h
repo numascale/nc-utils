@@ -35,12 +35,43 @@
 
 #define COL_DEFAULT   "\033[0m"
 #define COL_RED       "\033[31m"
+#define COL_GREEN     "\033[32m"
 #define COL_YELLOW    "\033[33m"
 #define WRAP          "\033[7h"
 #define RESET         "\033c"
 #define CLEAR         "\033e\033%%@\033)0\033(B\3#007\033[?25h\033[2J\033[H"
 #define BANNER        "\033[1m\033[34m"
 #define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
+
+static inline void msg_testing(void)
+{
+	printf(COL_YELLOW "\n"
+	  " _____ _____ ____ _____ ___ _   _  ____ \n"
+	  "|_   _| ____/ ___|_   _|_ _| \\ | |/ ___|\n"
+	  "  | | |  _| \\___ \\ | |  | ||  \\| | |  _ \n"
+	  "  | | | |___ ___) || |  | || |\\  | |_| |\n"
+	  "  |_| |_____|____/ |_| |___|_| \\_|\\____|\n");
+}
+
+static inline void msg_failed(void)
+{
+	printf(COL_RED "\n"
+	  " _____ _    ___ _     _____ ____  \n"
+	  "|  ___/ \\  |_ _| |   | ____|  _ \\ \n"
+	  "| |_ / _ \\  | || |   |  _| | | | |\n"
+	  "|  _/ ___ \\ | || |___| |___| |_| |\n"
+	  "|_|/_/   \\_\\___|_____|_____|____/ \n");
+}
+
+static inline void msg_passed(void)
+{
+	printf(COL_GREEN "\n"
+	  " ____   _    ____ ____  _____ ____  \n"
+	  "|  _ \\ / \\  / ___/ ___|| ____|  _ \\ \n"
+	  "| |_) / _ \\ \\___ \\___ \\|  _| | | | |\n"
+	  "|  __/ ___ \\ ___) |__) | |___| |_| |\n"
+	  "|_| /_/   \\_\\____/____/|_____|____/ \n");
+}
 
 #define assert(cond) do { if (!(cond)) {				\
 	printf(COL_RED "Error: assertion '%s' failed in %s at %s:%d\n" COL_DEFAULT,	\
@@ -189,6 +220,7 @@ extern int disable_kvm;
 extern const char *node_state_name[];
 extern uint32_t southbridge_id;
 extern bool link_up;
+extern bool test_manufacture;
 
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
@@ -218,5 +250,6 @@ void selftest_late_msrs(void);
 void selftest_late_apiclvt(void);
 void parse_cmdline(const int argc, const char *argv[]);
 void dnc_dimmtest(const int testmask, const struct dimm_config dimms[2]);
+bool selftest_loopback(void);
 
 #endif
