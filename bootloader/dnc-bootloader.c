@@ -105,6 +105,7 @@ IMPORT_RELOCATED(new_int_halt_msr);
 #endif
 IMPORT_RELOCATED(new_lscfg_msr);
 IMPORT_RELOCATED(new_cucfg2_msr);
+IMPORT_RELOCATED(new_nbcfg_msr);
 IMPORT_RELOCATED(new_cpuwdt_msr);
 IMPORT_RELOCATED(new_hwcr_msr);
 IMPORT_RELOCATED(new_mc4_misc0_msr);
@@ -1114,6 +1115,11 @@ static void setup_other_cores(void)
 
 	wrmsr(MSR_CU_CFG2, msr);
 	*REL64(new_cucfg2_msr) = msr;
+
+	/* Relax IO read response ordering */
+	msr = rdmsr(MSR_NB_CFG) | ((uint64_t)relaxed_io << 50);
+	*REL64(new_nbcfg_msr) = msr;
+	wrmsr(MSR_NB_CFG, msr);
 
 	printf("APICs");
 	critical_enter();
@@ -2905,10 +2911,7 @@ static int nc_start(void)
 		probefilter_tokens(nodes[0].nc_ht - 1);
 	}
 
-printf("FOO\n");
-
 	if (part->master == local_info->sci) {
-printf("FOO2\n");
 		/* Master */
 		for (int i = 0; i < cfg_nodes; i++) {
 			if (config_local(&cfg_nodelist[i], local_info->uuid))

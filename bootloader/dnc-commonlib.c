@@ -80,6 +80,7 @@ uint64_t mem_gap = 0;
 int disable_kvm = -1;
 bool link_up = 0;
 bool test_manufacture = 0;
+bool relaxed_io = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2067,7 +2068,8 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"workaround.locks", &parse_bool,  &workaround_locks},/* Prevent failure when SMI triggers are locked */
 		{"mem-gap",         &parse_int64,  &mem_gap},
 		{"disable-kvm",     &parse_bool,   &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
-		{"test.manufacture",&parse_bool,   &test_manufacture},       /* Manufacture testing */
+		{"test.manufacture",&parse_bool,   &test_manufacture}, /* Manufacture testing */
+		{"relaxed-io",      &parse_bool,   &relaxed_io},
 	};
 
 	int errors = 0;

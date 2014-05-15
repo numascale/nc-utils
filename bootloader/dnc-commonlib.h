@@ -20,6 +20,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "dnc-config.h"
 #include "ddr_spd.h"
@@ -221,6 +222,7 @@ extern const char *node_state_name[];
 extern uint32_t southbridge_id;
 extern bool link_up;
 extern bool test_manufacture;
+extern bool relaxed_io;
 
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
