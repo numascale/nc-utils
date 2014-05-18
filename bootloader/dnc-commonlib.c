@@ -2952,29 +2952,37 @@ static bool _check_dim(const int dim)
 	return err;
 }
 
-struct dim {
-	uint32_t dim, size;
+struct lc {
+	uint32_t lc, size;
 };
 
-static int shortest(void)
+static int shortest(const int node)
 {
-	Vector<struct dim> dims;
+	Vector<struct lc> dims;
 
 	/* Ascending insertion sort; later insertions first where equal */
 	for (uint32_t i = 0; i < 3; i++) {
 		/* Ship unconnected axes */
-		if (cfg_fabric.size[i])
+		if (!cfg_fabric.size[i])
 			continue;
 
 		unsigned pos = 0;
 		while (pos < dims.used && cfg_fabric.size[i] > dims[pos].size)
 			pos++;
 
-		struct dim d = {.dim = i, .size = cfg_fabric.size[i]};
-		dims.insert(d, pos);
+		struct lc l1 = {.lc = i * 2 + 1, .size = cfg_fabric.size[i]};
+		struct lc l2 = {.lc = i * 2 + 2, .size = cfg_fabric.size[i]};
+		dims.insert(l1, pos);
+		dims.insert(l2, pos + 1);
 	}
 
-	return dims[0].dim;
+	/* Prune entries of size larger than the first pair */
+	for (unsigned i = dims.used - 1; i > 1; i--)
+		if (dims[i].size > dims[0].size)
+			dims.del(i);
+
+	unsigned index = node % dims.used;
+	return dims[index].lc;
 }
 
 static uint8_t route1(sci_t src, sci_t dst) {
@@ -3001,9 +3009,12 @@ static enum node_state setup_fabric(const struct node_info *info)
 	memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
 	memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
 
-	uint8_t lc = shortest() * 2 + 1;
-	lc += ((info->sci & 0xf) + ((info->sci >> 4) & 0xf) + ((info->sci >> 8) & 0xf)) & 1;  /* Load balance */
+	/* Find node number in list */
+	for (i = 0; i < cfg_nodes; i++)
+		if (info->sci == cfg_nodelist[i].sci)
+			break;
 
+	uint8_t lc = shortest(i);
 	printf("Shortest route to self via LC%d\n", lc);
 	_add_route(info->sci, 0, lc);
 
