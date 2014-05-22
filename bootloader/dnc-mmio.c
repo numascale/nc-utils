@@ -346,7 +346,7 @@ class Container {
 				offset += probe(bus, dev, fn, cap + offset);
 
 		printf("\n");
-#if TEST
+
 		/* Disable IO and interrupt line on slaves */
 		if (node->sci) {
 			uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 4);
@@ -354,7 +354,6 @@ class Container {
 			val = dnc_read_conf(node->sci, bus, dev, fn, 0x3c);
 			dnc_write_conf(node->sci, bus, dev, fn, 0x3c, val & ~0xffff);
 		}
-#endif
 	}
 
 public:
