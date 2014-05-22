@@ -449,9 +449,10 @@ static void update_e820_map(void)
 	/* Add new ACPI tables */
 	e820_add((unsigned)tables_relocated, TABLE_AREA_SIZE, E820_ACPI);
 
-	e820_add(HT_BASE, HT_LIMIT - HT_BASE, E820_RESERVED);
-
 	/* Note that linux will reserve any I/O window BARs; reserving it here causes GRUB issues  */
+
+	if (mmio64_limit > mmio64_base)
+		e820_add(mmio64_base, mmio64_limit - mmio64_base, E820_RESERVED);
 
 	/* Reserve MCFG address range so Linux accepts it */
 	e820_add(DNC_MCFG_BASE, DNC_MCFG_LIM - DNC_MCFG_BASE + 1, E820_RESERVED);
