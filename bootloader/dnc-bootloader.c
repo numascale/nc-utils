@@ -212,6 +212,24 @@ static inline size_t sp(void)
 	return sp;
 }
 
+static void e820_dump(void)
+{
+	struct e820entry *e820 = (struct e820entry *)REL32(new_e820_map);
+	uint64_t last_base = e820->base, last_length = e820->length;
+
+	for (int i = 0; i < *REL16(new_e820_len); i++) {
+		printf("%2d %011llx:%011llx (%011llx) [%x]\n", i, e820[i].base, e820[i].base + e820[i].length, e820[i].length, e820[i].type);
+
+		if (i) {
+			assert(e820[i].base >= (last_base + last_length));
+			assert(e820[i].length);
+			assert(e820[i].length < (16ULL << 40));
+			last_base = e820[i].base;
+			last_length = e820[i].length;
+		}
+	}
+}
+
 static void install_e820_handler(void)
 {
 	uint32_t *int_vecs = 0x0;
@@ -302,31 +320,13 @@ static void install_e820_handler(void)
 		printf("__mem_end = %p, __stack_size = 0x%x, sp() = 0x%x\n", __mem_end, __stack_size, sp());
 }
 
-static void e820_dump(void)
-{
-	struct e820entry *e820 = (struct e820entry *)REL32(new_e820_map);
-	uint64_t last_base = e820->base, last_length = e820->length;
-
-	for (int i = 0; i < *REL16(new_e820_len); i++) {
-		printf(" %011llx:%011llx (%011llx) [%x]\n", e820[i].base, e820[i].base + e820[i].length, e820[i].length, e820[i].type);
-
-		if (i) {
-			assert(e820[i].base >= (last_base + last_length));
-			assert(e820[i].length);
-			assert(e820[i].length < (16ULL << 40));
-			last_base = e820[i].base;
-			last_length = e820[i].length;
-		}
-	}
-}
-
-static struct e820entry *e820_position(const uint64_t base)
+static struct e820entry *e820_position(const uint64_t addr)
 {
 	struct e820entry *e820 = (struct e820entry *)REL32(new_e820_map);
 	int i;
 
 	for (i = 0; i < *REL16(new_e820_len); i++)
-		if (e820[i].base + e820[i].length >= base)
+		if (addr < e820[i].base + e820[i].length)
 			return &e820[i];
 
 	return &e820[i];
@@ -334,14 +334,13 @@ static struct e820entry *e820_position(const uint64_t base)
 
 static void e820_insert(struct e820entry *pos)
 {
-	const struct e820entry *start = (struct e820entry *)REL32(new_e820_map);
-	uint16_t *len = REL16(new_e820_len);
+	const struct e820entry *map = (struct e820entry *)REL32(new_e820_map);
 
-	int n = *len - (pos - start);
+	int n = *REL16(new_e820_len) - (pos - map);
 	if (n > 0)
 		memmove(pos + 1, pos, sizeof(*pos) * n);
 
-	*len += 1;
+	*REL16(new_e820_len) += 1;
 }
 
 static void e820_remove(struct e820entry *start, struct e820entry *end)
@@ -376,7 +375,7 @@ static void e820_add(const uint64_t base, const uint64_t length, const uint32_t 
 	struct e820entry *spos = e820_position(base);
 
 	/* If valid entries */
-	if (last > e820 && spos <= last) {
+	if (last > e820 && spos < last) {
 		/* Split head */
 		if (overlap(base, base + length, spos->base, spos->base + spos->length) && base != spos->base) {
 			e820_insert(spos);
