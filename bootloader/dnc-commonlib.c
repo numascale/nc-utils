@@ -2970,8 +2970,8 @@ static int shortest(const int node)
 		while (pos < dims.used && cfg_fabric.size[i] > dims[pos].size)
 			pos++;
 
-		struct lc l1 = {.lc = i * 2 + 1, .size = cfg_fabric.size[i]};
-		struct lc l2 = {.lc = i * 2 + 2, .size = cfg_fabric.size[i]};
+		struct lc l1 = {i * 2 + 1, cfg_fabric.size[i]};
+		struct lc l2 = {i * 2 + 2, cfg_fabric.size[i]};
 		dims.insert(l1, pos);
 		dims.insert(l2, pos + 1);
 	}
