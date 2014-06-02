@@ -47,7 +47,6 @@
     (((x) & 0xff00000000000000ULL) >> 56))
 
 class Container {
-	int maxchildren;
 protected:
 	static const uint8_t ExtOpPrefix = 0x5b;
 	static const uint8_t BytePrefix = 0x0a;
@@ -76,7 +75,7 @@ public:
 		free(buf);
 	}
 
-	void ensure(int need) {
+	void ensure(const int need) {
 		if (offset + need <= bufsize)
 			return;
 
@@ -584,4 +583,3 @@ unsigned char *remote_aml(uint32_t *len)
 	sb->insert();
 	return sb->buf;
 }
-

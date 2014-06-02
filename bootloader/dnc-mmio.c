@@ -245,7 +245,7 @@ out:
 		dnc_write_conf(sci, bus, dev, fn, 4, cmd);
 	}
 
-	bool allocate(uint64_t *addr) {
+	bool allocate(uint64_t *const addr) {
 		assert(len);
 
 		if (io) {
@@ -358,7 +358,6 @@ class Container {
 
 public:
 	node_info_t *const node;
-	uint64_t window_io, window32, window64; /* Length of MMIO window needed */
 
 	Container(node_info_t *const _node, const int _pbus, const int _pdev, const int _pfn):
 	  pbus(_pbus), pdev(_pdev), pfn(_pfn), node(_node) {
