@@ -80,7 +80,7 @@ uint64_t mem_gap = 0;
 int disable_kvm = -1;
 bool link_up = 0;
 bool test_manufacture = 0;
-bool relaxed_io = 0;
+int relaxed_io = 0;
 int pf_prefetch = 1;
 int router = 0;
 
@@ -1763,8 +1763,10 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		set_cf8extcfg_enable(node);
 
 		val = cht_read_conf(node, FUNC0_HT, 0x68);
-		if ((val & ((1 << 25) | (1 << 18) | (1 << 17))) != ((1 << 25) | (1 << 18) | (1 << 17)))
-			cht_write_conf(node, FUNC0_HT, 0x68, val | (1 << 25) | (1 << 18) | (1 << 17));
+		val |= (1 << 25) | (1 << 18) | (1 << 17);
+		if (relaxed_io & 2)
+			val &= ~(3 << 21); /* Disable downstream NP request limit */
+		cht_write_conf(node, FUNC0_HT, 0x68, val);
 
 		/* Enable 128MB-granularity on extended MMIO maps */
 		if (family < 0x15) {
@@ -2071,7 +2073,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"mem-gap",         &parse_int64,  &mem_gap},
 		{"disable-kvm",     &parse_bool,   &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
 		{"test.manufacture",&parse_bool,   &test_manufacture}, /* Manufacture testing */
-		{"relaxed-io",      &parse_bool,   &relaxed_io},
+		{"relaxed-io",      &parse_int,   &relaxed_io},
 		{"pf.prefetch",     &parse_int,    &pf_prefetch},     /* DRAM prefetch */
 		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
 	};

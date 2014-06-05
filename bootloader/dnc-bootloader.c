@@ -1153,7 +1153,9 @@ static void setup_other_cores(void)
 	*REL64(new_cucfg2_msr) = msr;
 
 	/* Relax IO read response ordering */
-	msr = rdmsr(MSR_NB_CFG) | ((uint64_t)relaxed_io << 50);
+	msr = rdmsr(MSR_NB_CFG);
+	if (relaxed_io & 1)
+		msr  |= 1ULL << 50;
 	*REL64(new_nbcfg_msr) = msr;
 	wrmsr(MSR_NB_CFG, msr);
 
