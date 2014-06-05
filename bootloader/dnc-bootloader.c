@@ -1122,7 +1122,7 @@ static void setup_other_cores(void)
 	icr = (volatile uint32_t *)&apic[0x300 / 4];
 
 	/* Set core watchdog timer to 21s */
-	msr = (9 << 3);
+	msr = 9 << 3;
 	if (enable_nbwdt > 0)
 		msr |= 1;
 	wrmsr(MSR_CPUWDT, msr);
@@ -1177,7 +1177,7 @@ static void setup_other_cores(void)
 				uint32_t val = apic[0x20 / 4];
 				apic[0x20 / 4] = (val & 0xffffff) | (apicid << 24);
 				msr = rdmsr(MSR_NODE_ID);
-				wrmsr(MSR_NODE_ID, (msr & ~0xfc0) | ((apicid & ~0xff) >> 2));
+				wrmsr(MSR_NODE_ID, (msr & ~0xfc0ULL) | ((apicid & ~0xff) >> 2));
 				continue;
 			}
 
@@ -2248,7 +2248,7 @@ static void setup_c1e_osvw(void)
 {
 	uint64_t msr;
 	/* Disable C1E in MSRs */
-	msr = rdmsr(MSR_HWCR) & ~(1 << 12);
+	msr = rdmsr(MSR_HWCR) & ~(1ULL << 12);
 	wrmsr(MSR_HWCR, msr);
 	*REL64(new_hwcr_msr) = msr;
 	msr = 0;
@@ -2261,7 +2261,7 @@ static void setup_c1e_osvw(void)
 		/* Extend ID length to cover errata 400 status bit */
 		wrmsr(MSR_OSVW_ID_LEN, 2);
 		*REL64(new_osvw_id_len_msr) = 2;
-		msr = rdmsr(MSR_OSVW_STATUS) & ~2;
+		msr = rdmsr(MSR_OSVW_STATUS) & ~2ULL;
 		wrmsr(MSR_OSVW_STATUS, msr);
 		*REL64(new_osvw_status_msr) = msr;
 		printf("Enabled OSVW errata #400 workaround status, as C1E disabled\n");
@@ -2270,7 +2270,7 @@ static void setup_c1e_osvw(void)
 		msr = rdmsr(MSR_OSVW_STATUS);
 
 		if (msr & 2) {
-			msr &= ~2;
+			msr &= ~2ULL;
 			wrmsr(MSR_OSVW_STATUS, msr);
 			printf("Cleared OSVW errata #400 bit status, as C1E disabled\n");
 		}
@@ -2289,7 +2289,7 @@ static void setup_mc4_thresholds(void)
 
 	/* Set McStatusWrEn in HWCR first or we might get a GPF */
 	msr = rdmsr(MSR_HWCR);
-	msr |= (1ULL << 18);
+	msr |= 1ULL << 18;
 	wrmsr(MSR_HWCR, msr);
 	*REL64(new_hwcr_msr) = msr & ~(1ULL << 17); /* Don't let the Wrap32Dis bit follow through to other cores */
 
