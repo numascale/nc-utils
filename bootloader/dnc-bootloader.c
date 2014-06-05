@@ -1158,10 +1158,11 @@ static void setup_other_cores(void)
 	wrmsr(MSR_NB_CFG, msr);
 
 	/* DRAM prefetch tuning */
-	*REL64(new_cucfg3_msr) = rdmsr(MSR_CU_CFG3);
-	if (pf_prefetch) {
-		*REL64(new_cucfg3_msr) = (*REL64(new_cucfg3_msr) & ~(3 << 20)) | (pf_prefetch << 20);
-		wrmsr(MSR_CU_CFG3, *REL64(new_cucfg3_msr));
+	if (family >= 0x15) {
+		msr = rdmsr(MSR_CU_CFG3) & ~(3ULL << 20);
+		msr |= pf_prefetch << 20;
+		wrmsr(MSR_CU_CFG3, msr);
+		*REL64(new_cucfg3_msr) = msr;
 	}
 
 	printf("APICs");

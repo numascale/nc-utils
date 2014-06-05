@@ -215,11 +215,13 @@ break:
 	mov	$MSR_CU_CFG2, %ecx
 	wrmsr
 
+#ifdef FIXME /* Family 15h only */
 	/* Set CUCFG3 MSR */
 	mov	%cs:SYM_OFFSET(new_cucfg3_msr), %eax
 	mov	%cs:SYM_OFFSET(new_cucfg3_msr + 4), %edx
 	mov	$MSR_CU_CFG3, %ecx
 	wrmsr
+#endif
 
 	/* Set NBCFG MSR */
 	mov %cs:SYM_OFFSET(new_nbcfg_msr), %eax
