@@ -82,6 +82,7 @@ bool link_up = 0;
 bool test_manufacture = 0;
 bool relaxed_io = 0;
 int pf_prefetch = 1;
+int router = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2072,6 +2073,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"test.manufacture",&parse_bool,   &test_manufacture}, /* Manufacture testing */
 		{"relaxed-io",      &parse_bool,   &relaxed_io},
 		{"pf.prefetch",     &parse_int,    &pf_prefetch},     /* DRAM prefetch */
+		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
 	};
 
 	int errors = 0;
@@ -2983,11 +2985,43 @@ static int shortest(const int node)
 		if (dims[i].size > dims[0].size)
 			dims.del(i);
 
+	printf("Shortest routes to self via:");
+	for (unsigned i = 0; i < dims.used; i++)
+		printf(" LC%d", dims[i].lc);
+	printf("\n");
+
 	unsigned index = node % dims.used;
 	return dims[index].lc;
 }
 
-static uint8_t route1(sci_t src, sci_t dst) {
+static uint8_t dims[] = {0, 1, 2};
+
+static void longest(void)
+{
+	uint8_t geom[] = {(uint8_t)cfg_fabric.size[0], (uint8_t)cfg_fabric.size[1], (uint8_t)cfg_fabric.size[2]};
+
+	/* Sort dimensions and geometry by descending size */
+	/* Swap when equal to prefer later equal axes, since route-to-self uses shorter ones */
+	for (int pass = 0; pass < 2; pass++) {
+		for (int i = 0; i < 2; i++) {
+			if (geom[i] <= geom[i + 1]) {
+				uint8_t tmp = geom[i];
+				geom[i] = geom[i + 1];
+				geom[i + 1] = tmp;
+				tmp = dims[i];
+				dims[i] = dims[i + 1];
+				dims[i + 1] = tmp;
+			}
+		}
+	}
+
+	const char names[] = "XYZ";
+	printf("Routing via %c->%c->%c\n", names[dims[0]], names[dims[1]], names[dims[2]]);
+}
+
+static uint8_t router0(sci_t src, const int node)
+{
+	sci_t dst = cfg_nodelist[node].sci;
 	uint8_t dim = 0;
 
 	while ((src ^ dst) & ~0xf) {
@@ -3002,9 +3036,29 @@ static uint8_t route1(sci_t src, sci_t dst) {
 	return out;
 }
 
+static uint8_t router1(sci_t src, const int node)
+{
+	sci_t dst = cfg_nodelist[node].sci;
+	uint8_t out = 0;
+
+	/* Check usability of dimensions in order */
+	for (int i = 0; i < 3; i++) {
+		const int shift = dims[i] * 4;
+		if (((src >> shift) & 0xf) ^ ((dst >> shift) & 0xf)) {
+			out = dims[i] * 2 + 1;
+			break;
+		}
+	}
+
+	out += node % 1; /* Load balance */
+	return out;
+}
+
+typedef uint8_t (*router_t)(sci_t, const int);
+
 static enum node_state setup_fabric(const struct node_info *info)
 {
-	int i;
+	int node;
 	dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, info->sci << 16);
 	memset(shadow_ltbl, 0, sizeof(shadow_ltbl));
 	memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
@@ -3012,23 +3066,28 @@ static enum node_state setup_fabric(const struct node_info *info)
 	memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
 
 	/* Find node number in list */
-	for (i = 0; i < cfg_nodes; i++)
-		if (info->sci == cfg_nodelist[i].sci)
+	for (node = 0; node < cfg_nodes; node++)
+		if (info->sci == cfg_nodelist[node].sci)
 			break;
 
-	uint8_t lc = shortest(i);
-	printf("Shortest route to self via LC%d\n", lc);
+	/* Add route-to-self */
+	int lc = shortest(node);
 	_add_route(info->sci, 0, lc);
 
 	/* Make sure responses get back to SCC */
 	for (lc = 1; lc <= 6; lc++)
 		_add_route(info->sci, lc, 0);
 
-	for (i = 0; i < cfg_nodes; i++) {
+	longest();
+	const router_t routers[] = {router0, router1};
+	assert((unsigned)router < sizeof(routers) / sizeof(routers[0]));
+	printf("Using router %d\n", router);
+
+	for (int i = 0; i < cfg_nodes; i++) {
 		if (info->sci == cfg_nodelist[i].sci)
 			continue;
 
-		uint8_t out = route1(info->sci, cfg_nodelist[i].sci);
+		uint8_t out = routers[router](info->sci, i);
 		_add_route(cfg_nodelist[i].sci, 0, out);
 
 		for (lc = 1; lc <= 6; lc++) {
