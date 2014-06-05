@@ -105,6 +105,7 @@ IMPORT_RELOCATED(new_int_halt_msr);
 #endif
 IMPORT_RELOCATED(new_lscfg_msr);
 IMPORT_RELOCATED(new_cucfg2_msr);
+IMPORT_RELOCATED(new_cucfg3_msr);
 IMPORT_RELOCATED(new_nbcfg_msr);
 IMPORT_RELOCATED(new_cpuwdt_msr);
 IMPORT_RELOCATED(new_hwcr_msr);
@@ -1155,6 +1156,13 @@ static void setup_other_cores(void)
 	msr = rdmsr(MSR_NB_CFG) | ((uint64_t)relaxed_io << 50);
 	*REL64(new_nbcfg_msr) = msr;
 	wrmsr(MSR_NB_CFG, msr);
+
+	/* DRAM prefetch tuning */
+	*REL64(new_cucfg3_msr) = rdmsr(MSR_CU_CFG3);
+	if (pf_prefetch) {
+		*REL64(new_cucfg3_msr) = (*REL64(new_cucfg3_msr) & ~(3 << 20)) | (pf_prefetch << 20);
+		wrmsr(MSR_CU_CFG3, *REL64(new_cucfg3_msr));
+	}
 
 	printf("APICs");
 	critical_enter();

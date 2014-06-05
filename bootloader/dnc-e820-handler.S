@@ -215,6 +215,12 @@ break:
 	mov	$MSR_CU_CFG2, %ecx
 	wrmsr
 
+	/* Set CUCFG3 MSR */
+	mov	%cs:SYM_OFFSET(new_cucfg3_msr), %eax
+	mov	%cs:SYM_OFFSET(new_cucfg3_msr + 4), %edx
+	mov	$MSR_CU_CFG3, %ecx
+	wrmsr
+
 	/* Set NBCFG MSR */
 	mov %cs:SYM_OFFSET(new_nbcfg_msr), %eax
 	mov %cs:SYM_OFFSET(new_nbcfg_msr + 4), %edx
@@ -468,6 +474,8 @@ EXPORT(apic_readback)
 EXPORT(new_lscfg_msr)
 	.long 0, 0
 EXPORT(new_cucfg2_msr)
+	.long 0, 0
+EXPORT(new_cucfg3_msr)
 	.long 0, 0
 EXPORT(new_nbcfg_msr)
 	.long 0, 0

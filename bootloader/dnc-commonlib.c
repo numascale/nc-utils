@@ -81,6 +81,7 @@ int disable_kvm = -1;
 bool link_up = 0;
 bool test_manufacture = 0;
 bool relaxed_io = 0;
+int pf_prefetch = 1;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2070,6 +2071,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"disable-kvm",     &parse_bool,   &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
 		{"test.manufacture",&parse_bool,   &test_manufacture}, /* Manufacture testing */
 		{"relaxed-io",      &parse_bool,   &relaxed_io},
+		{"pf.prefetch",     &parse_int,    &pf_prefetch},     /* DRAM prefetch */
 	};
 
 	int errors = 0;

@@ -222,6 +222,7 @@ extern uint32_t southbridge_id;
 extern bool link_up;
 extern bool test_manufacture;
 extern bool relaxed_io;
+extern int pf_prefetch;
 
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
