@@ -541,18 +541,18 @@ unsigned char *remote_aml(uint32_t *len)
 			  0x000000,
 			  node->io_limit - node->io_base + 1));
 
-		assert(node->mmio32_limit > node->mmio32_base);
-		package->children.add(new DWordMemory(
-		  DWordMemory::ResourceProducer,
-		  DWordMemory::MinFixed,
-		  DWordMemory::MaxFixed,
-		  DWordMemory::Cacheable,
-		  DWordMemory::ReadWrite,
-		  0x00000000,
-		  node->mmio32_base,
-		  node->mmio32_limit,
-		  0x00000000,
-		  node->mmio32_limit - node->mmio32_base + 1));
+		if (node->mmio32_limit > node->mmio32_base)
+			package->children.add(new DWordMemory(
+			  DWordMemory::ResourceProducer,
+			  DWordMemory::MinFixed,
+			  DWordMemory::MaxFixed,
+			  DWordMemory::Cacheable,
+			  DWordMemory::ReadWrite,
+			  0x00000000,
+			  node->mmio32_base,
+			  node->mmio32_limit,
+			  0x00000000,
+			  node->mmio32_limit - node->mmio32_base + 1));
 
 		if (node->mmio64_limit > node->mmio64_base)
 			package->children.add(new QWordMemory(
