@@ -414,6 +414,7 @@ public:
 	/* Set BAR addresses; return 1 if ran into an exclusion zone; caller will retry */
 	bool allocate(void) {
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
+		assert(map32->next < MMIO32_LIMIT);
 		io_cur = roundup(io_cur, 1 << 12);
 
 		uint32_t io_start = io_cur, mmio32_start = map32->next;
@@ -441,6 +442,7 @@ public:
 
 		/* Align start of bridge windows */
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
+		assert(map32->next < MMIO32_LIMIT);
 		mmio64_cur = roundup(mmio64_cur, SCC_ATT_GRAN << DRAM_MAP_SHIFT);
 		io_cur = roundup(io_cur, 1 << 12);
 
@@ -527,6 +529,7 @@ void setup_mmio(void) {
 	while (c < containers.limit) {
 		do {
 			map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
+			assert(map32->next < MMIO32_LIMIT);
 			/* Retry until allocation succeeds */
 			(*c)->node->mmio32_base = map32->next;
 			(*c)->node->mmio64_base = mmio64_cur;
@@ -535,6 +538,7 @@ void setup_mmio(void) {
 
 		io_cur = roundup(io_cur, 1 << NC_ATT_IO_GRAN);
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
+		assert(map32->next < MMIO32_LIMIT);
 
 		(*c)->node->mmio32_limit = map32->next - 1;
 		(*c)->node->mmio64_limit = mmio64_cur - 1;
@@ -632,9 +636,9 @@ void setup_mmio(void) {
 
 			for (unsigned erange = 0; erange < map32->excluded.used; erange++)
 				nc_mmio_range(sci, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht);
-
 		} else
-			nc_mmio_range(sci, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht);
+			if (nodes[i].mmio32_limit > nodes[i].mmio32_base)
+				nc_mmio_range(sci, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht);
 
 		while (range < 8)
 			nc_mmio_range_del(sci, range++);
@@ -661,7 +665,8 @@ void setup_mmio(void) {
 				mmio_range(sci, ht, range++, tom, nodes[i].mmio32_base - 1, nodes[i].nc_ht, 0, 1);
 
 			/* 32-bit local range */
-			mmio_range(sci, ht, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht, ioh_link, 1);
+			if (nodes[i].mmio32_limit > nodes[i].mmio32_base)
+				mmio_range(sci, ht, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht, ioh_link, 1);
 
 			/* 32-bit above local range */
 			mmio_range(sci, ht, range++, nodes[i].mmio32_limit + 1, 0xffffffff, nodes[i].nc_ht, 0, 1);
@@ -716,7 +721,9 @@ void setup_mmio(void) {
 				start = nodes[i].mmio32_base;
 				end = nodes[i].mmio32_limit;
 			}
-			mmio_range(0xfff0, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
+
+			if (end > start)
+				mmio_range(0xfff0, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
 
 			for (unsigned erange = 0; erange < map32->excluded.used; erange++)
 				mmio_range(0xfff0, ht, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht, ioh_link, 1);
