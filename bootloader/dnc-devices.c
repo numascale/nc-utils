@@ -66,31 +66,6 @@ void disable_kvm_ports(const int port) {
 	dnc_write_conf(0xfff0, 0, 19, 0, 0x40, val | (1 << (port + 16)));
 }
 
-void disable_device(const uint16_t sci, const int bus, const int dev, const int fn)
-{
-	int i;
-	/* Disable I/O, memory, DMA and interrupts */
-	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
-
-	/* Clear BARs */
-	for (i = 0x10; i <= 0x24; i += 4)
-		dnc_write_conf(sci, bus, dev, fn, i, 0);
-
-	/* Clear expansion ROM base address */
-	dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
-	/* Set Interrupt Line register to 0 (unallocated) */
-	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
-}
-
-void disable_dma_all(void)
-{
-	const struct devspec devices[] = {
-		{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
-		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
-	};
-	pci_search_start(devices);
-}
-
 static uint16_t capability(const uint8_t cap, const sci_t sci, const int bus, const int dev, const int fn)
 {
 	/* Check for capability list */
@@ -134,6 +109,38 @@ uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const
 	} while (offset > 0xff && visited[offset]++ == 0);
 
 	return PCI_CAP_NONE;
+}
+
+void disable_device(const uint16_t sci, const int bus, const int dev, const int fn)
+{
+#ifdef HANGS
+	/* Put device into D3 if possible */
+	uint16_t cap = capability(sci, bus, dev, fn, PCI_CAP_POWER);
+	if (cap != PCI_CAP_NONE) {
+		uint32_t val = dnc_read_conf(sci, bus, dev, fn, cap + 0x4);
+		dnc_write_conf(sci, bus, dev, fn, cap + 0x4, val | 3);
+	}
+#endif
+	/* Disable I/O, memory, DMA and interrupts */
+	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
+
+	/* Clear BARs */
+	for (int i = 0x10; i <= 0x24; i += 4)
+		dnc_write_conf(sci, bus, dev, fn, i, 0);
+
+	/* Clear expansion ROM base address */
+	dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
+	/* Set Interrupt Line register to 0 (unallocated) */
+	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
+}
+
+void disable_dma_all(void)
+{
+	const struct devspec devices[] = {
+		{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
+		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
+	};
+	pci_search_start(devices);
 }
 
 static void completion_timeout(const uint16_t sci, const int bus, const int dev, const int fn)
