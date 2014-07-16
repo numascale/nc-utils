@@ -152,8 +152,6 @@ static void disable_xtpic(void)
 	outb(0xff, PIC_SLAVE_IMR);
 }
 
-#define E820_MAX_LEN 4096
-
 static void load_orig_e820_map(void)
 {
 	orig_e820_map = (struct e820entry *)lzalloc(E820_MAX_LEN);
