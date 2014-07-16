@@ -2473,11 +2473,13 @@ static void unify_all_nodes(void)
 				((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT) - 1, nodes[0].nc_ht);
 	}
 
+	/* Setup NumaChip local DRAM registers */
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM0_LIMIT, nodes[0].dram_base >> 6);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_NGCM1_LIMIT, (nodes[0].dram_limit >> 6) - 1);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_BASE, nodes[0].dram_base);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT, nodes[0].dram_limit);
 
+	/* Setup SCC routing */
 	for (i = 0; i < dnc_node_count; i++) {
 		uint16_t dnode;
 		uint32_t addr = 0;

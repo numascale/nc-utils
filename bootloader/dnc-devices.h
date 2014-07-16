@@ -75,6 +75,7 @@
 #define HceControl 0x100
 
 #define PCI_CAP_NONE					0x00
+#define PCI_CAP_POWER					0x01
 #define PCI_CAP_MSI						0x05
 #define PCI_CAP_PCIE					0x10
 #define PCI_ECAP_AER					0x0001

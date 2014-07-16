@@ -259,8 +259,11 @@ out:
 		if (!s64 && pref)
 			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
 
-		if (!s64 && (*addr + len) > MMIO32_LIMIT) {
-			*addr = 0;
+		if (len >= MMIO32_LARGE) {
+			assigned = 0;
+			warning("Not allocating large %lluMB MMIO32 range", len >> 20);
+		} else if (!s64 && (*addr + len) > MMIO32_LIMIT) {
+			assigned = 0;
 			warning("Out of MMIO32 address space when allocating SCI%03x %02x:%02x.%x BAR 0x%x with len %s", sci, bus, dev, fn, reg, pr_size(len));
 		} else {
 			/* MMIO BARs are aligned from page size to their size */
@@ -274,18 +277,17 @@ out:
 					return 1;
 				}
 			}
-		}
 
-		assigned = *addr;
-		assert(s64 || assigned < 0xffffffff);
+			assigned = *addr;
+			*addr += len;
+		}
 
 		printf("SCI%03x %02x:%02x.%x allocating %d-bit %s %s BAR 0x%x at 0x%llx\n",
 			sci, bus, dev, fn, s64 ? 64 : 32, pref ? "P" : "NP", pr_size(len), reg, assigned);
 		dnc_write_conf(sci, bus, dev, fn, reg, assigned);
 		if (s64)
-			dnc_write_conf(sci, bus, dev, fn, reg + 4, *addr >> 32);
+			dnc_write_conf(sci, bus, dev, fn, reg + 4, assigned >> 32);
 
-		*addr += len;
 		return 0;
 	}
 };
