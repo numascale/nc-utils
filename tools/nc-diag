@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect diagnostics r25
+# NumaConnect diagnostics r26
 
 import mmap, time, os, sys, struct, optparse, ctypes, random, subprocess
 
@@ -34,7 +34,7 @@ class Processor: # r17
 		os.lseek(self.fd, msr, os.SEEK_SET)
 		os.write(self.fd, struct.pack('=Q', val))
 
-class Settings(ctypes.Structure): # r17
+class Settings(ctypes.Structure): # r18
 	_pack_ = 1
 	_fields_  = (
 		# ACPI fields
@@ -59,6 +59,8 @@ class Settings(ctypes.Structure): # r17
 		('symmetric',       ctypes.c_uint, 1),
 		('renumbering',     ctypes.c_uint, 1),
 		('remote_io',       ctypes.c_uint, 1),
+		('observer',        ctypes.c_uint, 1),
+		('cores',           ctypes.c_uint, 8),
 		# warning: alignment occurs at type boundaries
 	)
 
@@ -66,7 +68,7 @@ class Settings(ctypes.Structure): # r17
 		try:
 			with open('/sys/firmware/acpi/tables/OEMN', 'rb') as f:
 				f.readinto(self)
-			assert self.acpi_len >= 52
+			assert self.acpi_len >= 36 + 5
 			self.standalone = False
 		except IOError as e:
 			if e.errno != 2:
