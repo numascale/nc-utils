@@ -146,7 +146,9 @@ void tally_local_node(void)
 	asm volatile("mov $0x80000008, %%eax; cpuid" : "=c"(val) :: "eax", "ebx", "edx");
 #endif
 	apic_per_node = 1 << ((val >> 12) & 0xf);
-	nodes[0].apic_offset = 0;
+
+	/* Start APICs at 0x100 when remote IO is enabled to keep device interrupts local */
+	nodes[0].apic_offset = remote_io ? 0x100 : 0;
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
@@ -271,7 +273,7 @@ void tally_local_node(void)
 
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_CTRL);
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
@@ -448,6 +450,7 @@ static bool tally_remote_node(const uint16_t sci)
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
+
 	if (verbose > 1)
 		print_node_info(node);
 	return 1;
