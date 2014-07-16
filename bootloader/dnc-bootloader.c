@@ -1066,7 +1066,6 @@ static void disable_smm_handler(uint64_t smm_base)
 	else
 		return;
 
-	printf("Disabling SMM handler at 0x%llx\n", smm_base);
 	smm_addr = 0x200000000000ULL | smm_base;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
 	node = (val >> 16) & 0xfff;
@@ -1183,7 +1182,7 @@ static void setup_other_cores(void)
 			}
 
 			*REL8(cpu_apic_renumber) = apicid & 0xff;
-			*REL8(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
+			*REL8(cpu_apic_hi)       = apicid >> 8;
 			*REL32(cpu_status) = VECTOR_TRAMPOLINE;
 			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
@@ -1208,10 +1207,8 @@ static void setup_other_cores(void)
 			while (*REL32(cpu_status) != 0)
 				cpu_relax();
 
-			if (disable_smm) {
-				msr = *REL64(rem_smm_base_msr);
-				disable_smm_handler(msr);
-			}
+			if (disable_smm)
+				disable_smm_handler(*REL64(rem_smm_base_msr));
 		}
 	}
 
@@ -2501,7 +2498,7 @@ static void unify_all_nodes(void)
 
 		/* Point the rest at the master */
 		while (addr < (4096 * SCC_ATT_GRAN)) {
-			dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, 0x000);
+			dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[0].sci);
 			addr += SCC_ATT_GRAN;
 		}
 	}
