@@ -548,7 +548,7 @@ print_hex32:
 	ret
 
 	.align 16
-stack_start:  .skip 4096, 0
+stack_start:  .skip 1024, 0
 stack_end:	
 
 	.align 16
@@ -557,7 +557,7 @@ EXPORT(old_int15_vec)
 EXPORT(new_e820_len)
 	.word 0
 EXPORT(new_e820_map)
-	.skip 2560, 0
+	.skip E820_MAX_LEN/4, 0
 
 EXPORT(new_e820_handler)
 	cmp	$0xe820, %eax
