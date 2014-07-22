@@ -29,7 +29,6 @@
 #include "dnc-devices.h"
 #include "dnc-maps.h"
 #include "dnc-devices.h"
-#include "dnc-platform.h"
 
 uint64_t mmio64_base, mmio64_limit;
 static uint64_t io_cur, mmio64_cur;
@@ -172,6 +171,8 @@ public:
 
 		/* Reserve IOAPIC, HPET and LAPICs in case e820 doesn't */
 		exclude(0xfec00000, 0xfeefffff);
+		/* LPC FWH */
+		exclude(0xffc00000, 0xffffffff);
 
 		printf("Reserved MMIO32 ranges above TOM 0x%08llx:\n", next);
 		for (unsigned i = 0; i < orig_e820_len / sizeof(*orig_e820_map); i++) {

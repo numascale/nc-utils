@@ -144,8 +144,11 @@ static void clear_bsp_flag(void)
 	wrmsr(MSR_APIC_BAR, val & ~(1ULL << 8));
 }
 
-static void disable_xtpic(void)
+static void disable_ioapic(void)
 {
+	ioh_ioapicind_write(0xfff0, 0, 0);
+
+	/* Disable XTPIC too */
 	inb(PIC_MASTER_IMR);
 	outb(0xff, PIC_MASTER_IMR);
 	inb(PIC_SLAVE_IMR);
@@ -3028,7 +3031,7 @@ static int nc_start(void)
 		if (disable_kvm > -1)
 			disable_kvm_ports(disable_kvm);
 		clear_bsp_flag();
-		disable_xtpic();
+		disable_ioapic();
 		disable_cache();
 
 		/* Let master know we're ready for remapping/integration */
