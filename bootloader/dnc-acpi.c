@@ -486,8 +486,8 @@ void debug_acpi_srat(acpi_sdt_p srat)
 		if (srat->data[i] == 0) {
 			struct acpi_core_affinity *af =
 			    (struct acpi_core_affinity *) & (srat->data[i]);
-			printf(" SRAT core aff: pxlo:%d apic:%d enable:%d"
-			       " sapic:%d pxhi:%d\n",
+			printf(" SRAT core aff: pxlo:%d apic:%d enable:%u"
+			       " sapic:%d pxhi:%u\n",
 			       af->prox_low,
 			       af->apic_id,
 			       af->enabled,
@@ -498,7 +498,7 @@ void debug_acpi_srat(acpi_sdt_p srat)
 			struct acpi_mem_affinity *af =
 			    (struct acpi_mem_affinity *) & (srat->data[i]);
 			printf(" SRAT mem aff:  prdom:%d base:%llx size:%llx"
-			       " enable:%d hotplug:%d nonvol:%d\n",
+			       " enable:%u hotplug:%u nonvol:%u\n",
 			       af->prox_dom,
 			       af->mem_base,
 			       af->mem_size,
