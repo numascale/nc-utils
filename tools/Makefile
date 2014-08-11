@@ -1,7 +1,7 @@
-TARGETS	:= place libplace.so
+TARGETS	:= place libplace.so place-test
 
 CC	:= g++
-CFLAGS	:= -Wall -Wextra -Wshadow -O3 -g
+CFLAGS	:= -Wall -Wextra -Wshadow -O0 -g
 
 .PHONY: all
 all: $(TARGETS)
@@ -13,5 +13,8 @@ clean:
 place: place.cc utils.h
 	$(CC) $(CFLAGS) -o $@ $<
 
+place-test: place-test.c utils.h
+	$(CC) $(CFLAGS) -o $@ $< -lpthread
+
 libplace.so: libplace.cc utils.h
-	$(CC) $(CFLAGS) -fPIC -shared -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -shared -o $@ $< -lrt -ldl

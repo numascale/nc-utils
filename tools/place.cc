@@ -8,7 +8,15 @@
 int main(int argc, char *argv[])
 {
 	if (argc < 2)
-		error("Usage: place cmd [args..]");
+		error("Usage: place [-v] cmd [args..]");
+
+	unsigned n = 1;
+	if (!strcmp(argv[1], "-v")) {
+		char flags[16];
+		snprintf(flags, sizeof(flags), "%d", PLACE_VERBOSE);
+		sysassertf(setenv("PLACE_FLAGS", flags, 1) == 0, "setenv failed");
+		n++;
+	}
 
 	char path[PATH_MAX];
 	sysassertf(realpath(argv[0], path) != NULL, "realpath failed");
@@ -24,6 +32,6 @@ int main(int argc, char *argv[])
 	assertf(access(path2, R_OK) == 0, "%s nonexisting or unreadable", path2);
 	sysassertf(setenv("LD_PRELOAD", path2, 1) == 0, "setenv failed");
 
-	execv(argv[1], &argv[1]);
-	syserror("Launching %s failed", argv[1]);
+	execvp(argv[n], &argv[n]);
+	syserror("Launching %s failed", argv[n]);
 }
