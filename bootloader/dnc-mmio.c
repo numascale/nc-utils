@@ -350,12 +350,10 @@ class Container {
 
 		printf("\n");
 
-		/* Disable IO and interrupt line on slaves */
+		/* Disable IO on slaves */
 		if (node->sci) {
 			uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 4);
 			dnc_write_conf(node->sci, bus, dev, fn, 4, val & ~1);
-			val = dnc_read_conf(node->sci, bus, dev, fn, 0x3c);
-			dnc_write_conf(node->sci, bus, dev, fn, 0x3c, val & ~0xffff);
 		}
 	}
 
@@ -457,14 +455,6 @@ public:
 
 		/* Only re-allocate IO and 32-bit BARs on slaves */
 		if (node->sci) {
-			/* Disable IO */
-			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 4);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 4, val & ~1);
-
-			/* Disable interrupt line */
-			val = dnc_read_conf(node->sci, pbus, pdev, pfn, 0x3c);
-			dnc_write_conf(node->sci, pbus, pdev, pfn, 0x3c, val & ~0xffff);
-
 			if (io_bars.used == 0 || io_cur == io_start ||
 			  (pbus == 0 && pdev == 0 && pfn == 0)) {
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
