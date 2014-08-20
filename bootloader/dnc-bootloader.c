@@ -2862,7 +2862,9 @@ static int nc_start(void)
 
 	nodes[0].nc_ht = rc;
 
-	if (singleton) {
+	if (test_manufacture) {
+		make_testmanufacture_config();
+	} else if (singleton) {
 		make_singleton_config();
 	} else {
 		if (read_config_file(config_file_name) < 0)

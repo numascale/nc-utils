@@ -54,6 +54,7 @@ extern char *hostname;
 
 checked bool parse_config_file(char *data);
 void make_singleton_config(void);
+void make_testmanufacture_config(void);
 void get_node_config(void);
 checked struct part_info *get_partition_config(const int idx);
 checked const char *get_master_name(const sci_t sci);

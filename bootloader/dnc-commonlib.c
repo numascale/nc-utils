@@ -233,7 +233,7 @@ uint32_t mod(const uint32_t initial, const uint16_t raw, const int div, const ui
 
 	uint32_t newval = (initial & ~mask) | (b << shift);
 
-	if (b != a)
+	if (verbose & (b != a))
 		printf("Using SPD value %d rather than default %d for %s; raw %d; %08x -> %08x\n", b, a, name, raw, initial, newval);
 	return initial;
 }
@@ -2130,9 +2130,6 @@ void parse_cmdline(const int argc, const char *argv[])
 		warning("Tracing is exclusive of C-state 6; disabling C-state 6");
 		pf_cstate6 = 0;
 	}
-
-	if (test_manufacture)
-		singleton = 1;
 }
 
 static void perform_selftest(int asic_mode, char p_type[16])
@@ -2848,8 +2845,6 @@ static void save_scc_routing(uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[
 			dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLH00 + (offs << 2), rtblh[(chunk << 4) + offs]);
 		}
 	}
-
-	printf("\n");
 }
 
 static uint16_t shadow_rtbll[7][256];
@@ -3299,6 +3294,7 @@ static enum node_state train_fabric(const struct node_info *info __attribute__((
 			pending |= phy_check_status(5, i == last);
 		}
 
+		printf("%d(%d)", i, pending);
 		if (!pending) {
 			printf("done\n");
 			return RSP_PHY_TRAINED;
@@ -3509,19 +3505,20 @@ bool selftest_loopback(void)
 	bool status = false;
 	uint32_t val;
 
+	if (train_fabric(local_info) != RSP_PHY_TRAINED)
+		return true;
+
+	if (validate_rings(local_info) != RSP_RINGS_OK)
+		return true;
+
 	dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, local_info->sci << 16);
 
 	/* Make sure all necessary links are up and working */
-	printf("Training fabric phys...");
-
-	/* No external reset control, simply reset all phys to start training sequence */
-	for (int phy = 0; phy < 6; phy++)
-		dnc_reset_phy(phy);
-
-	/* Verify that all relevant PHYs are training */
 	if (_check_dim(0) || _check_dim(1) || _check_dim(2))
 		return true;
 	
+	printf("Performing link loopback testing.\n");
+
 	for (int lc = 1; lc <= 6; lc++) {
 		printf("Testing %s...", _get_linkname(lc - 1));
 		memset(shadow_ltbl, 0, sizeof(shadow_ltbl));

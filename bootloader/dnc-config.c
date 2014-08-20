@@ -297,6 +297,27 @@ void make_singleton_config(void)
 	cfg_partlist[0].builder = 0;
 }
 
+void make_testmanufacture_config(void)
+{
+	cfg_fabric.size[0] = 1;
+	cfg_fabric.size[1] = 1;
+	cfg_fabric.size[2] = 1;
+	cfg_nodes = 1;
+	cfg_nodelist = (node_info *)malloc(sizeof(*cfg_nodelist));
+	assert(cfg_nodelist);
+	cfg_nodelist[0].uuid = local_info->uuid;
+	cfg_nodelist[0].sci = 0;
+	cfg_nodelist[0].osc = 0;
+	cfg_nodelist[0].partition = 0;
+	memcpy(cfg_nodelist[0].desc, "self", 5);
+	cfg_nodelist[0].sync_only = 1;
+	cfg_partitions = 1;
+	cfg_partlist = (part_info *)malloc(sizeof(*cfg_partlist));
+	assert(cfg_partlist);
+	cfg_partlist[0].master = 0;
+	cfg_partlist[0].builder = 0;
+}
+
 /* Must only be used to get local config */
 void get_node_config(void) {
 	int i;
