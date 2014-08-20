@@ -2912,6 +2912,20 @@ static int nc_start(void)
 
 	adjust_oscillator(dnc_card_type, local_info->osc);
 
+	if (test_manufacture) {
+
+		dnc_init_caches();
+
+		if (selftest_loopback())
+			msg_failed();
+		else
+			msg_passed();
+
+		while (1)
+			cpu_relax();
+		/* Will never exit */
+	}
+
 	/* Copy this into NC ram so its available remotely */
 	load_existing_apic_map();
 
@@ -2928,16 +2942,6 @@ static int nc_start(void)
 
 	load_orig_e820_map();
 	check_renumbering();
-
-	if (test_manufacture) {
-		if (selftest_loopback())
-			msg_failed();
-		else
-			msg_passed();
-
-		while (1)
-			cpu_relax();
-	}
 
 	if (local_info->sync_only) {
 		/* OEMN cores will be reported as 0 */

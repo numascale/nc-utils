@@ -567,6 +567,8 @@ void dnc_init_caches(void)
 	}
 
 	dnc_dram_initialise();
+	if (test_manufacture)
+		dimmtest = 2; /* Do full DIMM test in manufacture testing */
 	dnc_dimmtest(dimmtest, dimms);
 
 	printf("Setting RCache size to %dGB\n", 1 << dimms[1].mem_size);
@@ -2835,7 +2837,6 @@ static void save_scc_routing(uint16_t rtbll[], uint16_t rtblm[], uint16_t rtblh[
 {
 	uint16_t chunk, offs;
 	uint16_t maxchunk = dnc_asic_mode ? 16 : 1;
-	printf("Setting routing table on SCC");
 
 	for (chunk = 0; chunk < maxchunk; chunk++) {
 		dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
@@ -3146,35 +3147,6 @@ static enum node_state setup_fabric(const struct node_info *info)
 	link_up = 1;
 
 	return res ? RSP_FABRIC_READY : RSP_FABRIC_NOT_READY;
-}
-
-bool selftest_loopback(void)
-{
-	bool status = 0;
-	uint32_t val;
-
-	for (int lc = 1; lc <= 6; lc++) {
-		printf("Testing %s...", _get_linkname(lc - 1));
-		_add_route(local_info->sci, 0, lc);
-		_add_route(local_info->sci, lc, 0);
-
-		uint64_t errors = 0;
-		for (int loop = 0; loop < 200000; loop++) {
-			errors += dnc_raw_write_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
-
-			for (int i = 0; !errors && i < 16; i++)
-				errors += dnc_raw_read_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, &val);
-
-			errors += dnc_check_lc3(lc - 1);
-		}
-
-		if (errors)
-			printf("failed with %llu errors\n", errors);
-		else
-			printf("success\n");
-	}
-
-	return status;
 }
 
 static enum node_state validate_fabric(const struct node_info *info, const struct part_info *part)
@@ -3530,5 +3502,58 @@ void wait_for_master(struct node_info *info, struct part_info *part)
 			}
 		}
 	}
+}
+
+bool selftest_loopback(void)
+{
+	bool status = false;
+	uint32_t val;
+
+	dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, local_info->sci << 16);
+
+	/* Make sure all necessary links are up and working */
+	printf("Training fabric phys...");
+
+	/* No external reset control, simply reset all phys to start training sequence */
+	for (int phy = 0; phy < 6; phy++)
+		dnc_reset_phy(phy);
+
+	/* Verify that all relevant PHYs are training */
+	if (_check_dim(0) || _check_dim(1) || _check_dim(2))
+		return true;
+	
+	for (int lc = 1; lc <= 6; lc++) {
+		printf("Testing %s...", _get_linkname(lc - 1));
+		memset(shadow_ltbl, 0, sizeof(shadow_ltbl));
+		memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
+		memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
+		memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
+		_add_route(local_info->sci, 0, lc);
+		_add_route(local_info->sci, lc, 0);
+
+		save_scc_routing(shadow_rtbll[0], shadow_rtblm[0], shadow_rtblh[0]);
+
+		if (dnc_init_lc3(local_info->sci, lc-1, dnc_asic_mode ? 16 : 1,
+				 shadow_rtbll[lc], shadow_rtblm[lc],
+				 shadow_rtblh[lc], shadow_ltbl[lc]))
+			return true;
+
+		uint64_t errors = 0;
+		for (int loop = 0; loop < 200000; loop++) {
+			errors += dnc_raw_write_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
+
+			for (int i = 0; !errors && i < 16; i++)
+				errors += dnc_raw_read_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, &val);
+
+			errors += dnc_check_lc3(lc - 1);
+		}
+
+		if (errors)
+			printf("failed with %llu errors\n", errors);
+		else
+			printf("success\n");
+	}
+
+	return status;
 }
 
