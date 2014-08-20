@@ -7,7 +7,7 @@ COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -fno-inline -Os
 syslinux_version := 4.07
 syslinux_dir     := syslinux-$(syslinux_version)
 
-mjson_version    := 1.5
+mjson_version    := 1.6
 mjson_dir        := json-$(mjson_version)
 
 COM32DEPS := $(syslinux_dir)/com32/libutil/libutil_com.a $(syslinux_dir)/com32/lib/libcom32.a
