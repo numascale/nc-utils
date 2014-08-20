@@ -143,13 +143,13 @@ void pmio_clearl(uint16_t offset, uint32_t mask)
 	pmio_writel(offset, val);
 }
 
-uint32_t ioh_nbmiscind_read(const sci_t node, uint8_t reg)
+uint32_t ioh_nbmiscind_read(const sci_t sci, const uint8_t reg)
 {
-	dnc_write_conf(node, 0, 0, 0, 0x60, reg);
-	return dnc_read_conf(node, 0, 0, 0, 0x64);
+	dnc_write_conf(sci, 0, 0, 0, 0x60, reg);
+	return dnc_read_conf(sci, 0, 0, 0, 0x64);
 }
 
-void ioh_nbmiscind_write(const sci_t sci, uint8_t reg, uint32_t val)
+void ioh_nbmiscind_write(const sci_t sci, const uint8_t reg, const uint32_t val)
 {
 	dnc_write_conf(sci, 0, 0, 0, 0x60, reg | 0x80);
 	dnc_write_conf(sci, 0, 0, 0, 0x64, val);
@@ -160,6 +160,18 @@ void ioh_nbmiscind_write(const sci_t sci, uint8_t reg, uint32_t val)
 		if (val2 != val)
 			warning("IOH NBMISCIND reg 0x%02x readback (0x%08x) differs from write (0x%08x)", reg, val2, val);
 	}
+}
+
+uint32_t ioh_nbpcieind_read(const sci_t sci, const uint8_t core, const uint8_t reg)
+{
+	dnc_write_conf(sci, 0, 0, 0, 0xe0, reg | ((uint32_t)core << 16));
+	return dnc_read_conf(sci, 0, 0, 0, 0xe4);
+}
+
+void ioh_nbpcieind_write(const sci_t sci, const uint8_t core, const uint8_t reg, const uint32_t val)
+{
+	dnc_write_conf(sci, 0, 0, 0, 0xe0, reg | ((uint32_t)core << 16));
+	dnc_write_conf(sci, 0, 0, 0, 0xe4, val);
 }
 
 uint32_t ioh_htiu_read(const sci_t sci, uint8_t reg)
