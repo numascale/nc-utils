@@ -10,6 +10,9 @@ all: $(TARGETS)
 clean:
 	rm -f $(TARGETS) *~ *.o
 
+check:
+	cppcheck --enable=all *.c *.cc *.h
+
 place: place.cc utils.h
 	$(CC) $(CFLAGS) -o $@ $<
 
