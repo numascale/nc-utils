@@ -30,12 +30,9 @@ static cpu_set_t *allowed = NULL;
 static unsigned cores = 0;
 static size_t masksize = 0;
 
-static int (*xpthread_create)(pthread_t *thread, const pthread_attr_t *attr,
-  void *(*start_routine) (void *), void *arg);
-
 static void populate(void)
 {
-	printf("populate\n");
+	fprintf(stderr, "populate\n");
 }
 
 // returns core number
@@ -61,7 +58,7 @@ static unsigned allocate_core(void)
 static void allocate(void)
 {
 	const unsigned core = allocate_core();
-	printf("core=%u\n", core);
+	fprintf(stderr, "core=%u\n", core);
 }
 
 static void release_core(const unsigned core)
@@ -75,13 +72,9 @@ static void release(void)
 {
 }
 
-//__attribute__((constructor)) void init(void)
-void _init(void)
+__attribute__((constructor)) void init(void)
 {
-	printf("init\n");
-
-	xpthread_create = dlsym(RTLD_NEXT, "pthread_create");
-	assertf(xpthread_create, "dlsym failed");
+	fprintf(stderr, "init\n");
 
 	cores = 1728; //sysconf(_SC_NPROCESSORS_CONF);
 	allowed = CPU_ALLOC(cores);
@@ -108,7 +101,7 @@ void _init(void)
 
 __attribute__((constructor)) void fini(void)
 {
-	printf("fini\n");
+	fprintf(stderr, "fini\n");
 
 	pthread_mutex_lock(&shared->lock);
 	shared->attached -= 1;
@@ -123,32 +116,123 @@ __attribute__((constructor)) void fini(void)
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine) (void *), void *arg)
 {
-	printf("pthread_create\n");
-	allocate();
+	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *,
+	  void *(*) (void *), void *);
+	if (!xpthread_create) {
+		xpthread_create = (int (*)(pthread_t*, const pthread_attr_t*, void* (*)(void*), void*))dlsym(RTLD_NEXT, "pthread_create");
+		assertf(xpthread_create, "dlsym failed");
+	}
+
+	fprintf(stderr, "pthread_create(thread=%p attr=%p start_routine=%p arg=%p\n",
+		thread, attr, start_routine, arg);
+//	allocate();
 //	pthread_cleanup_push(release, core);
 //	pthread_cleanup_pop();
-	return 0;
+	return xpthread_create(thread, attr, start_routine, arg);
 }
 
-#ifdef DEV
 pid_t fork(void)
 {
+	static pid_t (*xfork)(void);
+	if (!xfork) {
+		xfork = (pid_t (*)(void))dlsym(RTLD_NEXT, "fork");
+		assertf(xfork, "dlsym failed");
+	}
+
 	allocate();
-	printf("fork\n");
-	return 0;
+	fprintf(stderr, "fork()\n");
+	return xfork();
 }
 
 pid_t vfork(void)
 {
+	static pid_t (*xvfork)(void);
+	if (!xvfork) {
+		xvfork = (pid_t (*)(void))dlsym(RTLD_NEXT, "vfork");
+		assertf(xvfork, "dlsym failed");
+	}
+
 	allocate();
-	printf("vfork\n");
-	return 0;
+	fprintf(stderr, "vfork()\n");
+	return xvfork();
 }
 
+#ifdef DEV
 int clone(int (*fn)(void *), void *child_stack, int flags, void *arg, ...)
 {
 	allocate();
-	printf("clone\n");
-	return 0;
+	fprintf(stderr, "clone(fn=%p child_stack=%p flags=%d arg=%p)\n",
+		fn, child_stack, flags, arg);
+	return xclone(fn, child_stack, flags, arg, ...);
 }
 #endif
+
+void *memcpy(void *dest, const void *src, size_t n)
+{
+	static void *(*xmemcpy)(void *, const void *, size_t);
+	if (!xmemcpy) {
+		xmemcpy = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memcpy");
+		assertf(xmemcpy, "dlsym failed");
+	}
+
+	fprintf(stderr, "memcpy(dest=%p src=%p size=%lu)\n", dest, src, n);
+	return xmemcpy(dest, src, n);
+}
+
+void *memmove(void *dest, const void *src, size_t n)
+{
+	static void *(*xmemmove)(void *, const void *, size_t);
+	if (!xmemmove) {
+		xmemmove = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memmove");
+		assertf(xmemmove, "dlsym failed");
+	}
+
+	fprintf(stderr, "memmove(dest=%p src=%p size=%lu)\n", dest, src, n);
+	return xmemmove(dest, src, n);
+}
+
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
+{
+	static void *(*xmmap)(void *, size_t, int, int, int, off_t);
+	if (!xmmap) {
+		xmmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
+		assertf(xmmap, "dlsym failed");
+	}
+
+	fprintf(stderr, "mmap(addr=%p length=%lu prot=%d flags=%d fd=%d offset=%ld)\n",
+		addr, length, prot, flags, fd, offset);
+	void *map = xmmap(addr, length, prot | MAP_HUGETLB, flags, fd, offset);
+	// MAP_NONBLOCK | MAP_POPULATE
+	if (map) {
+		int rc = madvise(map, length, MADV_HUGEPAGE);
+		if (rc != 0)
+			fprintf(stderr, "madvise(map=%p length=%lu MADV_HUGEPAGE) failed with %d\n",
+			  map, length, errno);
+	}
+
+	return map;
+}
+
+void *malloc(size_t size)
+{
+	static void *(*xmalloc)(size_t);
+	if (!xmalloc) {
+		xmalloc = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
+		assertf(xmalloc, "dlsym failed");
+	}
+
+	fprintf(stderr, "malloc(size=%lu)\n", size);
+	return xmalloc(size);
+}
+
+void *calloc(size_t nmemb, size_t size)
+{
+	static void *(*xcalloc)(size_t, size_t);
+	if (!xcalloc) {
+		xcalloc = (void *(*)(size_t, size_t))dlsym(RTLD_NEXT, "calloc");
+		assertf(xcalloc, "dlsym failed");
+	}
+
+	fprintf(stderr, "calloc(nmemb=%lu size=%lu)\n", nmemb, size);
+	return xcalloc(nmemb, size);
+}
