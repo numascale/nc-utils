@@ -53,7 +53,7 @@ static int ht_force_ganged = 1;
 bool disable_smm = 0;
 bool disable_c1e = 0;
 int renumber_bsp = -1;
-int remote_io = 0;
+bool remote_io = 0;
 bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int sync_interval = 1; /* bit[8]=disable prescaler, bit[7:0] sync_interval value */

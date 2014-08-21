@@ -839,7 +839,7 @@ static void update_acpi_tables(void)
 	memcpy(mcfg->creatorid, "1B47", 4);
 	mcfg->creatorrev = 1;
 
-	for (node = 0; node < (remote_io ? dnc_node_count : 1); node++) {
+	for (node = 0; node < dnc_node_count; node++) {
 		struct acpi_mcfg_allocation *mcfg_allocation = (struct acpi_mcfg_allocation *)((unsigned char *)mcfg + mcfg->len);
 		memset(mcfg_allocation, 0, sizeof(*mcfg_allocation));
 		mcfg_allocation->address = DNC_MCFG_BASE | ((uint64_t)nodes[node].sci << 28ULL);
@@ -1500,13 +1500,6 @@ static void setup_remote_cores(node_info_t *const node)
 
 		for (j = 0xc8; j <= 0xdc; j += 4)
 			dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, j, 0);
-
-		if (!remote_io) {
-			dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xe0, 0xff000003 | (node->nc_ht << 4));
-
-			for (j = 0xe4; j <= 0xec; j += 4)
-				dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, j, 0);
-		}
 	}
 
 	/* Set DRAM range on local NumaChip */
@@ -2117,61 +2110,18 @@ static void local_chipset_fixup(const bool master)
 			}
 		}
 
-		/* Enable SP5100 SATA MSI support */
-		uint32_t val2 = dnc_read_conf(0xfff0, 0, 17, 0, 0x40);
-		dnc_write_conf(0xfff0, 0, 17, 0, 0x40, val2 | 1);
-		val = dnc_read_conf(0xfff0, 0, 17, 0, 0x60);
-		dnc_write_conf(0xfff0, 0, 17, 0, 0x60, (val & ~0xff00) | 0x5000);
-		dnc_write_conf(0xfff0, 0, 17, 0, 0x40, val2);
-
+		/* Needs local access */
 		if (!master) {
-			/* Disable devices (eg VGA controller) behind bridge */
-			val = dnc_read_conf(0xfff0, 0, 20, 4, 0x18);
-			int sec = (val >> 8) & 0xff;
-
-			const struct devspec devices[] = {
-				{PCI_CLASS_ANY, 0, PCI_TYPE_ANY, disable_device},
-				{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
-			};
-
-			pci_search(devices, sec);
-
-			dnc_write_conf(0xfff0, 0, 20, 4, 0x3e, 0); /* Bridge Control */
-
-			/* Hide devices behind bridge (eg VGA controller) */
-			val = dnc_read_conf(0xfff0, 0, 20, 4, 0xfc);
-			dnc_write_conf(0xfff0, 0, 20, 4, 0x5c, val & ~0xffff);
-
-			/* Disable and hide SP5100 IDE controller */
-			dnc_write_conf(0xfff0, 0, 20, 1, 4, 0);
-			val = dnc_read_conf(0xfff0, 0, 20, 0, 0xac);
-			dnc_write_conf(0xfff0, 0, 20, 0, 0xac, val | (1 << 19));
-
-			/* Disable the LPC controller; hiding it causes hanging */
-			dnc_write_conf(0xfff0, 0, 20, 3, 4, 0);
-
-			/* Disable and hide OHCI */
-			dnc_write_conf(0xfff0, 0, 18, 0, 4, 0);
-			dnc_write_conf(0xfff0, 0, 18, 1, 4, 0);
-			dnc_write_conf(0xfff0, 0, 18, 2, 4, 0);
-			dnc_write_conf(0xfff0, 0, 19, 0, 4, 0);
-			dnc_write_conf(0xfff0, 0, 19, 1, 4, 0);
-			dnc_write_conf(0xfff0, 0, 19, 2, 4, 0);
-
-			val = dnc_read_conf(0xfff0, 0, 20, 0, 0x68);
-			dnc_write_conf(0xfff0, 0, 20, 0, 0x68, val & ~0xf7);
-
 			/* Disable and hide HD audio */
 			val8 = pmio_readb(0x59);
 			pmio_writeb(0x59, val8 & ~(1 << 3));
 
+#ifdef FIXME
 			/* Hide SMBus controller */
 			dnc_write_conf(0xfff0, 0, 20, 0, 4, 0);
 			val8 = pmio_readb(0xba);
 			pmio_writeb(0xba, val8 | (1 << 6));
-
-			val = dnc_read_conf(0xfff0, 0, 20, 0, 0x40);
-			dnc_write_conf(0xfff0, 0, 20, 0, 0x40, val & ~(1 << 28));
+#endif
 		}
 	}
 	/* Only needed to workaround rev A/B issue */
@@ -2588,9 +2538,7 @@ static void unify_all_nodes(void)
 		setup_remote_cores(&nodes[i]);
 	printf("\n");
 
-	if (remote_io)
-		setup_mmio();
-
+	setup_mmio();
 	update_acpi_tables_late();
 
 	printf("Clearing remote memory...");
@@ -3032,8 +2980,6 @@ static int nc_start(void)
 		       local_info->desc, cfg_nodes, get_master_name(part->master));
 
 		disable_smi();
-		if (!remote_io)
-			disable_dma_all(); /* Disables VGA refresh and other DMA traffic */
 		if (disable_kvm > -1)
 			disable_kvm_ports(disable_kvm);
 		clear_bsp_flag();

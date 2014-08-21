@@ -113,23 +113,43 @@ uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const
 
 void disable_device(const uint16_t sci, const int bus, const int dev, const int fn)
 {
-#ifdef HANGS
+	/* Disable I/O, memory, DMA and interrupts */
+	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
+
+	/* Clear BARs */
+	for (unsigned i = 0x10; i <= 0x24; i += 4)
+		dnc_write_conf(sci, bus, dev, fn, i, 0);
+
+	/* Clear expansion ROM base address */
+	dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
+
+	/* Set Interrupt Line register to 0 (unallocated) */
+	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
+
 	/* Put device into D3 if possible */
 	uint16_t cap = capability(sci, bus, dev, fn, PCI_CAP_POWER);
 	if (cap != PCI_CAP_NONE) {
 		uint32_t val = dnc_read_conf(sci, bus, dev, fn, cap + 0x4);
 		dnc_write_conf(sci, bus, dev, fn, cap + 0x4, val | 3);
 	}
-#endif
+}
+
+void disable_bridge(const uint16_t sci, const int bus, const int dev, const int fn)
+{
 	/* Disable I/O, memory, DMA and interrupts */
 	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
 
 	/* Clear BARs */
-	for (int i = 0x10; i <= 0x24; i += 4)
+	for (unsigned i = 0x10; i <= 0x14; i += 4)
+		dnc_write_conf(sci, bus, dev, fn, i, 0);
+
+	/* Clear IO and memory ranges */
+	for (unsigned i = 0x1c; i <= 0x30; i += 4)
 		dnc_write_conf(sci, bus, dev, fn, i, 0);
 
 	/* Clear expansion ROM base address */
-	dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
+	dnc_write_conf(sci, bus, dev, fn, 0x38, 0);
+
 	/* Set Interrupt Line register to 0 (unallocated) */
 	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
 }
@@ -138,6 +158,7 @@ void disable_dma_all(void)
 {
 	const struct devspec devices[] = {
 		{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
+		{PCI_CLASS_ANY, 0, PCI_TYPE_BRIDGE, disable_bridge},
 		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 	};
 	pci_search_start(devices);
