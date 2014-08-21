@@ -39,6 +39,7 @@ static void populate(void)
 static unsigned allocate_core(void)
 {
 	unsigned core = ~0U;
+
 	pthread_mutex_lock(&shared->lock);
 
 	for (unsigned n = 0; n < cores; n++) {
@@ -52,6 +53,7 @@ static unsigned allocate_core(void)
 	pthread_mutex_unlock(&shared->lock);
 	if (core == ~0U)
 		error("No available cores");
+
 	return core;
 }
 
@@ -59,6 +61,11 @@ static void allocate(void)
 {
 	const unsigned core = allocate_core();
 	fprintf(stderr, "core=%u\n", core);
+
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(core, &cpuset);
+	int rc = pthread_setaffinity_np(sizeof(cpuset), &cpuset);
 }
 
 static void release_core(const unsigned core)
@@ -99,7 +106,7 @@ __attribute__((constructor)) void init(void)
 	pthread_mutex_unlock(&shared->lock);
 }
 
-__attribute__((constructor)) void fini(void)
+__attribute__((destructor)) void fini(void)
 {
 	fprintf(stderr, "fini\n");
 
@@ -125,10 +132,23 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	fprintf(stderr, "pthread_create(thread=%p attr=%p start_routine=%p arg=%p\n",
 		thread, attr, start_routine, arg);
-//	allocate();
+
+	allocate();
 //	pthread_cleanup_push(release, core);
 //	pthread_cleanup_pop();
 	return xpthread_create(thread, attr, start_routine, arg);
+}
+
+void pthread_exit(void *retval)
+{
+	static void (*xpthread_exit)(void *);
+	if (!xpthread_exit) {
+		xpthread_exit = (void (*)(void *))dlsym(RTLD_NEXT, "pthread_exit");
+		assertf(xpthread_exit, "dlsym failed");
+	}
+
+	fprintf(stderr, "pthread_exit(retval=%p)\n", retval);
+	xpthread_exit(retval);
 }
 
 pid_t fork(void)
