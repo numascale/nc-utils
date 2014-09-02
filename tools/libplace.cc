@@ -15,6 +15,8 @@
 #define MAX_CORES 16384
 #define MAX_NUMA 1024
 
+// TODO: implement lockless rand()
+
 struct shared_s {
 	pthread_mutex_t lock;
 	unsigned attached;
