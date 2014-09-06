@@ -627,15 +627,26 @@ void wrmsr(const uint32_t msr, const uint64_t v)
 	}
 }
 
+/* Allocate memory at top near ACPI area to avoid conflicts */
 void *zalloc_persist(const size_t size)
 {
-	void *addr;
+	void *allocs[32]; /* Enough for 4GB of 128MB allocations */
+	int nallocs = 0;
 
-	do {
-		addr = malloc(size);
-		assert(addr);
-	} while ((long)addr < MALLOC_SAFE_START);
+	/* Allocate 128MB blocks until exhaustion */
+	while (allocs[nallocs] = malloc(128 << 20))
+		nallocs++;
 
-	memset(addr, 0, size);
-	return addr;
+	/* Free last one guaranteeing space for allocation */
+	free(allocs[nallocs--]);
+
+	/* Allocate requested size */
+	void *ptr = zalloc(size);
+	assert(ptr);
+
+	/* Free remaining allocations */
+	while (nallocs)
+		free(allocs[nallocs--]);
+
+	return ptr;
 }
