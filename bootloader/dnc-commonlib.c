@@ -3294,7 +3294,6 @@ static enum node_state train_fabric(const struct node_info *info __attribute__((
 			pending |= phy_check_status(5, i == last);
 		}
 
-		printf("%d(%d)", i, pending);
 		if (!pending) {
 			printf("done\n");
 			return RSP_PHY_TRAINED;
