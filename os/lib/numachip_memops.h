@@ -40,7 +40,7 @@ struct numachip_sge {
 /**
  * numachip_sge_copy - Optimized SG Copy
  */
-void (*numachip_sge_copy)(struct numachip_sge *sg_list, size_t num_sge);
+extern void (*numachip_sge_copy)(struct numachip_sge *sg_list, size_t num_sge);
 
 END_C_DECLS
 
