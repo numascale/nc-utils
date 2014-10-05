@@ -252,15 +252,15 @@ static void install_e820_handler(void)
 	for (i = 0; i < orig_e820_len / sizeof(struct e820entry); i++) {
 		uint64_t orig_end = orig_e820_map[i].base + orig_e820_map[i].length;
 
-		if ((orig_e820_map[i].base >> DRAM_MAP_SHIFT) > max_mem_per_node) {
+		if ((orig_e820_map[i].base >> DRAM_MAP_SHIFT) > max_mem_per_server) {
 			/* Skip entry altogether */
 			continue;
 		}
 
-		if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_node) {
+		if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_server) {
 			/* Adjust length to fit */
 			printf("Master node exceeds cachable memory range, clamping...\n");
-			orig_end = (uint64_t)max_mem_per_node << DRAM_MAP_SHIFT;
+			orig_end = (uint64_t)max_mem_per_server << DRAM_MAP_SHIFT;
 			orig_e820_map[i].length = orig_end - orig_e820_map[i].base;
 		}
 

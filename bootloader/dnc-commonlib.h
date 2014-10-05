@@ -228,7 +228,7 @@ extern bool boot_wait;
 extern int family;
 extern uint32_t tsc_mhz;
 extern uint64_t pf_maxmem;
-extern uint32_t max_mem_per_node;
+extern uint32_t max_mem_per_server;
 extern int force_probefilteroff;
 extern int force_probefilteron;
 extern uint64_t mem_gap;

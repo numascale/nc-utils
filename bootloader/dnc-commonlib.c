@@ -69,7 +69,7 @@ uint64_t trace_buf_size = 0;
 int verbose = 0;
 int family = 0;
 uint32_t tsc_mhz = 2200;
-uint32_t max_mem_per_node;
+uint32_t max_mem_per_server;
 static int dimmtest = 1;
 static bool test_fabric = 1;
 static bool workaround_hreq = 1;
@@ -539,10 +539,11 @@ void dnc_init_caches(void)
 			}
 
 			if (!cdata) {
-				max_mem_per_node = (1U << (5 + dimms[0].mem_size)) - (1U << (2 + dimms[1].mem_size));
+				max_mem_per_server = (1U << (5 + dimms[0].mem_size)) - (1U << (2 + dimms[1].mem_size));
 				printf("%dGB MCTag, %dGB Remote Cache, %3dGB Max Coherent Local Memory\n",
-				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_node);
-				max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
+				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_server);
+				max_mem_per_server = max_mem_per_server << (30 - DRAM_MAP_SHIFT);
+
 			}
 
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
@@ -554,10 +555,10 @@ void dnc_init_caches(void)
 				fatal("Unsupported CData size of %dGB", (1 << dimms[cdata].mem_size));
 
 			if (!cdata) {
-				max_mem_per_node = 16U << dimms[0].mem_size;
+				max_mem_per_server = 16U << dimms[0].mem_size;
 				printf("%dGB tag and %dGB remote cache; %dGB max coherent local memory\n",
-				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_node);
-				max_mem_per_node = max_mem_per_node << (30 - DRAM_MAP_SHIFT);
+				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_server);
+				max_mem_per_server = max_mem_per_server << (30 - DRAM_MAP_SHIFT);
 			}
 
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);

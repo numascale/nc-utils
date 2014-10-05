@@ -115,7 +115,7 @@ void load_scc_microcode(void)
 static void print_node_info(const node_info_t *node)
 {
 	for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++)
-		printf("- HT%d: base=%x size=%d pdom=%d cores=%d apic_base=%d scrub=%x\n",
+		printf("- HT%d: base=0x%x size=%d pdom=%d cores=%d apic_base=%d scrub=%x\n",
 			ht, node->ht[ht].base, node->ht[ht].size, node->ht[ht].pdom, node->ht[ht].cores, node->ht[ht].apic_base, node->ht[ht].scrub);
 	printf("- node_mem=%d\n", node->node_mem);
 	printf("- dram_base=0x%x dram_limit=0x%x\n", node->dram_base, node->dram_limit);
@@ -130,7 +130,8 @@ static void print_node_info(const node_info_t *node)
 void tally_local_node(void)
 {
 	uint32_t val, base, limit, rest;
-	uint16_t i, j, tot_cores;
+	uint16_t i, tot_cores;
+
 	nodes[0].node_mem = 0;
 	tot_cores = 0;
 	nodes[0].sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
@@ -152,6 +153,7 @@ void tally_local_node(void)
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
+	/* Size HT nodes */
 	for (i = nodes[0].nb_ht_lo; i <= nodes[0].nb_ht_hi; i++) {
 		nodes[0].ht[i].cores = 0;
 		nodes[0].ht[i].base  = 0;
@@ -190,7 +192,7 @@ void tally_local_node(void)
 				nodes[0].ht[i].size -= 1;
 
 				/* Remove 16MB from ranges to this Northbridge */
-				for (j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++) {
+				for (int j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++) {
 					uint64_t base2, limit2;
 					int dst;
 
@@ -207,16 +209,16 @@ void tally_local_node(void)
 				}
 			}
 
-			if (nodes[0].node_mem > max_mem_per_node) {
+			if (nodes[0].node_mem > max_mem_per_server) {
 				printf("Node exceeds cachable memory range, clamping...\n");
-				nodes[0].ht[i].size -= nodes[0].node_mem - max_mem_per_node;
-				nodes[0].node_mem = max_mem_per_node;
+				nodes[0].ht[i].size -= nodes[0].node_mem - max_mem_per_server;
+				nodes[0].node_mem = max_mem_per_server;
 
 				/* Account for Cstate6 save area */
 				limit = nodes[0].ht[i].base + nodes[0].ht[i].size - 1 + pf_cstate6;
 				asm volatile("wbinvd" ::: "memory");
 
-				for (j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++)
+				for (int j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++)
 					cht_write_conf(j, FUNC1_MAPS, 0x44 + i * 8, (limit << 16) |
 					               (cht_read_conf(j, FUNC1_MAPS, 0x44 + i * 8) & 0xffff));
 
@@ -289,7 +291,7 @@ static bool tally_remote_node(const uint16_t sci)
 	uint16_t last = 0;
 	uint16_t cur_apic;
 	node_info_t *node;
-	uint32_t mem_limit = max_mem_per_node;
+	uint32_t mem_limit = max_mem_per_server;
 
 	if (dnc_raw_read_csr(sci, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
 		warning("Unable to contact SCI%03x", sci);
@@ -332,6 +334,7 @@ static bool tally_remote_node(const uint16_t sci)
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
+	/* Size HT nodes */
 	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
 		node->ht[i].cores = 0;
 		node->ht[i].base  = 0;
@@ -403,7 +406,7 @@ static bool tally_remote_node(const uint16_t sci)
 				if (val & 1)
 					node->ht[i].cores--;
 
-				val = val >> 1;
+				val >>= 1;
 			}
 		}
 

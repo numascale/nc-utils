@@ -634,7 +634,7 @@ void *zalloc_persist(const size_t size)
 	int nallocs = 0;
 
 	/* Allocate 128MB blocks until exhaustion */
-	while (allocs[nallocs] = malloc(128 << 20))
+	while ((allocs[nallocs] = malloc(128 << 20)))
 		nallocs++;
 
 	/* Free last one guaranteeing space for allocation */
