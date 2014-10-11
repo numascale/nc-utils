@@ -137,12 +137,12 @@ static void adjust_dram_maps(node_info_t *const node)
 		while (over > 0) {
 			unsigned max = 0;
 
-			/* find largest HT nodes */
+			/* find largest HT node */
 			for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++)
-				if ((node->ht[i].size + node->ht[i].io_hole) > max)
+				if (node->ht[i].size > max)
 					max = node->ht[i].size;
 
-			/* reduce largest HT nodes by 16MB */
+			/* reduce largest HT node by 16MB */
 			for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
 				if (node->ht[i].size == max) {
 					node->ht[i].size -= 1;
@@ -152,33 +152,35 @@ static void adjust_dram_maps(node_info_t *const node)
 			}
 		}
 	}
+}
 
-	if (node->sci == 0x000) {
-		printf("Updating DRAM maps...");
-		for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
-			node->ht[i].base = dnc_top_of_mem;
-			dnc_top_of_mem += node->ht[i].size;
-			node->ht[i].size -= pf_cstate6;
+static void adjust_dram_window(node_info_t *const node)
+{
+	printf("Updating DRAM maps...");
+	for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+		node->ht[i].base = dnc_top_of_mem;
+		dnc_top_of_mem += node->ht[i].size;
+		node->ht[i].size -= pf_cstate6;
 
-			const uint64_t base = (uint64_t)node->ht[i].base << DRAM_MAP_SHIFT;
-			const uint64_t limit = (((uint64_t)node->ht[i].base + node->ht[i].size) << DRAM_MAP_SHIFT) - 1;
+		const uint64_t base = (uint64_t)node->ht[i].base << DRAM_MAP_SHIFT;
+		const uint64_t limit = (((uint64_t)node->ht[i].base + node->ht[i].size) << DRAM_MAP_SHIFT) - 1;
 
-			for (int j = node->nb_ht_lo; j <= node->nb_ht_hi; j++) {
-				for (int range = 0; range < 8; range++) {
-					int dst;
+		for (int j = node->nb_ht_lo; j <= node->nb_ht_hi; j++) {
+			for (int range = 0; range < 8; range++) {
+				int dst;
 
-					if (dram_range_read(node->sci, j, range, NULL, NULL, &dst) && dst == i) {
-						dram_range(node->sci, j, range, base, limit, i);
-						break;
-					}
+				if (dram_range_read(node->sci, j, range, NULL, NULL, &dst) && dst == i) {
+					dram_range(node->sci, j, range, base, limit, i);
+					break;
 				}
 			}
 		}
-		printf("\n");
 
-		if (verbose > 1)
-			print_node_info(&nodes[0]);
+		dnc_write_conf(node->sci, 0, 24 + i, FUNC1_MAPS, 0x120, node->ht[i].base >> (27 - DRAM_MAP_SHIFT));
+		/* Account for Cstate6 save area */
+		dnc_write_conf(node->sci, 0, 24 + i, FUNC1_MAPS, 0x124, (node->ht[i].base + node->ht[i].size - 1 + pf_cstate6) >> (27 - DRAM_MAP_SHIFT));
 	}
+	printf("\n");
 }
 
 void tally_local_node(void)
@@ -213,7 +215,6 @@ void tally_local_node(void)
 
 		uint32_t val = cht_read_conf(i, FUNC1_MAPS, 0xf0);
 		nodes[0].ht[i].io_hole = val & 1 ? (((cht_read_conf(i, FUNC1_MAPS, 0xf0) >> 7) & 0xff) >> 1) : 0;
-		printf("i=%d F1xF0=%08x, io_hole=%d\n", i, val, nodes[0].ht[i].io_hole);
 
 		base = cht_read_conf(i, FUNC1_MAPS, 0x120);
 		limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
@@ -246,6 +247,8 @@ void tally_local_node(void)
 		}
 	}
 
+	adjust_dram_maps(&nodes[0]);
+	adjust_dram_window(&nodes[0]);
 	dnc_top_of_mem = 0;
 
 	for (i = nodes[0].nb_ht_lo; i <= nodes[0].nb_ht_hi; i++) {

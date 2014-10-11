@@ -69,7 +69,7 @@ $(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
 	perl -npi -e 's/SIZE_MAX/10485760/' $(mjson_dir)/src/json.h
 
 %.o: %.c $(syslinux_dir)/com32/samples/Makefile
-	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make CC="g++ -fno-rtti -fpermissive -Wall -Wextra" $(CURDIR)/$@ NOGPL=1)
+	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make CC="g++ -fno-rtti -fpermissive -Wall -Wextra -fstack-protector" $(CURDIR)/$@ NOGPL=1)
 
 %.o: %.S $(syslinux_dir)/com32/samples/Makefile
 	(rm -f $@ && cd $(syslinux_dir)/com32/samples && make $(CURDIR)/$@ NOGPL=1)
