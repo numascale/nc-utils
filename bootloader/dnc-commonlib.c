@@ -543,7 +543,6 @@ void dnc_init_caches(void)
 				printf("%dGB MCTag, %dGB Remote Cache, %3dGB Max Coherent Local Memory\n",
 				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_server);
 				max_mem_per_server = max_mem_per_server << (30 - DRAM_MAP_SHIFT);
-
 			}
 
 			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);

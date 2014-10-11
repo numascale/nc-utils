@@ -65,6 +65,7 @@ typedef struct ht_node_info {
 	uint16_t cores;		/* Number of cores at individual HT nodes */
 	uint16_t apic_base;
 	uint32_t scrub;
+	uint32_t io_hole;
 } ht_node_info_t;
 
 typedef struct nodes_info {
