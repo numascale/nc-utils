@@ -113,6 +113,5 @@ void disable_dma_all(void);
 void handover_legacy(void);
 void pci_setup(void);
 void disable_device(const uint16_t sci, const int bus, const int dev, const int fn);
-void disable_bridge(const uint16_t sci, const int bus, const int dev, const int fn);
 checked uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const int dev, const int fn);
 #endif

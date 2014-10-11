@@ -491,7 +491,7 @@ unsigned char *remote_aml(uint32_t *len)
 {
 	Container *sb = new Scope("\\_SB_");
 
-	const int nnodes = min(dnc_node_count, AML_MAXNODES);
+	const int nnodes = remote_io ? min(dnc_node_count, AML_MAXNODES) : 1;
 	node_info_t *node = &nodes[0];
 
 	/* For the master's PCI bus, add a proximity object */
