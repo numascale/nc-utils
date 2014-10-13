@@ -39,6 +39,7 @@ IMPORT_RELOCATED(new_cucfg2_msr);
 IMPORT_RELOCATED(apic_offset);
 IMPORT_RELOCATED(apic_readback);
 
+static const char *pxe_bootif = "";
 const char *config_file_name = "nc-config/fabric.json";
 const char *next_label = "menu.c32";
 const char *microcode_path = "";
@@ -2035,6 +2036,7 @@ static void parse_int64(const char *val, void *intp)
 void parse_cmdline(const int argc, const char *argv[])
 {
 	static const struct optargs options[] = {
+		{"BOOTIF",          &parse_string, &pxe_bootif},      /* PXE Boot parameters (not used) */
 		{"config",          &parse_string, &config_file_name},/* Config (JSON) file to use */
 		{"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
 		{"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */
