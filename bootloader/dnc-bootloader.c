@@ -1531,7 +1531,7 @@ static void setup_remote_cores(node_info_t *const node)
 			apicid = node->apic_offset + oldid;
 
 			*REL8(cpu_apic_renumber) = apicid & 0xff;
-			*REL8(cpu_apic_hi)       = (apicid >> 8) & 0x3f;
+			*REL8(cpu_apic_hi)       = apicid >> 8;
 			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
 
