@@ -64,7 +64,7 @@ static void gen(const int nnodes)
 		memcpy(ssdt->sig.s, "SSDT", 4);
 		ssdt->revision = ACPI_REV;
 		memcpy(ssdt->oemid, "NUMASC", 6);
-		memcpy(ssdt->oemtableid, "N313NUMA", 8);
+		memcpy(ssdt->oemtableid, "NCONNECT", 8);
 		ssdt->oemrev = 0;
 		memcpy(ssdt->creatorid, "INTL", 4);
 		ssdt->creatorrev = 0x20100528;

@@ -720,7 +720,7 @@ acpi_sdt_p acpi_build_oemn(void)
 	memcpy(oemn->sig.s, "OEMN", 4);
 	oemn->revision = ACPI_REV;
 	memcpy(oemn->oemid, "NUMASC", 6);
-	memcpy(oemn->oemtableid, "N313NUMA", 8);
+	memcpy(oemn->oemtableid, "NCONNECT", 8);
 	oemn->oemrev = 0;
 	memcpy(oemn->creatorid, "1B47", 4);
 	oemn->creatorrev = ESCROW_REV;

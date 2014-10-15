@@ -630,6 +630,7 @@ static void update_acpi_tables(void)
 	acpi_sdt_p apic = (acpi_sdt_p)tables_next;
 	memcpy(apic, oapic, oapic->len);
 	memcpy(apic->oemid, "NUMASC", 6);
+	memcpy(apic->oemtableid, "NCONNECT", 8);
 	apic->len = offsetof(struct acpi_sdt, data) + 8; /* Count 'Local Interrupt Controller' and 'Flags' fields */
 
 	/* Apply enable mask to existing APICs, find first unused ACPI ProcessorId */
@@ -698,7 +699,7 @@ static void update_acpi_tables(void)
 	memcpy(slit->sig.s, "SLIT", 4);
 	slit->revision = ACPI_REV;
 	memcpy(slit->oemid, "NUMASC", 6);
-	memcpy(slit->oemtableid, "N313NUMA", 8);
+	memcpy(slit->oemtableid, "NCONNECT", 8);
 	slit->oemrev = 1;
 	memcpy(slit->creatorid, "1B47", 4);
 	slit->creatorrev = 1;
@@ -834,7 +835,7 @@ static void update_acpi_tables(void)
 	mcfg->len = offsetof(struct acpi_sdt, data) + 8 ; /* Count 'reserved' field */
 	mcfg->revision = ACPI_REV;
 	memcpy(mcfg->oemid, "NUMASC", 6);
-	memcpy(mcfg->oemtableid, "N313NUMA", 8);
+	memcpy(mcfg->oemtableid, "NCONNECT", 8);
 	mcfg->oemrev = 0;
 	memcpy(mcfg->creatorid, "1B47", 4);
 	mcfg->creatorrev = 1;
@@ -870,7 +871,7 @@ static void update_acpi_tables_late(void)
 			memcpy(ssdt->sig.s, "SSDT", 4);
 			ssdt->revision = ACPI_REV;
 			memcpy(ssdt->oemid, "NUMASC", 6);
-			memcpy(ssdt->oemtableid, "N313NUMA", 8);
+			memcpy(ssdt->oemtableid, "NCONNECT", 8);
 			ssdt->oemrev = 0;
 			memcpy(ssdt->creatorid, "1B47", 4);
 			ssdt->creatorrev = 1;
