@@ -3160,17 +3160,18 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 	if (part->builder == info->sci) {
 		printf("Validating fabric...");
 
-		for (int iter = 0; res || iter < (loops / cfg_nodes); iter++) {
-			for (int i = 1; i < cfg_nodes; i++) {
+		for (int iter = 0; !res && iter < (loops / cfg_nodes); iter++) {
+			for (int i = 1; !res && i < cfg_nodes; i++) {
 				uint16_t node = cfg_nodelist[i].sci;
 				res |= dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
 
-				for (int j = 0; res && j < 16; j++)
+				for (int j = 0; !res && j < 16; j++)
 					res |= dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, &val);
 			}
+			if (i % 1000 == 0) printf(".");
 		}
 
-		printf("done\n");
+		printf(res ? "failed\n" : "done\n");
 	}
 
 	return res ? RSP_FABRIC_NOT_OK : RSP_FABRIC_OK;
