@@ -92,10 +92,13 @@ void load_scc_microcode(void)
 					if (!used)
 						used = counter;
 				}
+			} else if (counter > 0 && val == SIG_RET) {
+				/* We just reached the end of available washdelays */
+				used = counter;
 			} else
 				counter = 0;
 
-			dnc_write_csr(node, H2S_CSR_G0_WCS_ENTRY, mseq_ucode[j]);
+			dnc_write_csr(node, H2S_CSR_G0_WCS_ENTRY, val);
 		}
 
 		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
