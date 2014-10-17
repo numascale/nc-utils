@@ -61,12 +61,6 @@ void load_scc_microcode(void)
 		mseq_table = numachip_mseq_table_revc;
 		mseq_ucode_length = sizeof(numachip_mseq_ucode_revc) / sizeof(numachip_mseq_ucode_revc[0]);
 		mseq_table_length = sizeof(numachip_mseq_table_revc) / sizeof(numachip_mseq_table_revc[0]);
-	} else if (dnc_asic_mode && dnc_chip_rev < 2) {
-		/* Use this microcode for RevA and RevB asic */
-		mseq_ucode = numachip_mseq_ucode_revb;
-		mseq_table = numachip_mseq_table_revb;
-		mseq_ucode_length = sizeof(numachip_mseq_ucode_revb) / sizeof(numachip_mseq_ucode_revb[0]);
-		mseq_table_length = sizeof(numachip_mseq_table_revb) / sizeof(numachip_mseq_table_revb[0]);
 	} else
 		fatal("No microcode for NumaChip version %d", dnc_chip_rev);
 
