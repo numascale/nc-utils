@@ -42,6 +42,7 @@
 #define CLEAR         "\033e\033%%@\033)0\033(B\3#007\033[?25h\033[2J\033[H"
 #define BANNER        "\033[1m\033[34m"
 #define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
+#define CORE_LOOPS_MAX 1000000
 
 static inline void msg_testing(void)
 {

@@ -1331,9 +1331,15 @@ void wake_core_global(const int apicid, const int vector)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_EXT_INTERRUPT_GEN,
 		0xff002600 | (apicid << 16) | ((uint32_t)REL32(init_dispatch) >> 12));
 
+	unsigned int i;
 	/* Wait until execution completed */
-	while (*REL32(cpu_status))
+	for (i = 0; i < CORE_LOOPS_MAX; i++) {
+		if (!*REL32(cpu_status))
+			break;
 		cpu_relax();
+	}
+
+	assertf(i < CORE_LOOPS_MAX, "APIC 0x%x stuck in vector %d with status 0x%x", apicid, vector, *REL32(cpu_status));
 }
 
 static void wake_cores_local(const int vector)
