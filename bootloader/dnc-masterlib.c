@@ -112,8 +112,8 @@ void load_scc_microcode(void)
 static void print_node_info(const node_info_t *node)
 {
 	for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++)
-		printf("- HT%d: base=0x%x size=%d io_hole=%d pdom=%d cores=%d apic_base=%d scrub=%x\n",
-			ht, node->ht[ht].base, node->ht[ht].size, node->ht[ht].io_hole, node->ht[ht].pdom, node->ht[ht].cores, node->ht[ht].apic_base, node->ht[ht].scrub);
+		printf("- HT%d: base=0x%x size=%d pdom=%d cores=%d apic_base=%d scrub=%x\n",
+			ht, node->ht[ht].base, node->ht[ht].size, node->ht[ht].pdom, node->ht[ht].cores, node->ht[ht].apic_base, node->ht[ht].scrub);
 	printf("- node_mem=%d\n", node->node_mem);
 	printf("- dram_base=0x%x dram_limit=0x%x\n", node->dram_base, node->dram_limit);
 	printf("- mmio32_base=0x%x mmio32_limit=0x%x\n", node->mmio32_base, node->mmio32_limit);
@@ -209,9 +209,6 @@ void tally_local_node(void)
 	/* Size HT nodes */
 	for (i = nodes[0].nb_ht_lo; i <= nodes[0].nb_ht_hi; i++) {
 		nodes[0].ht[i].size  = 0;
-
-		uint32_t val = cht_read_conf(i, FUNC1_MAPS, 0xf0);
-		nodes[0].ht[i].io_hole = val & 1 ? (((cht_read_conf(i, FUNC1_MAPS, 0xf0) >> 7) & 0xff) >> 1) : 0;
 
 		base = cht_read_conf(i, FUNC1_MAPS, 0x120);
 		limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
@@ -380,8 +377,6 @@ static bool tally_remote_node(const uint16_t sci)
 
 	/* Size HT nodes */
 	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
-		node->ht[i].io_hole = 0;
-
 		base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
 		limit = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124);
 
