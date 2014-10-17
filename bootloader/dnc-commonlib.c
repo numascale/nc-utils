@@ -3160,7 +3160,7 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 	if (dnc_check_fabric(info))
 		return RSP_FABRIC_NOT_OK;
 
-	const int loops = test_fabric ? 5000000 : 500000;
+	const int loops = test_fabric ? 400000 : 40000;
 
 	/* Builder is checking that it can access all other nodes via CSR */
 	if (part->builder == info->sci) {
@@ -3175,7 +3175,7 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 					res |= dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, &val);
 			}
 
-			if (iter % 1000 == 0)
+			if (iter % 15000 == 0)
 				printf(".");
 		}
 
