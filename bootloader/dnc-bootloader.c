@@ -1866,7 +1866,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 			len = udp_read_state(rsp, UDP_MAXLEN, &ip);
 			if (!do_restart) {
 				if (!do_restart) {
-					if (last_stat > 64) {
+					if (last_stat > (64*((cfg_nodes/32)+1))) {
 						last_stat = 0;
 						wait_status(info);
 					}
