@@ -56,7 +56,7 @@ public:
 		free(elements);
 	}
 
-	T operator[](const unsigned pos) {
+	T operator[](const unsigned pos) const {
 		lassert(pos < used);
 		return elements[pos];
 	}
