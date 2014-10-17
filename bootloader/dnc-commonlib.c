@@ -3168,7 +3168,9 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 				for (int j = 0; !res && j < 16; j++)
 					res |= dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, &val);
 			}
-			if (i % 1000 == 0) printf(".");
+
+			if (iter % 1000 == 0)
+				printf(".");
 		}
 
 		printf(res ? "failed\n" : "done\n");
