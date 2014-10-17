@@ -36,11 +36,14 @@ extern "C" {
 
 #include "../interface/numachip-mseq.h"
 
-#define SIG_DELAY 0x0043c00a
-#define SIG_RET   0x001a0000
-#define WASHDELAY_P 3.6
-#define WASHDELAY_Q 117000000ULL
-#define WASHDELAY_CALLS 12
+#define SIG_CALL         0x0018029b
+#define SIG_CALLRET      0x00140184
+#define SIG_DELAY        0x0043c00a
+#define SIG_DELAYRET     0x001a0000
+#define WASHDELAY_P      3.6
+#define WASHDELAY_Q      9750000ULL
+#define WASHDELAY_CALLS  248
+#define WASHDELAY_DELAYS 248
 
 static int zceil(const float num) {
     int inum = (int)num;
@@ -49,9 +52,27 @@ static int zceil(const float num) {
     return inum + 1;
 }
 
+/* Find the ratio that is nearest goal */
+static void ratio(const unsigned goal, unsigned *calls, unsigned *delays)
+{
+	unsigned error = ~0;
+
+	for (unsigned i = 1; i <= WASHDELAY_CALLS; i++) {
+		for (unsigned j = 1; j <= WASHDELAY_DELAYS; j++) {
+			unsigned new_err = i * j - goal;
+			if (new_err >= error)
+				continue;
+
+			*calls = i;
+			*delays = j;
+			error = new_err;
+		}
+	}
+}
+
 void load_scc_microcode(void)
 {
-	const uint32_t *mseq_ucode;
+	uint32_t *mseq_ucode;
 	const uint16_t *mseq_table;
 	int mseq_ucode_length, mseq_table_length;
 
@@ -64,49 +85,61 @@ void load_scc_microcode(void)
 	} else
 		fatal("No microcode for NumaChip version %d", dnc_chip_rev);
 
-	/* Perform calculation twice to work around register corruption */
-	zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
-	const uint32_t delays = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q / WASHDELAY_CALLS);
-	printf("Loading SCC microcode with washdelay %d for %d cores...", delays * WASHDELAY_CALLS, dnc_core_count);
+	const unsigned goal = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q);
+	printf("Loading SCC microcode with washdelay %u for %d cores...", goal, dnc_core_count);
 
-	uint32_t used = 0;
+	unsigned calls = 0, delays = 0;
+	ratio(goal, &calls, &delays);
+	uint32_t counter = 0;
 
-	for (int i = 0; i < dnc_node_count; i++) {
-		uint32_t counter = 0;
-		int node = (i == 0) ? 0xfff0 : nodes[i].sci;
-		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+	/* Tune number of calls */
+	for (uint16_t i = 0; i < mseq_ucode_length; i++) {
+		if (mseq_ucode[i] != SIG_CALL)
+			continue;
 
-		for (uint16_t j = 0; j < mseq_ucode_length; j++) {
-			uint32_t val = mseq_ucode[j];
-
-			if (val == SIG_DELAY) {
-				counter++;
-				if (counter > delays) {
-					val = SIG_RET;
-					if (!used)
-						used = counter;
-				}
-			} else if (counter > 0 && val == SIG_RET) {
-				/* We just reached the end of available washdelays */
-				used = counter;
-			} else
-				counter = 0;
-
-			dnc_write_csr(node, H2S_CSR_G0_WCS_ENTRY, val);
+		counter++;
+		if (counter > calls) {
+			mseq_ucode[i] = SIG_CALLRET;
+			counter--;
+			break;
 		}
+	}
+	printf("%u calls", counter);
+	assert(counter);
+	counter = 0;
 
-		dnc_write_csr(node, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+	/* Tune number of delays */
+	for (uint16_t i = 0; i < mseq_ucode_length; i++) {
+		if (mseq_ucode[i] != SIG_DELAY)
+			continue;
 
+		counter++;
+		if (counter > delays) {
+			mseq_ucode[i] = SIG_DELAYRET;
+			counter--;
+			break;
+		}
+	}
+	assert(counter);
+	printf(", %u delays...", counter);
+
+	/* Write microcode */
+	for (unsigned i = 0; i < dnc_node_count; i++) {
+		uint16_t sci = (i == 0) ? 0xfff0 : nodes[i].sci;
+
+		dnc_write_csr(sci, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+		for (uint16_t j = 0; j < mseq_ucode_length; j++)
+			dnc_write_csr(sci, H2S_CSR_G0_WCS_ENTRY, mseq_ucode[j]);
+
+		dnc_write_csr(sci, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 		for (uint16_t j = 0; j < mseq_table_length; j++)
-			dnc_write_csr(node, H2S_CSR_G0_JUMP_ENTRY, mseq_table[j]);
+			dnc_write_csr(sci, H2S_CSR_G0_JUMP_ENTRY, mseq_table[j]);
 
 		/* Start the microsequencer */
-		uint32_t val = dnc_read_csr(node, H2S_CSR_G0_STATE_CLEAR);
-		dnc_write_csr(node, H2S_CSR_G0_STATE_CLEAR, val);
+		uint32_t val = dnc_read_csr(sci, H2S_CSR_G0_STATE_CLEAR);
+		dnc_write_csr(sci, H2S_CSR_G0_STATE_CLEAR, val);
 	}
-
-	printf("%d delays used\n", used * WASHDELAY_CALLS);
-	assert(used > 0);
+	printf("done\n");
 }
 
 static void print_node_info(const node_info_t *node)

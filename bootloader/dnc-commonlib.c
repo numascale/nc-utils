@@ -3164,7 +3164,7 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 
 	/* Builder is checking that it can access all other nodes via CSR */
 	if (part->builder == info->sci) {
-		printf("Validating fabric...");
+		printf("Validating fabric");
 
 		for (int iter = 0; !res && iter < (loops / cfg_nodes); iter++) {
 			for (int i = 1; !res && i < cfg_nodes; i++) {
