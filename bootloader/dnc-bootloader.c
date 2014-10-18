@@ -317,7 +317,7 @@ static void install_e820_handler(void)
 	int_vecs[0x15] = (((uint32_t)asm_relocated) << 12) |
 	                 ((uint32_t)(&new_e820_handler_relocate - &asm_relocate_start));
 	printf("Persistent code relocated to %p:%p\n", asm_relocated, asm_relocated + relocate_size);
-	printf("Allocating ACPI tables at %p - %p\n", tables_relocated, tables_relocated + TABLE_AREA_SIZE);
+	printf("Allocating ACPI tables at %p:%p\n", tables_relocated, tables_relocated + TABLE_AREA_SIZE);
 	if (verbose > 0)
 		printf("__mem_end = %p, __stack_size = 0x%zx, sp() = 0x%x\n", __mem_end, __stack_size, sp());
 }
