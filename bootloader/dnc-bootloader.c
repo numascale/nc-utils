@@ -2126,6 +2126,9 @@ static void local_chipset_fixup(const bool master)
 		dnc_write_conf(0xfff0, 0, 17, 0, 0x40, val2);
 
 		if (!master) {
+			/* Do ACPI handover here before we start disabling devices.. */
+			handover_legacy();
+
 			/* Disable devices (eg VGA controller) behind bridge */
 			val = dnc_read_conf(0xfff0, 0, 20, 4, 0x18);
 			int sec = (val >> 8) & 0xff;
@@ -2159,6 +2162,7 @@ static void local_chipset_fixup(const bool master)
 			dnc_write_conf(0xfff0, 0, 19, 1, 4, 0);
 			dnc_write_conf(0xfff0, 0, 19, 2, 4, 0);
 
+			/* Disable all USB controllers */
 			val = dnc_read_conf(0xfff0, 0, 20, 0, 0x68);
 			dnc_write_conf(0xfff0, 0, 20, 0, 0x68, val & ~0xf7);
 
@@ -2166,13 +2170,18 @@ static void local_chipset_fixup(const bool master)
 			val8 = pmio_readb(0x59);
 			pmio_writeb(0x59, val8 & ~(1 << 3));
 
+#ifdef HANGS /* XXX: If we do this, On H8QGL the BMC fails to properly power-off/power-on servers */
 			/* Hide SMBus controller */
-			dnc_write_conf(0xfff0, 0, 20, 0, 4, 0);
 			val8 = pmio_readb(0xba);
 			pmio_writeb(0xba, val8 | (1 << 6));
+#endif
 
+			/* Disable HPET MMIO decoding */
 			val = dnc_read_conf(0xfff0, 0, 20, 0, 0x40);
 			dnc_write_conf(0xfff0, 0, 20, 0, 0x40, val & ~(1 << 28));
+
+			/* Disable all bits in the PCI_COMMAND register of the ACPI/SMBus function */
+			dnc_write_conf(0xfff0, 0, 20, 0, 4, 0);
 		}
 	}
 	/* Only needed to workaround rev A/B issue */
@@ -3014,7 +3023,6 @@ static int nc_start(void)
 
 		/* On non-root servers, prevent writing to unexpected locations */
 		cleanup_stack();
-		handover_legacy();
 
 		/* Set G3x02c FAB_CONTROL bit 30 */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1 << 30);
