@@ -137,7 +137,7 @@ test-slavenode: test-slavenode.o dnc-test-commonlib.o dnc-test-fabric.o \
 	dnc-test-access.o dnc-test-route.o dnc-test-config.o test-json.o
 	$(CXX) $(COPT) $^ -o $@
 
-test-routing: test-routing.o dnc-test-access.o
+test-routing: test-routing.o dnc-test-route.o dnc-test-access.o
 	$(CXX) $(COPT) $^ -o $@
 
 test-aml: test-aml.o dnc-aml.c

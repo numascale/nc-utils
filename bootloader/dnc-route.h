@@ -20,6 +20,13 @@
 
 #include "dnc-bootloader.h"
 
+typedef uint8_t (*router_t)(sci_t, const int);
+
+extern uint8_t dims[];
+
+uint8_t router0(sci_t src, const int node);
+uint8_t router1(sci_t src, const int node);
+
 void add_chunk_route(uint16_t dest, const sci_t sci, uint8_t link);
 void del_chunk_route(uint16_t dest, const sci_t sci);
 void set_route(uint16_t dest, const sci_t sci, uint16_t width, uint8_t link);

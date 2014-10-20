@@ -25,6 +25,7 @@
 #include "dnc-defs.h"
 #include "dnc-access.h"
 #include "dnc-fabric.h"
+#include "dnc-route.h"
 #include "dnc-config.h"
 #include "dnc-devices.h"
 #include "dnc-bootloader.h"
@@ -3010,7 +3011,7 @@ static int shortest(const int node)
 	return dims[index].lc;
 }
 
-static uint8_t dims[] = {0, 1, 2};
+uint8_t dims[] = {0, 1, 2};
 
 static void longest(void)
 {
@@ -3034,43 +3035,6 @@ static void longest(void)
 	const char names[] = "XYZ";
 	printf("Routing via %c->%c->%c\n", names[dims[0]], names[dims[1]], names[dims[2]]);
 }
-
-static uint8_t router0(sci_t src, const int node)
-{
-	sci_t dst = cfg_nodelist[node].sci;
-	uint8_t dim = 0;
-
-	while ((src ^ dst) & ~0xf) {
-		dim++;
-		src >>= 4;
-		dst >>= 4;
-	}
-
-	int out = dim * 2 + 1;
-	out += ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf) +
-		(src & 0xf) + ((src >> 4) & 0xf) + ((src >> 8) & 0xf)) & 1; /* Load balance */
-	return out;
-}
-
-static uint8_t router1(sci_t src, const int node)
-{
-	sci_t dst = cfg_nodelist[node].sci;
-	uint8_t out = 0;
-
-	/* Check usability of dimensions in order */
-	for (int i = 0; i < 3; i++) {
-		const int shift = dims[i] * 4;
-		if (((src >> shift) & 0xf) ^ ((dst >> shift) & 0xf)) {
-			out = dims[i] * 2 + 1;
-			break;
-		}
-	}
-
-	out += node % 1; /* Load balance */
-	return out;
-}
-
-typedef uint8_t (*router_t)(sci_t, const int);
 
 static enum node_state setup_fabric(const struct node_info *info)
 {

@@ -20,6 +20,7 @@
 #include "dnc-regs.h"
 #include "dnc-route.h"
 #include "dnc-access.h"
+#include "dnc-config.h"
 
 #define OFFS_RTBLL (LC3_CSR_ROUT_BXTBLL00 - LC3_CSR_ROUT_LCTBL00)
 #define OFFS_RTBLM (LC3_CSR_ROUT_BLTBL00  - LC3_CSR_ROUT_LCTBL00)
@@ -32,6 +33,45 @@
 #define SCI_ID_CHUNK(id) (((id) >> 8) & 0xf) /* Routing is deep enough to cover bit 12:8, but we use only 12bit NodeIDs */
 #define SCI_ID_REGNR(id) (((id) >> 4) & 0xf)
 #define SCI_ID_BITNR(id) (((id) >> 0) & 0xf)
+
+uint8_t router0(sci_t src, const int node)
+{
+	sci_t dst = cfg_nodelist[node].sci;
+	uint8_t dim = 0;
+
+	sci_t dst2 = dst;
+	sci_t src2 = src;
+	while ((src2 ^ dst2) & ~0xf) {
+		dim++;
+		src2 >>= 4;
+		dst2 >>= 4;
+	}
+
+	int out = dim * 2 + 1;
+	out += ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf) +
+		(src & 0xf) + ((src >> 4) & 0xf) + ((src >> 8) & 0xf)) & 1; /* Pair-wise load-balancing */
+	return out;
+}
+
+uint8_t router1(sci_t src, const int node)
+{
+	sci_t dst = cfg_nodelist[node].sci;
+	uint8_t out = 0;
+
+	/* Check usability of dimensions in order */
+	for (int i = 0; i < 3; i++) {
+		const int shift = dims[i] * 4;
+		if (((src >> shift) & 0xf) ^ ((dst >> shift) & 0xf)) {
+			out = dims[i] * 2 + 1;
+			break;
+		}
+	}
+
+	out += node % 1; /* Load balance */
+	return out;
+}
+
+
 
 /* Route all 256 bxbar entries for chunk corresponding to "dest" over "link"
  * on "sci" */
