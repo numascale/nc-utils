@@ -159,6 +159,15 @@ static void print_node_info(const node_info_t *node)
 
 static void adjust_dram_maps(node_info_t *const node)
 {
+	if (memlimit) {
+		for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+			node->node_mem -= node->ht[i].size - (memlimit >> DRAM_MAP_SHIFT);
+			node->ht[i].size = (memlimit >> DRAM_MAP_SHIFT);
+		}
+
+		return;
+	}
+
 	/* trim nodes if over supported memory config */
 	int over = node->node_mem - max_mem_per_server;
 	if (over > 0) {

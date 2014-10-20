@@ -243,6 +243,7 @@ extern bool link_up;
 extern bool test_manufacture;
 extern int relaxed_io;
 extern int pf_prefetch;
+extern uint64_t memlimit;
 
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);

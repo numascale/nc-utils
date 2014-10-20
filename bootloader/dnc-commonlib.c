@@ -84,6 +84,7 @@ bool test_manufacture = 0;
 int relaxed_io = 0;
 int pf_prefetch = 1;
 int router = 0;
+uint64_t memlimit = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2083,9 +2084,10 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"mem-gap",         &parse_int64,  &mem_gap},
 		{"disable-kvm",     &parse_bool,   &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
 		{"test.manufacture",&parse_bool,   &test_manufacture}, /* Manufacture testing */
-		{"relaxed-io",      &parse_int,   &relaxed_io},
+		{"relaxed-io",      &parse_int,    &relaxed_io},
 		{"pf.prefetch",     &parse_int,    &pf_prefetch},     /* DRAM prefetch */
 		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
+		{"memlimit",        &parse_int64,  &memlimit},        /* Per-NUMA node memory limit */
 	};
 
 	int errors = 0;
