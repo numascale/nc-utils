@@ -59,8 +59,8 @@ static void ratio(const unsigned goal, unsigned *calls, unsigned *delays)
 
 	for (unsigned i = 1; i <= WASHDELAY_CALLS; i++) {
 		for (unsigned j = 1; j <= WASHDELAY_DELAYS; j++) {
-			unsigned new_err = i * j - goal;
-			if (new_err >= error)
+			unsigned new_err = goal - i * j;
+			if (new_err < error)
 				continue;
 
 			*calls = i;
