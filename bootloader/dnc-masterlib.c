@@ -161,8 +161,14 @@ static void adjust_dram_maps(node_info_t *const node)
 {
 	if (memlimit) {
 		for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
-			node->node_mem -= node->ht[i].size - (memlimit >> DRAM_MAP_SHIFT);
-			node->ht[i].size = (memlimit >> DRAM_MAP_SHIFT);
+			uint64_t limit = memlimit;
+
+			/* first northbridges must have a minimum of 4GB */
+			if (node == &nodes[0] && i == node->nb_ht_lo)
+				limit = 4ULL << 30;
+
+			node->node_mem -= node->ht[i].size - (limit >> DRAM_MAP_SHIFT);
+			node->ht[i].size = (limit >> DRAM_MAP_SHIFT);
 		}
 
 		return;
