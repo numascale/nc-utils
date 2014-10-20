@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect diagnostics r26
+# NumaConnect diagnostics r27
 
 import mmap, time, os, sys, struct, optparse, ctypes, random, subprocess
 
@@ -73,7 +73,7 @@ class Settings(ctypes.Structure): # r18
 		except IOError as e:
 			if e.errno != 2:
 				raise
-			
+
 			self.size_x = 2
 			self.size_y = 0
 			self.size_z = 0
@@ -332,7 +332,7 @@ class Platform:
 				self.device(bus, dev, fn, (val >> 16) & 0x7f)
 
 				# check if multifunction
-				if fn == 0 and not (val & 0x800000):
+				if fn == 0 and not val & 0x800000:
 					break
 
 	def walk_pci(self):
@@ -374,7 +374,7 @@ class Platform:
 				val = self.read(0, 0x19 + nb, 3, 0x84 + link * 0x20)
 				val &= ~(1 << 1) # CrcFloodEn
 				self.write(0, 0x18 + nb, 3, 0x84 + link * 0x20, val)
-				
+
 			val = self.read(0, 0x18 + nb, 3, 0x44)
 			val &= ~(1 << 30) # SyncFloodOnDramAdrParErr
 			val &= ~(1 << 21) # SyncFloodOnAnyUcErr
@@ -499,6 +499,10 @@ class Cluster:
 			self.platforms = [Platform(0xfff0, self.numachip, self.settings),]
 			return
 
+		if options.local:
+			self.platforms = [Platform(self.numachip.own, self.numachip, self.settings),]
+			return
+
 		# cluster
 		self.platforms = []
 
@@ -541,32 +545,33 @@ class Cluster:
 						print ' HTERROR',
 				print
 
-		for name, fn, reg, mask, ideal in self.nbregs:
-			# account for highest number of HD IDs
-			limit = max([len(platform.northbridge_ids) for platform in self.platforms])
-			for nb in range(limit):
-				print '%16s NB%d' % (name, nb),
+		if not options.lean:
+			for name, fn, reg, mask, ideal in self.nbregs:
+				# account for highest number of HD IDs
+				limit = max([len(platform.northbridge_ids) for platform in self.platforms])
+				for nb in range(limit):
+					print '%16s NB%d' % (name, nb),
 
+					for platform in self.platforms:
+						try:
+							val = platform.read(0, 0x18 + platform.northbridge_ids[nb], fn, reg)
+							self.interpret(val, mask, ideal)
+						except Numachip.TimeoutException:
+							print ' TIMEOUT',
+						except Numachip.HTErrorException:
+							print ' HTERROR',
+						except Numachip.BlockedException:
+							print ' BLOCKED',
+						except IndexError:
+							print ' MISSING',
+					print
+
+			if self.settings.remote_io:
 				for platform in self.platforms:
-					try:
-						val = platform.read(0, 0x18 + platform.northbridge_ids[nb], fn, reg)
-						self.interpret(val, mask, ideal)
-					except Numachip.TimeoutException:
-						print ' TIMEOUT',
-					except Numachip.HTErrorException:
-						print ' HTERROR',
-					except Numachip.BlockedException:
-						print ' BLOCKED',
-					except IndexError:
-						print ' MISSING',
-				print
-
-		if self.settings.remote_io:
-			for platform in self.platforms:
-				platform.walk_pci()			
-		else:
-			# assume SCI000 is the master for now
-			self.platforms[0].walk_pci()
+					platform.walk_pci()
+			else:
+				# assume SCI000 is the master for now
+				self.platforms[0].walk_pci()
 
 	def disable_syncflood(self):
 		print 'disabling sync flood generation...',
@@ -629,6 +634,8 @@ parser.add_option('--bits', dest='bits', type='int', default=1, help='bits to co
 parser.add_option('--inject-link', dest='inject_link', type='int', default=0, help='inject link errors')
 parser.add_option('--verbose', dest='verbose', default=0, action='count', help='increase verbosity')
 parser.add_option('--monitor', dest='monitor', action='store_true', default=False, help='redraw data every 4s')
+parser.add_option('--lean', dest='lean', action='store_true', default=False, help='check numachip registers only')
+parser.add_option('--local', dest='local', action='store_true', default=False, help='check local registers only')
 
 options, args = parser.parse_args()
 
@@ -638,7 +645,7 @@ c = Cluster()
 
 if options.syncflood:
 	c.disable_syncflood()
-	
+
 if options.correctable:
 	c.correctable()
 
