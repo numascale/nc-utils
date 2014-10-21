@@ -166,8 +166,7 @@ def usage():
 ### start
 
 if os.getuid():
-	print 'error: please run as root'
-	raise SystemExit
+	raise SystemExit('error: please run as root')
 
 parser = optparse.OptionParser()
 parser.add_option('--verbose', dest='verbose', default=0, action='count', help='increase verbosity')

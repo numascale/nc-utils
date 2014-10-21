@@ -4,7 +4,7 @@
 import os, time, optparse, random
 from nclib import Platform, Numachip, en
 
-class Interface:
+class Node:
 	def write(self, bus, dev, fun, reg, val):
 		self.numachip.mmcfg_raw_write(self.sci, bus, dev, fun, reg, val)
 
@@ -224,21 +224,21 @@ class Nodes:
 		# no NumaConnect
 		if self.settings.standalone:
 			self.settings.northbridges = self.northbridges()
-			self.interfaces = [Interface(0xfff0, self.numachip, self.settings),]
+			self.nodes = [Node(0xfff0, self.numachip, self.settings),]
 			return
 
 		if options.local:
-			self.interfaces = [Interface(self.numachip.own, self.numachip, self.settings),]
+			self.nodes = [Node(self.numachip.own, self.numachip, self.settings),]
 			return
 
 		# cluster
-		self.interfaces = []
+		self.nodes = []
 
 		for z in range(max(self.settings.size_z, 1)):
 			for y in range(max(self.settings.size_y, 1)):
 				for x in range(max(self.settings.size_x, 1)):
-					interface = Interface(x | y << 4 | z << 8, self.numachip, self.settings)
-					self.interfaces.append(interface)
+					node = Node(x | y << 4 | z << 8, self.numachip, self.settings)
+					self.nodes.append(node)
 
 	def colour(self, name):
 		if self.last_colour == name:
@@ -255,17 +255,17 @@ class Nodes:
 
 	def status(self):
 		print '%20s' % time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-		for interface in self.interfaces:
-			print '     %03X' % interface.sci,
+		for node in self.nodes:
+			print '     %03X' % node.sci,
 		print
 
 		if not self.settings.standalone:
 			for name, fn, reg, mask, ideal in self.ncregs:
 				print '%20s' % name,
 
-				for interface in self.interfaces:
+				for node in self.nodes:
 					try:
-						val = interface.numachip.csr_raw_read(interface.sci, (fn << 12) | reg)
+						val = node.numachip.csr_raw_read(node.sci, (fn << 12) | reg)
 						self.interpret(val, mask, ideal)
 					except Numachip.TimeoutException:
 						print ' TIMEOUT',
@@ -276,13 +276,13 @@ class Nodes:
 		if not options.lean:
 			for name, fn, reg, mask, ideal in self.nbregs:
 				# account for highest number of HD IDs
-				limit = max([len(interface.northbridge_ids) for interface in self.interfaces])
+				limit = max([len(node.northbridge_ids) for node in self.nodes])
 				for nb in range(limit):
 					print '%16s NB%d' % (name, nb),
 
-					for interface in self.interfaces:
+					for node in self.nodes:
 						try:
-							val = interface.read(0, 0x18 + interface.northbridge_ids[nb], fn, reg)
+							val = node.read(0, 0x18 + node.northbridge_ids[nb], fn, reg)
 							self.interpret(val, mask, ideal)
 						except Numachip.TimeoutException:
 							print ' TIMEOUT',
@@ -295,35 +295,35 @@ class Nodes:
 					print
 
 			if self.settings.remote_io:
-				for interface in self.interfaces:
-					interface.walk_pci()
+				for node in self.nodes:
+					node.walk_pci()
 			else:
 				# assume SCI000 is the master for now
-				self.interfaces[0].walk_pci()
+				self.nodes[0].walk_pci()
 
 	def disable_syncflood(self):
 		print 'disabling sync flood generation...',
-		for interface in self.interfaces:
-			interface.disable_syncflood()
+		for node in self.nodes:
+			node.disable_syncflood()
 
 		print 'done'
 
 	def correctable(self):
 		print 'enabling correctable error reporting...',
-		for interface in self.interfaces:
-			interface.correctable()
+		for node in self.nodes:
+			node.correctable()
 
 		print 'done'
 
 	def inject_dram(self, count):
 		print 'injecting %d correctable DRAM errors...' % count,
 		for _ in range(count):
-			if options.interface != -1:
-				interface = self.interfaces[options.interface]
+			if options.node != -1:
+				node = self.nodes[options.node]
 			else:
-				interface = random.choice(self.interfaces)
+				node = random.choice(self.nodes)
 
-			interface.inject_dram()
+			node.inject_dram()
 
 			if options.rate:
 				time.sleep(1. / options.rate)
@@ -333,12 +333,12 @@ class Nodes:
 	def inject_link(self, count):
 		print 'injecting %d link errors...' % count,
 		for _ in range(count):
-			if options.interface != -1:
-				interface = self.interfaces[options.interface]
+			if options.node != -1:
+				node = self.nodes[options.node]
 			else:
-				interface = random.choice(self.interfaces)
+				node = random.choice(self.nodes)
 
-			interface.inject_link()
+			node.inject_link()
 
 			if options.rate:
 				time.sleep(1. / options.rate)
@@ -348,14 +348,13 @@ class Nodes:
 ### start
 
 if os.getuid():
-	print 'error: please run as root'
-	raise SystemExit
+	raise SystemExit('error: please run as root')
 
 parser = optparse.OptionParser()
 parser.add_option('--rate', dest='rate', type='int', default=100, help='rate of error injection in errors per second (0 = no delays; default 100)')
 parser.add_option('--report-correctable', dest='correctable', action='store_true', default=False, help='report correctable errors')
 parser.add_option('--disable-syncflood', dest='syncflood', action='store_true', default=False, help='disable syncflood generation')
-parser.add_option('--interface', dest='interface', type='int', default=-1, help='interface to inject errors into (-1 = all)')
+parser.add_option('--node', dest='node', type='int', default=-1, help='node to inject errors into (-1 = all)')
 parser.add_option('--northbridges=', dest='northbridges', type='string', default=-1, help='comma separated list of northbridges to inject errors into (-1 = all)')
 parser.add_option('--inject-dram', dest='inject_dram', type='int', default=0, help='inject DRAM errors')
 parser.add_option('--bits', dest='bits', type='int', default=1, help='bits to corrupt per word (default 1)')
