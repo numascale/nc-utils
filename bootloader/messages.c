@@ -45,7 +45,7 @@ int main(void)
 			continue;
 		}
 
-		struct hostent *ent = gethostbyaddr(&src, srclen, AF_INET);
+		struct hostent *ent = gethostbyaddr(&src.sin_addr, sizeof(src.sin_addr), src.sin_family);
 
 		printf("%03x/%s: IP %s, UUID %08x, TID %u, state %s\n", msg->sci,
 		  ent ? ent->h_name : "(unknown)", inet_ntoa(src.sin_addr),
