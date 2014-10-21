@@ -139,18 +139,60 @@ class Cpuset:
 		for elem in self.used:
 			os.rmdir('/dev/cpuset/' + elem)
 
+class Northbridge:
+	regs = {
+		'MC STATUS':      0x3048,
+		'MC ADDR':        0x3050,
+		'DRAM ERRORS':    0x3160,
+		'LINK ERRORS':    0x3168,
+		'ONLINE SPARE':   0x30b0,
+		'L3C ERRORS':     0x3170,
+		'LINK 0 RETRIES': 0x0130,
+		'LINK 1 RETRIES': 0x0134,
+		'LINK 2 RETRIES': 0x0138,
+		'LINK 3 RETRIES': 0x013c,
+	}
+
 class Numachip:
-	G0_NODE_IDS      = (0 << 12) | 0x008
-	G0_RAW_CONTROL   = (0 << 12) | 0xc50
-	G0_RAW_INDEX     = (0 << 12) | 0xc54
-	G0_RAW_ENTRY_LO  = (0 << 12) | 0xc58
-	G0_RAW_ENTRY_HI  = (0 << 12) | 0xc5c
-	G3_MMCFG_BASE    = (3 << 12) | 0x010
-	G3_HT_NODEID     = (3 << 12) | 0x024
-	G3_SELECT_COUNTER = (3 << 12) | 0xf78
-	G3_COMPARE_AND_MASK_OF_COUNTER_0 = (3 << 12) | 0xfa0
-	G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS = (3 << 12) | 0xfc0
-	G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS = (3 << 12) | 0xfc4
+	G0_NODE_IDS                                = 0x0008
+	G0_RAW_CONTROL                             = 0x0c50
+	G0_RAW_INDEX                               = 0x0c54
+	G0_RAW_ENTRY_LO                            = 0x0c58
+	G0_RAW_ENTRY_HI                            = 0x0c5c
+	G3_MMCFG_BASE                              = 0x3010
+	G3_HT_NODEID                               = 0x3024
+	G3_SELECT_COUNTER                          = 0x3f78
+	G3_COMPARE_AND_MASK_OF_COUNTER_0           = 0x3fa0
+	G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS = 0x3fc0
+	G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS = 0x3fc4
+
+	regs = {
+		'SEQ_INFO':            0x0c34,
+		'CDATA_ERROR_STATR':   0x4f0c,
+		'MCTAG_ERROR_STATR':   0x470c,
+		'ERROR_STATUS':        0x3424,
+		'ERROR_NFSTAT':        0x0d20,
+		'ERROR_FSTAT':         0x0d10,
+		'HSSXA_STAT_1':        0x0a30,
+		'HSSXB_STAT_1':        0x0a70,
+		'HSSYA_STAT_1':        0x0ab0,
+		'HSSYB_STAT_1':        0x0af0,
+		'HSSZA_STAT_1':        0x0b30,
+		'HSSZB_STAT_1':        0x0b70,
+		'PHYXA_ELOG':          0x0a08,
+		'PHYXB_ELOG':          0x0a48,
+		'PHYYA_ELOG':          0x0a88,
+		'PHYYB_ELOG':          0x0ac8,
+		'PHYZA_ELOG':          0x0b08,
+		'PHYZB_ELOG':          0x0b48,
+		'PHYXA_LINK_STAT':     0x0a00,
+		'PHYXB_LINK_STAT':     0x0a40,
+		'PHYYA_LINK_STAT':     0x0a80,
+		'PHYYB_LINK_STAT':     0x0ac0,
+		'PHYZA_LINK_STAT':     0x0b00,
+		'PHYZB_LINK_STAT':     0x0b40,
+	}
+
 	events = (
 		{'name': 'scc-reqs', 'counter': 0, 'event': 2, 'mask': 2, 'limit': 100000, 'units': 'req/s'},
 	)
