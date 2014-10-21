@@ -1,282 +1,10 @@
 #!/usr/bin/python
-# NumaConnect diagnostics r27
+# NumaConnect diagnostics r28
 
-import mmap, time, os, sys, struct, optparse, ctypes, random, subprocess
+import os, time, optparse, random
+from nclib import Platform, Numachip, en
 
-def bswap(val):
-	s = struct.pack('>L', val)
-	return struct.unpack('<L', s)[0]
-
-def en(val, bit):
-	if (val >> bit) & 1:
-		return '+'
-	return '-'
-
-class Processor: # r17
-	MCFG_BASE = 0xc0010058
-
-	def __init__(self):
-		# catch failure and attempt msr module load
-		try:
-			self.fd = os.open('/dev/cpu/0/msr', os.O_RDWR)
-		except OSError as e:
-			if e.errno != 2:
-				raise
-
-			subprocess.call(('modprobe', 'msr'))
-			self.fd = os.open('/dev/cpu/0/msr', os.O_RDWR)
-
-	def rdmsr(self, msr):
-		os.lseek(self.fd, msr, os.SEEK_SET)
-		return struct.unpack('=Q', os.read(self.fd, 8))[0]
-
-	def wrmsr(self, msr, val):
-		os.lseek(self.fd, msr, os.SEEK_SET)
-		os.write(self.fd, struct.pack('=Q', val))
-
-class Settings(ctypes.Structure): # r18
-	_pack_ = 1
-	_fields_  = (
-		# ACPI fields
-		('acpi_sig',        ctypes.c_char * 4),
-		('acpi_len',        ctypes.c_uint),
-		('acpi_rev',        ctypes.c_ubyte),
-		('acpi_checksum',   ctypes.c_ubyte),
-		('acpi_oemid',      ctypes.c_char * 6),
-		('acpi_oemtableid', ctypes.c_char * 8),
-		('acpi_oemrev',     ctypes.c_uint),
-		('acpi_creatorid',  ctypes.c_char * 4),
-		('acpi_creatorrev', ctypes.c_uint),
-
-		# fixed fields
-		('numachip_rev',    ctypes.c_ubyte, 4),
-		('size_x',          ctypes.c_ubyte, 4),
-		('size_y',          ctypes.c_ubyte, 4),
-		('size_z',          ctypes.c_ubyte, 4),
-		('northbridges',    ctypes.c_uint, 3),
-		('neigh_ht',        ctypes.c_uint, 3),
-		('neigh_link',      ctypes.c_uint, 2),
-		('symmetric',       ctypes.c_uint, 1),
-		('renumbering',     ctypes.c_uint, 1),
-		('remote_io',       ctypes.c_uint, 1),
-		('observer',        ctypes.c_uint, 1),
-		('cores',           ctypes.c_uint, 8),
-		# warning: alignment occurs at type boundaries
-	)
-
-	def __init__(self):
-		try:
-			with open('/sys/firmware/acpi/tables/OEMN', 'rb') as f:
-				f.readinto(self)
-			assert self.acpi_len >= 36 + 5
-			self.standalone = False
-		except IOError as e:
-			if e.errno != 2:
-				raise
-
-			self.size_x = 2
-			self.size_y = 0
-			self.size_z = 0
-			self.standalone = True
-#			self.northbridges = 1 # FIXME
-
-		if options.verbose:
-			print 'ACPI: sig=%s len=%d rev=%d check=%d oemid=%s oemtableid=%s oemrev=%x creatorid=%s creatorrev=%d' % (self.acpi_sig[0:3], self.acpi_len, self.acpi_rev, self.acpi_checksum, self.acpi_oemid[0:5], self.acpi_oemtableid[0:7], self.acpi_oemrev, self.acpi_creatorid[0:3], self.acpi_creatorrev)
-			print 'data: numachip_rev=%d size=%d,%d,%d northbridges=%d neigh_ht=%d neigh_link=%d symmetric=%d renumbering=%d' % (self.numachip_rev, self.size_x, self.size_y, self.size_z, self.northbridges, self.neigh_ht, self.neigh_link, self.symmetric, self.renumbering)
-
-class Numachip: # r18
-	G0_NODE_IDS      = (0 << 12) | 0x008
-	G0_RAW_CONTROL   = (0 << 12) | 0xc50
-	G0_RAW_INDEX     = (0 << 12) | 0xc54
-	G0_RAW_ENTRY_LO  = (0 << 12) | 0xc58
-	G0_RAW_ENTRY_HI  = (0 << 12) | 0xc5c
-	G3_MMCFG_BASE    = (3 << 12) | 0x010
-	G3_HT_NODEID     = (3 << 12) | 0x024
-	G3_SELECT_COUNTER = (3 << 12) | 0xf78
-	G3_COMPARE_AND_MASK_OF_COUNTER_0 = (3 << 12) | 0xfa0
-	G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS = (3 << 12) | 0xfc0
-	delay_poll = 1E-6 # 1us
-	max_tries = 400
-
-	class NumachipException(Exception):
-		pass
-
-	class HTErrorException(NumachipException):
-		pass
-
-	class AddressDecodeException(NumachipException):
-		pass
-
-	class TimeoutException(NumachipException):
-		pass
-
-	class BlockedException(NumachipException):
-		pass
-
-	def csr_read(self, reg):
-		val = struct.unpack('>L', self.lcsr[reg:reg + 4])[0]
-		if options.verbose > 1:
-			print 'csr_read  %03x = %08x' % (reg, val)
-		return val
-
-	def csr_write(self, reg, val):
-		if options.verbose > 1:
-			print 'csr_write %03x = %08x' % (reg, val)
-		self.lcsr[reg:reg + 4] = struct.pack('>L', val)
-
-	def __init__(self, standalone):
-		self.standalone = standalone
-		p = Processor()
-		mcfg_base = p.rdmsr(p.MCFG_BASE) & ~0x3f
-
-		fd = os.open('/dev/mem', os.O_RDWR)
-		if not self.standalone:
-			self.lcsr = mmap.mmap(fd, 0x6000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, 0x3ffffff08000)
-		self.mcfg = mmap.mmap(fd, 256 << 20, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, mcfg_base)
-		os.close(fd)
-
-		if not self.standalone:
-			self.own = self.csr_read(self.G0_NODE_IDS) >> 16
-			# ensure raw engine is in ready state
-			self.csr_write(self.G0_RAW_CONTROL, 1 << 12)
-
-	def __del__(self):
-		# skip if not initialised
-		if not hasattr(self, 'f'):
-			return
-
-		self.lcsr.close()
-		self.mcfg.close()
-
-	def raw_entry_read(self, index):
-		self.csr_write(self.G0_RAW_INDEX, index)
-		lo = self.csr_read(self.G0_RAW_ENTRY_LO)
-		hi = self.csr_read(self.G0_RAW_ENTRY_HI)
-		return (lo << 32) | hi
-
-	def raw_entry_write(self, index, entry):
-		self.csr_write(self.G0_RAW_INDEX, index)
-		self.csr_write(self.G0_RAW_ENTRY_LO, entry >> 32)
-		self.csr_write(self.G0_RAW_ENTRY_HI, entry & 0xffffffff)
-
-	def raw_write(self, sci, addr, val):
-		cmd = (addr & 0xc) | 0x13 # writesb
-
-		tries1 = 0
-		while True:
-			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
-			self.raw_entry_write(1, (0x1f << 48) | addr)
-			self.raw_entry_write(2, (val << 32) | val)
-			self.raw_entry_write(3, (val << 32) | val)
-			self.csr_write(self.G0_RAW_CONTROL, 1 << 2) # start
-
-			tries2 = 0
-			while True:
-				time.sleep(self.delay_poll)
-				ctrl = self.csr_read(self.G0_RAW_CONTROL)
-				if (ctrl & 0xc00) == 0: # finished
-					break
-
-				tries2 += 1
-				if tries2 > self.max_tries:
-					# reset so ready for next time
-					self.csr_write(self.G0_RAW_CONTROL, 1 << 12) # reset
-					raise self.TimeoutException()
-
-			# check response length
-			rlen = ((ctrl >> 5) & 0xf)
-			if rlen != 2:
-				print 'warning: write response length %d unexpected' % rlen
-				tries1 += 1
-				continue
-
-			val = (self.raw_entry_read(1) >> 44) & 0xf
-			if val == 0:
-				# RESP_NORMAL; write successful
-				break
-
-			# should only receive a 'conflict' response
-			if val != 4: # RESP_CONFLICT
-				raise Exception('write response status %d received' % val)
-
-			tries1 += 1
-			if tries1 > self.max_tries:
-				raise self.BlockedException()
-
-	def raw_read(self, sci, addr):
-		cmd = (addr & 0xc) | 0x3 # readsb
-
-		tries1 = 0
-		while True:
-			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
-			self.raw_entry_write(1, (0x1f << 48) | addr)
-			self.csr_write(self.G0_RAW_CONTROL, 1 << 1) # start
-
-			tries2 = 0
-			while True:
-				time.sleep(self.delay_poll)
-				ctrl = self.csr_read(self.G0_RAW_CONTROL)
-				if (ctrl & 0xc00) == 0: # finished
-					break
-
-				tries2 += 1
-				sys.stdout.flush()
-				if tries2 > self.max_tries:
-					# reset so ready for next time
-					self.csr_write(self.G0_RAW_CONTROL, 1 << 12) # reset
-					raise self.TimeoutException()
-
-			# check response length
-			length = (ctrl >> 5) & 0xf
-			if length == 4:
-				# got data
-				break
-			assert length == 2
-			# 'conflict' response is expected
-			val = (self.raw_entry_read(1) >> 44) & 0xf
-
-			if val in (6, 7): # RESP_TYPE (HT Error or NXA bit set), RESP_ADDRESS (address decode error or NXA)
-				raise self.HTErrorException()
-
-			if val != 4: # RESP_CONFLICT
-				raise Exception('read response status %d received' % val)
-
-			tries1 += 1
-			if tries1 > self.max_tries:
-				raise self.BlockedException()
-
-		index = addr & 0xc
-		if index == 0x0:
-			val = self.raw_entry_read(2) >> 32
-		elif index == 0x4:
-			val = self.raw_entry_read(2) & 0xffffffff
-		elif index == 0x8:
-			val = self.raw_entry_read(3) >> 32
-		elif index == 0xc:
-			val = self.raw_entry_read(3) & 0xffffffff
-
-		return val
-
-	def csr_raw_read(self, sci, reg):
-		return self.raw_read(sci, (0xfffff << 28) | (reg & 0x7ffc))
-
-	def mmcfg_raw_read(self, sci, bus, dev, func, reg):
-		if sci == 0xfff0 or sci == self.own:
-			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
-			return struct.unpack('=L', self.mcfg[addr:addr + 4])[0]
-
-		val = self.raw_read(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (func << 12) | reg)
-		return bswap(val)
-
-	def mmcfg_raw_write(self, sci, bus, dev, func, reg, val):
-		if sci == 0xfff0 or sci == self.own:
-			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
-			self.mcfg[addr:addr + 4] = struct.pack('=L', val)
-			return
-
-		self.raw_write(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (func << 12) | reg, bswap(val))
-
-class Platform:
+class Interface:
 	def write(self, bus, dev, fun, reg, val):
 		self.numachip.mmcfg_raw_write(self.sci, bus, dev, fun, reg, val)
 
@@ -427,7 +155,7 @@ class Platform:
 		val = (val & ~(0x3f << 14)) | (1 << 16) | (link << 14)
 		self.write(0, 0x18 + nb, 3, 0x44, val)
 
-class Cluster:
+class Nodes:
 	colours = {
 		'default':  '\033[0m',
 		'warning':  '\033[33m', # yellow
@@ -488,29 +216,29 @@ class Cluster:
 
 		return count
 
-	def __init__(self):
-		self.settings = Settings()
-		self.numachip = Numachip(self.settings.standalone)
+	def __init__(self, platform):
+		self.numachip = Numachip(platform)
+		self.settings = platform.oemn
 		self.last_colour = 0
 
 		# no NumaConnect
 		if self.settings.standalone:
 			self.settings.northbridges = self.northbridges()
-			self.platforms = [Platform(0xfff0, self.numachip, self.settings),]
+			self.interfaces = [Interface(0xfff0, self.numachip, self.settings),]
 			return
 
 		if options.local:
-			self.platforms = [Platform(self.numachip.own, self.numachip, self.settings),]
+			self.interfaces = [Interface(self.numachip.own, self.numachip, self.settings),]
 			return
 
 		# cluster
-		self.platforms = []
+		self.interfaces = []
 
 		for z in range(max(self.settings.size_z, 1)):
 			for y in range(max(self.settings.size_y, 1)):
 				for x in range(max(self.settings.size_x, 1)):
-					platform = Platform(x | y << 4 | z << 8, self.numachip, self.settings)
-					self.platforms.append(platform)
+					interface = Interface(x | y << 4 | z << 8, self.numachip, self.settings)
+					self.interfaces.append(interface)
 
 	def colour(self, name):
 		if self.last_colour == name:
@@ -527,17 +255,17 @@ class Cluster:
 
 	def status(self):
 		print '%20s' % time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-		for platform in self.platforms:
-			print '     %03X' % platform.sci,
+		for interface in self.interfaces:
+			print '     %03X' % interface.sci,
 		print
 
 		if not self.settings.standalone:
 			for name, fn, reg, mask, ideal in self.ncregs:
 				print '%20s' % name,
 
-				for platform in self.platforms:
+				for interface in self.interfaces:
 					try:
-						val = platform.numachip.csr_raw_read(platform.sci, (fn << 12) | reg)
+						val = interface.numachip.csr_raw_read(interface.sci, (fn << 12) | reg)
 						self.interpret(val, mask, ideal)
 					except Numachip.TimeoutException:
 						print ' TIMEOUT',
@@ -548,13 +276,13 @@ class Cluster:
 		if not options.lean:
 			for name, fn, reg, mask, ideal in self.nbregs:
 				# account for highest number of HD IDs
-				limit = max([len(platform.northbridge_ids) for platform in self.platforms])
+				limit = max([len(interface.northbridge_ids) for interface in self.interfaces])
 				for nb in range(limit):
 					print '%16s NB%d' % (name, nb),
 
-					for platform in self.platforms:
+					for interface in self.interfaces:
 						try:
-							val = platform.read(0, 0x18 + platform.northbridge_ids[nb], fn, reg)
+							val = interface.read(0, 0x18 + interface.northbridge_ids[nb], fn, reg)
 							self.interpret(val, mask, ideal)
 						except Numachip.TimeoutException:
 							print ' TIMEOUT',
@@ -567,35 +295,35 @@ class Cluster:
 					print
 
 			if self.settings.remote_io:
-				for platform in self.platforms:
-					platform.walk_pci()
+				for interface in self.interfaces:
+					interface.walk_pci()
 			else:
 				# assume SCI000 is the master for now
-				self.platforms[0].walk_pci()
+				self.interfaces[0].walk_pci()
 
 	def disable_syncflood(self):
 		print 'disabling sync flood generation...',
-		for platform in self.platforms:
-			platform.disable_syncflood()
+		for interface in self.interfaces:
+			interface.disable_syncflood()
 
 		print 'done'
 
 	def correctable(self):
 		print 'enabling correctable error reporting...',
-		for platform in self.platforms:
-			platform.correctable()
+		for interface in self.interfaces:
+			interface.correctable()
 
 		print 'done'
 
 	def inject_dram(self, count):
 		print 'injecting %d correctable DRAM errors...' % count,
 		for _ in range(count):
-			if options.platform != -1:
-				platform = self.platforms[options.platform]
+			if options.interface != -1:
+				interface = self.interfaces[options.interface]
 			else:
-				platform = random.choice(self.platforms)
+				interface = random.choice(self.interfaces)
 
-			platform.inject_dram()
+			interface.inject_dram()
 
 			if options.rate:
 				time.sleep(1. / options.rate)
@@ -605,12 +333,12 @@ class Cluster:
 	def inject_link(self, count):
 		print 'injecting %d link errors...' % count,
 		for _ in range(count):
-			if options.platform != -1:
-				platform = self.platforms[options.platform]
+			if options.interface != -1:
+				interface = self.interfaces[options.interface]
 			else:
-				platform = random.choice(self.platforms)
+				interface = random.choice(self.interfaces)
 
-			platform.inject_link()
+			interface.inject_link()
 
 			if options.rate:
 				time.sleep(1. / options.rate)
@@ -627,7 +355,7 @@ parser = optparse.OptionParser()
 parser.add_option('--rate', dest='rate', type='int', default=100, help='rate of error injection in errors per second (0 = no delays; default 100)')
 parser.add_option('--report-correctable', dest='correctable', action='store_true', default=False, help='report correctable errors')
 parser.add_option('--disable-syncflood', dest='syncflood', action='store_true', default=False, help='disable syncflood generation')
-parser.add_option('--platform', dest='platform', type='int', default=-1, help='platform to inject errors into (-1 = all)')
+parser.add_option('--interface', dest='interface', type='int', default=-1, help='interface to inject errors into (-1 = all)')
 parser.add_option('--northbridges=', dest='northbridges', type='string', default=-1, help='comma separated list of northbridges to inject errors into (-1 = all)')
 parser.add_option('--inject-dram', dest='inject_dram', type='int', default=0, help='inject DRAM errors')
 parser.add_option('--bits', dest='bits', type='int', default=1, help='bits to corrupt per word (default 1)')
@@ -638,23 +366,25 @@ parser.add_option('--lean', dest='lean', action='store_true', default=False, hel
 parser.add_option('--local', dest='local', action='store_true', default=False, help='check local registers only')
 
 options, args = parser.parse_args()
+verbose = options.verbose
 
 random.seed(42)
 
-c = Cluster()
+p = Platform()
+n = Nodes(p)
 
 if options.syncflood:
-	c.disable_syncflood()
+	n.disable_syncflood()
 
 if options.correctable:
-	c.correctable()
+	n.correctable()
 
 try:
 	if options.inject_dram:
-		c.inject_dram(options.inject_dram)
+		n.inject_dram(options.inject_dram)
 
 	if options.inject_link:
-		c.inject_link(options.inject_link)
+		n.inject_link(options.inject_link)
 except KeyboardInterrupt:
 	print 'stopping'
 
@@ -663,8 +393,7 @@ if options.monitor:
 
 	while True:
 		print '\033[;f'
-		c.status()
+		n.status()
 		time.sleep(4)
 else:
-	c.status()
-
+	n.status()

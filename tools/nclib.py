@@ -1,6 +1,8 @@
+# r2
+
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
-verbose = 1
+verbose = 0
 
 class Platform:
 	class OEMN(ctypes.Structure):
@@ -28,6 +30,8 @@ class Platform:
 			('symmetric',       ctypes.c_uint, 1),
 			('renumbering',     ctypes.c_uint, 1),
 			('remote_io',       ctypes.c_uint, 1),
+			('observer',        ctypes.c_uint, 1),
+			('cores',           ctypes.c_uint, 8),
 			# warning: alignment occurs at type boundaries
 		)
 
@@ -35,13 +39,34 @@ class Platform:
 			try:
 				with open('/sys/firmware/acpi/tables/OEMN', 'rb') as f:
 					f.readinto(self)
-				assert self.acpi_len >= 52
+				assert self.acpi_len >= 41
+				self.standalone = False
 			except IOError as e:
 				if e.errno != 2:
 					raise
 				self.size_x = 2
-				self.size_y = 4
+				self.size_y = 0
 				self.size_z = 0
+				self.standalone = True
+
+			if verbose > 0:
+				print 'ACPI: sig=%s len=%d rev=%d check=%d oemid=%s oemtableid=%s oemrev=%x creatorid=%s creatorrev=%d' % (self.acpi_sig[0:3], self.acpi_len, self.acpi_rev, self.acpi_checksum, self.acpi_oemid[0:5], self.acpi_oemtableid[0:7], self.acpi_oemrev, self.acpi_creatorid[0:3], self.acpi_creatorrev)
+				print 'data: numachip_rev=%d size=%d,%d,%d northbridges=%d neigh_ht=%d neigh_link=%d symmetric=%d renumbering=%d' % (self.numachip_rev, self.size_x, self.size_y, self.size_z, self.northbridges, self.neigh_ht, self.neigh_link, self.symmetric, self.renumbering)
+
+	class PCI:
+		def __init__(self, processor):
+			mcfg_base = processor.rdmsr(processor.MCFG_BASE) & ~0x3f
+			fd = os.open('/dev/mem', os.O_RDWR)
+			self.mcfg = mmap.mmap(fd, 256 << 20, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, mcfg_base)
+			os.close(fd)
+
+		def conf_readl(self, bus, dev, fn, reg):
+			addr = (bus << 20) | (dev << 15) | (fn << 12) | reg
+			return struct.unpack('=L', self.mcfg[addr:addr + 4])[0]
+
+		def conf_writel(self, bus, dev, fn, reg, val):
+			addr = (bus << 20) | (dev << 15) | (fn << 12) | reg
+			self.mcfg[addr:addr + 4] = struct.pack('=L', val)
 
 	class Processor:
 		MCFG_BASE = 0xc0010058
@@ -59,31 +84,11 @@ class Platform:
 
 		def rdmsr(self, msr):
 			os.lseek(self.fd, msr, os.SEEK_SET)
-			try:
-				return struct.unpack('=Q', os.read(self.fd, 8))[0]
-			except OSError as e:
-				if e.errno != 5: # Input/Output error
-					raise
-				raise SystemExit('MSR 0x%08x not support on this architecture' % msr)
+			return struct.unpack('=Q', os.read(self.fd, 8))[0]
 
 		def wrmsr(self, msr, val):
 			os.lseek(self.fd, msr, os.SEEK_SET)
 			os.write(self.fd, struct.pack('=Q', val))
-
-	class PCI:
-		def __init__(self, processor):
-			mcfg_base = processor.rdmsr(processor.MCFG_BASE) & ~0x3f
-			fd = os.open('/dev/mem', os.O_RDWR)
-			self.mcfg = mmap.mmap(fd, 256 << 20, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, mcfg_base)
-			os.close(fd)
-
-		def conf_readl(self, bus, dev, fn, reg):
-			addr = (bus << 20) | (dev << 15) | (fn << 12) | reg
-			return struct.unpack('=L', self.mcfg[addr:addr + 4])[0]
-
-		def conf_writel(self, bus, dev, fn, reg, val):
-			addr = (bus << 20) | (dev << 15) | (fn << 12) | reg
-			self.mcfg[addr:addr + 4] = struct.pack('=L', val)
 
 	def __init__(self):
 		if os.getuid():
@@ -117,7 +122,7 @@ class Cpuset:
 			start = server * self.corespercpu * self.nodesperserver
 			end = (server + 1) * self.corespercpu * self.nodesperserver - 1
 #			print 'start=%d end=%d' % (start, end)
-			f.write('%d-%d' % (start, end))				
+			f.write('%d-%d' % (start, end))
 
 		with open(path + '/mems', 'w') as f:
 			start = server * self.nodesperserver
@@ -135,21 +140,22 @@ class Cpuset:
 			os.rmdir('/dev/cpuset/' + elem)
 
 class Numachip:
-	H2S_CSR_G0_NODE_IDS       = (0 << 12) | 0x008
-	H2S_CSR_G0_RAW_CONTROL    = (0 << 12) | 0xc50
-	H2S_CSR_G0_RAW_INDEX      = (0 << 12) | 0xc54
-	H2S_CSR_G0_RAW_ENTRY_LO   = (0 << 12) | 0xc58
-	H2S_CSR_G0_RAW_ENTRY_HI   = (0 << 12) | 0xc5c
-	H2S_CSR_G3_MMCFG_BASE     = (3 << 12) | 0x010
-	H2S_CSR_G3_COMPARE_AND_MASK_OF_COUNTER_0 = (3 << 12) | 0xfa0
-	H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS = (3 << 12) | 0xfc0
-	H2S_CSR_G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS = (3 << 12) | 0xfc4
-
+	G0_NODE_IDS      = (0 << 12) | 0x008
+	G0_RAW_CONTROL   = (0 << 12) | 0xc50
+	G0_RAW_INDEX     = (0 << 12) | 0xc54
+	G0_RAW_ENTRY_LO  = (0 << 12) | 0xc58
+	G0_RAW_ENTRY_HI  = (0 << 12) | 0xc5c
+	G3_MMCFG_BASE    = (3 << 12) | 0x010
+	G3_HT_NODEID     = (3 << 12) | 0x024
+	G3_SELECT_COUNTER = (3 << 12) | 0xf78
+	G3_COMPARE_AND_MASK_OF_COUNTER_0 = (3 << 12) | 0xfa0
+	G3_PERFORMANCE_COUNTER_0_40_BIT_UPPER_BITS = (3 << 12) | 0xfc0
+	G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS = (3 << 12) | 0xfc4
 	events = (
 		{'name': 'scc-reqs', 'counter': 0, 'event': 2, 'mask': 2, 'limit': 100000, 'units': 'req/s'},
 	)
-	delay_poll = 1E-3 # 1ms
-	max_tries = 1000
+	delay_poll = 1E-6 # 1us
+	max_tries = 400
 
 	class NumachipException(Exception):
 		pass
@@ -166,87 +172,82 @@ class Numachip:
 	class BlockedException(NumachipException):
 		pass
 
-	def csr_read(self, sci, reg):
-		addr = (sci << 16) | (1 << 15) | reg # non-geo access
+	def csr_read(self, reg):
+		val = struct.unpack('>L', self.lcsr[reg:reg + 4])[0]
 		if verbose > 1:
-			print 'csr_read(0x%x) =' % (0x3fff00000000 | addr),
-			sys.stdout.flush()
-
-		try:
-			val = struct.unpack('>L', self.csr[addr:addr + 4])[0]
-		except struct.error:
-			raise SystemExit('fatal attempted access outside CSR space at offset 0x%x' % reg)
-
-		if verbose > 1:
-			print '0x%08x' % val
+			print 'csr_read  %03x = %08x' % (reg, val)
 		return val
 
-	def csr_write(self, sci, reg, val):
-		addr = (sci << 16) | (1 << 15) | reg # non-geo access
+	def csr_write(self, reg, val):
 		if verbose > 1:
-			print 'csr_write(0x%x) = 0x%08x' % (0x3fff00000000 | addr, val)
-		self.csr[addr:addr + 4] = struct.pack('>L', val)
+			print 'csr_write %03x = %08x' % (reg, val)
+		self.lcsr[reg:reg + 4] = struct.pack('>L', val)
 
 	def __init__(self, platform):
-		self.platform = platform
+		self.standalone = platform.oemn.standalone
+		p = platform.processor
+		mcfg_base = p.rdmsr(p.MCFG_BASE) & ~0x3f
 
 		fd = os.open('/dev/mem', os.O_RDWR)
-		self.csr = mmap.mmap(fd, 0x100000000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, 0x3fff00000000)
+		if not self.standalone:
+			self.lcsr = mmap.mmap(fd, 0x6000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, 0x3ffffff08000)
+		self.mcfg = mmap.mmap(fd, 256 << 20, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE, 0, mcfg_base)
 		os.close(fd)
 
-		self.own = self.csr_read(0xfff0, self.H2S_CSR_G0_NODE_IDS) >> 16
-
-		# ensure raw engine is in ready state
-		self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_CONTROL, 1 << 12)
+		if not self.standalone:
+			self.own = self.csr_read(self.G0_NODE_IDS) >> 16
+			# ensure raw engine is in ready state
+			self.csr_write(self.G0_RAW_CONTROL, 1 << 12)
 
 	def __del__(self):
 		# skip if not initialised
 		if not hasattr(self, 'f'):
 			return
 
-		self.csr.close()
+		self.lcsr.close()
+		self.mcfg.close()
 
 	def raw_entry_read(self, index):
-		self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_INDEX, index)
-		lo = self.csr_read(0xfff0, self.H2S_CSR_G0_RAW_ENTRY_LO)
-		hi = self.csr_read(0xfff0, self.H2S_CSR_G0_RAW_ENTRY_HI)
+		self.csr_write(self.G0_RAW_INDEX, index)
+		lo = self.csr_read(self.G0_RAW_ENTRY_LO)
+		hi = self.csr_read(self.G0_RAW_ENTRY_HI)
 		return (lo << 32) | hi
 
-	def raw_entry_write_first(self, entry):
-		self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_INDEX, 1 << 31) # first entry, autoinc
-		self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_ENTRY_LO, entry >> 32)
-		self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_ENTRY_HI, entry & 0xffffffff)
-
-	def raw_entry_write(self, entry):
-		self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_ENTRY_LO, entry >> 32)
-		self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_ENTRY_HI, entry & 0xffffffff)
+	def raw_entry_write(self, index, entry):
+		self.csr_write(self.G0_RAW_INDEX, index)
+		self.csr_write(self.G0_RAW_ENTRY_LO, entry >> 32)
+		self.csr_write(self.G0_RAW_ENTRY_HI, entry & 0xffffffff)
 
 	def raw_write(self, sci, addr, val):
 		cmd = (addr & 0xc) | 0x13 # writesb
 
 		tries1 = 0
 		while True:
-			self.raw_entry_write_first((0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
-			self.raw_entry_write((0x1f << 48) | addr)
-			self.raw_entry_write((val << 32) | val)
-			self.raw_entry_write((val << 32) | val)
-			self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_CONTROL, 1 << 2) # start
+			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
+			self.raw_entry_write(1, (0x1f << 48) | addr)
+			self.raw_entry_write(2, (val << 32) | val)
+			self.raw_entry_write(3, (val << 32) | val)
+			self.csr_write(self.G0_RAW_CONTROL, 1 << 2) # start
 
 			tries2 = 0
 			while True:
 				time.sleep(self.delay_poll)
-				ctrl = self.csr_read(0xfff0, self.H2S_CSR_G0_RAW_CONTROL)
+				ctrl = self.csr_read(self.G0_RAW_CONTROL)
 				if (ctrl & 0xc00) == 0: # finished
 					break
 
 				tries2 += 1
 				if tries2 > self.max_tries:
 					# reset so ready for next time
-					self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_CONTROL, 1 << 12) # reset
+					self.csr_write(self.G0_RAW_CONTROL, 1 << 12) # reset
 					raise self.TimeoutException()
 
 			# check response length
-			assert ((ctrl >> 5) & 0xf) == 2
+			rlen = ((ctrl >> 5) & 0xf)
+			if rlen != 2:
+				print 'warning: write response length %d unexpected' % rlen
+				tries1 += 1
+				continue
 
 			val = (self.raw_entry_read(1) >> 44) & 0xf
 			if val == 0:
@@ -255,7 +256,7 @@ class Numachip:
 
 			# should only receive a 'conflict' response
 			if val != 4: # RESP_CONFLICT
-				raise Exception('write: response status %d received' % val)
+				raise Exception('write response status %d received' % val)
 
 			tries1 += 1
 			if tries1 > self.max_tries:
@@ -266,14 +267,14 @@ class Numachip:
 
 		tries1 = 0
 		while True:
-			self.raw_entry_write_first((0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
-			self.raw_entry_write((0x1f << 48) | addr)
-			self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_CONTROL, 1 << 1) # start
+			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
+			self.raw_entry_write(1, (0x1f << 48) | addr)
+			self.csr_write(self.G0_RAW_CONTROL, 1 << 1) # start
 
 			tries2 = 0
 			while True:
 				time.sleep(self.delay_poll)
-				ctrl = self.csr_read(0xfff0, self.H2S_CSR_G0_RAW_CONTROL)
+				ctrl = self.csr_read(self.G0_RAW_CONTROL)
 				if (ctrl & 0xc00) == 0: # finished
 					break
 
@@ -281,7 +282,7 @@ class Numachip:
 				sys.stdout.flush()
 				if tries2 > self.max_tries:
 					# reset so ready for next time
-					self.csr_write(0xfff0, self.H2S_CSR_G0_RAW_CONTROL, 1 << 12) # reset
+					self.csr_write(self.G0_RAW_CONTROL, 1 << 12) # reset
 					raise self.TimeoutException()
 
 			# check response length
@@ -297,7 +298,7 @@ class Numachip:
 				raise self.HTErrorException()
 
 			if val != 4: # RESP_CONFLICT
-				raise Exception('read: response status %d received' % val)
+				raise Exception('read response status %d received' % val)
 
 			tries1 += 1
 			if tries1 > self.max_tries:
@@ -321,20 +322,27 @@ class Numachip:
 	def csr_raw_write(self, sci, reg, val):
 		self.raw_write(sci, (0xfffff << 28) | (reg & 0x7ffc), val)
 
-	def bswap(self, val):
-		s = struct.pack('>L', val)
-		return struct.unpack('<L', s)[0]
+	def mmcfg_raw_read(self, sci, bus, dev, func, reg):
+		if sci == 0xfff0 or sci == self.own:
+			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
+			return struct.unpack('=L', self.mcfg[addr:addr + 4])[0]
 
-	def mmcfg_raw_read(self, sci, bus, dev, fn, reg):
-		if sci == 0xfff0:
-			return self.platform.pci.readl(bus, dev, fn, reg)
+		val = self.raw_read(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (func << 12) | reg)
+		return bswap(val)
 
-		val = self.raw_read(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (fn << 12) | reg)
-		return self.bswap(val)
+	def mmcfg_raw_write(self, sci, bus, dev, func, reg, val):
+		if sci == 0xfff0 or sci == self.own:
+			addr = (bus << 20) | (dev << 15) | (func << 12) | reg
+			self.mcfg[addr:addr + 4] = struct.pack('=L', val)
+			return
 
-	def mmcfg_raw_write(self, sci, bus, dev, fn, reg, val):
-		if sci == 0xfff0:
-			self.platform.pci.writel(bus, dev, fn, reg, val)
+		self.raw_write(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (func << 12) | reg, bswap(val))
 
-		self.raw_write(sci, (0x3f0000 << 24) | (bus << 20) | (dev << 15) | (fn << 12) | reg, self.bswap(val))
+def bswap(val):
+	s = struct.pack('>L', val)
+	return struct.unpack('<L', s)[0]
 
+def en(val, bit):
+	if (val >> bit) & 1:
+		return '+'
+	return '-'

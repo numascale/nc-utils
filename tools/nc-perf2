@@ -1,8 +1,8 @@
 #!/usr/bin/python
-# NumaConnect performance monitoring r2
+# NumaConnect performance monitoring r3
 
-from lib import Platform, Numachip, Cpuset
-import threading, time, os
+import os, time, threading
+from nclib import Platform, Numachip, Cpuset
 
 class LC3:
 	CONFIG1 = 0x388
@@ -75,7 +75,7 @@ class Node(threading.Thread):
 			assert e.errno == 34 # Numerical result out of range
 			return
 
-		while not quit:
+		while not finished:
 			time.sleep(interval)
 
 			for lc3 in self.lc3s:
@@ -93,7 +93,7 @@ print 'detected %d cores per cpu' % cores
 
 cpuset = Cpuset(platform.oemn.northbridges, cores) # cores per processor
 scis = []
-quit = False
+finished = False
 
 for z in range(max(platform.oemn.size_z, 1)):
 	for y in range(max(platform.oemn.size_y, 1)):
@@ -144,6 +144,6 @@ try:
 			elems.append(' '.join(['%.1f' % lc3.sample() for lc3 in thread.lc3s]))
 		print ' | '.join(elems)
 except KeyboardInterrupt:
-	quit = True
+	finished = True
 	# threads implicitly joined
 
