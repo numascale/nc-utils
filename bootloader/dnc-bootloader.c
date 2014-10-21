@@ -1755,8 +1755,8 @@ void udp_broadcast_state(const void *buf, const size_t len)
 	char *buf_reloc = (char *)pxe_write_param + sizeof(*pxe_write_param);
 
 	pxe_write_param->ip = 0xffffffff;
-	pxe_write_param->src_port = htons(4711);
-	pxe_write_param->dst_port = htons(4711);
+	pxe_write_param->src_port = htons(MSG_PORT);
+	pxe_write_param->dst_port = htons(MSG_PORT);
 	pxe_write_param->buffer.seg = SEG(buf_reloc);
 	pxe_write_param->buffer.offs = OFFS(buf_reloc);
 	pxe_write_param->buffer_size = len;
@@ -1774,15 +1774,15 @@ int udp_read_state(void *buf, const size_t len, uint32_t *ip)
 	assert(pxe_read_param);
 	char *buf_reloc = (char *)pxe_read_param + sizeof(*pxe_read_param);
 
-	pxe_read_param->s_port = htons(4711);
-	pxe_read_param->d_port = htons(4711);
+	pxe_read_param->s_port = htons(MSG_PORT);
+	pxe_read_param->d_port = htons(MSG_PORT);
 	pxe_read_param->buffer.seg = SEG(buf_reloc);
 	pxe_read_param->buffer.offs = OFFS(buf_reloc);
 	pxe_read_param->buffer_size = len;
 	pxeapi_call(PXENV_UDP_READ, (uint8_t *)pxe_read_param);
 
 	if ((pxe_read_param->status == PXENV_STATUS_SUCCESS) &&
-	    (pxe_read_param->s_port == htons(4711))) {
+	    (pxe_read_param->s_port == htons(MSG_PORT))) {
 		memcpy(buf, buf_reloc, pxe_read_param->buffer_size);
 		*ip = pxe_read_param->src_ip;
 		ret = pxe_read_param->buffer_size;

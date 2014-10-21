@@ -95,7 +95,7 @@ int udp_open(void)
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family      = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port        = htons(4711);
+	addr.sin_port        = htons(MSG_PORT);
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == 0)
 		return sock;
@@ -109,7 +109,7 @@ void udp_broadcast_state(int sock, void *buf, int len)
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family      = AF_INET;
 	addr.sin_addr.s_addr = INADDR_BROADCAST;
-	addr.sin_port        = htons(4711);
+	addr.sin_port        = htons(MSG_PORT);
 
 	if (sendto(sock, buf, len, 0,
 	           (struct sockaddr *) &addr, sizeof(addr)) < len) {
@@ -131,7 +131,7 @@ int udp_read_state(int sock, void *buf, int len)
 	if (i > 0) printf("Got UDP packet from %s port %d, len = %d\n",
 		                  inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), i);
 
-	if ((i > 0) && (addr.sin_port == htons(4711)) && (i <= len)) {
+	if ((i > 0) && (addr.sin_port == htons(MSG_PORT)) && (i <= len)) {
 		memcpy(buf, &b, i);
 		return i;
 	}

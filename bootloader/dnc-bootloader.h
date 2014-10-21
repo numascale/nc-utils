@@ -20,6 +20,8 @@
 
 #include "dnc-types.h"
 
+#define MSG_PORT 4711
+
 struct mp_config_table {
 	union {
 		char s[4];

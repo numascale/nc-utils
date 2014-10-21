@@ -193,6 +193,9 @@ dnc-test-route.o: dnc-route.c dnc-access.h
 dnc-test-config.o: dnc-config.c dnc-config.h
 	$(CXX) $(COPT) -c $< -o $@
 
+messages: messages.c
+	$(CXX) $(COPT) $< -o $@
+
 run-tests: test-aml
 	valgrind -q --track-origins=yes ./test-aml
 
