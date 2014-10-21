@@ -3168,7 +3168,7 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 	if (part->builder == info->sci) {
 		printf("Validating fabric");
 
-		for (int iter = 0; !res && iter < (loops / cfg_nodes); iter++) {
+		for (int iter = 0; !res && iter < (loops / (cfg_nodes - 1)); iter++) {
 			for (int i = 1; !res && i < cfg_nodes; i++) {
 				uint16_t node = cfg_nodelist[i].sci;
 				res |= dnc_raw_write_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
@@ -3177,7 +3177,7 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 					res |= dnc_raw_read_csr(node, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, &val);
 			}
 
-			if (iter % 15000 == 0)
+			if (iter % (30000 / cfg_nodes) == 0)
 				printf(".");
 		}
 
