@@ -22,12 +22,15 @@ class Node:
 			self.nbs.append(Northbridge(self.sci, ht))
 
 	def log(self, ht, msg):
+		msgstr = ' '
 		# check for first error for HT
 		if ht not in self.errors:
-			print ' - %03x#%u' % (self.sci, ht),
+			msgstr += '- %03x#%u ' % (self.sci, ht)
 			self.errors.append(ht)
 
-		print msg
+		msgstr += msg
+		print msgstr
+		print >>logf, msgstr
 
 	def ncensure(self, reg, expect):
 		val = numachip.csr_raw_read(self.sci, numachip.regs[reg])
@@ -131,10 +134,13 @@ for z in range(max(platform.oemn.size_z, 1)):
 		for x in range(max(platform.oemn.size_x, 1)):
 			nodes.append(Node(x | y << 4 | z << 8))
 
+logf = open('nc-check.log', 'a')
+
 try:
 	while True:
-	#	print '\033\143'
-		print time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+		timestr = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+		print timestr
+		print >>logf, timestr
 
 		errors = 0
 		for node in nodes:
