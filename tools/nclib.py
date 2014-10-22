@@ -106,7 +106,7 @@ class Cpuset:
 		if not os.path.isdir('/dev/cpuset'):
 			raise SystemExit('need to mount /dev/cpuset')
 
-		self.libc = ctypes.CDLL("libc.so.6")
+		self.libc = ctypes.CDLL('libc.so.6')
 
 	def bind(self, name, server):
 		path = '/dev/cpuset/' + name
@@ -152,6 +152,36 @@ class Northbridge:
 		'LINK 2 RETRIES': 0x0138,
 		'LINK 3 RETRIES': 0x013c,
 	}
+
+	modes = (
+		None, 'CRC error', 'sync error', 'mst abort', 'tgt abort',
+		'GART error', 'RMW error', 'WDT error', 'ECC error', None,
+		'link data error', 'protocol error', 'NB Array error',
+		'DRAM parity error', 'link retry', 'GART table walk data error',
+		None, None, None, None, None, None, None, None, None, None, None, None,
+		'L3 cache data error', 'L3 cache tag error', 'L3 cache LRU error',
+		'probe filter error', 'compute unit data error'
+	 )
+
+	def __init__(self, sci, ht):
+		self.sci = sci
+		self.ht = ht
+
+	def mce(self, status, addr):
+		un = status & (1 << 61)
+		addrv = status & (1 << 58)
+		pcc = status & (1 << 57)
+		if un:
+			desc = 'uncorrected '
+		else:
+			desc = 'corrected '
+		desc += self.modes[(status >> 16) & 0x1f]
+
+		if pcc:
+			desc += ' context-corrupt'
+		if addrv:
+			desc += ' @ 0x%x' % addr
+		return desc
 
 class Numachip:
 	G0_NODE_IDS                                = 0x0008

@@ -13,49 +13,49 @@ class Node:
 
 	def __init__(self, sci):
 		self.sci = sci
-		# count northbridges
-		self.nbs = (numachip.mmcfg_raw_read(sci, 0, 0x18, 0, 0x60) >> 4) & 7
+		# assume NC is top HT
+		self.nc_ht = (numachip.mmcfg_raw_read(sci, 0, 0x18, 0, 0x60) >> 4) & 7
+		self.nbs = []
+
+		# assume NBs below
+		for ht in range(self.nc_ht):
+			self.nbs.append(Northbridge(self.sci, ht))
+
+	def log(self, ht, msg):
+		# check for first error for HT
+		if ht not in self.errors:
+			print ' - %03x#%u' % (self.sci, ht),
+			self.errors.append(ht)
+
+		print msg
 
 	def ncensure(self, reg, expect):
 		val = numachip.csr_raw_read(self.sci, numachip.regs[reg])
 		if val != expect:
-			if self.errors == 0: # print newline for first error
-				print '\n %03x' % self.sci,
+			self.log(self.nc_ht, '%s:%08x' % (reg, val))
 
-			print '%s:%08x' % (reg, val),
-			self.errors += 1
+	def mces(self, ht):
+		statreg = Northbridge.regs['MC STATUS']
+		status = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, statreg & 0xfff)
+		status |= numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, (statreg & 0xfff) + 4) << 32
 
-	def nbensure(self, reg, expect):
-		val = numachip.csr_raw_read(self.sci, numachip.regs[reg])
-		if val != expect:
-			if self.errors == 0: # print newline for first error
-				print '\n %03x' % self.sci,
+#		status = 0xdc4540004d080813
+		if not status & (1 << 63):
+			return
 
-			print '%s:%08x' % (reg, val),
-			self.errors += 1
+		addrreg = Northbridge.regs['MC ADDR']
+		addr = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, addrreg >> 12, addrreg & 0xfff)
+		addr |= numachip.mmcfg_raw_read(self.sci , 0, 0x18 + ht, addrreg >> 12, (addrreg & 0xfff) + 4) << 32
 
-	def mces(self):
-		for nb in range(self.nbs):
-			statreg = Northbridge.regs['MC STATUS']
-			status = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + nb, statreg >> 12, statreg & 0xfff)
-			status |= numachip.mmcfg_raw_read(self.sci, 0, 0x18 + nb, statreg >> 12, (statreg & 0xfff) + 4) << 32
-			if not status:
-				return
-
-			addrreg = Northbridge.regs['MC ADDR']
-			addr = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + nb, addrreg >> 12, addrreg & 0xfff)
-			addr |= numachip.mmcfg_raw_read(self.sci , 0, 0x18 + nb, addrreg >> 12, (addrreg & 0xfff) + 4) << 32
-
-			if self.errors == 0: # print newline for first error
-				print '\n %03x' % self.sci,
-
-			print 'NB%uMCE:%016x,%016x' % (nb, status, addr),
-			self.errors += 1
+#		addr = 0x00000018076cc000
+		self.log(ht, self.nbs[ht].mce(status, addr))
 
 	def check(self):
-		self.errors = 0
+		self.errors = []
 
 		try:
+			ht = self.nc_ht
+
 			self.ncensure('CDATA_ERROR_STATR', 0x00000000)
 			self.ncensure('MCTAG_ERROR_STATR', 0x00000000)
 			self.ncensure('ERROR_STATUS', 0x00000000)
@@ -86,24 +86,19 @@ class Node:
 				self.ncensure('PHYZA_LINK_STAT', 0x00001fff)
 				self.ncensure('PHYZB_LINK_STAT', 0x00001fff)
 
-			if options.lean:
-				return self.errors
+			if not options.lean:
+				for ht in range(self.nc_ht):
+					self.mces(ht)
 
-			self.mces()
 		except Numachip.TimeoutException:
-			if self.errors == 0: # print newline for first error
-				print '\n %03x' % self.sci,
-			print 'timeout',
+			self.log(ht, 'timeout')
+			return
 		except Numachip.HTErrorException:
-			if self.errors == 0: # print newline for first error
-				print '\n %03x' % self.sci,
-			print 'HT error',
+			self.log(ht, 'HT error')
+			return
 		except Numachip.BlockedException:
-			if self.errors == 0: # print newline for first error
-				print '\n %03x' % self.sci,
-			print 'blocked',
-
-		return self.errors
+			self.log(ht, 'blocked')
+			return
 
 ### start
 
@@ -139,15 +134,11 @@ for z in range(max(platform.oemn.size_z, 1)):
 try:
 	while True:
 	#	print '\033\143'
-		print time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+		print time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
 
 		errors = 0
 		for node in nodes:
-			errors += node.check()
-
-		if errors == 0:
-			print 'no errors',
-		print
+			node.check()
 
 		if options.once:
 			break
