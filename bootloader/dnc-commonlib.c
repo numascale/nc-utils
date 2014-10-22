@@ -806,6 +806,7 @@ static void cht_print(int neigh, int link)
 	}
 }
 
+#ifdef UNUSED
 static void optimise_linkbuffers(const ht_t ht, const int link)
 {
 	const int IsocRspData = 0, IsocNpReqData = 0, IsocRspCmd = 0, IsocPReq = 0, IsocNpReqCmd = 1;
@@ -846,7 +847,7 @@ static void optimise_all_linkbuffers(const ht_t max_ht)
 	pmio_writeb(0x8a, val8);
 	printf("done\n");
 }
-
+#endif
 void probefilter_tokens(const ht_t max_ht)
 {
 	/* Reprogram HT link buffering */
@@ -876,6 +877,7 @@ void probefilter_tokens(const ht_t max_ht)
 
 static const int ht_freqs[] = {200, 0, 400, 0, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 0, 0, 2800, 3000, 3200};
 
+#ifdef UNUSED
 static void print_ht_path(const uint32_t val)
 {
 	if (val & 1)
@@ -885,6 +887,7 @@ static void print_ht_path(const uint32_t val)
 		if (val & (1 << i))
 			printf(" L%d.%d", (i - 1) % 4, (i - 1) / 4);
 }
+#endif
 
 struct ht_link {
 	int bandwidth;

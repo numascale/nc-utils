@@ -2364,6 +2364,7 @@ static void enable_cstate6(void)
 	printf("done\n");
 }
 
+#ifdef UNUSED
 static void calibrate_nb_tscs(void)
 {
 	uint32_t t1, t2, adjustment[8];
@@ -2408,6 +2409,7 @@ static void calibrate_nb_tscs(void)
 	}
 	printf("\n");
 }
+#endif
 
 static void unify_all_nodes(void)
 {
@@ -2680,7 +2682,9 @@ static void unify_all_nodes(void)
 	if (pf_cstate6)
 		enable_cstate6();
 
+#ifdef UNUSED
 	calibrate_nb_tscs();
+#endif
 }
 
 static void start_user_os(void)
