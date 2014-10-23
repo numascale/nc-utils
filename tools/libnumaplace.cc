@@ -2,18 +2,25 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <sched.h>
+#include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <pthread.h>
+#include <numa.h>
+#include <numaif.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-#define SHM_NAME "place"
+#define SHM_NAME "numaplace"
 #define MAX_CORES 16384
 #define MAX_NUMA 1024
+#define THP_ALIGN_THRESH (1 << 20)
+#define PTHREAD_STACK_SIZE (8 << 20)
+#define DEBUG 0
 
 // TODO: implement lockless rand()
 
@@ -29,63 +36,71 @@ struct shared_s {
 
 static struct shared_s *shared = NULL;
 static cpu_set_t *allowed = NULL;
-static unsigned cores = 0;
+static cpu_set_t allocated;
+static uint16_t cores = 0;
 static size_t masksize = 0;
+
+static void *malloc_spatial(const uint16_t core, const size_t size)
+{
+	void *addr;
+	assert(!posix_memalign(&addr, 2 << 20, size));
+
+	int node = numa_node_of_cpu(core);
+	assert(node != -1);
+	unsigned long nodemask = 1 << node;
+
+	assert(!mbind(addr, size, MPOL_BIND, &nodemask, sizeof(nodemask) * 8, MPOL_MF_MOVE));
+	return addr;
+}
 
 static void populate(void)
 {
+#if DEBUG
 	fprintf(stderr, "populate\n");
+#endif
 }
 
 // returns core number
-static unsigned allocate_core(void)
+static uint16_t allocate_core(void)
 {
-	unsigned core = ~0U;
+	uint16_t core = MAX_CORES;
 
 	pthread_mutex_lock(&shared->lock);
 
 	for (unsigned n = 0; n < cores; n++) {
 		if (!CPU_ISSET_S(n, masksize, &shared->allocated)) {
 			CPU_SET_S(n, masksize, &shared->allocated);
+			CPU_SET_S(n, masksize, &allocated);
 			core = n;
 			break;
 		}
 	}
 
 	pthread_mutex_unlock(&shared->lock);
-	if (core == ~0U)
-		error("No available cores");
+	if (core == MAX_CORES)
+		error("All cores already allocated");
 
 	return core;
 }
-
-static void allocate(void)
+#if DEBUG
+// called with lock held
+static void state(void)
 {
-	const unsigned core = allocate_core();
-	fprintf(stderr, "core=%u\n", core);
-
-	cpu_set_t cpuset;
-	CPU_ZERO(&cpuset);
-	CPU_SET(core, &cpuset);
-	int rc = pthread_setaffinity_np(sizeof(cpuset), &cpuset);
+	fprintf(stderr, "cores used:");
+	for (unsigned n = 0; n < cores; n++)
+		if (CPU_ISSET_S(n, masksize, &shared->allocated))
+			fprintf(stderr, " %u", n);
+	fprintf(stderr, "\n");
 }
-
-static void release_core(const unsigned core)
-{
-	pthread_mutex_lock(&shared->lock);
-	CPU_CLR_S(core, masksize, &shared->allocated);
-	pthread_mutex_unlock(&shared->lock);
-}
-
-static void release(void)
-{
-}
-
+#endif
 __attribute__((constructor)) void init(void)
 {
+#if DEBUG
 	fprintf(stderr, "init\n");
+#endif
+	cores = sysconf(_SC_NPROCESSORS_CONF) - 1;
+	// FIXME: parse /proc/cmdline to check isolcpus param
 
-	cores = 1728; //sysconf(_SC_NPROCESSORS_CONF);
 	allowed = CPU_ALLOC(cores);
 	sysassertf(allowed, "CPU_ALLOC failed");
 	masksize = CPU_ALLOC_SIZE(cores);
@@ -94,7 +109,6 @@ __attribute__((constructor)) void init(void)
 	sysassertf(shared_fd != -1, "shm_open failed");
 
 	sysassertf(ftruncate(shared_fd, sizeof(struct shared_s)) == 0, "ftruncate failed");
-	// FIXME: HUGETLB?
 	shared = (struct shared_s *)mmap(NULL, sizeof(struct shared_s), PROT_READ | PROT_WRITE,
 	  MAP_SHARED | MAP_POPULATE, shared_fd, 0);
 	sysassertf(shared != MAP_FAILED, "mmap failed");
@@ -103,26 +117,40 @@ __attribute__((constructor)) void init(void)
 	pthread_mutex_lock(&shared->lock);
 	if (shared->attached == 0)
 		populate();
-
-	shared->attached += 1;
+#if DEBUG
+	else
+		state();
+#endif
+	shared->attached++;
 	pthread_mutex_unlock(&shared->lock);
+
+	// use batch scheduling priority to minimise preemption
+	const struct sched_param params = {0};
+	sysassertf(sched_setscheduler(0, SCHED_BATCH, &params) == 0, "sched_setscheduler failed");
 }
 
 __attribute__((destructor)) void fini(void)
 {
+#if DEBUG
 	fprintf(stderr, "fini\n");
-
+#endif
 	pthread_mutex_lock(&shared->lock);
-	shared->attached -= 1;
+
+	// cleanup allocated cores
+	for (unsigned n = 0; n < cores; n++)
+		if (CPU_ISSET_S(n, masksize, &allocated))
+			CPU_CLR_S(n, masksize, &shared->allocated);
+
+	shared->attached--;
 	pthread_mutex_unlock(&shared->lock);
 
-	sysassertf(munmap(shared, sizeof(struct shared_s)) == 0, "munmap failed");
+	sysassertf(!munmap(shared, sizeof(struct shared_s)), "munmap failed");
 	sysassertf(shm_unlink(SHM_NAME) == 0, "shm_unlink failed");
 
 	CPU_FREE(allowed);
 }
 
-int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+int pthread_create(pthread_t *thread, const pthread_attr_t *,
   void *(*start_routine) (void *), void *arg)
 {
 	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *,
@@ -132,15 +160,50 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		assertf(xpthread_create, "dlsym failed");
 	}
 
+#if DEBUG
 	fprintf(stderr, "pthread_create(thread=%p attr=%p start_routine=%p arg=%p\n",
 		thread, attr, start_routine, arg);
+#endif
 
-	allocate();
-//	pthread_cleanup_push(release, core);
-//	pthread_cleanup_pop();
-	return xpthread_create(thread, attr, start_routine, arg);
+	const uint16_t core = allocate_core();
+
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(core, &cpuset);
+
+	pthread_attr_t attr2;
+	assert(!pthread_attr_init(&attr2));
+	assert(!pthread_attr_setaffinity_np(&attr2, sizeof(cpuset), &cpuset));
+
+	void *stack = malloc_spatial(core, PTHREAD_STACK_SIZE);
+	assert(!pthread_attr_setstack(&attr2, stack, PTHREAD_STACK_SIZE));
+
+	int ret = xpthread_create(thread, &attr2, start_routine, arg);
+
+	assert(!pthread_attr_destroy(&attr2));
+	return ret;
 }
 
+void *malloc(size_t size)
+{
+	static void *(*xmalloc)(size_t);
+	if (!xmalloc) {
+		xmalloc = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
+		assertf(xmalloc, "dlsym failed");
+	}
+#if DEBUG
+	fprintf(stderr, "malloc(size=%lu)\n", size);
+#endif
+	if (size >= THP_ALIGN_THRESH) {
+		void *ret;
+		assert(!posix_memalign(&ret, 2 << 20, size));
+		return ret;
+	}
+
+	return xmalloc(size);
+}
+
+#ifdef DEV
 void pthread_exit(void *retval)
 {
 	static void (*xpthread_exit)(void *);
@@ -149,7 +212,9 @@ void pthread_exit(void *retval)
 		assertf(xpthread_exit, "dlsym failed");
 	}
 
+#if DEBUG
 	fprintf(stderr, "pthread_exit(retval=%p)\n", retval);
+#endif
 	xpthread_exit(retval);
 }
 
@@ -162,7 +227,9 @@ pid_t fork(void)
 	}
 
 	allocate();
+#if DEBUG
 	fprintf(stderr, "fork()\n");
+#endif
 	return xfork();
 }
 
@@ -175,19 +242,21 @@ pid_t vfork(void)
 	}
 
 	allocate();
+#if DEBUG
 	fprintf(stderr, "vfork()\n");
+#endif
 	return xvfork();
 }
 
-#ifdef DEV
 int clone(int (*fn)(void *), void *child_stack, int flags, void *arg, ...)
 {
 	allocate();
+#if DEBUG
 	fprintf(stderr, "clone(fn=%p child_stack=%p flags=%d arg=%p)\n",
 		fn, child_stack, flags, arg);
+#endif
 	return xclone(fn, child_stack, flags, arg, ...);
 }
-#endif
 
 void *memcpy(void *dest, const void *src, size_t n)
 {
@@ -196,8 +265,9 @@ void *memcpy(void *dest, const void *src, size_t n)
 		xmemcpy = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memcpy");
 		assertf(xmemcpy, "dlsym failed");
 	}
-
+#if DEBUG
 	fprintf(stderr, "memcpy(dest=%p src=%p size=%lu)\n", dest, src, n);
+#endif
 	return xmemcpy(dest, src, n);
 }
 
@@ -208,8 +278,9 @@ void *memmove(void *dest, const void *src, size_t n)
 		xmemmove = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memmove");
 		assertf(xmemmove, "dlsym failed");
 	}
-
+#if DEBUG
 	fprintf(stderr, "memmove(dest=%p src=%p size=%lu)\n", dest, src, n);
+#endif
 	return xmemmove(dest, src, n);
 }
 
@@ -220,31 +291,20 @@ void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 		xmmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
 		assertf(xmmap, "dlsym failed");
 	}
-
+#if DEBUG
 	fprintf(stderr, "mmap(addr=%p length=%lu prot=%d flags=%d fd=%d offset=%ld)\n",
 		addr, length, prot, flags, fd, offset);
-	void *map = xmmap(addr, length, prot | MAP_HUGETLB, flags, fd, offset);
+#endif
+	void *map = xmmap(addr, length, prot, flags | MAP_HUGETLB, fd, offset);
 	// MAP_NONBLOCK | MAP_POPULATE
 	if (map) {
 		int rc = madvise(map, length, MADV_HUGEPAGE);
 		if (rc != 0)
-			fprintf(stderr, "madvise(map=%p length=%lu MADV_HUGEPAGE) failed with %d\n",
+			fprintf(stderr, "madvise(map=%p length=%zu MADV_HUGEPAGE) failed with %d\n",
 			  map, length, errno);
 	}
 
 	return map;
-}
-
-void *malloc(size_t size)
-{
-	static void *(*xmalloc)(size_t);
-	if (!xmalloc) {
-		xmalloc = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
-		assertf(xmalloc, "dlsym failed");
-	}
-
-	fprintf(stderr, "malloc(size=%lu)\n", size);
-	return xmalloc(size);
 }
 
 void *calloc(size_t nmemb, size_t size)
@@ -255,6 +315,9 @@ void *calloc(size_t nmemb, size_t size)
 		assertf(xcalloc, "dlsym failed");
 	}
 
+#if DEBUG
 	fprintf(stderr, "calloc(nmemb=%lu size=%lu)\n", nmemb, size);
+#endif
 	return xcalloc(nmemb, size);
 }
+#endif

@@ -1,4 +1,4 @@
-TARGETS	:= place libplace.so place-test
+TARGETS	:= numaplace libnumaplace.so numaplace-test
 CFLAGS	:= -Wall -Wextra -Wshadow -O0 -g
 
 .PHONY: all
@@ -11,11 +11,11 @@ clean:
 check:
 	cppcheck --enable=all *.c *.cc *.h
 
-place: place.cc utils.h
+numaplace: numaplace.cc utils.h
 	$(CXX) $(CFLAGS) -o $@ $<
 
-place-test: place-test.c utils.h
+numaplace-test: numaplace-test.c utils.h
 	$(CXX) $(CFLAGS) -o $@ $< -lpthread
 
-libplace.so: libplace.cc utils.h
-	$(CXX) $(CFLAGS) -fPIC -shared -o $@ $< -lrt -ldl
+libnumaplace.so: libnumaplace.cc utils.h
+	$(CXX) $(CFLAGS) -fPIC -shared -o $@ $< -lrt -ldl -lnuma
