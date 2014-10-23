@@ -1,5 +1,5 @@
 TARGETS	:= numaplace libnumaplace.so numaplace-test
-CFLAGS	:= -Wall -Wextra -Wshadow -O0 -g
+CFLAGS	:= -Wall -Wextra -Wshadow -O3 -g
 
 .PHONY: all
 all: $(TARGETS)

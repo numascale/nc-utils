@@ -9,15 +9,18 @@
 int main(int argc, char *argv[])
 {
 	if (argc < 2)
-		error("Usage: numaplace [-v] cmd [args..]");
+		error("Usage: numaplace [-v|-vv] cmd [args..]");
 
-	unsigned n = 1;
-	if (!strcmp(argv[1], "-v")) {
-		char flags[16];
-		snprintf(flags, sizeof(flags), "%d", PLACE_VERBOSE);
-		sysassertf(setenv("NUMAPLACE_FLAGS", flags, 1) == 0, "setenv failed");
-		n++;
-	}
+	unsigned n = 1, flagval = 0;
+	if (!strcmp(argv[1], "-v"))
+		flagval = FLAGS_VERBOSE;
+	else if (!strcmp(argv[1], "-vv"))
+		flagval = FLAGS_DEBUG;
+
+	char flags[16];
+	snprintf(flags, sizeof(flags), "%u", flagval);
+	sysassertf(setenv("NUMAPLACE_FLAGS", flags, 1) == 0, "setenv failed");
+	n++;
 
 	char path[PATH_MAX];
 	sysassertf(realpath(argv[0], path) != NULL, "realpath failed");
@@ -33,7 +36,7 @@ int main(int argc, char *argv[])
 	assertf(access(path2, R_OK) == 0, "%s nonexisting or unreadable", path2);
 	sysassertf(setenv("LD_PRELOAD", path2, 1) == 0, "setenv failed");
 
-	long cores = sysconf(_SC_NPROCESSORS_CONF) - 1;
+	long cores = sysconf(_SC_NPROCESSORS_CONF);
 	// FIXME: parse /proc/cmdline to check isolcpus param
 
 	char num[32];

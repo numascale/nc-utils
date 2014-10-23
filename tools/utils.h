@@ -54,4 +54,5 @@
   exit(1); \
 } while (0)
 
-#define PLACE_VERBOSE 1
+#define FLAGS_VERBOSE 1
+#define FLAGS_DEBUG 3
