@@ -123,7 +123,7 @@ struct acpi_mcfg_allocation {
 #define STR_DW_H(a) (uint32_t)(a[0] + (a[1]<<8) + (a[2]<<16) + (a[3]<<24))
 #define STR_DW_N(a) (uint32_t)((a[0]<<24) + (a[1]<<16) + (a[2]<<8) + a[3])
 #define ACPI_REV 2 /* 64-bit pointers; ACPI 2-5 */
-#define TABLE_ALIGNMENT 64
+#define TABLE_ALIGNMENT 16
 
 typedef struct acpi_sdt *acpi_sdt_p;
 
