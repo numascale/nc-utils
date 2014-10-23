@@ -44,14 +44,14 @@
   fprintf(stderr, "Error: "); \
   fprintf(stderr, format, ## args); \
   fprintf(stderr, "\n"); \
-  _exit(1); \
+  exit(1); \
 } while (0)
 
 #define syserror(format, args...) do { \
   fprintf(stderr, "Error: "); \
   fprintf(stderr, format, ## args); \
   fprintf(stderr, " with %s\n", strerror(errno)); \
-  _exit(1); \
+  exit(1); \
 } while (0)
 
 #define PLACE_VERBOSE 1
