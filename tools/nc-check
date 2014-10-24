@@ -37,6 +37,12 @@ class Node:
 		if val != expect:
 			self.log(self.nc_ht, '%s:%08x' % (reg, val))
 
+	def nbensure(self, ht, reg, expect):
+		reg = Northbridge.regs[reg]
+		val = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, reg >> 12, reg & 0xfff)
+		if val != expect:
+			self.log(ht, '%s:%08x' % (reg, val))
+
 	def mces(self, ht):
 		statreg = Northbridge.regs['MC STATUS']
 		status = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, statreg & 0xfff)
@@ -92,6 +98,7 @@ class Node:
 			if not options.lean:
 				for ht in range(self.nc_ht):
 					self.mces(ht)
+					self.nbensure(ht, 'DRAM HOT', 0x00000000)
 
 		except Numachip.TimeoutException:
 			self.log(ht, 'timeout')

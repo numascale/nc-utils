@@ -204,6 +204,7 @@ class Nodes:
 		('LINK 1 RETRIES',      0, 0x134, 0xffffff3e, 0x00000000),
 		('LINK 2 RETRIES',      0, 0x138, 0xffffff3e, 0x00000000),
 		('LINK 3 RETRIES',      0, 0x13c, 0xffffff3e, 0x00000000),
+		('DRAM HOT',            2, 0xac,  0xffffffff, 0x00000000),
 	)
 
 	def northbridges(self):

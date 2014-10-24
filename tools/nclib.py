@@ -141,16 +141,17 @@ class Cpuset:
 
 class Northbridge:
 	regs = {
-		'MC STATUS':      0x3048,
-		'MC ADDR':        0x3050,
-		'DRAM ERRORS':    0x3160,
-		'LINK ERRORS':    0x3168,
-		'ONLINE SPARE':   0x30b0,
-		'L3C ERRORS':     0x3170,
 		'LINK 0 RETRIES': 0x0130,
 		'LINK 1 RETRIES': 0x0134,
 		'LINK 2 RETRIES': 0x0138,
 		'LINK 3 RETRIES': 0x013c,
+		'DRAM HOT':       0x02ac,
+		'MC STATUS':      0x3048,
+		'MC ADDR':        0x3050,
+		'ONLINE SPARE':   0x30b0,
+		'L3C ERRORS':     0x3170,
+		'DRAM ERRORS':    0x3160,
+		'LINK ERRORS':    0x3168,
 	}
 
 	modes = (
