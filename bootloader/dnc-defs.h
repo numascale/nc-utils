@@ -19,7 +19,7 @@
 #define __DNC_DEFS 1
 
 #define E820_MAX_LEN 640
-#define SCC_ATT_INDEX_RANGE 2   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
+#define SCC_ATT_INDEX_RANGE 3   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
 #define SCC_ATT_GRAN            ((0x1000000ULL << (SCC_ATT_INDEX_RANGE * 4)) >> DRAM_MAP_SHIFT)
 
 #define NC_ATT_IO       (0 << 4)
