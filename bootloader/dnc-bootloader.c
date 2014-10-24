@@ -50,7 +50,7 @@ extern "C" {
 
 #define MTRR_TYPE(x) (x) == 0 ? "uncacheable" : (x) == 1 ? "write-combining" : (x) == 4 ? "write-through" : (x) == 5 ? "write-protect" : (x) == 6 ? "write-back" : "unknown"
 
-#define TABLE_AREA_SIZE		256*1024
+#define TABLE_AREA_SIZE		1024*1024
 #define MIN_NODE_MEM		256*1024*1024
 
 bool dnc_asic_mode;
