@@ -3520,52 +3520,68 @@ bool selftest_loopback(void)
 	bool status = false;
 	uint32_t val;
 
-	if (train_fabric(local_info) != RSP_PHY_TRAINED)
+	if (!_is_pic_present(dnc_card_type)) {
+		error("Oscillator can't be set");
 		return true;
+	}
 
-	if (validate_rings(local_info) != RSP_RINGS_OK)
-		return true;
+	for (uint32_t osc = 0; osc < 3; osc++) {
+		printf("Performing link loopback testing with oscillator setting %d.\n", osc);
 
-	dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, local_info->sci << 16);
+		local_info->osc = osc;
+		adjust_oscillator(dnc_card_type, osc);
 
-	/* Make sure all necessary links are up and working */
-	if (_check_dim(0) || _check_dim(1) || _check_dim(2))
-		return true;
-	
-	printf("Performing link loopback testing.\n");
-
-	for (int lc = 1; lc <= 6; lc++) {
-		printf("Testing %s...", _get_linkname(lc - 1));
-		memset(shadow_ltbl, 0, sizeof(shadow_ltbl));
-		memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
-		memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
-		memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
-		_add_route(local_info->sci, 0, lc);
-		_add_route(local_info->sci, lc, 0);
-
-		save_scc_routing(shadow_rtbll[0], shadow_rtblm[0], shadow_rtblh[0]);
-
-		if (dnc_init_lc3(local_info->sci, lc-1, dnc_asic_mode ? 16 : 1,
-				 shadow_rtbll[lc], shadow_rtblm[lc],
-				 shadow_rtblh[lc], shadow_ltbl[lc]))
+		if (train_fabric(local_info) != RSP_PHY_TRAINED)
 			return true;
 
-		uint64_t errors = 0;
-		for (int loop = 0; loop < 200000; loop++) {
-			errors += dnc_raw_write_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
+		if (validate_rings(local_info) != RSP_RINGS_OK)
+			return true;
 
-			for (int i = 0; !errors && i < 16; i++)
-				errors += dnc_raw_read_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, &val);
+		dnc_write_csr(0xfff0, H2S_CSR_G0_NODE_IDS, local_info->sci << 16);
 
-			errors += dnc_check_lc3(lc - 1);
+		/* Make sure all necessary links are up and working */
+		if (_check_dim(0) || _check_dim(1) || _check_dim(2))
+			return true;
+
+		for (int lc = 1; lc <= 6; lc++) {
+			printf("Testing %s...", _get_linkname(lc - 1));
+			memset(shadow_ltbl, 0, sizeof(shadow_ltbl));
+			memset(shadow_rtbll, 0, sizeof(shadow_rtbll));
+			memset(shadow_rtblm, 0, sizeof(shadow_rtblm));
+			memset(shadow_rtblh, 0, sizeof(shadow_rtblh));
+			_add_route(local_info->sci, 0, lc);
+			_add_route(local_info->sci, lc, 0);
+
+			save_scc_routing(shadow_rtbll[0], shadow_rtblm[0], shadow_rtblh[0]);
+
+			if (dnc_init_lc3(local_info->sci, lc-1, dnc_asic_mode ? 16 : 1,
+					 shadow_rtbll[lc], shadow_rtblm[lc],
+					 shadow_rtblh[lc], shadow_ltbl[lc]))
+				return true;
+
+			uint64_t errors = 0;
+			for (int loop = 0; loop < 200000; loop++) {
+				errors += dnc_raw_write_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
+
+				for (int i = 0; !errors && i < 16; i++)
+					errors += dnc_raw_read_csr(local_info->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, &val);
+
+				errors += dnc_check_lc3(lc - 1);
+				if (errors) break;
+			}
+
+			/* Check both PHYs for errors */
+			errors += dnc_check_phy(lc < 3 ? 0 /*XA*/ : lc < 5 ? 2 /*YA*/ : 4 /*ZA*/);
+			errors += dnc_check_phy(lc < 3 ? 1 /*XB*/ : lc < 5 ? 3 /*YB*/ : 5 /*ZB*/);
+
+			if (errors)
+				printf("failed with %llu errors\n", errors);
+			else
+				printf("success\n");
+
+			status |= (errors);
 		}
-
-		if (errors)
-			printf("failed with %llu errors\n", errors);
-		else
-			printf("success\n");
 	}
 
 	return status;
 }
-
