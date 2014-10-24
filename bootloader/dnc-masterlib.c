@@ -287,6 +287,20 @@ void tally_local_node(void)
 				}
 			}
 		}
+
+		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+		   See erratum 505 */
+		if (family >= 0x15)
+			cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
+
+		/* Disable DRAM scrubbers */
+		nodes[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
+		if (nodes[0].ht[i].scrub & 0x1f) {
+			cht_write_conf(i, FUNC3_MISC, 0x58, nodes[0].ht[i].scrub & ~0x1f);
+			/* Allow outstanding scrub requests to finish */
+			udelay(40);
+		}
 	}
 
 	adjust_dram_maps(&nodes[0]);
@@ -302,20 +316,6 @@ void tally_local_node(void)
 			fatal("Master server has mixed processor models with CPUIDs %08x and %08x", cpuid_bsp, cpuid);
 
 		nodes[0].ht[i].pdom = ht_pdom_count++;
-
-		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-		   See erratum 505 */
-		if (family >= 0x15)
-			cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
-
-		/* Disable DRAM scrubbers */
-		nodes[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
-		if (nodes[0].ht[i].scrub & 0x1f) {
-			cht_write_conf(i, FUNC3_MISC, 0x58, nodes[0].ht[i].scrub & ~0x1f);
-			/* Allow outstanding scrub requests to finish */
-			udelay(40);
-		}
 
 		/* Assume at least one core */
 		nodes[0].ht[i].cores = 1;
@@ -443,6 +443,16 @@ static bool tally_remote_node(const uint16_t sci)
 
 			node->node_mem += node->ht[i].size;
 		}
+
+		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+		   See erratum 505 */
+		if (family >= 0x15)
+			dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
+
+		node->ht[i].scrub = dnc_read_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58);
+		if (node->ht[i].scrub & 0x1f)
+			dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58, node->ht[i].scrub & ~0x1f);
 	}
 
 	adjust_dram_maps(node);
@@ -456,16 +466,6 @@ static bool tally_remote_node(const uint16_t sci)
 			fatal("SCI%03x has CPUID %08x differing from master server CPUID %08x", sci, cpuid_bsp, cpuid);
 
 		node->ht[i].pdom = ht_pdom_count++;
-
-		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
-		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
-		   See erratum 505 */
-		if (family >= 0x15)
-			dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
-
-		node->ht[i].scrub = dnc_read_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58);
-		if (node->ht[i].scrub & 0x1f)
-			dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58, node->ht[i].scrub & ~0x1f);
 
 		while ((cur_apic < 256) && !(apic_used[cur_apic >> 4] & (1 << (cur_apic & 0xf))))
 			cur_apic++;
