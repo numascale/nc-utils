@@ -2878,6 +2878,7 @@ static int nc_start(void)
 
 	if (test_manufacture) {
 		make_testmanufacture_config();
+		broadcast_error(0, "Starting Manufacture test");
 	} else if (singleton) {
 		make_singleton_config();
 	} else {
@@ -2929,13 +2930,18 @@ static int nc_start(void)
 	adjust_oscillator(dnc_card_type, local_info->osc);
 
 	if (test_manufacture) {
-
+		broadcast_error(0, "Manufacture test Init Caches");
 		dnc_init_caches();
 
-		if (selftest_loopback())
+		broadcast_error(0, "Manufacture test Loopback");
+		if (selftest_loopback()) {
 			msg_failed();
-		else
+			broadcast_error(0, "Manufacture test FAILED");
+		}
+		else {
 			msg_passed();
+			broadcast_error(0, "Manufacture test PASSED");
+		}
 
 		while (1)
 			cpu_relax();
