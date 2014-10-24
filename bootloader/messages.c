@@ -52,6 +52,6 @@ int main(void)
 		  msg->uuid, msg->tid, states[msg->state]);
 
 		if (msg->state == RSP_ERROR)
-			printf(" -> %s", str);
+			printf(" -> %s\n", str);
 	}
 }
