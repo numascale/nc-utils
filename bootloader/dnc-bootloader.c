@@ -225,7 +225,7 @@ static void e820_dump(void)
 		if (i) {
 			assert(e820[i].base >= (last_base + last_length));
 			assert(e820[i].length);
-			assert(e820[i].length < (16ULL << 40));
+			assert(e820[i].length < (64ULL << 40));
 			last_base = e820[i].base;
 			last_length = e820[i].length;
 		}
