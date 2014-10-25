@@ -154,34 +154,106 @@ class Northbridge:
 		'LINK ERRORS':    0x3168,
 	}
 
+	timeout = ('no-timeout', 'timeout')
+	cache = ('reserved', 'L1', 'L2', 'L3/HT')
+	transtype = ('instruction', 'data', 'generic')
+	memtranstype = ('generic', 'read', 'write', 'data read', 'data write', 'instruction fetch', 'prefetch', 'evict', 'probe')
+	participation = ('requestor', 'responder', 'observer', 'generic')
+	memio = ('memory', 'reserved', 'IO', 'generic')
+
 	modes = (
 		None, 'CRC error', 'sync error', 'mst abort', 'tgt abort',
 		'GART error', 'RMW error', 'WDT error', 'ECC error', None,
 		'link data error', 'protocol error', 'NB Array error',
 		'DRAM parity error', 'link retry', 'GART table walk data error',
-		None, None, None, None, None, None, None, None, None, None, None, None,
-		'L3 cache data error', 'L3 cache tag error', 'L3 cache LRU error',
-		'probe filter error', 'compute unit data error'
+		None, None, None, None, None, None, None, None, None,
+		'compute unit data error', None, None, 'L3 cache data error',
+		'L3 cache tag error', 'L3 cache LRU error', 'probe filter error',
 	 )
+
+	proterrtype = {
+		int('00000', 2): 'Link: SRQ Read Response without matching request',
+		int('00001', 2): 'Link: Probe Response without matching request',
+		int('00010', 2): 'Link: TgtDone without matching request',
+		int('00011', 2): 'Link: TgtStart without matching request',
+		int('00100', 3): 'Link: Command buffer overflow',
+		int('00101', 2): 'Link: Data buffer overflow',
+		int('00110', 2): 'Link: Link retry packet count acknowledge overflow',
+		int('00111', 2): 'Link: Data command in the middle of a data transfer',
+		int('01000', 2): 'Link: Link address extension command followed by a packet other than a command with address',
+		int('01001', 2): 'Link: A specific coherent-only packet from a CPU was issued to an IO link',
+		int('01010', 2): 'Link: A command with invalid encoding was received',
+		int('01011', 2): 'Link: Link CTL deassertion occurred when a data phase was not pending',
+		int('10000', 2): 'L3: Request gets multiple hits in L3',
+		int('10001', 2): 'L3: Probe access gets multiple hits in L3',
+		int('10010', 2): 'L3: Request queue overflow',
+		int('10011', 2): 'L3: WrVicBlk hit incompatible L3 state',
+		int('10100', 2): 'L3: ClVicBlk hit incompatible L3 state',
+		int('11000', 2): 'PF: Directed probe miss',
+		int('11001', 2): 'PF: Directed probe clean hit',
+		int('11010', 2): 'PF: VicBlkM hit inconsistent directory state "O|S"',
+		int('11011', 2): 'PF: VicBlkE hit inconsistent directory state "O|S"',
+		int('11101', 2): 'PF: L3 lookup response without a matching PFQ entry',
+		int('11110', 2): 'PF: L3 update data read request without a matching PFQ entry',
+	}
 
 	def __init__(self, sci, ht):
 		self.sci = sci
 		self.ht = ht
 
 	def mce(self, status, addr):
-		un = status & (1 << 61)
-		addrv = status & (1 << 58)
-		pcc = status & (1 << 57)
-		if un:
-			desc = 'uncorrected '
-		else:
-			desc = 'corrected '
-		desc += self.modes[(status >> 16) & 0x1f]
+		desc = self.modes[(status >> 16) & 0x1f]
+		if desc == 'protocol error':
+			desc += ' "' + self.proterrtype[(addr >> 1) & 0x1f] + '"\n  '
 
-		if pcc:
-			desc += ' context-corrupt'
-		if addrv:
-			desc += ' @ 0x%x' % addr
+		if status & 0xfff0 == 0x0010:
+			desc += ' level=GART-TLB'
+			desc += ' ' + self.transtype[(status >> 2) & 3]
+			desc += ' ' + self.cache[status & 3]
+		elif status & 0xff00 == 0x0100:
+			desc += ' level=cache'
+			desc += ' memtranstype=' + self.memtranstype[(status >> 4) & 15]
+			desc += ' transtype=' + self.transtype[(status >> 2) & 3]
+			desc += ' cache=' + self.cache[status & 3]
+		elif status & 0xf800 == 0x0800:
+			desc += ' level=bus'
+			desc += ' participation=' + self.participation[(status >> 10) & 3]
+			desc += ' ' + self.timeout[(status >> 8) & 1]
+			desc += ' memtranstype=' + self.memtranstype[(status >> 4) & 15]
+			desc += ' mem/io=' + self.memio[(status >> 2) & 3]
+			desc += ' cache=' + self.cache[status & 3]
+		else:
+			desc += 'unexpected ErrorCode 0x%x' % status & 0xfff
+
+		if status & (1 << 61):
+			desc += ' uncorrected'
+		else:
+			desc += ' corrected'
+
+		if status & (1 << 62):
+			desc += ' overflow'
+
+		if status & (1 << 59):
+			desc += ' thresholded'
+
+		desc += ' link='
+		for l in range(4):
+			if status & (1 << (36 + l)):
+				desc += str(l)
+		desc += '.' + str((status >> 41) & 1)
+
+		if status & (1 << 58):
+			desc += ' addr=0x%x' % addr
+
+		if status & (1 << 57):
+			desc += ' corrupted'
+
+		if status & (1 << 56):
+			desc += 'core=%u' % (status >> 32) & 0xf
+
+		if status & (1 << 40):
+			desc += ' scrub'
+
 		return desc
 
 class Numachip:
