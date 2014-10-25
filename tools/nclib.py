@@ -299,8 +299,8 @@ class Numachip:
 	events = (
 		{'name': 'scc-reqs', 'counter': 0, 'event': 2, 'mask': 2, 'limit': 100000, 'units': 'req/s'},
 	)
-	delay_poll = 1E-6 # 1us
-	max_tries = 400
+	delay_poll = 2E-6 # 1us
+	max_tries = 5000
 
 	class NumachipException(Exception):
 		pass
