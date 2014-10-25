@@ -1777,8 +1777,8 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 
 		val = cht_read_conf(node, FUNC0_HT, 0x68);
 		val |= (1 << 25) | (1 << 18) | (1 << 17);
-		if (relaxed_io & 2)
-			val &= ~(3 << 21); /* Disable downstream NP request limit */
+		/* Disable downstream NP request limit "to avoid DMA Deadlock" (SR5690 Programming Requirements p5-5) */
+		val &= ~(3 << 21);
 		cht_write_conf(node, FUNC0_HT, 0x68, val);
 
 		/* Enable 128MB-granularity on extended MMIO maps */
