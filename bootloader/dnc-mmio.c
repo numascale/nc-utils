@@ -451,8 +451,6 @@ public:
 		printf("SCI%03x %02x:%02x.%x bridge to %d configured for IO 0x%x:0x%llx, MMIO32 0x%x:0x%llx, MMIO64 0x%llx:0x%llx\n",
 			node->sci, pbus, pdev, pfn, sec, io_start, io_cur - 1, mmio32_start, map32->next - 1, mmio64_start, mmio64_cur - 1);
 
-		uint32_t val;
-
 		/* Only re-allocate IO and 32-bit BARs on slaves */
 		if (node->sci) {
 			if (io_bars.used == 0 || io_cur == io_start ||
@@ -460,7 +458,7 @@ public:
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, 0);
 			} else {
-				val = ((io_cur - 1) & 0xf000) | ((io_start  >> 8) & 0xf0);
+				uint32_t val = ((io_cur - 1) & 0xf000) | ((io_start  >> 8) & 0xf0);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, val);
 				val = (io_start >> 16) | ((io_cur - 1) & ~0xffff);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x30, val);
@@ -470,7 +468,7 @@ public:
 			  (pbus == 0 && pdev == 0 && pfn == 0))
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, 0x0000fffff);
 			else {
-				val = (mmio32_start >> 16) | ((map32->next - 1) & 0xffff0000);
+				uint32_t val = (mmio32_start >> 16) | ((map32->next - 1) & 0xffff0000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x20, val);
 			}
 
@@ -480,7 +478,7 @@ public:
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, 0x00000000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, 0x00000000);
 			} else {
-				val = (mmio64_start >> 16) | ((mmio64_cur - 1) & 0xffff0000);
+				uint32_t val = (mmio64_start >> 16) | ((mmio64_cur - 1) & 0xffff0000);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x24, val);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x28, mmio64_start >> 32);
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x2c, (mmio64_cur - 1) >> 32);

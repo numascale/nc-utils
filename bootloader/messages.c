@@ -36,7 +36,7 @@ int main(void)
 		assert(val != -1);
 
 		if (val < (int)sizeof(struct state_bcast)) {
-			fprintf(stderr, "short message received of %u bytes\n", val);
+			fprintf(stderr, "short message received of %d bytes\n", val);
 			continue;
 		}
 

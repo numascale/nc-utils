@@ -72,7 +72,6 @@ int family = 0;
 uint32_t tsc_mhz = 2200;
 uint32_t max_mem_per_server;
 static int dimmtest = 1;
-static bool test_fabric = 1;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 1;
 bool workaround_locks = 0;
@@ -85,6 +84,7 @@ int relaxed_io = 0;
 int pf_prefetch = 1;
 int router = 0;
 uint64_t memlimit = 0;
+static bool fastboot = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2079,8 +2079,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"verbose",         &parse_int,    &verbose},
 		{"remote-io",       &parse_int,    &remote_io},
 		{"boot-wait",       &parse_bool,   &boot_wait},
-		{"dimmtest",	    &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
-		{"test.fabric",     &parse_bool,   &test_fabric},
+		{"dimmtest",        &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
 		{"workaround.rtt",  &parse_bool,   &workaround_rtt},  /* Prevent failure when HT Rtt calibration fails */
 		{"workaround.locks", &parse_bool,  &workaround_locks},/* Prevent failure when SMI triggers are locked */
@@ -2091,6 +2090,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"pf.prefetch",     &parse_int,    &pf_prefetch},     /* DRAM prefetch */
 		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
 		{"memlimit",        &parse_int64,  &memlimit},        /* Per-NUMA node memory limit */
+		{"fastboot",        &parse_bool,   &fastboot},
 	};
 
 	int errors = 0;
@@ -2143,6 +2143,9 @@ void parse_cmdline(const int argc, const char *argv[])
 		warning("Tracing is exclusive of C-state 6; disabling C-state 6");
 		pf_cstate6 = 0;
 	}
+
+	if (fastboot)
+		dimmtest = 0;
 }
 
 static void perform_selftest(int asic_mode, char p_type[16])
@@ -2281,7 +2284,7 @@ again:
 		}
 
 		/* Run test for 5s/200msec */
-		udelay(test_fabric ? 5000000 : 200000);
+		udelay(fastboot ? 500000 : 5000000);
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
@@ -2315,7 +2318,7 @@ again:
 		}
 
 		/* Run test for 5s/200msec */
-		udelay(test_fabric ? 5000000 : 200000);
+		udelay(fastboot ? 500000 : 5000000);
 
 		for (int phy = 0; phy < 6; phy++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G0_HSSXA_STAT_1 + 0x40 * phy);
@@ -3165,7 +3168,7 @@ static enum node_state validate_fabric(const struct node_info *info, const struc
 	if (dnc_check_fabric(info))
 		return RSP_FABRIC_NOT_OK;
 
-	const int loops = test_fabric ? 400000 : 40000;
+	const int loops = fastboot ? 20000 : 400000;
 
 	/* Builder is checking that it can access all other nodes via CSR */
 	if (part->builder == info->sci) {

@@ -29,13 +29,12 @@
 static int lfb_to_count(uint32_t val)
 {
 	unsigned long cMSB = 14;
-	unsigned long lsb;
 	unsigned long seq = 0;
 	unsigned long start = 1 << cMSB;
 	unsigned long lfsr = start;
 
 	while (lfsr != val) {
-		lsb = lfsr;
+		unsigned long lsb = lfsr;
 		lfsr >>= 1;
 		lfsr |= ((lsb ^ lfsr) & 1) << cMSB;
 		seq++;
@@ -105,7 +104,6 @@ void system_activity(void)
 		{0x000, 0x0, ""}
 	};
 	const struct perf_ev *ev;
-	uint64_t val;
 	printf("Profiling quiescent system activity...\n");
 
 	for (ev = events; ev->event; ev++) {
@@ -116,7 +114,7 @@ void system_activity(void)
 		          (ev->event & 0xff) | (ev->unitmask << 8) | (3 << 16) |
 		          (1 << 22) | ((ev->event & 0xf00ULL) << (32 - 8)));
 		udelay(2000);
-		val = rdmsr(MSR_PERF_CTR0);
+		uint64_t val = rdmsr(MSR_PERF_CTR0);
 		printf("- %lld %s events\n", val, ev->name);
 		wrmsr(MSR_PERF_CTL0, 0); /* Disable counter */
 	}
