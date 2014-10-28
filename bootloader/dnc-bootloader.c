@@ -234,7 +234,7 @@ static void e820_dump(void)
 
 static void install_e820_handler(void)
 {
-	uint32_t *int_vecs = 0x0;
+	volatile uint32_t *int_vecs = 0x0;
 	struct e820entry *e820;
 	volatile uint16_t *bda_tom_lower = (uint16_t *)0x413;
 	uint32_t tom_lower = *bda_tom_lower << 10;
