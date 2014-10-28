@@ -187,6 +187,11 @@ static bool parse_json(json_t *root)
 			cfg_nodelist[i].sync_only = val;
 		else
 			cfg_nodelist[i].sync_only = 0;
+
+		/* Validate SCI ID */
+		for (unsigned axis = 0; axis < 3; axis++)
+			if (!cfg_fabric.size[axis] && (cfg_nodelist[i].sci >> (axis * 4)) & 0xf)
+				fatal("sciid %03x should be 0 in unconfigures axes", cfg_nodelist[i].sci);
 	}
 
 	if (name_matching)
