@@ -70,8 +70,8 @@ int main(int argc, char **argv)
 
 			out = router0(sci, i);
 			printf("router 0 %03x routing to %03x via %s\n", sci, cfg_nodelist[i].sci, names[out]);
-			out = router1(sci, i);
-			printf("router 1 %03x routing to %03x via %s\n", sci, cfg_nodelist[i].sci, names[out]);
+//			out = router1(sci, i);
+//			printf("router 1 %03x routing to %03x via %s\n", sci, cfg_nodelist[i].sci, names[out]);
 		}
 
 	}

@@ -34,6 +34,34 @@
 #define SCI_ID_REGNR(id) (((id) >> 4) & 0xf)
 #define SCI_ID_BITNR(id) (((id) >> 0) & 0xf)
 
+/* NB: Only ROUTING_PAIR can be used on longer rings due to the multiple CAM hit scenario */
+#define ROUTING_PAIR 1
+
+static inline uint8_t _load_balance(uint8_t dim, sci_t src, sci_t dst)
+{
+	sci_t src2, dst2;
+
+	src2 = src >> (dim * 4);
+	dst2 = dst >> (dim * 4);
+#if defined(ROUTING_PAIR)
+	/* Pair-wise load-balancing */
+	return ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf) +
+		(src & 0xf) + ((src >> 4) & 0xf) + ((src >> 8) & 0xf)) & 1;
+#elif defined(ROUTING_2QOS)
+	/* 2QOS routing (dateline) */
+	return ((dst2 < src2) ? 1 : 0);
+#elif defined(ROUTING_SHORT)
+	/* Shortest path routing */
+	int len = cfg_fabric.size[dim];
+	int forward = ((len - src2) + dst2) % len;
+	int backward = ((src2 + (len - dst2)) + len) % len;
+	return ((forward == backward) ? (src2 & 1) :
+		(backward < forward) ? 1 : 0);
+#else
+	return 0;
+#endif
+}
+
 uint8_t router0(sci_t src, const int node)
 {
 	sci_t dst = cfg_nodelist[node].sci;
@@ -48,8 +76,7 @@ uint8_t router0(sci_t src, const int node)
 	}
 
 	int out = dim * 2 + 1;
-	out += ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf) +
-		(src & 0xf) + ((src >> 4) & 0xf) + ((src >> 8) & 0xf)) & 1; /* Pair-wise load-balancing */
+	out += _load_balance(dim, src, dst);
 	return out;
 }
 
@@ -302,4 +329,3 @@ void del_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width)
 		            sci, bid, dest, width);
 	}
 }
-
