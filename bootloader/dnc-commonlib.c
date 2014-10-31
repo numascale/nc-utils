@@ -237,7 +237,7 @@ uint32_t mod(const uint32_t initial, const uint16_t raw, const int div, const ui
 	uint32_t newval = (initial & ~mask) | (b << shift);
 
 	if (verbose & (b != a))
-		printf("Using SPD value %d rather than default %d for %s; raw %d; %08x -> %08x\n", b, a, name, raw, initial, newval);
+		printf("<%s %u -> %u>...", name, a, b);
 	return initial;
 }
 
