@@ -260,7 +260,7 @@ out:
 		if (!s64 && pref)
 			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
 
-		if (len >= MMIO32_LARGE) {
+		if (!s64 && io_limit && len > io_limit) {
 			assigned = 0;
 			warning("Not allocating large %lluMB MMIO32 range", len >> 20);
 		} else if (!s64 && (*addr + len) > MMIO32_LIMIT) {

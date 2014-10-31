@@ -85,6 +85,7 @@ int pf_prefetch = 1;
 int router = 0;
 uint64_t memlimit = 0;
 static bool fastboot = 0;
+uint64_t io_limit = 16ULL << 20;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2091,6 +2092,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
 		{"memlimit",        &parse_int64,  &memlimit},        /* Per-NUMA node memory limit */
 		{"fastboot",        &parse_bool,   &fastboot},
+		{"io-limit",        &parse_int64,  &io_limit},        /* Limit of PCI BARs that will be allocated */
 	};
 
 	int errors = 0;
