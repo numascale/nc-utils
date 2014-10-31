@@ -86,7 +86,7 @@ int pf_prefetch = 1;
 int router = 0;
 uint64_t memlimit = 0;
 static bool fastboot = 0;
-uint64_t io_limit = 16ULL << 20;
+uint64_t io_limit = 0;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
