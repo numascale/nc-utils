@@ -85,6 +85,8 @@ void load_scc_microcode(void)
 	} else
 		fatal("No microcode for NumaChip version %d", dnc_chip_rev);
 
+	/* Call pow() a second time to prevent result corruption */
+	pow(dnc_core_count, WASHDELAY_P);
 	const unsigned goal = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q);
 	printf("Loading SCC microcode with washdelay %u for %d cores...", goal, dnc_core_count);
 
