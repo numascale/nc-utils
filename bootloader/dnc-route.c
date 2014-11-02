@@ -39,15 +39,15 @@
 
 static inline uint8_t _load_balance(uint8_t dim, sci_t src, sci_t dst)
 {
-	sci_t src2, dst2;
-
-	src2 = src >> (dim * 4);
-	dst2 = dst >> (dim * 4);
 #if defined(ROUTING_PAIR)
 	/* Pair-wise load-balancing */
 	return ((dst & 0xf) + ((dst >> 4) & 0xf) + ((dst >> 8) & 0xf) +
 		(src & 0xf) + ((src >> 4) & 0xf) + ((src >> 8) & 0xf)) & 1;
-#elif defined(ROUTING_2QOS)
+#else
+	sci_t src2 = src >> (dim * 4);
+	sci_t dst2 = dst >> (dim * 4);
+
+#if defined(ROUTING_2QOS)
 	/* 2QOS routing (dateline) */
 	return ((dst2 < src2) ? 1 : 0);
 #elif defined(ROUTING_SHORT)
@@ -59,6 +59,8 @@ static inline uint8_t _load_balance(uint8_t dim, sci_t src, sci_t dst)
 		(backward < forward) ? 1 : 0);
 #else
 	return 0;
+#endif
+
 #endif
 }
 
