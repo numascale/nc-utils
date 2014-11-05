@@ -235,8 +235,6 @@ uint32_t mod(const uint32_t initial, const uint16_t raw, const int div, const ui
 	/* Ensure new value is within mask */
 	assert(!((b << shift) & ~mask));
 
-	uint32_t newval = (initial & ~mask) | (b << shift);
-
 	if (verbose & (b != a))
 		printf("<%s %u -> %u>...", name, a, b);
 	return initial;
