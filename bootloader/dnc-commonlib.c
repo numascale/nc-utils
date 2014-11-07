@@ -1808,9 +1808,13 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	cht_write_conf(nc_ht, 0, H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0xff000000);
 	cht_write_conf(nc_ht, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
 
+	/* Setup 128MB extended MMIO map granularity */
+	val = cht_read_conf(nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_CAPABILITY_HEADER);
+	val &= ~(7 << 16);
+	cht_write_conf(nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_CAPABILITY_HEADER, val | (2 << 16));
+
 	/* Bootloader mode, modify CSR_BASE_ADDRESS through the default global maps,
 	 * and set this value in expansion rom base address register */
-	printf("Setting default CSR maps...\n");
 	for (node = 0; node < nc_ht; node++)
 		mmio_range(0xfff0, node, 8, DEF_DNC_CSR_BASE, DEF_DNC_CSR_LIM, nc_ht, 0, 0);
 
@@ -1820,11 +1824,9 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 	/* Put DNC_CSR_BASE[47:32] as [15:0] */
 	cht_write_conf(nc_ht, 0, H2S_CSR_F0_CHTX_CPU_COUNT, DNC_CSR_BASE >> 32);
 
-	printf("Setting CSR and MCFG maps\n");
-	for (node = 0; node < nc_ht; node++) {
-		mmio_range(0xfff0, node, 8, DNC_CSR_BASE, DNC_CSR_LIM, nc_ht, 0, 1);
-		mmio_range(0xfff0, node, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, nc_ht, 0, 0);
-	}
+	/* As MCFG and CSR maps are adjacent, use one power of two length range */
+	for (node = 0; node < nc_ht; node++)
+		mmio_range(0xfff0, node, 8, DNC_MCFG_BASE, DNC_CSR_LIM, nc_ht, 0, 1);
 
 	/* Set MMCFG base register so local NC will forward correctly */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_MMCFG_BASE);

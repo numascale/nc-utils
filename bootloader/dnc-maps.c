@@ -280,19 +280,13 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 	assert(range < 24);
 	// Fam10h extended MMIO 128MB granularity
 	assert((base & 0x7ffffff) == 0);
-	assert((limit & 0x7ffffff) ==  0x7ffffff);
-	assert(poweroftwo(limit - base) + 1);
+	assert((limit & 0x7ffffff) == 0x7ffffff);
+	assert(poweroftwo(limit + 1 - base));
 	range -= 8;
 
 	/* Reading an uninitialised extended MMIO ranges results in MCE, so can't assert */
 
-	/* FIXME: Use 2's complement */
-	uint64_t mask = 0;
-	base  >>= 27;
-	limit >>= 27;
-
-	while ((base | mask) != (limit | mask))
-		mask = (mask << 1) | 1;
+	const uint64_t mask = (limit - base) >> 27;
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (base << 8) | dest);
@@ -364,24 +358,18 @@ void nc_mmio_range_high(const uint16_t sci, const int range, uint64_t base, uint
 			range, sci, base, limit, dht);
 
 	assert(limit > base);
+	assert(limit < (1ULL << 48));
 	assert(range < 8);
-	assert((base & 0xffffffff) == 0);
-	assert((limit & 0xffffffff) == 0xffffffff);
-	assert(poweroftwo(limit - base + 1));
+	assert((base & 0x7ffffff) == 0);
+	assert((limit & 0x7ffffff) == 0x7ffffff);
+	assert(poweroftwo(limit + 1 - base));
 
-	uint8_t ht = sci_to_node(sci)->nc_ht;
-
-	/* FIXME: Use 2's complement */
-	uint64_t mask = 0;
-	base  >>= 27;
-	limit >>= 27;
-
-	while ((base | mask) != (limit | mask))
-		mask = (mask << 1) | 1;
+	const uint8_t ht = sci_to_node(sci)->nc_ht;
+	const uint64_t mask = (limit - base) >> 27;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS, ht | (base << 8));
-	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS, 1 | (limit << 8));
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS, (mask << 8) | 1);
 }
 
 void nc_mmio_range_del(const uint16_t sci, const int range)
