@@ -296,9 +296,7 @@ typedef struct ddr3_spd_eeprom_s {
 
 } ddr3_spd_eeprom_t;
 
-void ddr1_spd_check(const ddr1_spd_eeprom_t *spd);
-void ddr2_spd_check(const ddr2_spd_eeprom_t *spd);
-void ddr3_spd_check(const ddr3_spd_eeprom_t *spd);
+void ddr2_spd_check(const ddr2_spd_eeprom_t *spd, const char *name);
 
 /*
  * Byte 2 Fundamental Memory Types.

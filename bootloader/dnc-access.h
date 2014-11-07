@@ -78,6 +78,7 @@ checked static inline uint32_t uint32_tbswap(uint32_t val)
 	return val;
 }
 
+void dump(const void *addr, const unsigned len);
 checked uint8_t rtc_read(const int addr);
 void pmio_writeb(uint16_t offset, uint8_t val);
 void pmio_writel(uint16_t offset, uint32_t val);
