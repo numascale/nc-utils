@@ -237,33 +237,37 @@ out:
 			return 0;
 		}
 
-		if (!s64 && pref)
-			warning("Prefetchable BAR at 0x%x on SCI%03x %02x:%02x.%d using 32-bit addressing", reg, sci, bus, dev, fn);
-
-		/* Non-prefetchable 64-bit BARs are allocated low, so filter */
-		if (!pref && io_limit && len > io_limit) {
+		if (!s64 && io_limit && len > io_limit) {
 			assigned = 0;
 			warning("Not allocating large %lluMB MMIO32 range", len >> 20);
-		} else if (!s64 && (*addr + len) > MMIO32_LIMIT) {
-			assigned = 0;
-			warning("Out of MMIO32 address space when allocating SCI%03x %02x:%02x.%x BAR 0x%x with len %s", sci, bus, dev, fn, reg, pr_size(len));
-		} else {
-			/* MMIO BARs are aligned from page size to their size */
-			*addr = roundup(*addr, max(len, 4096));
-
-			if (!s64) {
-				/* If space is allocated, move past and get parent to retry */
-				uint64_t skip = map32->overlap(*addr, len);
-				if (skip) {
-					*addr += skip;
-					return 1;
-				}
-			}
-
-			assigned = *addr;
-			*addr += len;
+			goto out;
 		}
 
+		if (!s64 && (*addr + len) > MMIO32_LIMIT) {
+			assigned = 0;
+			warning("Out of MMIO32 address space when allocating SCI%03x %02x:%02x.%x BAR 0x%x with len %s", sci, bus, dev, fn, reg, pr_size(len));
+			goto out;
+		}
+
+		if (s64 && !pref)
+			warning("Allocating non-prefetchable 64-bit BAR 0x%x on SCI%03x %02x:%02x.%d in 64-bit prefetchable space", reg, sci, bus, dev, fn);
+
+		/* MMIO BARs are aligned from page size to their size */
+		*addr = roundup(*addr, max(len, 4096));
+
+		if (!s64) {
+			/* If space is allocated, move past and get parent to retry */
+			uint64_t skip = map32->overlap(*addr, len);
+			if (skip) {
+				*addr += skip;
+				return 1;
+			}
+		}
+
+		assigned = *addr;
+		*addr += len;
+
+	out:
 		printf("SCI%03x %02x:%02x.%x allocating %d-bit %s %s BAR 0x%x at 0x%llx\n",
 			sci, bus, dev, fn, s64 ? 64 : 32, pref ? "P" : "NP", pr_size(len), reg, assigned);
 		dnc_write_conf(sci, bus, dev, fn, reg, assigned);
@@ -300,13 +304,12 @@ class Container {
 		/* Skip second register is a 64-bit BAR */
 		int skip = bar->s64 ? 4 : 0;
 
-		/* Non-prefetchable BARs can't be in prefetchable windows */
+		/* Allocate 64-bit non-prefetchable BARs in 64-bit prefetchable space, as it's safe on SR56x0s */
 		if (bar->io)
 			insert(io_bars, bar);
-		else if (bar->s64 && bar->pref)
+		else if (bar->s64)
 			insert(mmio64_bars, bar);
 		else
-			/* 32-bit prefetchable and 32/64-bit non-prefetchable */
 			insert(mmio32_bars, bar);
 
 		return skip;
@@ -425,7 +428,7 @@ public:
 		/* Align start of bridge windows */
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
 		assert(map32->next < MMIO32_LIMIT);
-		mmio64_cur = roundup(mmio64_cur, SCC_ATT_GRAN << DRAM_MAP_SHIFT);
+		mmio64_cur = roundup(mmio64_cur, MMIO64_GRAN);
 		io_cur = roundup(io_cur, 1 << 12);
 
 		uint32_t sec = (dnc_read_conf(node->sci, pbus, pdev, pfn, 0x18) >> 8) & 0xff;
@@ -511,6 +514,9 @@ void setup_mmio(void) {
 		io_cur = roundup(io_cur, 1 << NC_ATT_IO_GRAN);
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
 		assert(map32->next < MMIO32_LIMIT);
+
+		/* May need to address Numachip extended MMIO mask constraint */
+		mmio64_cur = (*c)->node->mmio64_base + roundup_nextpow2(mmio64_cur - (*c)->node->mmio64_base);
 
 		(*c)->node->mmio32_limit = map32->next - 1;
 		(*c)->node->mmio64_limit = mmio64_cur - 1;

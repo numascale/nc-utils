@@ -44,6 +44,14 @@
 #define DRAM_SEGMENT_SHIFT 28 /* 256MB; ~20s test time */
 #define CORE_LOOPS_MAX 1000000
 
+static inline uint64_t roundup_nextpow2(const uint64_t val)
+{
+	uint64_t next = 1ULL << (64 - __builtin_clzll(val));
+	if (val & ((next >> 1) - 1))
+		return next;
+	return val;
+}
+
 static inline void msg_testing(void)
 {
 	printf(COL_YELLOW "\n"
