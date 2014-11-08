@@ -192,7 +192,7 @@ void mmio_range_print(const uint16_t sci, const int ht, const int range)
 			sci, ht, range, base, limit, dest, link, lock ? " locked" : "");
 }
 
-void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, uint64_t limit, const int dest, const int link, const bool ovw)
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const int dest, const int link, const bool ovw)
 {
 	if (verbose > 1)
 		printf("Adding MMIO range %d on SCI%03x#%x: 0x%08llx:0x%08llx to %d.%d\n",
@@ -289,7 +289,7 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, uint64_t base, 
 	const uint64_t mask = (limit - base) >> 27;
 
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (2 << 28) | range);
-	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (base << 8) | dest);
+	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, ((base >> 27) << 8) | dest);
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x110, (3 << 28) | range);
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x114, (mask << 8) | 1);
 }
@@ -351,7 +351,7 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_MMIO_LIMIT_ADDRESS_REGISTERS, b);
 }
 
-void nc_mmio_range_high(const uint16_t sci, const int range, uint64_t base, uint64_t limit, const uint8_t dht)
+void nc_mmio_range_high(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht)
 {
 	if (verbose > 1)
 		printf("Adding Numachip high MMIO range %d on SCI%03x: 0x%08llx:0x%08llx to %d\n",
@@ -368,7 +368,7 @@ void nc_mmio_range_high(const uint16_t sci, const int range, uint64_t base, uint
 	const uint64_t mask = (limit - base) >> 27;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
-	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS, ht | (base << 8));
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS, ht | ((base >> 27) << 8));
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS, (mask << 8) | 1);
 }
 
