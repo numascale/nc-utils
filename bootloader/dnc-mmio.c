@@ -40,26 +40,6 @@ struct range {
 	uint32_t start, end;
 };
 
-void *operator new(const size_t size)
-{
-    return malloc(size);
-}
-
-void *operator new[](const size_t size)
-{
-    return malloc(size);
-}
-
-void operator delete(void *const p)
-{
-    free(p);
-}
-
-void operator delete[](void *const p)
-{
-    free(p);
-}
-
 void dump_device(const sci_t sci, const int bus, const int dev, const int fn)
 {
 	printf("\nPCI device SCI%03x.%02x:%02x.%x:\n", sci, bus, dev, fn);

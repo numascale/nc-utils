@@ -91,6 +91,26 @@ uint64_t io_limit = 0;
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
 
+void *operator new(const size_t n)
+{
+	void *p = zalloc(n);
+	assert(p);
+	return p;
+}
+
+/* Placement new */
+void *operator new(const size_t n, void *const p)
+{
+	assert(p);
+	memset(p, 0, n);
+	return p;
+}
+
+void operator delete(void *const p)
+{
+	free(p);
+}
+
 /* Return string pointer using rotated static buffer to avoid heap */
 const char *pr_size(uint64_t val)
 {
