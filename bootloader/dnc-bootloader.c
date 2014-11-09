@@ -365,7 +365,7 @@ static bool overlap(const uint64_t a1, const uint64_t a2, const uint64_t b1, con
 	return 0;
 }
 
-static void e820_add(const uint64_t base, const uint64_t length, const uint32_t type)
+void e820_add(const uint64_t base, const uint64_t length, const uint32_t type)
 {
 	if (verbose)
 		printf("Adding e820 %011llx:%011llx (%011llx) [%d]\n", base, base + length, length, type);
@@ -1966,6 +1966,9 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 
 void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
 {
+	if (verbose > 1)
+		printf("Adding MTRR 0x%llx:0x%llx type %u\n", base, limit, type);
+
 	assert(poweroftwo(limit - base));
 
 	uint64_t val;

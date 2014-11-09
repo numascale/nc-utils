@@ -21,6 +21,11 @@
 #include "dnc-types.h"
 
 #define MSG_PORT 4711
+#define E820_RAM        1
+#define E820_RESERVED   2
+#define E820_ACPI       3
+#define E820_NVS        4
+#define E820_UNUSABLE   5
 
 struct mp_config_table {
 	union {
@@ -119,6 +124,7 @@ void udp_open(void);
 void udp_broadcast_state(const void *buf, const size_t len);
 checked int udp_read_state(void *buf, const size_t len, uint32_t *ip);
 void mtrr_range(const uint64_t base, const uint64_t limit, const int type);
+void e820_add(const uint64_t base, const uint64_t length, const uint32_t type);
 
 #endif
 

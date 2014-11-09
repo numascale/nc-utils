@@ -23,12 +23,6 @@
 
 #define RSDT_MAX 1024
 
-#define E820_RAM        1
-#define E820_RESERVED   2
-#define E820_ACPI       3
-#define E820_NVS        4
-#define E820_UNUSABLE   5
-
 struct acpi_rsdp {
 	unsigned char sig[8];
 	uint8_t checksum;
