@@ -279,11 +279,11 @@ void tally_local_node(void)
 					/* Assuming only one local range */
 					for (int range = 0; range < 8; range++) {
 						/* Skip inactivate ranges and ranges to other Northbridges */
-						if (!dram_range_read(0xfff0, i, j, &base2, &limit2, &dst) || dst != j)
+						if (!dram_range_read(nodes[0].sci, i, j, &base2, &limit2, &dst) || dst != j)
 							continue;
 
 						limit2 -= 16 << 20;
-						dram_range(0xfff0, i, j, base2, limit2, dst);
+						dram_range(nodes[0].sci, i, j, base2, limit2, dst);
 						break;
 					}
 				}
@@ -358,16 +358,17 @@ void tally_local_node(void)
 		       rest << (DRAM_MAP_SHIFT - 20), nodes[0].sci);
 		dnc_top_of_mem += rest;
 	}
+
 	nodes[0].dram_limit = dnc_top_of_mem;
 	cht_write_conf(i, FUNC1_MAPS, 0x124, nodes[0].dram_limit >> (27 - DRAM_MAP_SHIFT));
 
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
+	dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
+		dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
-	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_CTRL);
+	dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_CTRL);
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
+		dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
