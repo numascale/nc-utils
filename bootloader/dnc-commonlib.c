@@ -82,6 +82,7 @@ int disable_kvm = -1;
 bool link_up = 0;
 bool test_manufacture = 0;
 int relaxed_io = 0;
+bool io_nonpref_high = 0;
 int pf_prefetch = 1;
 int router = 0;
 uint64_t memlimit = 0;
@@ -2113,7 +2114,8 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
 		{"memlimit",        &parse_int64,  &memlimit},        /* Per-NUMA node memory limit */
 		{"fastboot",        &parse_bool,   &fastboot},
-		{"io-limit",        &parse_int64,  &io_limit},        /* Limit of PCI BARs that will be allocated */
+		{"io.limit",        &parse_int64,  &io_limit},        /* Limit of PCI BARs that will be allocated */
+		{"io.nonpref-high", &parse_bool,   &io_nonpref_high}, /* If non-prefetchable PCI BARs can be allocated in 64-bit prefetchable space */
 	};
 
 	int errors = 0;

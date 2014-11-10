@@ -237,7 +237,7 @@ out:
 			return 0;
 		}
 
-		if (!s64 && io_limit && len > io_limit) {
+		if ((!s64 || (s64 && !io_nonpref_high && !pref)) && io_limit && len > io_limit) {
 			assigned = 0;
 			warning("Not allocating large %lluMB MMIO32 range", len >> 20);
 			goto out;
@@ -249,7 +249,7 @@ out:
 			goto out;
 		}
 
-		if (s64 && !pref)
+		if (io_nonpref_high && s64 && !pref)
 			warning("Allocating non-prefetchable 64-bit BAR 0x%x on SCI%03x %02x:%02x.%d in 64-bit prefetchable space", reg, sci, bus, dev, fn);
 
 		/* MMIO BARs are aligned from page size to their size */
@@ -307,7 +307,7 @@ class Container {
 		/* Allocate 64-bit non-prefetchable BARs in 64-bit prefetchable space, as it's safe on SR56x0s */
 		if (bar->io)
 			insert(io_bars, bar);
-		else if (bar->s64)
+		else if (bar->s64 && (bar->pref || io_nonpref_high))
 			insert(mmio64_bars, bar);
 		else
 			insert(mmio32_bars, bar);
