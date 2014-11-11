@@ -6,8 +6,8 @@
 #include <string.h>
 #include <assert.h>
 
-#define XS 2
-#define YS 0
+#define XS 3
+#define YS 3
 #define ZS 0
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define max(x,y) ((x) > (y) ? (x) : (y))
@@ -32,81 +32,116 @@ class Router {
 	unsigned xbar_usage[4096]; // only used when changing rings
 	unsigned lc_usage[4096][6]; // send buffering
 	uint8_t route[MAXPATH], bestroute[MAXPATH];
-	unsigned bestcost;
 	uint8_t possible_lcs;
+	unsigned bestcost;
+	sci_t src, dst;
 
-	uint8_t lcs(const sci_t src, const sci_t dst, const uint8_t lastlc) const;
-	void find(const sci_t src, const sci_t dst, const unsigned cost, const unsigned offset, const uint8_t lastlc);
-	sci_t neigh(sci_t src, const uint8_t lc) const;
-	void update(const sci_t src, const sci_t dst);
-	void router(const sci_t src, const sci_t dst);
+	uint8_t lcs(const sci_t pos, const uint8_t available_lcs, const uint8_t lastlc) const;
+	sci_t neigh(sci_t pos, const uint8_t lc) const;
+	void find(const sci_t pos, const unsigned cost, const unsigned offset, const uint8_t available_lcs, const uint8_t lastlc);
+	void dump();
+	void update();
+	void router(const sci_t _src, const sci_t _dst);
 public:
-	Router(void);
-	void show_usage(void) const;
+	Router();
+	void show_usage() const;
 };
 
+void Router::dump()
+{
+	sci_t pos = src;
+
+	for (unsigned offset = 0; route[offset]; offset++) {
+		uint8_t lc = route[offset];
+		debugf(2, " %u", lc);
+		pos = neigh(pos, lc);
+	}
+
+	debugf(2, "\n");
+}
+
 // increment path usage
-void Router::update(const sci_t src, const sci_t dst)
+void Router::update()
 {
 	debugf(1, "route %03x > %03x has cost %u:", src, dst, bestcost);
-	sci_t sci = src;
-
+	sci_t pos = src;
 	uint8_t last_lc = 0;
 
 	for (unsigned offset = 0; bestroute[offset]; offset++) {
 		uint8_t lc = bestroute[offset];
 		debugf(1, " %u", lc);
-		lc_usage[sci][lc - 1]++;
+		lc_usage[pos][lc - 1]++;
 
 		if (last_lc != lc) // ring change, Xbar involved
-			xbar_usage[sci]++;
+			xbar_usage[pos]++;
 
-		sci = neigh(sci, lc);
+		pos = neigh(pos, lc);
 	}
 
 	debugf(1, "\n");
 
-	assert(sci == dst);
+	assert(pos == dst);
 }
 
 // return bitmask of possible LCs, restricting to any adjacent axes
-uint8_t Router::lcs(const sci_t src, const sci_t dst, const uint8_t lastlc) const
+uint8_t Router::lcs(const sci_t pos, const uint8_t available_lcs, const uint8_t lastlc) const
 {
-	uint8_t ret = possible_lcs;
 #ifdef CONVEX
 	// if already on a ring, stay in ring until adjacent in another axis
 	if (lastlc) {
 		const uint8_t axis = (lastlc - 1) / 2; // 0-2
-		if (((src >> (axis * 4)) & 0xf) != ((dst >> (axis * 4)) & 0xf))
+		if (((pos >> (axis * 4)) & 0xf) != ((dst >> (axis * 4)) & 0xf))
 			return 1 << lastlc;
 	}
 #else
 	// if adjacent on any ring
 	for (unsigned i = 0; i < 3; i++)
-		if (((src >> (i * 4)) & 0xf) == ((dst >> (i * 4)) & 0xf))
-			ret &= ~(3 << (i * 2 + 1));
+		if (((pos >> (i * 4)) & 0xf) == ((dst >> (i * 4)) & 0xf))
+			available_lcs &= ~(3 << (i * 2 + 1));
 #endif
-	return ret;
+	return available_lcs;
+}
+
+sci_t Router::neigh(sci_t pos, const uint8_t lc) const
+{
+	const uint8_t axis = (lc - 1) / 2; // 0-2
+	int ring_pos = (pos >> (axis * 4)) & 0xf;
+	const bool dir = (lc - 1) & 1;
+
+	debugf(3, "<neigh: pos=0x%03x lc=%u axis=%u", pos, lc, axis);
+	if (dir) {
+		if (--ring_pos == -1)
+			ring_pos = sizes[axis] - 1;
+	} else
+		ring_pos = (ring_pos + 1) % sizes[axis];
+
+	pos &= ~(0xf << (axis * 4));
+	pos |= ring_pos << (axis * 4);
+
+	debugf(3, " pos=%03x>", pos);
+	return pos;
 }
 
 // calculate optimal route
- void Router::find(const sci_t src, const sci_t dst, const unsigned cost, const unsigned offset, const uint8_t lastlc)
+ void Router::find(const sci_t pos, const unsigned cost, const unsigned offset, const uint8_t available_lcs, const uint8_t lastlc)
 {
-	debugf(2, "<pos=%03x cost=%u offset=%u>", src, cost, offset);
+	debugf(2, "<find: pos=%03x cost=%u offset=%u available=0x%x>", pos, cost, offset, available_lcs);
 
 	// long route
 	if (cost >= bestcost) {
-		debugf(3, " high cost %u\n", cost);
+		debugf(3, " high cost %u:", cost);
+		dump();
 		return;
 	}
 	
 	if (offset > dnc_node_count) {
-		debugf(3, " too distant %u\n", offset);
+		debugf(2, " too distant %u:", offset);
+		dump();
 		return;
 	}
 
 	// if reached goal, update best
-	if (src == dst) {
+	if (pos == dst) {
 		memcpy(bestroute, route, offset * sizeof(route[0]));
 		bestroute[offset] = 0;
 		bestcost = cost;
@@ -114,50 +149,40 @@ uint8_t Router::lcs(const sci_t src, const sci_t dst, const uint8_t lastlc) cons
 		return;
 	}
 
-	const uint8_t llcs = lcs(src, dst, lastlc);
-	debugf(3, " lcs=0x%x\n", llcs);
+	const uint8_t llcs = lcs(pos, available_lcs, lastlc);
 	for (uint8_t lc = 1; lc <= 7; lc++) {
 		// skip unavailable LCs 
 		if (!(llcs & (1 << lc)))
 			continue;
 
-		const sci_t next = neigh(src, lc);
+		const sci_t next = neigh(pos, lc);
 		route[offset] = lc;
 
-		unsigned newcost = cost + LC_COST + lc_usage[src][lc - 1] * LC_USAGE_COST;
+		unsigned newcost = cost + LC_COST + lc_usage[pos][lc - 1] * LC_USAGE_COST;
 		if (lc != lastlc)
-			newcost += XBAR_COST + xbar_usage[src] * XBAR_USAGE_COST;
+			newcost += XBAR_COST + xbar_usage[pos] * XBAR_USAGE_COST;
 
-		find(next, dst, newcost, offset + 1, lc);
+		find(next, newcost, offset + 1, available_lcs & ~(1 << lc), lc);
 	}
+
+	debugf(3, "\n");
 }
 
-sci_t Router::neigh(sci_t src, const uint8_t lc) const
+void Router::router(const sci_t _src, const sci_t _dst)
 {
-	const uint8_t axis = (lc - 1) / 2; // 0-2
-	int pos = (src >> (axis * 4)) & 0xf;
-	const bool dir = (lc - 1) & 1;
+	src = _src;
+	dst = _dst;
 
-	if (dir) {
-		if (--pos == -1)
-			pos = sizes[axis];
-	} else
-		pos = (pos + 1) % sizes[axis];
+	uint8_t available_lcs = 0;
 
-	src &= ~(0xf << (axis * 4));
-	src |= pos << (axis * 4);
-	return src;
-}
-
-void Router::router(const sci_t src, const sci_t dst)
-{
-	if (finished[src][dst])
-		return;
+	for (uint8_t i = 0; i < 3; i++)
+		if ((src ^ dst) & (0xf << (i * 4)))
+			available_lcs |= 3 << (i * 2 + 1);
 
 	bestcost = ~0U;
 	debugf(2, "%03x > %03x\n", src, dst);
-	find(src, dst, 0, 0, 0);
-	update(src, dst);
+	find(src, 0, 0, available_lcs, 0);
+	update();
 
 	finished[src][dst] = 1;
 	finished[dst][src] = 1;
