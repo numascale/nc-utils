@@ -538,11 +538,17 @@ void setup_mmio(void) {
 		dnc_write_conf(sci, 0, 19, 1, 4, 0);
 		dnc_write_conf(sci, 0, 19, 2, 4, 0);
 
+		/* Disable all USB controllers */
 		val = dnc_read_conf(sci, 0, 20, 0, 0x68);
 		dnc_write_conf(sci, 0, 20, 0, 0x68, val & ~0xf7);
 
+		/* Disable HPET MMIO decoding */
 		val = dnc_read_conf(sci, 0, 20, 0, 0x40);
 		dnc_write_conf(sci, 0, 20, 0, 0x40, val & ~(1 << 28));
+
+		/* Disable all bits in the PCI_COMMAND register of the ACPI/SMBus function */
+		dnc_write_conf(0xfff0, 0, 20, 0, 4, 0);
+
 #ifdef FIXME /* Causes bus enumeration to loop */
 		/* Disable legacy bridge; unhides PCI bridge at device 8 */
 		val = ioh_nbmiscind_read(sci, 0x0);
