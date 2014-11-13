@@ -177,9 +177,9 @@ static void adjust_dram_maps(node_info_t *const node)
 	}
 
 	/* trim nodes if over supported memory config */
-	int over = node->node_mem - max_mem_per_server;
+	int over = min(node->node_mem - max_mem_per_server, node->node_mem & (SCC_ATT_GRAN - 1));
 	if (over > 0) {
-		printf("Node exceeds cachable memory range, reducing by %dGB\n", over >> (30 - 24));
+		printf("Trimming %03x maps by %uMB\n", node->sci, over << (DRAM_MAP_SHIFT - 20));
 
 		while (over > 0) {
 			unsigned max = 0;
@@ -232,7 +232,7 @@ static void adjust_dram_window(node_info_t *const node)
 
 void tally_local_node(void)
 {
-	uint32_t val, base, limit, rest;
+	uint32_t val, base, limit;
 	uint16_t i, tot_cores;
 
 	nodes[0].node_mem = 0;
@@ -350,17 +350,7 @@ void tally_local_node(void)
 	}
 
 	printf("SCI000 has %d cores and %dMB of memory and I/O maps\n", tot_cores, nodes[0].node_mem << 4);
-
-	rest = dnc_top_of_mem & (SCC_ATT_GRAN - 1);
-	if (rest) {
-		rest = SCC_ATT_GRAN - rest;
-		printf("Adding %dMB to SCI%03x to accommodate granularity requirements\n",
-		       rest << (DRAM_MAP_SHIFT - 20), nodes[0].sci);
-		dnc_top_of_mem += rest;
-	}
-
 	nodes[0].dram_limit = dnc_top_of_mem;
-	cht_write_conf(i, FUNC1_MAPS, 0x124, nodes[0].dram_limit >> (27 - DRAM_MAP_SHIFT));
 
 	dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (i = 0; i < 256; i++)
