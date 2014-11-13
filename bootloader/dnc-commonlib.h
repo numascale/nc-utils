@@ -232,7 +232,7 @@ extern int sync_interval;
 extern bool enable_relfreq;
 extern bool singleton;
 extern bool handover_acpi;
-extern int remote_io;
+extern bool remote_io;
 extern bool boot_wait;
 extern int family;
 extern uint32_t tsc_mhz;
