@@ -580,7 +580,7 @@ void setup_mmio(void) {
 			uint64_t end  = nodes[dnode].mmio64_limit;
 
 			dnc_write_csr(nodes[i].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
-			  (1 << (27 + SCC_ATT_INDEX_RANGE)) | (addr / (SCC_ATT_GRAN << DRAM_MAP_SHIFT)));
+			  (1 << (27 + scc_att_index_range)) | (addr / (SCC_ATT_GRAN << DRAM_MAP_SHIFT)));
 
 			while (addr < end) {
 				dnc_write_csr(nodes[i].sci, H2S_CSR_G0_ATT_ENTRY, nodes[dnode].sci);

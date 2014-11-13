@@ -536,7 +536,7 @@ static bool tally_remote_node(const uint16_t sci)
 		print_node_info(node);
 
 	/* Ensure SCC doesn't wrap */
-	assert(dnc_top_of_mem < (1ULL << ((36 - DRAM_MAP_SHIFT) + (SCC_ATT_INDEX_RANGE * 4))));
+	assert(dnc_top_of_mem < (1ULL << ((36 - DRAM_MAP_SHIFT) + (scc_att_index_range * 4))));
 
 	return 1;
 }

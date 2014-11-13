@@ -2433,6 +2433,11 @@ static void unify_all_nodes(void)
 
 	tally_all_remote_nodes();
 
+	if (dnc_top_of_mem > (16ULL << (40 - DRAM_MAP_SHIFT))) {
+		printf("Using 64GB SCC granularity\n");
+		scc_att_index_range = 3;
+	}
+
 	/* Remove last 16MB if CC6 enabled */
 	if (pf_cstate6)
 		dnc_top_of_mem -= 1;
@@ -2508,7 +2513,7 @@ static void unify_all_nodes(void)
 			uint32_t end  = nodes[dnode].dram_limit;
 
 			dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
-			  (1 << (27 + SCC_ATT_INDEX_RANGE)) | (addr / SCC_ATT_GRAN));
+			  (1 << (27 + scc_att_index_range)) | (addr / SCC_ATT_GRAN));
 
 			while (addr < end) {
 				dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[dnode].sci);

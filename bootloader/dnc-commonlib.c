@@ -88,6 +88,7 @@ int router = 0;
 uint64_t memlimit = 0;
 static bool fastboot = 0;
 uint64_t io_limit = 0;
+uint8_t scc_att_index_range = 2;   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2259,7 +2260,6 @@ static void perform_selftest(int asic_mode, char p_type[16])
 		}
 	}
 
-
 	/* Zero out MMIO32 ATT */
 	for (int i = 0; i < 16; i++) {
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | i);
@@ -2269,7 +2269,7 @@ static void perform_selftest(int asic_mode, char p_type[16])
         }
 
 	/* Zero out SCC ATT */
-	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + SCC_ATT_INDEX_RANGE)));
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 1 << 31);
 	for (int i = 0; i < 4096; i++) /* FIXME: check */
 		dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, 0);
 

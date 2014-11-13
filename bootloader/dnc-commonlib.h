@@ -254,6 +254,7 @@ extern int pf_prefetch;
 extern uint64_t memlimit;
 extern uint64_t io_limit;
 extern bool io_nonpref_high;
+extern uint8_t scc_att_index_range;
 
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);

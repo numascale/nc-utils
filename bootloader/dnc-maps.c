@@ -523,13 +523,13 @@ void ranges_print(void)
 	printf("\nNumachip SCC routing:\n");
 
 	/* Select SCC ATT base address */
-	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 1 << (27 + SCC_ATT_INDEX_RANGE));
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 1 << (27 + scc_att_index_range));
 	uint32_t i, last = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
 	printf("SCI%03x: 0x%011llx:", last, 0ULL);
 
 	/* Select SCC ATT base address, enable autoinc */
 	for (node = 0; node < dnc_node_count; node++)
-		dnc_write_csr(nodes[node].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + SCC_ATT_INDEX_RANGE)));
+		dnc_write_csr(nodes[node].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + scc_att_index_range)));
 
 	for (i = 0; i < 4096; i++) {
 		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
