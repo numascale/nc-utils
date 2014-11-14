@@ -102,6 +102,7 @@ uint8_t router1(sci_t src, const int node)
 
 
 
+#ifdef LEGACY
 /* Route all 256 bxbar entries for chunk corresponding to "dest" over "link"
  * on "sci" */
 void add_chunk_route(uint16_t dest, const sci_t sci, uint8_t link)
@@ -331,3 +332,4 @@ void del_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width)
 		            sci, bid, dest, width);
 	}
 }
+#endif

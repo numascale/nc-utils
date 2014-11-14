@@ -141,9 +141,6 @@ static bool parse_json(json_t *root)
 		goto out1;
 	}
 
-	if (!parse_json_bool(fab->child, "strict", &cfg_fabric.strict, 1))
-		cfg_fabric.strict = 0;
-
 	list = json_find_first_label(fab->child, "nodes");
 
 	if (!(list && list->child && list->child->type == JSON_ARRAY)) {

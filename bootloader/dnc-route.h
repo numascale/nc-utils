@@ -26,7 +26,7 @@ extern uint8_t dims[];
 
 uint8_t router0(sci_t src, const int node);
 uint8_t router1(sci_t src, const int node);
-
+#ifdef LEGACY
 void add_chunk_route(uint16_t dest, const sci_t sci, uint8_t link);
 void del_chunk_route(uint16_t dest, const sci_t sci);
 void set_route(uint16_t dest, const sci_t sci, uint16_t width, uint8_t link);
@@ -35,5 +35,5 @@ void del_route(uint16_t dest, const sci_t sci, uint16_t width);
 void set_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width, uint8_t link);
 void add_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width, uint8_t link);
 void del_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width);
-
+#endif
 #endif

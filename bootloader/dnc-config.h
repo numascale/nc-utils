@@ -28,7 +28,6 @@
 
 struct fabric_info {
 	uint32_t size[3];
-	uint32_t strict;
 };
 
 struct node_info {

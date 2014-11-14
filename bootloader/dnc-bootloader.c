@@ -1801,7 +1801,7 @@ static void wait_status(struct node_info *info)
 			continue;
 
 		if (nodedata[cfg_nodelist[i].sci] != 0x80)
-			printf(" SCI%03x/%s",
+			printf(" %03x/%s",
 			       cfg_nodelist[i].sci, cfg_nodelist[i].desc);
 	}
 
@@ -1902,7 +1902,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 				           (rsp->state == RSP_FABRIC_NOT_READY) ||
 				           (rsp->state == RSP_FABRIC_NOT_OK)) {
 					if (nodedata[rsp->sci] != 0x80) {
-						printf("SCI%03x/%s failed with %s; restarting synchronisation\n",
+						printf("%03x/%s failed with %s; restarting synchronisation\n",
 						       rsp->sci, cfg_nodelist[i].desc, node_state_name[rsp->state]);
 						do_restart = 1;
 						nodedata[rsp->sci] = 0x80;
@@ -1964,7 +1964,7 @@ static void wait_for_slaves(struct node_info *info, struct part_info *part)
 	}
 }
 
-void mtrr_range(const uint64_t base, const uint64_t limit, const int type)
+void mtrr_range(const uint64_t base, const uint64_t limit, const uint8_t type)
 {
 	if (verbose > 1)
 		printf("Adding MTRR 0x%llx:0x%llx type %u\n", base, limit, type);
@@ -2450,14 +2450,14 @@ static void unify_all_nodes(void)
 			if (!model_first)
 				model_first = model;
 			else if (model != model_first) {
-				error("SCI%03x/%s has varying processor models 0x%08x and 0x%08x",
+				error("%03x/%s has varying processor models 0x%08x and 0x%08x",
 					nodes[node].sci, get_master_name(nodes[node].sci), model_first, model);
 				abort = 1;
 			}
 
 			/* 6200/4200 processors lack the HT lock mechanism, so abort */
 			if ((family >> 8) == 0x1501) {
-				error("SCI%03x/%s has incompatible 6200/4200 processors; please use 6300/4300 or later",
+				error("%03x/%s has incompatible 6200/4200 processors; please use 6300/4300 or later",
 					nodes[node].sci, get_master_name(nodes[node].sci));
 				abort = 1;
 			}
@@ -2466,7 +2466,7 @@ static void unify_all_nodes(void)
 				uint32_t val = dnc_read_conf(nodes[node].sci, 0, 24 + i, FUNC2_DRAM, 0x118);
 
 				if (val & (1 << 19)) {
-					error("SCI%03x/%s has CState C6 enabled in the BIOS",
+					error("%03x/%s has CState C6 enabled in the BIOS",
 					       nodes[node].sci, get_master_name(nodes[node].sci));
 					abort = 1;
 				}
