@@ -6,9 +6,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define XS 3
-#define YS 3
-#define ZS 0
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define max(x,y) ((x) > (y) ? (x) : (y))
 #define MAXPATH (16 + 16 + 16)
@@ -24,7 +21,7 @@
 typedef uint16_t sci_t;
 
 static unsigned dnc_node_count = 0;
-static uint8_t size[3] = {XS, YS, ZS};
+static uint8_t size[3] = {3, 3, 0};
 
 class Router {
 	bool lcs_disallowed[4096][6];
@@ -36,9 +33,7 @@ class Router {
 	unsigned bestcost;
 	sci_t src, dst;
 
-	sci_t neigh(sci_t pos, const uint8_t lc) const;
-	void find(sci_t pos, unsigned cost, const unsigned offset, const uint8_t available_lcs);
-	void dump(void);
+	void find(const sci_t pos, unsigned cost, const unsigned offset, const uint8_t available_lcs);
 	void update(void);
 	void router(const sci_t _src, const sci_t _dst);
 public:
@@ -47,19 +42,6 @@ public:
 	void disable_node(const uint16_t sci);
 	void show_usage(void) const;
 };
-
-void Router::dump(void)
-{
-	sci_t pos = src;
-
-	for (unsigned offset = 0; route[offset]; offset++) {
-		uint8_t lc = route[offset];
-		debugf(3, " %u", lc);
-		pos = neigh(pos, lc);
-	}
-
-	debugf(3, "\n");
-}
 
 // increment path usage
 void Router::update(void)
@@ -90,31 +72,10 @@ void Router::update(void)
 	}
 
 	debugf(2, " pos=%03x\n", pos);
-
 	assert(pos == dst);
 }
 
-sci_t Router::neigh(sci_t pos, const uint8_t lc) const
-{
-	const uint8_t axis = (lc - 1) / 2; // 0-2
-	int ring_pos = (pos >> (axis * 4)) & 0xf;
-	const bool dir = (lc - 1) & 1;
-
-	debugf(4, "<neigh: pos=0x%03x lc=%u axis=%u", pos, lc, axis);
-	if (dir) {
-		if (--ring_pos == -1)
-			ring_pos = size[axis] - 1;
-	} else
-		ring_pos = (ring_pos + 1) % size[axis];
-
-	pos &= ~(0xf << (axis * 4));
-	pos |= ring_pos << (axis * 4);
-
-	debugf(4, " pos=%03x>", pos);
-	return pos;
-}
-
-void Router::find(sci_t pos, unsigned cost, const unsigned offset, const uint8_t available_lcs)
+void Router::find(const sci_t pos, unsigned cost, const unsigned offset, const uint8_t available_lcs)
 {
 	if (cost >= bestcost) {
 		debugf(3, "<overcost>\n");
@@ -205,12 +166,12 @@ Router::Router(void): possible_lcs(0)
 
 void Router::run(void)
 {
-	for (unsigned sz = 0; sz < max(ZS, 1); sz++)
-		for (unsigned sy = 0; sy < max(YS, 1); sy++)
-			for (unsigned sx = 0; sx < max(XS, 1); sx++)
-				for (unsigned dz = 0; dz < max(ZS, 1); dz++)
-					for (unsigned dy = 0; dy < max(YS, 1); dy++)
-						for (unsigned dx = 0; dx < max(XS, 1); dx++)
+	for (unsigned sz = 0; sz < max(size[2], 1); sz++)
+		for (unsigned sy = 0; sy < max(size[1], 1); sy++)
+			for (unsigned sx = 0; sx < max(size[0], 1); sx++)
+				for (unsigned dz = 0; dz < max(size[2], 1); dz++)
+					for (unsigned dy = 0; dy < max(size[1], 1); dy++)
+						for (unsigned dx = 0; dx < max(size[0], 1); dx++)
 							router(SCI(sx, sy, sz), SCI(dx, dy, dz));
 }
 
@@ -223,9 +184,9 @@ void Router::disable_node(const uint16_t sci)
 void Router::show_usage(void) const
 {
 	printf("\nUsage:\n");
-	for (unsigned z = 0; z < max(ZS, 1); z++) {
-		for (unsigned y = 0; y < max(YS, 1); y++) {
-			for (unsigned x = 0; x < max(XS, 1); x++) {
+	for (unsigned z = 0; z < max(size[2], 1); z++) {
+		for (unsigned y = 0; y < max(size[1], 1); y++) {
+			for (unsigned x = 0; x < max(size[0], 1); x++) {
 				printf("%03x xbar %5u, lcs:", SCI(x, y, z), xbar_usage[SCI(x, y, z)]);
 				for (uint8_t i = 1; i <= 6; i++)
 					if (possible_lcs & (1 << i))
@@ -238,7 +199,8 @@ void Router::show_usage(void) const
 
 int main(void)
 {
-	dnc_node_count = max(XS, 1) * max(YS, 1) * max(ZS, 1);
+	dnc_node_count = max(size[0], 1) * max(size[1], 1) * max(size[2], 1);
+
 	Router *r = new Router();
 	r->disable_node(0x011);
 	r->run();
