@@ -1606,6 +1606,9 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	if (*p_asic_mode && *p_chip_rev < 2)
 		ht_suppress = 0x3fff; /* Suppress most sync-flood generation */
 
+	if (!(cht_read_conf(0, FUNC3_MISC, 0x58) & 0x1f))
+		warning("DRAM scrubbing not enabled in the BIOS\n");
+
 	if (ht_suppress) {
 		printf("Setting HT features to 0x%x...", ht_suppress);
 
