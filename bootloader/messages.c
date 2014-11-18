@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <netdb.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -17,7 +18,12 @@ int main(void)
 	assert(s != -1);
 
 	const struct sockaddr_in addr = {AF_INET, ntohs(MSG_PORT), INADDR_ANY, 0};
-	assert(bind(s, (struct sockaddr *)&addr, sizeof(addr)) != -1);
+	int ret = bind(s, (struct sockaddr *)&addr, sizeof(addr));
+	if (ret == -1) {
+		assert(errno == EADDRINUSE);
+		fprintf(stderr, "error: message already running\n");
+		return 1;
+	}
 
 	int val = 1;
 	assert(setsockopt(s, SOL_SOCKET, SO_BROADCAST, &val, sizeof(val)) != -1);
