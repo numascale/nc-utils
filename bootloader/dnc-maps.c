@@ -480,7 +480,7 @@ void ranges_print(void)
 	bool en, en2, lock, lock2;
 	ht_t ht;
 
-	printf("Northbridge DRAM ranges:\n");
+	printf("\nNorthbridge DRAM ranges:\n");
 	for (node = 0; node < dnc_node_count; node++) {
 		for (range = 0; range < 8; range++) {
 			dram_range_print(nodes[node].sci, nodes[node].bsp_ht, range);
@@ -492,10 +492,9 @@ void ranges_print(void)
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest);
 			}
 		}
-		printf("\n");
 	}
 
-	printf("Numachip DRAM ranges:\n");
+	printf("\nNumachip DRAM ranges:\n");
 	for (node = 0; node < dnc_node_count; node++)
 		for (range = 0; range < 8; range++)
 			nc_dram_range_print(nodes[node].sci, range);
@@ -512,10 +511,9 @@ void ranges_print(void)
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest && link2 == link && lock2 == lock);
 			}
 		}
-		printf("\n");
 	}
 
-	printf("Numachip MMIO ranges:\n");
+	printf("\nNumachip MMIO ranges:\n");
 	for (node = 0; node < dnc_node_count; node++)
 		for (range = 0; range < 8; range++)
 			nc_mmio_range_print(nodes[node].sci, range);

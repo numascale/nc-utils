@@ -965,7 +965,7 @@ static void setup_apic_atts(void)
 
 	/* Set APIC ATT for remote interrupts */
 	for (i = 0; i < dnc_node_count; i++) {
-		uint16_t snode = (i == 0) ? 0xfff0 : nodes[i].sci;
+		uint16_t snode = nodes[i].sci;
 		uint16_t dnode, ht;
 
 		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
@@ -1369,7 +1369,7 @@ static void setup_remote_cores(node_info_t *const node)
 	uint32_t j;
 	uint32_t val;
 
-	printf(" SCI%03x", sci);
+	printf(" %03x", sci);
 	/* Toggle go-ahead flag to remote node */
 	do {
 		check_error();
@@ -1791,8 +1791,7 @@ static void wait_status(struct node_info *info)
 			continue;
 
 		if (nodedata[cfg_nodelist[i].sci] != 0x80)
-			printf(" %03x/%s",
-			       cfg_nodelist[i].sci, cfg_nodelist[i].desc);
+			printf(" %s/%03x", cfg_nodelist[i].desc, cfg_nodelist[i].sci);
 	}
 
 	printf("\n");
@@ -2419,17 +2418,17 @@ static void unify_all_nodes(void)
 		uint64_t base = (uint64_t)nodes[0].ht[i].base << DRAM_MAP_SHIFT;
 		uint64_t limit = ((uint64_t)(nodes[0].ht[i].base + nodes[0].ht[i].size) << DRAM_MAP_SHIFT) - 1;
 
-		nc_dram_range(0xfff0, i, base, limit, i);
+		nc_dram_range(nodes[0].sci, i, base, limit, i);
 	}
 
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
 	for (i = 0; i < nodes[0].nc_ht; i++) {
-		int range = dram_range_unused(0xfff0, i);
+		int range = dram_range_unused(nodes[0].sci, i);
 
 		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
 		if (nodes[1].dram_base > nodes[0].dram_base)
-			dram_range(0xfff0, i, range, (uint64_t)nodes[1].dram_base << DRAM_MAP_SHIFT,
+			dram_range(nodes[0].sci, i, range, (uint64_t)nodes[1].dram_base << DRAM_MAP_SHIFT,
 				((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT) - 1, nodes[0].nc_ht);
 	}
 
@@ -2443,7 +2442,7 @@ static void unify_all_nodes(void)
 	for (i = 0; i < dnc_node_count; i++) {
 		uint16_t dnode;
 		uint32_t addr = 0;
-		node = (i == 0) ? 0xfff0 : nodes[i].sci;
+		node = nodes[i].sci;
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
 			addr = nodes[dnode].dram_base;
@@ -2498,8 +2497,8 @@ static void unify_all_nodes(void)
 	/* Decode remote coherent access to MMIO ranges to the SRI */
 	uint64_t tom = rdmsr(MSR_TOPMEM);
 	uint8_t ioh_ht = (cht_read_conf(0, FUNC0_HT, 0x60) >> 8) & 7;
-	nc_mmio_range(0xfff0, 0, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht);
-	nc_mmio_range(0xfff0, 1, tom, 0xffffffff, ioh_ht);
+	nc_mmio_range(nodes[0].sci, 0, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht);
+	nc_mmio_range(nodes[0].sci, 1, tom, 0xffffffff, ioh_ht);
 
 	uint64_t old_mcfg = rdmsr(MSR_MCFG_BASE);
 	old_mcfg_base = old_mcfg & ~0x3f;
@@ -2517,11 +2516,11 @@ static void unify_all_nodes(void)
 				int dest, link;
 				bool lock;
 
-				if (!mmio_range_read(0xfff0, i, range, &base, &limit, &dest, &link, &lock))
+				if (!mmio_range_read(nodes[0].sci, i, range, &base, &limit, &dest, &link, &lock))
 					continue;
 
 				if (base == old_mcfg) {
-					mmio_range_del(0xfff0, i, range);
+					mmio_range_del(nodes[0].sci, i, range);
 					break;
 				}
 			}
@@ -2598,7 +2597,7 @@ static void unify_all_nodes(void)
 		printf("Enabling DRAM scrubbers...");
 
 		for (node = 0; node < dnc_node_count; node++) {
-			uint16_t sci = (node == 0) ? 0xfff0 : nodes[node].sci;
+			uint16_t sci = nodes[node].sci;
 
 			for (i = nodes[node].nb_ht_lo; i <= nodes[node].nb_ht_hi; i++) {
 				if (!(nodes[node].ht[i].scrub & 0x1f))

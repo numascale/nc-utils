@@ -520,7 +520,7 @@ static bool tally_remote_node(const uint16_t sci)
 	ht_next_apic = node->apic_offset + node->ht[last].apic_base + apic_per_node;
 	node->dram_limit = dnc_top_of_mem;
 
-	printf("SCI%03x has %d cores and %dMB of memory\n", sci, tot_cores, node->node_mem << (DRAM_MAP_SHIFT - 20));
+	printf("SCI%03x has %u cores and %uMB of memory\n", sci, tot_cores, node->node_mem << (DRAM_MAP_SHIFT - 20));
 
 	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (i = 0; i < 256; i++)
