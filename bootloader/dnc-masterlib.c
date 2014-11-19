@@ -500,7 +500,8 @@ static bool tally_remote_node(const uint16_t sci)
 		/* Move whole server up to HT decode limit */
 		uint64_t shift = (HT_LIMIT >> DRAM_MAP_SHIFT) - node->dram_base;
 
-		printf("Moving SCI%03x past HyperTransport decode range by %lldGB\n", sci, shift >> (30 - DRAM_MAP_SHIFT));
+		printf("Moving SCI%03x past HyperTransport decode range by %lluGB\n", sci, shift >> (30 - DRAM_MAP_SHIFT));
+		under_ht_base = ((uint64_t)(node-1)->dram_base + (node-1)->node_mem) << DRAM_MAP_SHIFT;
 
 		for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++)
 			node->ht[i].base += shift;

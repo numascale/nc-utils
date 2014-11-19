@@ -117,6 +117,7 @@ extern struct e820entry *orig_e820_map;
 extern int orig_e820_len;
 extern uint64_t old_mcfg_base;
 extern uint32_t old_mcfg_len;
+extern uint64_t under_ht_base;
 
 void set_cf8extcfg_enable(const int ht);
 checked int read_config_file(const char *filename);

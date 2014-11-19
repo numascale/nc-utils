@@ -69,6 +69,7 @@ static struct in_addr myip = {0xffffffff};
 uint64_t ht_base = HT_BASE;
 uint64_t old_mcfg_base = 0;
 uint32_t old_mcfg_len = 0;
+uint64_t under_ht_base = HT_BASE;
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -434,17 +435,13 @@ void e820_add(const uint64_t base, const uint64_t length, const uint32_t type)
 
 static void update_e820_map(void)
 {
-	uint64_t prev_end;
+	uint64_t prev_end = 0;
 	uint64_t trace_buf = 0;
-	unsigned int i, j, max;
-	struct e820entry *e820;
-	uint16_t *len;
-	e820 = (struct e820entry *)REL32(new_e820_map);
-	len  = REL16(new_e820_len);
-	prev_end = 0;
-	max = 0;
+	unsigned max = 0;
+	struct e820entry *e820 = (struct e820entry *)REL32(new_e820_map);
+	uint16_t *len = REL16(new_e820_len);
 
-	for (i = 0; i < *len; i++) {
+	for (int i = 0; i < *len; i++) {
 		if (prev_end < e820[i].base + e820[i].length) {
 			max = i;
 			prev_end = e820[max].base + e820[max].length;
@@ -462,8 +459,8 @@ static void update_e820_map(void)
 	}
 
 	/* Add remote nodes */
-	for (i = 0; i < dnc_node_count; i++) {
-		for (j = nodes[i].nb_ht_lo; j <= nodes[i].nb_ht_hi; j++) {
+	for (int i = 0; i < dnc_node_count; i++) {
+		for (int j = nodes[i].nb_ht_lo; j <= nodes[i].nb_ht_hi; j++) {
 			if ((i == 0) && (j == 0))
 				continue; /* Skip BSP */
 
@@ -488,7 +485,7 @@ static void update_e820_map(void)
 	/* Add new ACPI tables */
 	e820_add((unsigned)tables_relocated, TABLE_AREA_SIZE, E820_ACPI);
 
-	e820_add(HT_BASE, HT_LIMIT - HT_BASE, E820_RESERVED);
+	e820_add(under_ht_base, HT_LIMIT - under_ht_base, E820_RESERVED);
 
 	/* Note that linux will reserve any I/O window BARs; reserving it here causes GRUB issues  */
 
@@ -2373,10 +2370,10 @@ static void unify_all_nodes(void)
 
 	tally_all_remote_nodes();
 
-	if (dnc_top_of_mem > (16ULL << (40 - DRAM_MAP_SHIFT))) {
-		printf("Using 64GB SCC granularity\n");
+	if (dnc_top_of_mem > (16ULL << (40 - DRAM_MAP_SHIFT)))
 		scc_att_index_range = 3;
-	}
+
+	printf("Total of %uGB DRAM; using %lluGB SCC granularity\n", dnc_top_of_mem >> (30 - DRAM_MAP_SHIFT), SCC_ATT_GRAN >> (30 - DRAM_MAP_SHIFT));
 
 	/* Remove last 16MB if CC6 enabled */
 	if (pf_cstate6)
