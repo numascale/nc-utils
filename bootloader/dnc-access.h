@@ -22,6 +22,7 @@
 #include <sys/io.h>
 
 #include "dnc-types.h"
+#include "dnc-defs.h"
 
 #define HT_TESTMODE_PRINT	1
 #define HT_TESTMODE_TEST	2
@@ -60,6 +61,15 @@ extern uint64_t dnc_csr_lim;
 extern int lirq_nest;
 #define cli() if (lirq_nest++ == 0) { asm volatile("cli"); }
 #define sti() if (--lirq_nest == 0) { asm volatile("sti"); }
+/* Since we use FS to access these areas, the address needs to be in canonical form (sign extended from bit47) */
+#define canonicalize(a) (((a) & (1ULL << 47)) ? ((a) | (0xffffULL << 48)) : (a))
+
+#define setup_fs(addr) do {                                             \
+        asm volatile("mov %%ds, %%ax\n\tmov %%ax, %%fs" ::: "eax");     \
+        asm volatile("wrmsr"                                            \
+                     : /* No output */                                  \
+                     : "A"(canonicalize(addr)), "c"(MSR_FS_BASE));      \
+    } while(0)
 
 extern int cht_config_use_extd_addressing;
 extern int ht_testmode;
@@ -76,6 +86,78 @@ checked static inline uint32_t uint32_tbswap(uint32_t val)
 {
 	asm volatile("bswap %0" : "+r"(val));
 	return val;
+}
+
+static inline uint64_t mem64_read64(const uint64_t addr)
+{
+	uint64_t val;
+	cli();
+	setup_fs(addr);
+	asm volatile("movq %%fs:(0), %%mm0; movq %%mm0, (%0)" : :"r"(&val) :"memory");
+	sti();
+	return val;
+}
+
+static inline uint32_t mem64_read32(const uint64_t addr)
+{
+	uint32_t ret;
+	cli();
+	setup_fs(addr);
+	asm volatile("mov %%fs:(0), %%eax" : "=a"(ret));
+	sti();
+	return ret;
+}
+
+static inline void mem64_write64(const uint64_t addr, const uint64_t val)
+{
+	cli();
+	setup_fs(addr);
+	asm volatile("movq (%0), %%mm0; movq %%mm0, %%fs:(0)" : :"r"(&val) :"memory");
+	sti();
+}
+
+static inline void mem64_write32(const uint64_t addr, const uint32_t val)
+{
+	cli();
+	setup_fs(addr);
+	asm volatile("mov %0, %%fs:(0)" :: "a"(val));
+	sti();
+}
+
+static inline uint16_t mem64_read16(const uint64_t addr)
+{
+	uint16_t ret;
+	cli();
+	setup_fs(addr);
+	asm volatile("movw %%fs:(0), %%ax" : "=a"(ret));
+	sti();
+	return ret;
+}
+
+static inline void mem64_write16(const uint64_t addr, const uint16_t val)
+{
+	cli();
+	setup_fs(addr);
+	asm volatile("movw %0, %%fs:(0)" :: "a"(val));
+	sti();
+}
+
+static inline uint8_t mem64_read8(const uint64_t addr)
+{
+	uint8_t ret;
+	cli();
+	setup_fs(addr);
+	asm volatile("movb %%fs:(0), %%al" : "=a"(ret));
+	sti();
+	return ret;
+}
+
+static inline void mem64_write8(const uint64_t addr, const uint8_t val)
+{
+	cli();
+	setup_fs(addr);
+	asm volatile("movb %0, %%fs:(0)" :: "a"(val));
+	sti();
 }
 
 void dump(const void *addr, const unsigned len);
@@ -106,8 +188,8 @@ checked uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg);
 void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val);
 checked uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg);
 void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg, uint32_t val);
-checked uint64_t mem64_read64(const uint64_t addr);
-checked uint32_t mem64_read32(const uint64_t addr);
+uint64_t mem64_read64(const uint64_t addr);
+uint32_t mem64_read32(const uint64_t addr);
 void mem64_write64(const uint64_t addr, const uint64_t val);
 void mem64_write32(const uint64_t addr, const uint32_t val);
 checked uint16_t mem64_read16(const uint64_t addr);

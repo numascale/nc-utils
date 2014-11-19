@@ -189,7 +189,7 @@ static void *_map_mem64(uint64_t addr, uint64_t len)
 
 	return mem + (addr & 0xfff);
 }
-
+#ifdef CONFLICT
 uint32_t mem64_read32(uint64_t addr)
 {
 	uint32_t ret;
@@ -201,7 +201,7 @@ void mem64_write32(uint64_t addr, uint32_t val)
 {
 	asm volatile("mov %%eax, (%%rdx)" :: "a"(val), "d"(_map_mem64(addr, 0)));
 }
-
+#endif
 uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
 {
 	return uint32_tbswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));

@@ -19,7 +19,6 @@
 #include <unistd.h>
 
 #include "dnc-regs.h"
-#include "dnc-defs.h"
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 #include "dnc-access.h"
@@ -434,88 +433,6 @@ void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, ui
 	}
 }
 #endif
-
-/* Since we use FS to access these areas, the address needs to be in canonical form (sign extended from bit47) */
-#define canonicalize(a) (((a) & (1ULL << 47)) ? ((a) | (0xffffULL << 48)) : (a))
-
-#define setup_fs(addr) do {                                             \
-        asm volatile("mov %%ds, %%ax\n\tmov %%ax, %%fs" ::: "eax");     \
-        asm volatile("wrmsr"                                            \
-                     : /* No output */                                  \
-                     : "A"(canonicalize(addr)), "c"(MSR_FS_BASE));      \
-    } while(0)
-
-uint64_t mem64_read64(const uint64_t addr)
-{
-	uint64_t val;
-	cli();
-	setup_fs(addr);
-	asm volatile("movq %%fs:(0), %%mm0; movq %%mm0, (%0)" : :"r"(&val) :"memory");
-	sti();
-	return val;
-}
-
-uint32_t mem64_read32(const uint64_t addr)
-{
-	uint32_t ret;
-	cli();
-	setup_fs(addr);
-	asm volatile("mov %%fs:(0), %%eax" : "=a"(ret));
-	sti();
-	return ret;
-}
-
-void mem64_write64(const uint64_t addr, const uint64_t val)
-{
-	cli();
-	setup_fs(addr);
-	asm volatile("movq (%0), %%mm0; movq %%mm0, %%fs:(0)" : :"r"(&val) :"memory");
-	sti();
-}
-
-void mem64_write32(const uint64_t addr, const uint32_t val)
-{
-	cli();
-	setup_fs(addr);
-	asm volatile("mov %0, %%fs:(0)" :: "a"(val));
-	sti();
-}
-
-uint16_t mem64_read16(const uint64_t addr)
-{
-	uint16_t ret;
-	cli();
-	setup_fs(addr);
-	asm volatile("movw %%fs:(0), %%ax" : "=a"(ret));
-	sti();
-	return ret;
-}
-
-void mem64_write16(const uint64_t addr, const uint16_t val)
-{
-	cli();
-	setup_fs(addr);
-	asm volatile("movw %0, %%fs:(0)" :: "a"(val));
-	sti();
-}
-
-uint8_t mem64_read8(const uint64_t addr)
-{
-	uint8_t ret;
-	cli();
-	setup_fs(addr);
-	asm volatile("movb %%fs:(0), %%al" : "=a"(ret));
-	sti();
-	return ret;
-}
-
-void mem64_write8(const uint64_t addr, const uint8_t val)
-{
-	cli();
-	setup_fs(addr);
-	asm volatile("movb %0, %%fs:(0)" :: "a"(val));
-	sti();
-}
 
 uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
 {
