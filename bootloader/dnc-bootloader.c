@@ -715,7 +715,7 @@ static void update_acpi_tables(void)
 	} else
 		odist = NULL;
 
-	if (verbose > 1) {
+	if (verbose >= 3) {
 		printf("Topology distances:\n   ");
 		for (int snode = 0; snode < dnc_node_count; snode++)
 			for (ht_t snb = 0; snb < nbs; snb++)
