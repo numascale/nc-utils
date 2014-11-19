@@ -47,8 +47,7 @@ int lirq_nest = 0;
 /* Pre-OS and OS may overwrite areas under this */
 #define MALLOC_SAFE_START (64 << 20)
 
-static volatile uint32_t *watchdog_ctl = WATCHDOG_BASE;
-static volatile uint32_t *watchdog_timer = WATCHDOG_BASE + 1;
+static volatile uint32_t *watchdog_base = 0;
 
 int ht_testmode;
 int cht_config_use_extd_addressing = 0;
@@ -218,40 +217,37 @@ void ioh_ioapicind_write(const uint16_t sci, const uint8_t reg, const uint32_t v
 	dnc_write_conf(sci, 0, 0, 0, 0xfc, val);
 }
 
-static void watchdog_write(uint32_t val)
+static void watchdog_write(const uint8_t reg, const uint32_t val)
 {
-	*watchdog_ctl = val;
-
-	if (verbose > 2) {
-		uint32_t val2 = *watchdog_ctl;
-
-		if (val2 != val)
-			warning("Watchdog control readback (0x%08x) differs from write (0x%08x)", val2, val);
-	}
+	if (verbose >= 2)
+		printf("watchdog[%u] -> 0x%08x\n", reg, val);
+	assert(watchdog_base);
+	watchdog_base[reg] = val;
 }
 
-static void watchdog_run(unsigned int counter)
+void watchdog_run(const unsigned counter)
 {
-	watchdog_write(0x81); /* WatchDogRunStopB | WatchDogTrigger */
-	*watchdog_timer = counter; /* in centiseconds */
-	watchdog_write(0x81);
+	watchdog_write(0, 0x81); /* WatchDogRunStopB | WatchDogTrigger */
+	watchdog_write(1, counter); /* in centiseconds */
+	watchdog_write(0, 0x81);
 }
 
-static void watchdog_stop(void)
+void watchdog_stop(void)
 {
-	watchdog_write(0);
+	watchdog_write(0, 0);
 }
 
 void watchdog_setup(void)
 {
-	/* FIXME: These register offsets are correct for SP5100, but not for (eg) SB810 */
 	/* Enable watchdog timer */
 	pmio_clearb(0x69, 1);
 	/* Enable watchdog decode */
 	uint32_t val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
 	dnc_write_conf(0xfff0, 0, 20, 0, 0x41, val2 | (1 << 3));
+
+	watchdog_base = WATCHDOG_BASE;
 	/* Write watchdog base address */
-	pmio_writel(0x6c, (unsigned int)watchdog_ctl);
+	pmio_writel(0x6c, (unsigned int)watchdog_base);
 }
 
 void reset_cf9(int mode, int last)
