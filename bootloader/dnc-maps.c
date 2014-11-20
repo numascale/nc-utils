@@ -536,8 +536,8 @@ void ranges_print(void)
 		for (node = 1; node < dnc_node_count; node++) {
 			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G0_ATT_ENTRY);
 			if (sci2 != sci)
-				warning("SCC address 0x%011llx routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
-				  (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT), sci, sci2, nodes[node].sci);
+				warning("SCC address 0x%011llx routes to SCI%03x on SCI%03x but routes to SCI%03x on SCI%03x",
+				  (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT), sci, nodes[0].sci, sci2, nodes[node].sci);
 		}
 
 		if (sci != last) {
@@ -566,8 +566,8 @@ void ranges_print(void)
 		for (node = 1; node < dnc_node_count; node++) {
 			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 			if (sci2 != sci)
-				warning("MMIO32 address 0x%08x routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
-				  i << NC_ATT_MMIO32_GRAN, sci, sci2, nodes[node].sci);
+				warning("MMIO32 address 0x%08x routes to SCI%03x on SCI%03x but routes to SCI%03x on SCI%03x",
+				  i << NC_ATT_MMIO32_GRAN, sci, nodes[0].sci, sci2, nodes[node].sci);
 		}
 
 		if (sci != last) {
@@ -594,8 +594,8 @@ void ranges_print(void)
 		for (node = 1; node < dnc_node_count; node++) {
 			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 			if (sci2 != sci)
-				warning("IO address 0x%07x routes to SCI%03x on SCI000 but routes to SCI%03x on SCI%03x",
-				  i << NC_ATT_IO_GRAN, sci, sci2, nodes[node].sci);
+				warning("IO address 0x%07x routes to SCI%03x on SCI%03x but routes to SCI%03x on SCI%03x",
+				  i << NC_ATT_IO_GRAN, sci, nodes[0].sci, sci2, nodes[node].sci);
 		}
 
 		if (sci != last) {

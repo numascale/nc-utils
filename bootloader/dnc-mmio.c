@@ -613,7 +613,7 @@ void setup_mmio(void) {
 
 	mmio64_limit = mmio64_cur;
 
-	printf("Setting up MMIO32 ATTs (default SCI000):\n");
+	printf("Setting up MMIO32 ATTs (default SCI%03x):\n", nodes[0].sci);
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
 		printf("- 0x%x:0x%x -> SCI%03x\n",
 			nodes[dnode].mmio32_base, nodes[dnode].mmio32_limit, nodes[dnode].sci);
@@ -630,11 +630,11 @@ void setup_mmio(void) {
 		}
 	}
 
-	printf("Setting up IO ATTs (default SCI000):\n");
+	printf("Setting up IO ATTs (default SCI%03x):\n", nodes[0].sci);
 	for (int node = 0; node < dnc_node_count; node++)
 		dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 
-	/* Skip range to SCI000, as it's default */
+	/* Skip range to the master, as it's default */
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
 		if (nodes[dnode].io_limit < nodes[dnode].io_base)
 			continue;
@@ -650,7 +650,7 @@ void setup_mmio(void) {
 				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (k % 256) * 4, nodes[dnode].sci);
 	}
 
-	printf("Setting up SCC ATTs for MMIO64 (default SCI000):\n");
+	printf("Setting up SCC ATTs for MMIO64 (default SCI%03x):\n", nodes[0].sci);
 	for (int dnode = 1; dnode < dnc_node_count; dnode++) {
 		if (nodes[dnode].mmio64_limit < nodes[dnode].mmio64_base)
 			continue;
@@ -759,7 +759,7 @@ void setup_mmio(void) {
 	{
 		uint8_t ioh_ht = (dnc_read_conf(nodes[0].sci, 0, 24 + nodes[0].bsp_ht, FUNC0_HT, 0x60) >> 8) & 7;
 		uint8_t ioh_link = (dnc_read_conf(nodes[0].sci, 0, 24 + nodes[0].bsp_ht, FUNC0_HT, 0x64) >> 8) & 3;
-		printf("Setting up NB MMIO ranges on SCI000 with IOH at %d.%d\n", ioh_ht, ioh_link);
+		printf("Setting up NB MMIO ranges on SCI%03x with IOH at %d.%d\n", nodes[0].sci, ioh_ht, ioh_link);
 
 		critical_enter();
 		for (int ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {

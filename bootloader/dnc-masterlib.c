@@ -349,7 +349,7 @@ void tally_local_node(void)
 		tot_cores += nodes[0].ht[i].cores;
 	}
 
-	printf("SCI000 has %d cores and %dMB of memory and I/O maps\n", tot_cores, nodes[0].node_mem << 4);
+	printf("SCI%03x has %u cores and %uMB of memory and I/O maps\n", nodes[0].sci, tot_cores, nodes[0].node_mem << 4);
 	nodes[0].dram_limit = dnc_top_of_mem;
 
 	dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
