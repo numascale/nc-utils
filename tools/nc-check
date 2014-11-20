@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect checker r2
+# NumaConnect checker r3
 
 import os, time, optparse
 from nclib import Platform, Numachip, Northbridge
@@ -41,6 +41,19 @@ cdata_error_statr = {
 	0: 'Uncorrectable error',
 }
 
+databahn_int_status = {
+	11: 'DLL unlock condition',
+	10: 'Read DQS gate error',
+	 9: 'ODT and CAS latecy 3 programmed',
+	 8: 'Unaligned write access',
+	 5: 'Multiple uncorrectable ECC events',
+	 4: 'Single uncorrectable ECC event',
+	 3: 'Multiple correctable ECC events',
+	 2:' Single correctable ECC event',
+	 1: 'Multiple accesses outside address space',
+	 0: 'Single access outside address space',
+}
+
 class Node:
 	def write(self, bus, dev, fun, reg, val):
 		numachip.mmcfg_raw_write(self.sci, bus, dev, fun, reg, val)
@@ -71,8 +84,8 @@ class Node:
 		print msgstr
 		print >>logf, msgstr
 
-	def ncensure(self, reg, expect, bits=None):
-		val = numachip.csr_raw_read(self.sci, numachip.regs[reg])
+	def ncensure(self, reg, mask, expect, bits=None):
+		val = numachip.csr_raw_read(self.sci, numachip.regs[reg]) & mask
 		if val != expect:
 			msg = '%s:%08x' % (reg, val)
 
@@ -82,8 +95,9 @@ class Node:
 					if (val ^ expect) & (1 << bit):
 						strings.append(string)
 
-			if strings:
-				msg += ' (' + ', '.join(strings) + ')'
+				if strings:
+					msg += ' (' + ', '.join(strings) + ')'
+
 			self.log(self.nc_ht, msg)
 
 	def nbensure(self, ht, reg, expect):
@@ -114,35 +128,37 @@ class Node:
 		try:
 			ht = self.nc_ht
 
-			self.ncensure('CDATA_ERROR_STATR', 0x00000000, cdata_error_statr)
-			self.ncensure('MCTAG_ERROR_STATR', 0x00000000)
-			self.ncensure('ERROR_STATUS', 0x00000000)
-			self.ncensure('ERROR_NFSTAT', 0x01000100, error_nfstat)
-			self.ncensure('ERROR_FSTAT', 0x00000000, error_fstat)
+			self.ncensure('CDATA_ERROR_STATR', 0xffffffff, 0x00000000, cdata_error_statr)
+			self.ncensure('MCTAG_ERROR_STATR', 0xffffffff, 0x00000000)
+			self.ncensure('ERROR_STATUS', 0xffffffff, 0x00000000)
+			self.ncensure('ERROR_NFSTAT', 0xffffffff, 0x01000100, error_nfstat)
+			self.ncensure('ERROR_FSTAT', 0xffffffff, 0x00000000, error_fstat)
+			self.ncensure('MCTAG_INT_STATUS', 0x0000effc, 0x00000000, databahn_int_status)
+			self.ncensure('CDATA_INT_STATUS', 0x0000effc, 0x00000000, databahn_int_status)
 
 			if platform.oemn.size_x:
-				self.ncensure('HSSXA_STAT_1', 0x00000100)
-				self.ncensure('HSSXB_STAT_1', 0x00000100)
-				self.ncensure('PHYXA_ELOG', 0x00000000)
-				self.ncensure('PHYXB_ELOG', 0x00000000)
-				self.ncensure('PHYXA_LINK_STAT', 0x00001fff)
-				self.ncensure('PHYXB_LINK_STAT', 0x00001fff)
+				self.ncensure('HSSXA_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('HSSXB_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('PHYXA_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYXB_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYXA_LINK_STAT', 0xffffffff, 0x00001fff)
+				self.ncensure('PHYXB_LINK_STAT', 0xffffffff, 0x00001fff)
 
 			if platform.oemn.size_y:
-				self.ncensure('HSSYA_STAT_1', 0x00000100)
-				self.ncensure('HSSYB_STAT_1', 0x00000100)
-				self.ncensure('PHYYA_ELOG', 0x00000000)
-				self.ncensure('PHYZB_ELOG', 0x00000000)
-				self.ncensure('PHYYA_LINK_STAT', 0x00001fff)
-				self.ncensure('PHYYB_LINK_STAT', 0x00001fff)
+				self.ncensure('HSSYA_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('HSSYB_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('PHYYA_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYZB_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYYA_LINK_STAT', 0xffffffff, 0x00001fff)
+				self.ncensure('PHYYB_LINK_STAT', 0xffffffff, 0x00001fff)
 
 			if platform.oemn.size_z:
-				self.ncensure('HSSZA_STAT_1', 0x00000100)
-				self.ncensure('HSSZB_STAT_1', 0x00000100)
-				self.ncensure('PHYZA_ELOG', 0x00000000)
-				self.ncensure('PHYZB_ELOG', 0x00000000)
-				self.ncensure('PHYZA_LINK_STAT', 0x00001fff)
-				self.ncensure('PHYZB_LINK_STAT', 0x00001fff)
+				self.ncensure('HSSZA_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('HSSZB_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('PHYZA_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYZB_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYZA_LINK_STAT', 0xffffffff, 0x00001fff)
+				self.ncensure('PHYZB_LINK_STAT', 0xffffffff, 0x00001fff)
 
 			if not options.lean:
 				for ht in range(self.nc_ht):

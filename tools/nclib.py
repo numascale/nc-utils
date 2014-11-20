@@ -1,4 +1,4 @@
-# r2
+# r3
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
@@ -270,30 +270,32 @@ class Numachip:
 	G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS = 0x3fc4
 
 	regs = {
-		'SEQ_INFO':            0x0c34,
-		'CDATA_ERROR_STATR':   0x4f0c,
-		'MCTAG_ERROR_STATR':   0x470c,
-		'ERROR_STATUS':        0x3424,
-		'ERROR_NFSTAT':        0x0d20,
-		'ERROR_FSTAT':         0x0d10,
-		'HSSXA_STAT_1':        0x0a30,
-		'HSSXB_STAT_1':        0x0a70,
-		'HSSYA_STAT_1':        0x0ab0,
-		'HSSYB_STAT_1':        0x0af0,
-		'HSSZA_STAT_1':        0x0b30,
-		'HSSZB_STAT_1':        0x0b70,
-		'PHYXA_ELOG':          0x0a08,
-		'PHYXB_ELOG':          0x0a48,
-		'PHYYA_ELOG':          0x0a88,
-		'PHYYB_ELOG':          0x0ac8,
-		'PHYZA_ELOG':          0x0b08,
-		'PHYZB_ELOG':          0x0b48,
 		'PHYXA_LINK_STAT':     0x0a00,
+		'PHYXA_ELOG':          0x0a08,
+		'HSSXA_STAT_1':        0x0a30,
 		'PHYXB_LINK_STAT':     0x0a40,
+		'PHYXB_ELOG':          0x0a48,
+		'HSSXB_STAT_1':        0x0a70,
 		'PHYYA_LINK_STAT':     0x0a80,
+		'PHYYA_ELOG':          0x0a88,
+		'HSSYA_STAT_1':        0x0ab0,
 		'PHYYB_LINK_STAT':     0x0ac0,
+		'PHYYB_ELOG':          0x0ac8,
+		'HSSYB_STAT_1':        0x0af0,
 		'PHYZA_LINK_STAT':     0x0b00,
+		'PHYZA_ELOG':          0x0b08,
+		'HSSZA_STAT_1':        0x0b30,
 		'PHYZB_LINK_STAT':     0x0b40,
+		'PHYZB_ELOG':          0x0b48,
+		'HSSZB_STAT_1':        0x0b70,
+		'SEQ_INFO':            0x0c34,
+		'ERROR_FSTAT':         0x0d10,
+		'ERROR_NFSTAT':        0x0d20,
+		'ERROR_STATUS':        0x3424,
+		'MCTAG_INT_STATUS':    0x4084,
+		'MCTAG_ERROR_STATR':   0x470c,
+		'CDATA_ERROR_STATR':   0x4f0c,
+		'CDATA_INT_STATUS':    0x4884,
 	}
 
 	events = (
