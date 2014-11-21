@@ -2838,12 +2838,18 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		val = cht_read_conf(i, FUNC0_HT, 0x164);
 		cht_write_conf(i, FUNC0_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
 
-		/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
 		if (family >= 0x15) {
+			/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
 			val = cht_read_conf(i, FUNC5_EXTD, 0x88);
 			if (!(val & (1 << 9)))
 				cht_write_conf(i, FUNC5_EXTD, 0x88, val | (1 << 9));
+
+			/* Disable Northbridge P1 state */
+			val = cht_read_conf(i, FUNC5_EXTD, 0x170);
+			cht_write_conf(i, FUNC5_EXTD, 0x170, val | (1 << 14));
+			assert(cht_read_conf(i, FUNC5_EXTD, 0x170) & (1 << 14));
 		}
+
 
 		/* Disable GARTs; Linux will reenable them on the master, so it's safer to disable
 		 * them to prevent interpreting false entries from application memory */
