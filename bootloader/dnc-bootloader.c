@@ -1213,6 +1213,11 @@ static void setup_other_cores(void)
 		}
 	}
 
+	/* Check for MCEs here, as protocol errors can be observed on some servers */
+	for (unsigned node = 0; node < dnc_node_count; node++)
+		for (uint8_t ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++)
+			mce_check(nodes[node].sci, ht);
+
 	critical_leave();
 	printf(" online\n");
 }
@@ -2623,6 +2628,11 @@ static void unify_all_nodes(void)
 
 	if (pf_cstate6)
 		enable_cstate6();
+
+	/* Check for MCEs */
+	for (node = 0; node < dnc_node_count; node++)
+		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++)
+			mce_check(nodes[node].sci, ht);
 
 #ifdef UNUSED
 	calibrate_nb_tscs();

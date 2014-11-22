@@ -155,6 +155,68 @@ void wait_key(void)
 	printf("\n");
 }
 
+void mce_check(const sci_t sci, const ht_t ht)
+{
+	for (unsigned link = 0; link < 4; link++) {
+		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC0_HT, 0x84 + link * 0x20);
+		if (val & 0x300)
+			warning("HT link %u CRC error", link);
+
+		if (val & 0x10)
+			warning("HT link %u failure", link);
+	}
+
+	uint64_t s = dnc_read_conf64(sci, 0, 24 + ht, FUNC3_MISC, 0x48);
+	if (s & (1ULL << 63)) {
+		const char *sig[] = {
+		  NULL, "CRC Error", "Sync Error", "Mst Abort", "Tgt Abort",
+		  "GART Error", "RMW Error", "WDT Error", "ECC Error", NULL,
+		  "Link Data Error", "Protocol Error", "NB Array Error",
+		  "DRAM Parity Error", "Link Retry", "GART Table Walk Data Error",
+		  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		  "L3 Cache Data Error", "L3 Cache Tag Error", "L3 Cache LRU Error",
+		  "Probe Filter Error", "Compute Unit Data Error"};
+
+		warning("%s on SCI%03x#%u:", sig[(s >> 16) & 0x1f], sci, ht);
+		printf("- ErrorCode=0x%llx ErrorCodeExt=0x%llx Syndrome=0x%llx\n",
+		  s & 0xffff, (s >> 16) & 0xf, ((s >> 16) & 0xff00) | ((s >> 47) & 0xff));
+		printf("- Link=%llu Scrub=%llu SubLink=%llu McaStatSubCache=%llu\n",
+		  (s >> 26) & 0xf, (s >> 40) & 1, (s >> 41) & 1, (s >> 42) & 3);
+		printf("- UECC=%llu CECC=%llu PCC=%llu\n",
+		  (s >> 45) & 1, (s >> 46) & 1, (s >> 57) & 1);
+		printf("- MiscV=%llu En=%llu UC=%llu Overflow=%llu\n",
+		  (s >> 59) & 1, (s >> 60) & 1, (s >> 61) & 1, (s >> 62) & 1);
+
+		if ((s >> 56) & 1) // ErrCoreIdVal
+			printf(" ErrCoreId=%llu", (s >> 32) & 0xf);
+
+		if ((s >> 58) & 1) // AddrV
+			printf(" Address=0x%016llx", dnc_read_conf64(sci, 0, 24 + ht, FUNC3_MISC, 0x50));
+
+		printf("\n");
+		dnc_write_conf64_split(sci, 0, 24 + ht, FUNC3_MISC, 0x48, 0);
+		dnc_write_conf64_split(sci, 0, 24 + ht, FUNC3_MISC, 0x50, 0);
+	}
+
+	uint32_t v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x160);
+	if (v & 0xff) { // looks like bits 7:0 only are usable
+		warning("DRAM machine check 0x%08x on SCI%03x#%u", v, sci, ht);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x160, 0);
+	}
+
+	v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x168);
+	if (v & 0xfff) {
+		warning("HT Link machine check 0x%08x on SCI%03x#%u", v, sci, ht);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x168, 0);
+	}
+
+	v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x170);
+	if (v & 0xfff) {
+		warning("L3 Cache machine check 0x%08x on SCI%03x#%u", v, sci, ht);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x170, 0);
+	}
+}
+
 static void read_spd_info(char p_type[16], const bool cdata, struct dimm_config *dimm)
 {
 	uint16_t spd_addr;

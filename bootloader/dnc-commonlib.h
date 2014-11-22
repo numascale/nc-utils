@@ -259,6 +259,7 @@ extern uint8_t scc_att_index_range;
 checked const char *pr_size(uint64_t val);
 void udelay(uint32_t usecs);
 void wait_key(void);
+void mce_check(const sci_t sci, const ht_t ht);
 checked int cpu_family(const uint16_t scinode, const uint8_t node);
 void probefilter_tokens(const ht_t max_ht);
 void detect_southbridge(void);

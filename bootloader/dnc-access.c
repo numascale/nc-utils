@@ -510,17 +510,11 @@ void dnc_write_conf(const sci_t sci, const uint8_t bus, const uint8_t device, co
 	DEBUG("\n");
 }
 
-void dnc_write_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val)
+void dnc_write_conf64_split(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val)
 {
 	uint64_t addr = DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg);
 
-	/* Processor will issue two 4-byte non-coherent writes */
-	if (sci == 0xfff0 || sci == nodes->sci) {
-		mem64_write64(addr, val);
-		return;
-	}
-
-	/* Use discrete reads for non-local access for now */
+	/* Processor does not support single 64-bit transaction */
 	mem64_write32(addr, val);
 	mem64_write32(addr + 4, val >> 32);
 }

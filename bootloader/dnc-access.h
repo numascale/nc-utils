@@ -203,7 +203,7 @@ void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val);
 checked uint32_t dnc_read_conf(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg);
 checked uint64_t dnc_read_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg);
 void dnc_write_conf(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint32_t val);
-void dnc_write_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val);
+void dnc_write_conf64_split(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val);
 checked uint64_t rdmsr(const uint32_t msr);
 void wrmsr(const uint32_t msr, const uint64_t v);
 void *zalloc_persist(const size_t size);
