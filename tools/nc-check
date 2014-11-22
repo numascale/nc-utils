@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect checker r3
+# NumaConnect checker r4
 
 import os, time, optparse
 from nclib import Platform, Numachip, Northbridge
@@ -201,12 +201,15 @@ colours = {
 
 nodes = []
 
-for z in range(max(platform.oemn.size_z, 1)):
-	for y in range(max(platform.oemn.size_y, 1)):
-		for x in range(max(platform.oemn.size_x, 1)):
-			nodes.append(Node(x | y << 4 | z << 8))
+try:
+	for z in range(max(platform.oemn.size_z, 1)):
+		for y in range(max(platform.oemn.size_y, 1)):
+			for x in range(max(platform.oemn.size_x, 1)):
+				nodes.append(Node(x | y << 4 | z << 8))
 
-logf = open('nc-check.log', 'a')
+	logf = open('nc-check.log', 'a')
+except Numachip.BlockedException:
+	raise SystemError('error: fabric blocked; unable to determine geometry')
 
 try:
 	while True:
@@ -222,5 +225,7 @@ try:
 			break
 
 		time.sleep(3)
+except Numachip.BlockedException:
+	raise SystemError('error: fabric blocked')
 except KeyboardInterrupt:
 	pass
