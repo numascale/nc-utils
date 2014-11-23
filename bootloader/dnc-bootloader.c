@@ -2634,6 +2634,12 @@ static void unify_all_nodes(void)
 		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++)
 			mce_check(nodes[node].sci, ht);
 
+	/* Checl for SCC fatal errors */
+	for (node = 0; node < dnc_node_count; node++) {
+		uint32_t val = dnc_read_csr(nodes[node].sci, H2S_CSR_G0_ERROR_FSTAT);
+		assertf(!val, "SCC on %03x has fatal errors 0x%08x", nodes[node].sci, val);
+	}
+
 #ifdef UNUSED
 	calibrate_nb_tscs();
 #endif
@@ -2985,6 +2991,9 @@ static int nc_start(void)
 
 		/* On non-root servers, prevent writing to unexpected locations */
 		cleanup_stack();
+
+		val = dnc_read_csr(0xfff0, H2S_CSR_G0_ERROR_FSTAT);
+		assertf(!val, "SCC has fatal errors 0x%08x", val);
 
 		/* Set G3x02c FAB_CONTROL bit 30 */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1 << 30);
