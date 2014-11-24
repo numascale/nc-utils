@@ -3309,7 +3309,7 @@ static bool phy_check_status(const int phy, const bool print)
 	uint32_t val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_ELOG + 0x40 * phy);
 	if (val & 0xf0) {
 		if (print)
-			warning("Issuing fabric %s reset due to ELOG 0x%x", _get_linkname(phy), val);
+			warning("Issuing fabric %s reset due to ELOG 0x%x on %03x", _get_linkname(phy), val, local_info->sci);
 
 		/* Clock compensation error, try forced retraining */
 		dnc_reset_phy(phy);
@@ -3319,14 +3319,14 @@ static bool phy_check_status(const int phy, const bool print)
 	/* Other errors */
 	if (val > 0) {
 		if (print)
-			warning("Fabric error ELOG 0x%x; check %s link cables", val, _get_linkname(phy));
+			warning("Fabric error ELOG 0x%x; check %s link cables to/from %03x", val, _get_linkname(phy), local_info->sci);
 		return 1;
 	}
 
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
 	if (val != 0x1fff) {
 		if (print)
-			warning("Fabric link error 0x%x; check %s link cables", val, _get_linkname(phy));
+			warning("Fabric link error 0x%x; check %s link cables to/from %03x", val, _get_linkname(phy), local_info->sci);
 		return 1;
 	}
 
