@@ -1358,10 +1358,9 @@ static void renumber_remote_bsp(node_info_t *const node)
 #endif
 
 	/* Rewrite high MMIO ranges to route CSR access to Numachip */
-	for (i = 1; i <= max_ht; i++) {
-		mmio_range(sci, i, 8, DNC_CSR_BASE, DNC_CSR_LIM, 0, 0, 1);
-		mmio_range(sci, i, 9, DNC_MCFG_BASE, DNC_MCFG_LIM, 0, 0, 1);
-	}
+	for (i = 1; i <= max_ht; i++)
+		/* As MCFG and CSR maps are adjacent, use one power of two length range */
+		mmio_range(sci, i, 8, DNC_MCFG_BASE, DNC_CSR_LIM, 0, 0, 1);
 
 	printf("]");
 }
