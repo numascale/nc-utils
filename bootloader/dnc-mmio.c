@@ -718,18 +718,18 @@ void setup_mmio(void) {
 		for (int ht = nodes[i].nb_ht_lo; ht <= nodes[i].nb_ht_hi; ht++) {
 			int range = 0;
 
-			mmio_range(sci, ht, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, nodes[i].nc_ht, 0, 1);
+			mmio_range(sci, ht, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, nodes[i].nc_ht, 0, 1, 0);
 
 			/* 32-bit under local range */
 			if (nodes[i].mmio32_base > tom)
-				mmio_range(sci, ht, range++, tom, nodes[i].mmio32_base - 1, nodes[i].nc_ht, 0, 1);
+				mmio_range(sci, ht, range++, tom, nodes[i].mmio32_base - 1, nodes[i].nc_ht, 0, 1, 0);
 
 			/* 32-bit local range */
 			if (nodes[i].mmio32_limit > nodes[i].mmio32_base)
-				mmio_range(sci, ht, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht, ioh_link, 1);
+				mmio_range(sci, ht, range++, nodes[i].mmio32_base, nodes[i].mmio32_limit, ioh_ht, ioh_link, 1, 0);
 
 			/* 32-bit above local range */
-			mmio_range(sci, ht, range++, nodes[i].mmio32_limit + 1, 0xffffffff, nodes[i].nc_ht, 0, 1);
+			mmio_range(sci, ht, range++, nodes[i].mmio32_limit + 1, 0xffffffff, nodes[i].nc_ht, 0, 1, 0);
 
 			while (range < 8)
 				mmio_range_del(sci, ht, range++);
@@ -739,11 +739,11 @@ void setup_mmio(void) {
 
 			/* 64-bit under local range */
 			if (nodes[i].mmio64_base > ((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT))
-				mmio_range(sci, ht, range++, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, nodes[i].mmio64_base - 1, nodes[i].nc_ht, 0, 1);
+				mmio_range(sci, ht, range++, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, nodes[i].mmio64_base - 1, nodes[i].nc_ht, 0, 1, 0);
 
 			/* 64-bit local range */
 			if (nodes[i].mmio64_limit > nodes[i].mmio64_base)
-				mmio_range(sci, ht, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht, ioh_link, 1);
+				mmio_range(sci, ht, range++, nodes[i].mmio64_base, nodes[i].mmio64_limit, ioh_ht, ioh_link, 1, 0);
 
 			/* Fam15h has 12 MMIO ranges, so use 7 */
 			if (family > 0x10)
@@ -751,7 +751,7 @@ void setup_mmio(void) {
 
 			/* 64-bit above local range */
 			if (nodes[dnc_node_count - 1].mmio64_limit > nodes[i].mmio64_limit && i < (dnc_node_count - 1))
-				mmio_range(sci, ht, range++, nodes[i].mmio64_limit + 1, nodes[dnc_node_count - 1].mmio64_limit, nodes[i].nc_ht, 0, 1);
+				mmio_range(sci, ht, range++, nodes[i].mmio64_limit + 1, nodes[dnc_node_count - 1].mmio64_limit, nodes[i].nc_ht, 0, 1, 0);
 		}
 	}
 
@@ -765,7 +765,7 @@ void setup_mmio(void) {
 		for (int ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
 			int range = 0;
 
-			mmio_range(nodes[0].sci, ht, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht, ioh_link, 1);
+			mmio_range(nodes[0].sci, ht, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, ioh_ht, ioh_link, 1, 0);
 
 			/* Merge adjacent remote ranges */
 			uint32_t start = nodes[1].mmio32_base;
@@ -777,16 +777,16 @@ void setup_mmio(void) {
 					continue;
 				}
 
-				mmio_range(nodes[0].sci, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
+				mmio_range(nodes[0].sci, ht, range++, start, end, nodes[0].nc_ht, 0, 1, 0);
 				start = nodes[i].mmio32_base;
 				end = nodes[i].mmio32_limit;
 			}
 
 			if (end > start)
-				mmio_range(nodes[0].sci, ht, range++, start, end, nodes[0].nc_ht, 0, 1);
+				mmio_range(nodes[0].sci, ht, range++, start, end, nodes[0].nc_ht, 0, 1, 0);
 
 			for (unsigned erange = 0; erange < map32->excluded.used; erange++)
-				mmio_range(nodes[0].sci, ht, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht, ioh_link, 1);
+				mmio_range(nodes[0].sci, ht, range++, map32->excluded.elements[erange].start, map32->excluded.elements[erange].end, ioh_ht, ioh_link, 1, 0);
 
 			while (range < 8)
 				mmio_range_del(nodes[0].sci, ht, range++);
@@ -795,10 +795,10 @@ void setup_mmio(void) {
 			range = 10;
 
 			if (nodes[0].mmio64_limit > nodes[0].mmio64_base)
-				mmio_range(nodes[0].sci, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1);
+				mmio_range(nodes[0].sci, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1, 0);
 
 			if (nodes[dnc_node_count - 1].mmio64_limit > nodes[1].mmio64_base)
-				mmio_range(nodes[0].sci, ht, range++, nodes[1].mmio64_base, nodes[dnc_node_count - 1].mmio64_limit, nodes[0].nc_ht, 0, 1);
+				mmio_range(nodes[0].sci, ht, range++, nodes[1].mmio64_base, nodes[dnc_node_count - 1].mmio64_limit, nodes[0].nc_ht, 0, 1, 0);
 		}
 		critical_leave();
 	}

@@ -113,7 +113,7 @@ void dram_range_del(const uint16_t sci, const int ht, const int range)
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
 }
 
-bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link, bool *lock)
+bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link, bool *lock, bool *np)
 {
 	if (family >= 0x15) {
 		assert(range < 12);
@@ -131,8 +131,9 @@ bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base
 
 		*base = ((uint64_t)(a & ~0xff) << 8) | ((uint64_t)(c & 0xff) << 40);
 		*limit = ((uint64_t)(b & ~0xff) << 8) | ((uint64_t)(c & 0xff0000) << (40 - 16)) | 0xffff;
-		*dest = b & 7;
+		*np = b & (1 << 7);
 		*link = (b >> 4) & 3;
+		*dest = b & 7;
 
 		/* Ensure read and write bits are consistent */
 		assert(!(a & 1) == !(a & 2));
@@ -148,8 +149,9 @@ bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base
 
 		*base = (uint64_t)(a & ~0xff) << 8;
 		*limit = ((uint64_t)(b & ~0xff) << 8) | 0xffff;
-		*dest = b & 7;
+		*np = b & (1 << 7);
 		*link = (b >> 4) & 3;
+		*dest = b & 7;
 		*lock = a & 8;
 		return a & 3;
 	}
@@ -183,16 +185,16 @@ void mmio_range_print(const uint16_t sci, const int ht, const int range)
 {
 	uint64_t base, limit;
 	int dest, link;
-	bool lock;
+	bool lock, np;
 
 	assert(range < 8);
 
-	if (mmio_range_read(sci, ht, range, &base, &limit, &dest, &link, &lock))
-		printf("SCI%03x#%d MMIO range %d: 0x%08llx:0x%08llx to %d.%d%s\n",
-			sci, ht, range, base, limit, dest, link, lock ? " locked" : "");
+	if (mmio_range_read(sci, ht, range, &base, &limit, &dest, &link, &lock, &np))
+		printf("SCI%03x#%d MMIO range %d: 0x%08llx:0x%08llx to %d.%d%s%s\n",
+			sci, ht, range, base, limit, dest, link, lock ? " locked" : "", np ? " non-posted" : "");
 }
 
-void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const int dest, const int link, const bool ovw)
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const int dest, const int link, const bool ovw, const bool np)
 {
 	if (verbose > 1)
 		printf("Adding MMIO range %d on SCI%03x#%x: 0x%08llx:0x%08llx to %d.%d\n",
@@ -215,13 +217,13 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t 
 		if ((val & 3) && !ovw) {
 			uint64_t base2, limit2;
 			int dest2, link2;
-			bool lock2;
-			mmio_range_read(sci, ht, range, &base2, &limit2, &dest2, &link2, &lock2);
+			bool lock2, np2;
+			mmio_range_read(sci, ht, range, &base2, &limit2, &dest2, &link2, &lock2, &np2);
 			fatal("Overwriting SCI%03x#%d MMIO range %d on 0x%08llx:0x%08llx to %d.%d%s", sci, ht, range, base2, limit2, dest2, link2, lock2 ? " locked" : "");
 		}
 
 		uint32_t val2 = ((base >> 16) << 8) | 3;
-		uint32_t val3 = ((limit >> 16) << 8) | dest | (link << 4);
+		uint32_t val3 = ((limit >> 16) << 8) | (np << 7) | (link << 4) | dest;
 		uint32_t val4 = ((limit >> 40) << 16) | (base >> 40);
 
 		/* Check if locked */
@@ -230,9 +232,9 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t 
 		  || (val4 != dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4)))) {
 			uint64_t old_base, old_limit;
 			int old_dest, old_link;
-			bool old_lock;
+			bool old_lock, old_np;
 
-			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock);
+			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock, &old_np);
 			warning("Unable to overwrite locked MMIO range %d on SCI%03x#%d 0x%llx:0x%llx to %d.%d with 0x%llx:0x%llx to %d.%d",
 				range, sci, ht, old_base, old_limit, old_dest, old_link, base, limit, dest, link);
 			return;
@@ -251,22 +253,22 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t 
 		if ((val & 3) && !ovw) {
 			uint64_t base2, limit2;
 			int dest2, link2;
-			bool lock2;
-			mmio_range_read(sci, ht, range, &base2, &limit2, &dest2, &link2, &lock2);
+			bool lock2, np2;
+			mmio_range_read(sci, ht, range, &base2, &limit2, &dest2, &link2, &lock2, &np2);
 			fatal("Overwriting SCI%03x#%d MMIO range %d on 0x%08llx:0x%08llx to %d.%d%s", sci, ht, range, base2, limit2, dest2, link2, lock2 ? " locked" : "");
 		}
 
 		uint32_t val2 = ((base >> 16) << 8) | 3;
-		uint32_t val3 = ((limit >> 16) << 8) | dest | (link << 4);
+		uint32_t val3 = ((limit >> 16) << 8) | (np << 7) | (link << 4) | dest;
 
 		/* Check if locked */
 		if ((val & 8) && ((val2 != (val & ~8))
 		  || (val3 != dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8)))) {
 			uint64_t old_base, old_limit;
 			int old_dest, old_link;
-			bool old_lock;
+			bool old_lock, old_np;
 
-			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock);
+			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock, &old_np);
 			warning("Unable to overwrite locked MMIO range %d on SCI%03x#%d 0x%llx:0x%llx to %d.%d with 0x%llx:0x%llx to %d.%d",
 				range, sci, ht, old_base, old_limit, old_dest, old_link, base, limit, dest, link);
 			return;
@@ -477,7 +479,7 @@ void ranges_print(void)
 {
 	uint64_t base, base2, limit, limit2;
 	int node, range, dest, dest2, link, link2;
-	bool en, en2, lock, lock2;
+	bool en, en2, lock, lock2, np, np2;
 	ht_t ht;
 
 	printf("\nNorthbridge DRAM ranges:\n");
@@ -505,10 +507,10 @@ void ranges_print(void)
 			mmio_range_print(nodes[node].sci, nodes[node].bsp_ht, range);
 
 			/* Verify consistency */
-			en = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base, &limit, &dest, &link, &lock);
+			en = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base, &limit, &dest, &link, &lock, &np);
 			for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-				en2 = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base2, &limit2, &dest2, &link2, &lock2);
-				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest && link2 == link && lock2 == lock);
+				en2 = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base2, &limit2, &dest2, &link2, &lock2, &np2);
+				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest && link2 == link && lock2 == lock && np2 == np);
 			}
 		}
 	}

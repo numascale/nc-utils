@@ -1072,7 +1072,7 @@ static void disable_smm_handler(uint64_t smm_base)
 	node = (val >> 16) & 0xfff;
 
 	for (i = 0; i < nodes[0].nc_ht; i++)
-		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0, 0);
+		mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0, 0, 0);
 
 	add_scc_hotpatch_att(smm_addr, node);
 	sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -1360,7 +1360,7 @@ static void renumber_remote_bsp(node_info_t *const node)
 	/* Rewrite high MMIO ranges to route CSR access to Numachip */
 	for (i = 1; i <= max_ht; i++)
 		/* As MCFG and CSR maps are adjacent, use one power of two length range */
-		mmio_range(sci, i, 8, DNC_MCFG_BASE, DNC_CSR_LIM, 0, 0, 1);
+		mmio_range(sci, i, 8, DNC_MCFG_BASE, DNC_CSR_LIM, 0, 0, 1, 0);
 
 	printf("]");
 }
@@ -1412,12 +1412,12 @@ static void setup_remote_cores(node_info_t *const node)
 		int range = 0;
 
 		/* 1st MMIO map pair is set to point to the VGA segment A0000-C0000 */
-		mmio_range(sci, i, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, node->nc_ht, 0, 1);
+		mmio_range(sci, i, range++, MMIO_VGA_BASE, MMIO_VGA_LIMIT, node->nc_ht, 0, 1, 0);
 
 		/* 2nd MMIO map pair is set to point to MMIO between TOM and 4G */
 		/* FIXME: scope master's PCI bus */
 		uint64_t tom = rdmsr(MSR_TOPMEM);
-		mmio_range(sci, i, range++, tom, 0xffffffff, node->nc_ht, 0, 1);
+		mmio_range(sci, i, range++, tom, 0xffffffff, node->nc_ht, 0, 1, 0);
 
 		/* Clear low MMIO ranges, leaving high ranges */
 		while (range < 8)
@@ -2139,7 +2139,7 @@ static void local_chipset_fixup(const bool master)
 		node = (val >> 16) & 0xfff;
 
 		for (i = 0; i < nodes[0].nc_ht; i++)
-			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0, 0);
+			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0, 0, 0);
 
 		add_scc_hotpatch_att(addr, node);
 		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
@@ -2518,9 +2518,9 @@ static void unify_all_nodes(void)
 			for (int range = 0; range < 8; range++) {
 				uint64_t base, limit;
 				int dest, link;
-				bool lock;
+				bool lock, np;
 
-				if (!mmio_range_read(nodes[0].sci, i, range, &base, &limit, &dest, &link, &lock))
+				if (!mmio_range_read(nodes[0].sci, i, range, &base, &limit, &dest, &link, &lock, &np))
 					continue;
 
 				if (base == old_mcfg) {
