@@ -2296,23 +2296,6 @@ static void perform_selftest(int asic_mode, char p_type[16])
 			}
 		}
 
-		for (chunk = 0; chunk < maxchunk; chunk++) {
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_NODE | chunk);
-			for (i = 0; i < 256; i++)
-				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
-		}
-
-		for (chunk = 0; chunk < maxchunk; chunk++) {
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_NODE | chunk);
-
-			for (i = 0; i < 256; i++) {
-				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-				uint32_t want = (chunk * 256) + i;
-				assertf(val == want, "Interrupt address map readback failed; have 0x%x, expected 0x%x", val, want);
-				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
-			}
-		}
-
 		/* Test SCC routing tables, no readback verify */
 		for (chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);

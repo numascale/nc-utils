@@ -356,10 +356,6 @@ void tally_local_node(void)
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
 
-	dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_CTRL);
-	for (i = 0; i < 256; i++)
-		dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
-
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
 	if (verbose > 1)
@@ -525,10 +521,6 @@ static bool tally_remote_node(const uint16_t sci)
 	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (i = 0; i < 256; i++)
 		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
-
-	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_INT_CTRL);
-	for (i = 0; i < 256; i++)
-		dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
