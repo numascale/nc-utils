@@ -188,7 +188,7 @@ static bool parse_json(json_t *root)
 		/* Validate SCI ID */
 		for (unsigned axis = 0; axis < 3; axis++)
 			if (!cfg_fabric.size[axis] && (cfg_nodelist[i].sci >> (axis * 4)) & 0xf)
-				fatal("sciid %03x should be 0 in unconfigures axes", cfg_nodelist[i].sci);
+				warning("sciid %03x has position in unconfigured axes", cfg_nodelist[i].sci);
 	}
 
 	if (name_matching)
