@@ -214,7 +214,7 @@ static void adjust_dram_window(node_info_t *const node)
 
 		for (int j = node->nb_ht_lo; j <= node->nb_ht_hi; j++) {
 			for (int range = 0; range < 8; range++) {
-				int dst;
+				uint8_t dst;
 
 				if (dram_range_read(node->sci, j, range, NULL, NULL, &dst) && dst == i) {
 					dram_range(node->sci, j, range, base, limit, i);
@@ -274,7 +274,7 @@ void tally_local_node(void)
 				/* Remove 16MB from ranges to this Northbridge */
 				for (int j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++) {
 					uint64_t base2, limit2;
-					int dst;
+					uint8_t dst;
 
 					/* Assuming only one local range */
 					for (int range = 0; range < 8; range++) {

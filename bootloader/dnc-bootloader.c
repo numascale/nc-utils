@@ -1003,19 +1003,16 @@ static void setup_apic_atts(void)
 	printf("done\n");
 }
 
-static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
+static void add_scc_hotpatch_att(const uint64_t addr, const uint16_t node)
 {
-	uint64_t val;
-	uint32_t base, lim;
-
 	if (scc_started) {
 		uint32_t att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
 		att_idx = (att_idx >> 27) & 0xf;
-		val = addr >> 20;
+		uint64_t val = addr >> 20;
 
 		while (att_idx > 0) {
-			val = val >> 4;
-			att_idx = att_idx >> 1;
+			val >>= 4;
+			att_idx >>= 1;
 		}
 
 		att_idx = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_INDEX);
@@ -1035,20 +1032,10 @@ static void add_scc_hotpatch_att(uint64_t addr, uint16_t node)
 		dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, node);
 
 		for (int i = 0; i < 8; i++) {
-			base = cht_read_conf(0, FUNC1_MAPS, 0x40 + (8 * i));
-			lim = cht_read_conf(0, FUNC1_MAPS, 0x44 + (8 * i));
-
-			if (base & 3) {
-				base = (base >> 8) | (base & 3);
-				lim = (lim >> 8) | (lim & 7);
-			} else {
-				base = 0;
-				lim = 0;
-			}
-
-			cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, i);
-			cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_DRAM_LIMIT_ADDRESS_REGISTERS, lim);
-			cht_write_conf(nodes[0].nc_ht, 1, H2S_CSR_F1_DRAM_BASE_ADDRESS_REGISTERS, base);
+			uint64_t base, limit;
+			uint8_t dest;
+			if (dram_range_read(0xfff0, i, 0, &base, &limit, &dest))
+				nc_dram_range(0xfff0, i, base, limit, dest);
 		}
 	}
 }
@@ -2517,7 +2504,8 @@ static void unify_all_nodes(void)
 		for (i = 0; i < nodes[0].nc_ht; i++) {
 			for (int range = 0; range < 8; range++) {
 				uint64_t base, limit;
-				int dest, link;
+				uint8_t dest;
+				int link;
 				bool lock, np;
 
 				if (!mmio_range_read(nodes[0].sci, i, range, &base, &limit, &dest, &link, &lock, &np))

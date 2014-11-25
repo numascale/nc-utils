@@ -37,7 +37,7 @@ static node_info_t *sci_to_node(const uint16_t sci)
 	fatal("Unable to find SCI%03x in nodes table", sci);
 }
 
-bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, int *dest)
+bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t *base, uint64_t *limit, uint8_t *dest)
 {
 	assert(range < 8);
 
@@ -64,7 +64,7 @@ bool dram_range_read(const uint16_t sci, const int ht, const int range, uint64_t
 int dram_range_unused(const uint16_t sci, const int ht)
 {
 	uint64_t base, limit;
-	int dest;
+	uint8_t dest;
 
 	for (int range = 0; range < 8; range++)
 		if (!dram_range_read(sci, ht, range, &base, &limit, &dest))
@@ -76,7 +76,7 @@ int dram_range_unused(const uint16_t sci, const int ht)
 void dram_range_print(const uint16_t sci, const int ht, const int range)
 {
 	uint64_t base, limit;
-	int dest;
+	uint8_t dest;
 
 	assert(range < 8);
 
@@ -84,7 +84,7 @@ void dram_range_print(const uint16_t sci, const int ht, const int range)
 		printf("SCI%03x#%d DRAM range %d: 0x%011llx:0x%011llx to %d\n", sci, ht, range, base, limit, dest);
 }
 
-void dram_range(const uint16_t sci, const int ht, const int range, const uint64_t base, const uint64_t limit, const int dest)
+void dram_range(const uint16_t sci, const int ht, const int range, const uint64_t base, const uint64_t limit, const uint8_t dest)
 {
 	if (verbose > 1)
 		printf("SCI%03x#%d adding DRAM range %d: 0x%011llx:0x%011llx to %d\n", sci, ht, range, base, limit, dest);
@@ -113,7 +113,7 @@ void dram_range_del(const uint16_t sci, const int ht, const int range)
 	dnc_write_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x40 + range * 8, 0);
 }
 
-bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, int *dest, int *link, bool *lock, bool *np)
+bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base, uint64_t *limit, uint8_t *dest, int *link, bool *lock, bool *np)
 {
 	if (family >= 0x15) {
 		assert(range < 12);
@@ -184,7 +184,8 @@ bool mmio_range_read(const uint16_t sci, const int ht, int range, uint64_t *base
 void mmio_range_print(const uint16_t sci, const int ht, const int range)
 {
 	uint64_t base, limit;
-	int dest, link;
+	int link;
+	uint8_t dest;
 	bool lock, np;
 
 	assert(range < 8);
@@ -194,7 +195,7 @@ void mmio_range_print(const uint16_t sci, const int ht, const int range)
 			sci, ht, range, base, limit, dest, link, lock ? " locked" : "", np ? " non-posted" : "");
 }
 
-void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const int dest, const int link, const bool ovw, const bool np)
+void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t base, const uint64_t limit, const uint8_t dest, const int link, const bool ovw, const bool np)
 {
 	if (verbose > 1)
 		printf("Adding MMIO range %d on SCI%03x#%x: 0x%08llx:0x%08llx to %d.%d\n",
@@ -216,7 +217,8 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t 
 		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + loff + range * 8);
 		if ((val & 3) && !ovw) {
 			uint64_t base2, limit2;
-			int dest2, link2;
+			int link2;
+			uint8_t dest2;
 			bool lock2, np2;
 			mmio_range_read(sci, ht, range, &base2, &limit2, &dest2, &link2, &lock2, &np2);
 			fatal("Overwriting SCI%03x#%d MMIO range %d on 0x%08llx:0x%08llx to %d.%d%s", sci, ht, range, base2, limit2, dest2, link2, lock2 ? " locked" : "");
@@ -231,7 +233,8 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t 
 		  || (val3 != dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8))
 		  || (val4 != dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x180 + hoff + range * 4)))) {
 			uint64_t old_base, old_limit;
-			int old_dest, old_link;
+			int old_link;
+			uint8_t old_dest;
 			bool old_lock, old_np;
 
 			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock, &old_np);
@@ -252,7 +255,8 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t 
 		uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + range * 8);
 		if ((val & 3) && !ovw) {
 			uint64_t base2, limit2;
-			int dest2, link2;
+			int link2;
+			uint8_t dest2;
 			bool lock2, np2;
 			mmio_range_read(sci, ht, range, &base2, &limit2, &dest2, &link2, &lock2, &np2);
 			fatal("Overwriting SCI%03x#%d MMIO range %d on 0x%08llx:0x%08llx to %d.%d%s", sci, ht, range, base2, limit2, dest2, link2, lock2 ? " locked" : "");
@@ -265,7 +269,8 @@ void mmio_range(const uint16_t sci, const int ht, uint8_t range, const uint64_t 
 		if ((val & 8) && ((val2 != (val & ~8))
 		  || (val3 != dnc_read_conf(sci, 0, 24 + ht, FUNC1_MAPS, 0x84 + range * 8)))) {
 			uint64_t old_base, old_limit;
-			int old_dest, old_link;
+			int old_link;
+			uint8_t old_dest;
 			bool old_lock, old_np;
 
 			mmio_range_read(sci, ht, range, &old_base, &old_limit, &old_dest, &old_link, &old_lock, &old_np);
@@ -478,7 +483,8 @@ void nc_dram_range_print(const uint16_t sci, const int range)
 void ranges_print(void)
 {
 	uint64_t base, base2, limit, limit2;
-	int node, range, dest, dest2, link, link2;
+	int node, range, link, link2;
+	uint8_t dest, dest2;
 	bool en, en2, lock, lock2, np, np2;
 	ht_t ht;
 
