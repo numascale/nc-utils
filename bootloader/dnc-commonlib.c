@@ -89,6 +89,7 @@ uint64_t memlimit = 0;
 static bool fastboot = 0;
 uint64_t io_limit = 0;
 uint8_t scc_att_index_range = 2;   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
+uint8_t downcore = 1;
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -2182,6 +2183,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"fastboot",        &parse_bool,   &fastboot},
 		{"io.limit",        &parse_int64,  &io_limit},        /* Limit of PCI BARs that will be allocated */
 		{"io.nonpref-high", &parse_bool,   &io_nonpref_high}, /* If non-prefetchable PCI BARs can be allocated in 64-bit prefetchable space */
+		{"downcore",        &parse_int,    &downcore},        /* Enable every nth core */
 	};
 
 	int errors = 0;

@@ -663,7 +663,7 @@ static void update_acpi_tables(void)
 					lapic->len = 8;
 					lapic->proc_id = pnum; /* ACPI Processor ID */
 					lapic->apic_id = apicid; /* APIC ID */
-					lapic->flags = 1;
+					lapic->flags = !(j % downcore);
 					apic->len += lapic->len;
 				} else {
 					struct acpi_local_x2apic *x2apic = (acpi_local_x2apic *)&apic->data[apic->len - sizeof(*apic)];
@@ -673,7 +673,7 @@ static void update_acpi_tables(void)
 					x2apic->reserved1[1] = 0;
 					x2apic->x2apic_id = apicid;
 					x2apic->proc_uid = 0;
-					x2apic->flags = 1;
+					x2apic->flags = !(j % downcore);
 					apic->len += x2apic->len;
 				}
 
@@ -796,7 +796,7 @@ static void update_acpi_tables(void)
 					core.len      = sizeof(core);
 					core.prox_low = nodes[node].ht[ht].pdom & 0xff;
 					core.apic_id  = apicid;
-					core.enabled  = 1;
+					core.enabled  = !(j % downcore);
 					core.flags    = 0;
 					core.sapic_eid = 0;
 					core.prox_hi   = nodes[node].ht[ht].pdom >> 8;
@@ -809,7 +809,7 @@ static void update_acpi_tables(void)
 					x2core.len      = sizeof(x2core);
 					x2core.prox_dom = nodes[node].ht[ht].pdom;
 					x2core.x2apic_id = apicid;
-					x2core.enabled  = 1;
+					x2core.enabled  = !(j % downcore);
 					x2core.flags    = 0;
 					x2core.clock_dom = ~0;
 					memcpy((unsigned char *)srat + srat->len, &x2core, x2core.len);
@@ -2621,7 +2621,7 @@ static void unify_all_nodes(void)
 		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++)
 			mce_check(nodes[node].sci, ht);
 
-	/* Checl for SCC fatal errors */
+	/* Check for SCC fatal errors */
 	for (node = 0; node < dnc_node_count; node++) {
 		uint32_t val = dnc_read_csr(nodes[node].sci, H2S_CSR_G0_ERROR_FSTAT);
 		assertf(!val, "SCC on %03x has fatal errors 0x%08x", nodes[node].sci, val);
