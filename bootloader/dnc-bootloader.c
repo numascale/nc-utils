@@ -344,6 +344,7 @@ static void e820_insert(struct e820entry *pos)
 		memmove(pos + 1, pos, sizeof(*pos) * n);
 
 	*REL16(new_e820_len) += 1;
+	assert(*REL16(new_e820_len) < E820_MAX_LEN);
 }
 
 static void e820_remove(struct e820entry *start, struct e820entry *end)
