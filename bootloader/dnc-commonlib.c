@@ -2891,10 +2891,15 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 			if (!(val & (1 << 9)))
 				cht_write_conf(i, FUNC5_EXTD, 0x88, val | (1 << 9));
 
-			/* Disable Northbridge P1 state */
+			/* Due to HT fabric asymmetry, impact of NB P1 transitions can have performance impact,
+			   particularly with suboptimal HT connectivity, so disable */
 			val = cht_read_conf(i, FUNC5_EXTD, 0x170);
 			cht_write_conf(i, FUNC5_EXTD, 0x170, val | (1 << 14));
 			assert(cht_read_conf(i, FUNC5_EXTD, 0x170) & (1 << 14));
+
+			/* Prevent core idle system management messages */
+			val = cht_read_conf(i, FUNC4_LINK, 0x128);
+			cht_write_conf(i, FUNC4_LINK, 0x128, val | (1 << 31));
 		}
 
 
