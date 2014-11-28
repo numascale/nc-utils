@@ -30,7 +30,7 @@ static void convert_buf_uint32_t(char *src, int max_offset)
 		}
 	}
 
-	printf("\n\n");
+	printf("\n");
 }
 
 static void convert_buf_uint16_t(char *src, int max_offset)
@@ -53,7 +53,7 @@ static void convert_buf_uint16_t(char *src, int max_offset)
 		}
 	}
 
-	printf("\n\n");
+	printf("\n");
 }
 
 int main(int argc, char *argv[])
@@ -81,7 +81,9 @@ int main(int argc, char *argv[])
 		}
 
 		assert(close(fd) == 0);
+		printf("static const uint16_t numachip_mseq_table_revc[] = {\n");
 		convert_buf_uint16_t(data, stat.st_size / sizeof(data[0]));
+		printf("};\n");
 		free(data);
 	}
 
@@ -105,10 +107,11 @@ int main(int argc, char *argv[])
 		}
 
 		assert(close(fd) == 0);
+		printf("static uint32_t numachip_mseq_ucode_revc[] = {\n");
 		convert_buf_uint32_t(data, stat.st_size / sizeof(data[0]));
+		printf("};\n");
 		free(data);
 	}
 
 	return 0;
 }
-
