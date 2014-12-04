@@ -44,6 +44,7 @@ extern "C" {
 #define WASHDELAY_Q      9750000ULL
 #define WASHDELAY_CALLS  248
 #define WASHDELAY_DELAYS 248
+#define WASHDELAY_LIMIT  100
 
 static int zceil(const float num) {
     int inum = (int)num;
@@ -87,9 +88,8 @@ void load_scc_microcode(void)
 
 	/* Call pow() a second time to prevent result corruption */
 	pow(dnc_core_count, WASHDELAY_P);
-//	const unsigned goal = zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q);
-	const unsigned goal = 100;
-	printf("Loading SCC microcode with washdelay %u for %d cores...", goal, dnc_core_count);
+	const unsigned goal = min(zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q), WASHDELAY_LIMIT);
+	printf("Loading SCC microcode with washdelay %u for %u cores...", goal, dnc_core_count);
 
 	unsigned calls = 0, delays = 0;
 	ratio(goal, &calls, &delays);
