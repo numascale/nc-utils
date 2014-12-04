@@ -21,7 +21,7 @@ int main(void)
 	int ret = bind(s, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret == -1) {
 		assert(errno == EADDRINUSE);
-		fprintf(stderr, "error: message already running\n");
+		fprintf(stderr, "error: unable to bind; messages already running\n");
 		return 1;
 	}
 
