@@ -2828,7 +2828,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		 * coherent requests to ensure forward progress on probes.
 		 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
 		val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
-		dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (1 << 6));
+		dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (6 << 24) | (1 << 6));
 	}
 
 	for (i = 0; i < ht_id; i++) {
