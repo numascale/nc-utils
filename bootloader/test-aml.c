@@ -15,6 +15,7 @@
 uint16_t dnc_node_count = 0;
 int verbose = 2;
 bool remote_io = 1;
+bool test_manufacture = 0;
 node_info_t *nodes;
 
 /* Insert SSDT dumped from booting with verbose=2 into array */
@@ -125,13 +126,6 @@ int main(void)
 		node->ht[node->bsp_ht].pdom = last->ht[last->bsp_ht].pdom + 4;
 	}
 
-	gen(0);
-	gen(1);
-	gen(3);
-	gen(4);
-	gen(8);
-	gen(16);
-	gen(32);
 	gen(AML_MAXNODES);
 
 	free(nodes);

@@ -495,9 +495,9 @@ unsigned char *remote_aml(uint32_t *len)
 	node_info_t *node = &nodes[0];
 
 	/* For the master's PCI bus, add a proximity object */
-	Container *bus = new Scope("PCI0");
-	bus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
-	sb->children.add(bus);
+	Container *rbus = new Scope("PCI0");
+	rbus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
+	sb->children.add(rbus);
 
 	/* Add each slave starting from PCI2 */
 	for (int n = 1; n < nnodes; n++) {
