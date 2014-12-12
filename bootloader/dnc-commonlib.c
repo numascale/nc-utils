@@ -2727,6 +2727,24 @@ static void platform_quirks(void)
 	printf("\n");
 }
 
+void check_numachip(const sci_t sci)
+{
+	uint32_t val = dnc_read_csr(sci, H2S_CSR_G0_ERROR_FSTAT);
+	assertf(!val, "SCC on %03x has fatal errors 0x%08x", sci, val);
+
+	val = dnc_read_csr(sci, H2S_CSR_G0_ERROR_NFSTAT);
+	assertf(val == 0x01000100, "SCC on %03x has non-fatal errors 0x%08x", sci, val);
+}
+
+void check(const node_info_t *node)
+{
+	/* Check for MCEs */
+	for (uint8_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++)
+		mce_check(node->sci, ht);
+
+	check_numachip(node->sci);
+}
+
 int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode)
 {
 	uint32_t val, chip_rev;

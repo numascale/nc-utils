@@ -2533,8 +2533,10 @@ static void unify_all_nodes(void)
 	setup_other_cores();
 
 	printf("Joining:");
-	for (i = 1; i < dnc_node_count; i++)
+	for (i = 1; i < dnc_node_count; i++) {
 		setup_remote_cores(&nodes[i]);
+		check(&nodes[i]);
+	}
 	printf("\n");
 
 	setup_mmio();
@@ -2617,16 +2619,9 @@ static void unify_all_nodes(void)
 	if (pf_cstate6)
 		enable_cstate6();
 
-	/* Check for MCEs */
+	/* Ensure no latent issues */
 	for (node = 0; node < dnc_node_count; node++)
-		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++)
-			mce_check(nodes[node].sci, ht);
-
-	/* Check for SCC fatal errors */
-	for (node = 0; node < dnc_node_count; node++) {
-		uint32_t val = dnc_read_csr(nodes[node].sci, H2S_CSR_G0_ERROR_FSTAT);
-		assertf(!val, "SCC on %03x has fatal errors 0x%08x", nodes[node].sci, val);
-	}
+		check(&nodes[node]);
 
 #ifdef UNUSED
 	calibrate_nb_tscs();
@@ -2980,9 +2975,6 @@ static int nc_start(void)
 		/* On non-root servers, prevent writing to unexpected locations */
 		cleanup_stack();
 
-		val = dnc_read_csr(0xfff0, H2S_CSR_G0_ERROR_FSTAT);
-		assertf(!val, "SCC has fatal errors 0x%08x", val);
-
 		/* Set G3x02c FAB_CONTROL bit 30 */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1 << 30);
 		printf("Numascale NumaChip awaiting fabric set-up by master node...");
@@ -2995,6 +2987,8 @@ static int nc_start(void)
 			udelay(1000);
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL);
 		} while (!(val & (1 << 31)));
+
+		check_numachip(local_info->sci); /* Check for latent issues */
 
 		printf(BANNER "\n\nThis server '%s' is part of a %d-server NumaConnect system; refer to the console on server '%s'\n",
 		       local_info->desc, cfg_nodes, get_master_name(part->master));

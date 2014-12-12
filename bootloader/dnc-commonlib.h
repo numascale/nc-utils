@@ -269,6 +269,8 @@ void enable_smi(void);
 void critical_enter(void);
 void critical_leave(void);
 void adjust_oscillator(const char p_type[16], const uint32_t osc_setting);
+void check_numachip(const sci_t sci);
+void check(const node_info_t *node);
 checked int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode);
 checked bool dnc_check_fabric(const struct node_info *info);
 uint32_t dnc_check_mctr_status(const int cdata);
