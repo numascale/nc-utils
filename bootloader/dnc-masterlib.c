@@ -264,29 +264,29 @@ void tally_local_node(void)
 		base = cht_read_conf(i, FUNC1_MAPS, 0x120);
 		limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
 
-		if (limit & 0x1fffff) {
-			nodes[0].ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
-			nodes[0].node_mem += nodes[0].ht[i].size;
+		assertf(limit & 0x1fffff, "No DRAM detected on %03x#%u", nodes[0].sci, i);
 
-			/* Subtract 16MB from each local memory range for CC6 save area */
-			if (pf_cstate6) {
-				nodes[0].ht[i].size -= 1;
+		nodes[0].ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
+		nodes[0].node_mem += nodes[0].ht[i].size;
 
-				/* Remove 16MB from ranges to this Northbridge */
-				for (int j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++) {
-					uint64_t base2, limit2;
-					uint8_t dst;
+		/* Subtract 16MB from each local memory range for CC6 save area */
+		if (pf_cstate6) {
+			nodes[0].ht[i].size -= 1;
 
-					/* Assuming only one local range */
-					for (int range = 0; range < 8; range++) {
-						/* Skip inactivate ranges and ranges to other Northbridges */
-						if (!dram_range_read(nodes[0].sci, i, j, &base2, &limit2, &dst) || dst != j)
-							continue;
+			/* Remove 16MB from ranges to this Northbridge */
+			for (int j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++) {
+				uint64_t base2, limit2;
+				uint8_t dst;
 
-						limit2 -= 16 << 20;
-						dram_range(nodes[0].sci, i, j, base2, limit2, dst);
-						break;
-					}
+				/* Assuming only one local range */
+				for (int range = 0; range < 8; range++) {
+					/* Skip inactivate ranges and ranges to other Northbridges */
+					if (!dram_range_read(nodes[0].sci, i, j, &base2, &limit2, &dst) || dst != j)
+						continue;
+
+					limit2 -= 16 << 20;
+					dram_range(nodes[0].sci, i, j, base2, limit2, dst);
+					break;
 				}
 			}
 		}
@@ -418,21 +418,21 @@ static bool tally_remote_node(const uint16_t sci)
 		base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
 		limit = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124);
 
-		if (limit & 0x1fffff) {
-			base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
-			limit = (limit & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
-			limit |= (0xffffffff >> (32 - 27 + DRAM_MAP_SHIFT));
+		assertf(limit & 0x1fffff, "No DRAM detected on %03x#%u", node->sci, i);
 
-			val = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf0);
-			if ((val & 3) == 3)
-				limit -= ((val >> 8) & 0xff) - base;
+		base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
+		limit = (limit & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
+		limit |= (0xffffffff >> (32 - 27 + DRAM_MAP_SHIFT));
 
-			node->ht[i].size = limit - base + 1;
-			if (pf_cstate6)
-				node->ht[i].size -= 1;
+		val = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0xf0);
+		if ((val & 3) == 3)
+			limit -= ((val >> 8) & 0xff) - base;
 
-			node->node_mem += node->ht[i].size;
-		}
+		node->ht[i].size = limit - base + 1;
+		if (pf_cstate6)
+			node->ht[i].size -= 1;
+
+		node->node_mem += node->ht[i].size;
 
 		/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 		   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
