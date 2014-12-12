@@ -261,6 +261,21 @@ void tally_local_node(void)
 	for (i = nodes[0].nb_ht_lo; i <= nodes[0].nb_ht_hi; i++) {
 		nodes[0].ht[i].size  = 0;
 
+		/* Check for failed DIMMs and no per-NUMA-node memory */
+		for (unsigned dct = 0; dct < 2; dct++) {
+			cht_write_conf(i, FUNC1_MAPS, 0x10c, dct);
+			unsigned en = 0;
+
+			for (unsigned dimm = 0; dimm < 8; dimm++) {
+				uint32_t val = cht_read_conf(i, FUNC2_DRAM, 0x40 + dimm * 4);
+				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u", nodes[0].sci, i);
+				en += val & 1;
+			}
+
+			if (!en)
+				warning("No DRAM present on %03x#%u DCT%u", nodes[0].sci, i, dct);
+		}
+
 		base = cht_read_conf(i, FUNC1_MAPS, 0x120);
 		limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
 
@@ -415,6 +430,21 @@ static bool tally_remote_node(const uint16_t sci)
 
 	/* Size HT nodes */
 	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+		/* Check for failed DIMMs and no per-NUMA-node memory */
+		for (unsigned dct = 0; dct < 2; dct++) {
+			dnc_write_conf(node->sci, 0, 24 + i, FUNC1_MAPS, 0x10c, dct);
+			unsigned en = 0;
+
+			for (unsigned dimm = 0; dimm < 8; dimm++) {
+				uint32_t val = dnc_read_conf(node->sci, 0, 24 + i, FUNC2_DRAM, 0x40 + dimm * 4);
+				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u", node->sci, i);
+				en += val & 1;
+			}
+
+			if (!en)
+				warning("No DRAM present on %03x#%u DCT%u", node->sci, i, dct);
+		}
+
 		base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
 		limit = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124);
 
