@@ -40,56 +40,59 @@ IMPORT_RELOCATED(new_cucfg2_msr);
 IMPORT_RELOCATED(apic_offset);
 IMPORT_RELOCATED(apic_readback);
 
-static const char *pxe_bootif = "";
+/* Options */
 const char *config_file_name = "nc-config/fabric.json";
 const char *next_label = "menu.c32";
 const char *microcode_path = "";
 static bool init_only = 0;
 static bool route_only = 0;
+static bool disable_nc = 0;
 static int enable_nbmce = -1;
 int enable_nbwdt = 0;
 static bool disable_sram = 0;
-int force_probefilteroff = 0;
-int force_probefilteron = 0;
 static int ht_force_ganged = 1;
+static bool ht_8bit_only = 0;
+static bool ht_200mhz_only = 0;
+static int ht_suppress = 0xffff;
+static int ht_lockdelay = 0;
+int force_probefilteron = 0;
+int force_probefilteroff = 0;
+bool pf_cstate6 = 0;
+bool handover_acpi = 0;
 bool disable_smm = 0;
 bool disable_c1e = 0;
 int renumber_bsp = -1;
-bool remote_io = 0;
-bool boot_wait = false;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int sync_interval = 1; /* bit[8]=disable prescaler, bit[7:0] sync_interval value */
 bool enable_relfreq = 0;
 bool singleton = 0;
-static bool ht_200mhz_only = 0;
-static bool ht_8bit_only = 0;
-static int ht_suppress = 0xffff;
-static int ht_lockdelay = 0;
-bool handover_acpi = 0;
 bool mem_offline = 0;
 uint64_t trace_buf_size = 0;
 int verbose = 0;
-int family = 0;
-uint32_t tsc_mhz = 2200;
-uint32_t max_mem_per_server;
+bool remote_io = 0;
+bool boot_wait = 0;
 static int dimmtest = 1;
 static bool workaround_hreq = 1;
 static bool workaround_rtt = 1;
 bool workaround_locks = 0;
-bool pf_cstate6 = 0;
 uint64_t mem_gap = 0;
 int disable_kvm = -1;
-bool link_up = 0;
 bool test_manufacture = 0;
 int relaxed_io = 0;
-bool io_nonpref_high = 0;
 int pf_prefetch = 1;
 int router = 0;
 uint64_t memlimit = 0;
 static bool fastboot = 0;
 uint64_t io_limit = 0;
-uint8_t scc_att_index_range = 2;   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
+bool io_nonpref_high = 0;
 int downcore = 1;
+
+/* Non-options */
+int family = 0;
+uint32_t tsc_mhz = 2200;
+uint32_t max_mem_per_server;
+bool link_up = 0;
+uint8_t scc_att_index_range = 2;   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
@@ -1559,8 +1562,6 @@ static void disable_link(int node, int link)
 }
 #endif /* __i386 */
 
-static bool disable_nc = 0;
-
 static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 {
 #ifndef __i386
@@ -2081,62 +2082,60 @@ static void parse_string(const char *val, void *stringp)
 	assert(*string);
 }
 
-static void parse_bool(const char *val, void *voidp)
+static void parse_bool(const char *val, void *var_void)
 {
-	bool *boolp = (bool *)voidp;
+	bool *var = (bool *)var_void;
 
 	if (val && val[0] != '\0') {
 		int res = atoi(val);
 		assertf(res == !!res, "Boolean option doesn't take value %d", res);
-		*boolp = res;
+		*var = (bool)res;
 	} else
-		*boolp = true;
+		*var = 1;
 }
 
-static void parse_int(const char *val, void *intp)
+static void parse_int(const char *val, void *var_void)
 {
-	int *int32 = (int *)intp;
+	int *var = (int *)var_void;
 	if (val && val[0] != '\0')
-		*int32 = (int)strtol(val, NULL, 0);
+		*var = (int)strtol(val, NULL, 0);
 	else
-		*int32 = 1;
+		*var = 1;
 }
 
-static void parse_int64(const char *val, void *intp)
+static void parse_uint64(const char *val, void *var_void)
 {
-	uint64_t *int64 = (uint64_t *)intp;
+	uint64_t *var = (uint64_t *)var_void;
 
 	if (val && val[0] != '\0') {
 		char *endptr;
-		uint64_t ret = strtoull(val, &endptr, 0);
+		*var = strtoull(val, &endptr, 0);
 
 		switch (*endptr) {
 		case 'T':
 		case 't':
-			ret <<= 10;
+			*var <<= 10;
 		case 'G':
 		case 'g':
-			ret <<= 10;
+			*var <<= 10;
 		case 'M':
 		case 'm':
-			ret <<= 10;
+			*var <<= 10;
 		case 'K':
 		case 'k':
-			ret <<= 10;
+			*var <<= 10;
 			endptr++;
 		default:
 			break;
 		}
-
-		*int64 = ret;
 	} else
-		*int64 = 1;
+		*var = 1;
 }
 
 void parse_cmdline(const int argc, const char *argv[])
 {
 	static const struct optargs options[] = {
-		{"BOOTIF",          &parse_string, &pxe_bootif},      /* PXE Boot parameters (not used) */
+		{"BOOTIF",          NULL,          NULL},             /* PXE Boot parameters (not used) */
 		{"config",          &parse_string, &config_file_name},/* Config (JSON) file to use */
 		{"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
 		{"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */
@@ -2149,12 +2148,11 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"ht.testmode",	    &parse_int,    &ht_testmode},
 		{"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
 		{"ht.8bit-only",    &parse_bool,   &ht_8bit_only},
+		{"ht.200mhz-only",  &parse_bool,   &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
 		{"ht.suppress",     &parse_int,    &ht_suppress},     /* Disable HT sync flood and related */
-		{"ht.200mhz-only",  &parse_int,    &ht_200mhz_only},  /* Disable increase in speed from 200MHz to 800Mhz for HT link to ASIC based NC */
 		{"ht.lockdelay",    &parse_int,    &ht_lockdelay},    /* HREQ_CTRL lock_delay setting 0-7 */
-		{"ht.force-pf-on",  &parse_int,    &force_probefilteron},  /* Enable probe filter if disabled */
 		{"ht.force-pf-off", &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
-		{"disable-pf",      &parse_int,    &force_probefilteroff}, /* Disable probefilter if enabled */
+		{"ht.force-pf-on",  &parse_int,    &force_probefilteron},  /* Enable probe filter if disabled */
 		{"pf.cstate6",      &parse_bool,   &pf_cstate6},      /* Enable C-state 6 (allowing boosting) */
 		{"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
 		{"disable-smm",     &parse_bool,   &disable_smm},     /* Rewrite start of System Management Mode handler to return */
@@ -2165,23 +2163,23 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"enable-relfreq",  &parse_bool,   &enable_relfreq},
 		{"singleton",       &parse_bool,   &singleton},       /* Loopback test with cables */
 		{"mem-offline",     &parse_bool,   &mem_offline},
-		{"trace-buf",       &parse_int64,  &trace_buf_size},
+		{"trace-buf",       &parse_uint64, &trace_buf_size},
 		{"verbose",         &parse_int,    &verbose},
-		{"remote-io",       &parse_int,    &remote_io},
+		{"remote-io",       &parse_bool,   &remote_io},
 		{"boot-wait",       &parse_bool,   &boot_wait},
 		{"dimmtest",        &parse_int,    &dimmtest},        /* Run on-board DIMM self test */
 		{"workaround.hreq", &parse_bool,   &workaround_hreq}, /* Enable half HReq buffers; on by default */
 		{"workaround.rtt",  &parse_bool,   &workaround_rtt},  /* Prevent failure when HT Rtt calibration fails */
 		{"workaround.locks", &parse_bool,  &workaround_locks},/* Prevent failure when SMI triggers are locked */
-		{"mem-gap",         &parse_int64,  &mem_gap},
-		{"disable-kvm",     &parse_bool,   &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
+		{"mem-gap",         &parse_uint64, &mem_gap},
+		{"disable-kvm",     &parse_int,    &disable_kvm},     /* Disable virtual USB keyboard and mouse ports */
 		{"test.manufacture",&parse_bool,   &test_manufacture}, /* Manufacture testing */
 		{"relaxed-io",      &parse_int,    &relaxed_io},
 		{"pf.prefetch",     &parse_int,    &pf_prefetch},     /* DRAM prefetch */
 		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
-		{"memlimit",        &parse_int64,  &memlimit},        /* Per-NUMA node memory limit */
+		{"memlimit",        &parse_uint64,  &memlimit},        /* Per-NUMA node memory limit */
 		{"fastboot",        &parse_bool,   &fastboot},
-		{"io.limit",        &parse_int64,  &io_limit},        /* Limit of PCI BARs that will be allocated */
+		{"io.limit",        &parse_uint64,  &io_limit},        /* Limit of PCI BARs that will be allocated */
 		{"io.nonpref-high", &parse_bool,   &io_nonpref_high}, /* If non-prefetchable PCI BARs can be allocated in 64-bit prefetchable space */
 		{"downcore",        &parse_int,    &downcore},        /* Enable every nth core */
 	};
@@ -2201,7 +2199,8 @@ void parse_cmdline(const int argc, const char *argv[])
 		bool handled = 0;
 		for (unsigned int i = 0; i < (sizeof(options) / sizeof(options[0])); i++) {
 			if (!strcmp(argv[arg], options[i].label)) {
-				options[i].handler(val, options[i].result);
+				if (options[i].handler)
+					options[i].handler(val, options[i].result);
 				handled = 1;
 				break;
 			}
