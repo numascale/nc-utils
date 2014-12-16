@@ -258,17 +258,15 @@ static void stop_ohci(const uint16_t sci, const int bus, const int dev, const in
 		 * depending on usb keyboards may be usable even if the
 		 * BIOS/SMM code seems pretty broken
 		 */
-		temp = 100;	/* Arbitrary: five seconds */
+		temp = 1000;
 		mem64_write32(bar0 + HcInterruptEnable, OHCI_INTR_OC); /* Enable OwnershipChange interrupt */
 		mem64_write32(bar0 + HcCommandStatus, OHCI_OCR); /* Request OwnershipChange */
 
 		while (mem64_read32(bar0 + HcControl) & OHCI_CTRL_IR) {
-			udelay(100);
+			udelay(1000);
 
-			if (--temp == 0) {
-				printf("legacy handover timed out\n");
-				return;
-			}
+			if (--temp == 0)
+				fatal("legacy handover timed out\n");
 		}
 
 		/* Shutdown */
@@ -323,10 +321,10 @@ static void stop_ehci(const uint16_t sci, const int bus, const int dev, const in
 	/* Set OS owned semaphore */
 	legsup |= 1 << 24;
 	dnc_write_conf(sci, bus, dev, fn, ecp, legsup);
-	int limit = 100;
+	int limit = 1000;
 
 	do {
-		udelay(100);
+		udelay(1000);
 		legsup = dnc_read_conf(sci, bus, dev, fn, ecp);
 
 		if ((legsup & (1 << 16)) == 0) {
@@ -335,7 +333,7 @@ static void stop_ehci(const uint16_t sci, const int bus, const int dev, const in
 		}
 	} while (--limit);
 
-	printf("legacy handover timed out\n");
+	fatal("legacy handover timed out\n");
 }
 
 static void stop_xhci(const uint16_t sci, const int bus, const int dev, const int fn)
@@ -367,10 +365,10 @@ static void stop_xhci(const uint16_t sci, const int bus, const int dev, const in
 	/* Set OS owned semaphore */
 	legsup |= 1 << 24;
 	mem64_write32(bar0 + ecp, legsup);
-	int limit = 100;
+	int limit = 1000;
 
 	do {
-		udelay(100);
+		udelay(1000);
 		legsup = mem64_read32(bar0 + ecp);
 
 		if ((legsup & (1 << 16)) == 0) {
@@ -379,7 +377,7 @@ static void stop_xhci(const uint16_t sci, const int bus, const int dev, const in
 		}
 	} while (--limit);
 
-	printf("legacy handover timed out\n");
+	fatal("legacy handover timed out\n");
 }
 
 static void stop_ahci(const uint16_t sci, const int bus, const int dev, const int fn)
@@ -411,10 +409,10 @@ static void stop_ahci(const uint16_t sci, const int bus, const int dev, const in
 	/* Set OS owned semaphore */
 	legsup |= (1 << 1);
 	mem64_write32(bar5 + 0x28, legsup);
-	int limit = 100;
+	int limit = 1000;
 
 	do {
-		udelay(100);
+		udelay(1000);
 		legsup = mem64_read32(bar5 + 0x28);
 
 		if ((legsup & 1) == 0) {
@@ -423,7 +421,7 @@ static void stop_ahci(const uint16_t sci, const int bus, const int dev, const in
 		}
 	} while (--limit);
 
-	printf("legacy handover timed out\n");
+	fatal("legacy handover timed out\n");
 }
 
 void stop_acpi(void)
@@ -449,10 +447,10 @@ void stop_acpi(void)
 	const uint32_t acpipm1cntblk = *(uint32_t *)val;
 	uint16_t sci_en = inb(acpipm1cntblk);
 	outb(acpi_enable, smi_cmd);
-	int limit = 100;
+	int limit = 1000;
 
 	do {
-		udelay(100);
+		udelay(1000);
 		sci_en = inb(acpipm1cntblk);
 
 		if ((sci_en & 1) == 1) {
@@ -461,7 +459,7 @@ void stop_acpi(void)
 		}
 	} while (--limit);
 
-	printf("ACPI handover timed out\n");
+	fatal("ACPI handover timed out\n");
 }
 
 void handover_legacy(void)
