@@ -166,7 +166,7 @@ static void adjust_dram_maps(node_info_t *const node)
 		for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
 			uint64_t limit = memlimit;
 
-			/* first northbridges must have a minimum of 4GB */
+			/* First northbridges must have a minimum of 4GB */
 			if (node == &nodes[0] && i == node->nb_ht_lo)
 				limit = 4ULL << 30;
 
@@ -177,20 +177,20 @@ static void adjust_dram_maps(node_info_t *const node)
 		return;
 	}
 
-	/* trim nodes if over supported memory config */
-	int over = min(node->node_mem - max_mem_per_server, node->node_mem & (SCC_ATT_GRAN - 1));
+	/* Trim nodes if over supported memory config */
+	int over = max(node->node_mem - max_mem_per_server, node->node_mem & (SCC_ATT_GRAN - 1));
 	if (over > 0) {
 		printf("Trimming %03x maps by %uMB\n", node->sci, over << (DRAM_MAP_SHIFT - 20));
 
 		while (over > 0) {
 			unsigned max = 0;
 
-			/* find largest HT node */
+			/* Find largest HT node */
 			for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++)
 				if (node->ht[i].size > max)
 					max = node->ht[i].size;
 
-			/* reduce largest HT node by 16MB */
+			/* Reduce largest HT node by 16MB */
 			for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
 				if (node->ht[i].size == max) {
 					node->ht[i].size -= 1;
