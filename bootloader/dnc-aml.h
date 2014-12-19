@@ -20,9 +20,8 @@
 
 #include "dnc-acpi.h"
 
-#define AML_MAXNODES 108
+#define AML_MAXNODES 36
 
 checked unsigned char *remote_aml(uint32_t *len);
 
 #endif
-
