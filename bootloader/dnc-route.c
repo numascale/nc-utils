@@ -135,12 +135,11 @@ void add_chunk_route(uint16_t dest, const sci_t sci, uint8_t link)
 void del_chunk_route(uint16_t dest, const sci_t sci)
 {
 	int scc = ((sci == 0xfff0) || ((sci & 0xf000) == 0));
-	uint16_t reg;
 
 	if (!scc) {
 		dnc_write_csr(sci, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
 
-		for (reg = 0; reg < 16; reg++) {
+		for (uint16_t reg = 0; reg < 16; reg++) {
 			dnc_write_csr(sci, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg * 4, 0x0000);
 		}
 
@@ -223,11 +222,10 @@ void del_route(uint16_t dest, const sci_t sci, uint16_t width)
 	int scc = ((sci == 0xfff0) || ((sci & 0xf000) == 0));
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
 	uint16_t bit = SCI_ID_BITNR(dest);
-	uint32_t csr;
 
 	if (!scc) {
 		dnc_write_csr(sci, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
-		csr = dnc_read_csr(sci, LC3_CSR_CONFIG4);
+		uint32_t csr = dnc_read_csr(sci, LC3_CSR_CONFIG4);
 		csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
 		dnc_write_csr(sci, LC3_CSR_CONFIG4, csr);
 		csr = dnc_read_csr(sci, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);
@@ -315,11 +313,10 @@ void del_route_geo(uint16_t dest, const sci_t sci, uint8_t bid, uint16_t width)
 	int scc = (bid == 0);
 	uint16_t reg = SCI_ID_REGNR(dest) * 4;
 	uint16_t bit = SCI_ID_BITNR(dest);
-	uint32_t csr;
 
 	if (!scc) {
 		dnc_write_csr_geo(sci, bid, LC3_CSR_SW_INFO3, SCI_ID_CHUNK(dest));
-		csr = dnc_read_csr_geo(sci, bid, LC3_CSR_CONFIG4);
+		uint32_t csr = dnc_read_csr_geo(sci, bid, LC3_CSR_CONFIG4);
 		csr |= (1 << 6); /* CONFIG4.tblrd is needed to read routing tables through CSR */
 		dnc_write_csr_geo(sci, bid, LC3_CSR_CONFIG4, csr);
 		csr = dnc_read_csr_geo(sci, bid, LC3_CSR_ROUT_LCTBL00 + OFFS_LTBL + reg);

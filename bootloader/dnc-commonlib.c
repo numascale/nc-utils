@@ -695,13 +695,12 @@ int cpu_family(const sci_t sci, const ht_t ht)
 #ifdef __i386
 static uint32_t get_phy_register(int node, int link, int idx, int direct)
 {
-	int base = 0x180 + link * 8;
-	int i;
-	uint32_t reg;
+	int base = 0x180 + link * 8, i;
+
 	cht_write_conf(node, FUNC4_LINK, base, idx | (direct << 29));
 
 	for (i = 0; i < 1000; i++) {
-		reg = cht_read_conf(node, FUNC4_LINK, base);
+		uint32_t reg = cht_read_conf(node, FUNC4_LINK, base);
 		if (reg & 0x80000000)
 			return cht_read_conf(node, FUNC4_LINK, base + 4);
 	}
@@ -714,13 +713,12 @@ static uint32_t get_phy_register(int node, int link, int idx, int direct)
 static void set_phy_register(int node, int link, int idx, int direct, uint32_t val)
 {
 	int base = 0x180 + link * 8;
-	int i;
-	uint32_t reg;
+
 	cht_write_conf(node, FUNC4_LINK, base + 4, val);
 	cht_write_conf(node, FUNC4_LINK, base, idx | (direct << 29) | (1 << 30));
 
-	for (i = 0; i < 1000; i++) {
-		reg = cht_read_conf(node, FUNC4_LINK, base);
+	for (int i = 0; i < 1000; i++) {
+		uint32_t reg = cht_read_conf(node, FUNC4_LINK, base);
 		if (reg & 0x80000000)
 			return;
 	}
@@ -735,13 +733,12 @@ static void reorganize_mmio(int nc)
 {
 	/* Stub for now */
 	uint64_t mmio_start;
-	uint64_t base, lim;
-	int i;
+
 	mmio_start = ~0;
 
-	for (i = 0; i < 8; i++) {
-		base = cht_read_conf(0, FUNC1_MAPS, 0x80 + i * 8);
-		lim  = cht_read_conf(0, FUNC1_MAPS, 0x84 + i * 8);
+	for (int i = 0; i < 8; i++) {
+		uint64_t base = cht_read_conf(0, FUNC1_MAPS, 0x80 + i * 8);
+		uint64_t lim  = cht_read_conf(0, FUNC1_MAPS, 0x84 + i * 8);
 
 		if (!(base & 3))
 			continue;

@@ -233,16 +233,17 @@ static void adjust_dram_window(node_info_t *const node)
 
 void tally_local_node(void)
 {
-	uint32_t val, base, limit;
+	uint32_t val;
 	uint16_t i, tot_cores;
+	node_info_t *const node = &nodes[0];
 
-	nodes[0].node_mem = 0;
+	node->node_mem = 0;
 	tot_cores = 0;
-	nodes[0].sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
-	nodes[0].bsp_ht = 0;
-	nodes[0].nb_ht_lo = 0;
-	nodes[0].nb_ht_hi = nodes[0].nc_ht - 1;
-	nodes[0].dram_base = 0;
+	node->sci = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS) >> 16;
+	node->bsp_ht = 0;
+	node->nb_ht_lo = 0;
+	node->nb_ht_hi = node->nc_ht - 1;
+	node->dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
 #ifdef __i386
 	/* Save and restore EBX for the position-independent syslinux com32 binary */
@@ -253,13 +254,13 @@ void tally_local_node(void)
 	apic_per_node = 1 << ((val >> 12) & 0xf);
 
 	/* Start APICs at 0x100 when remote IO is enabled to keep device interrupts local */
-	nodes[0].apic_offset = remote_io ? 0x100 : 0;
+	node->apic_offset = remote_io ? 0x100 : 0;
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
 	/* Size HT nodes */
-	for (i = nodes[0].nb_ht_lo; i <= nodes[0].nb_ht_hi; i++) {
-		nodes[0].ht[i].size  = 0;
+	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+		node->ht[i].size  = 0;
 
 		/* Check for failed DIMMs and no per-NUMA-node memory */
 		for (unsigned dct = 0; dct < 2; dct++) {
@@ -268,39 +269,39 @@ void tally_local_node(void)
 
 			for (unsigned dimm = 0; dimm < 8; dimm++) {
 				uint32_t val = cht_read_conf(i, FUNC2_DRAM, 0x40 + dimm * 4);
-				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u", nodes[0].sci, i);
+				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u", node->sci, i);
 				en += val & 1;
 			}
 
 			if (!en)
-				warning("No DRAM present on %03x#%u DCT%u", nodes[0].sci, i, dct);
+				warning("No DRAM present on %03x#%u DCT%u", node->sci, i, dct);
 		}
 
-		base = cht_read_conf(i, FUNC1_MAPS, 0x120);
-		limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
+		uint32_t base = cht_read_conf(i, FUNC1_MAPS, 0x120);
+		uint32_t limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
 
-		assertf(limit & 0x1fffff, "No DRAM detected on %03x#%u", nodes[0].sci, i);
+		assertf(limit & 0x1fffff, "No DRAM detected on %03x#%u", node->sci, i);
 
-		nodes[0].ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
-		nodes[0].node_mem += nodes[0].ht[i].size;
+		node->ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
+		node->node_mem += node->ht[i].size;
 
 		/* Subtract 16MB from each local memory range for CC6 save area */
 		if (pf_cstate6) {
-			nodes[0].ht[i].size -= 1;
+			node->ht[i].size -= 1;
 
 			/* Remove 16MB from ranges to this Northbridge */
-			for (int j = nodes[0].nb_ht_lo; j <= nodes[0].nb_ht_hi; j++) {
+			for (int j = node->nb_ht_lo; j <= node->nb_ht_hi; j++) {
 				uint64_t base2, limit2;
 				uint8_t dst;
 
 				/* Assuming only one local range */
 				for (int range = 0; range < 8; range++) {
 					/* Skip inactivate ranges and ranges to other Northbridges */
-					if (!dram_range_read(nodes[0].sci, i, j, &base2, &limit2, &dst) || dst != j)
+					if (!dram_range_read(node->sci, i, j, &base2, &limit2, &dst) || dst != j)
 						continue;
 
 					limit2 -= 16 << 20;
-					dram_range(nodes[0].sci, i, j, base2, limit2, dst);
+					dram_range(node->sci, i, j, base2, limit2, dst);
 					break;
 				}
 			}
@@ -313,9 +314,9 @@ void tally_local_node(void)
 			cht_write_conf(i, FUNC1_MAPS, 0x10c, 0);
 
 		/* Disable DRAM scrubbers */
-		nodes[0].ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
-		if (nodes[0].ht[i].scrub & 0x1f) {
-			cht_write_conf(i, FUNC3_MISC, 0x58, nodes[0].ht[i].scrub & ~0x1f);
+		node->ht[i].scrub = cht_read_conf(i, FUNC3_MISC, 0x58);
+		if (node->ht[i].scrub & 0x1f) {
+			cht_write_conf(i, FUNC3_MISC, 0x58, node->ht[i].scrub & ~0x1f);
 			/* Allow outstanding scrub requests to finish */
 			udelay(40);
 		}
@@ -325,52 +326,52 @@ void tally_local_node(void)
 	adjust_dram_window(&nodes[0]);
 	dnc_top_of_mem = 0;
 
-	for (i = nodes[0].nb_ht_lo; i <= nodes[0].nb_ht_hi; i++) {
-		nodes[0].ht[i].base = dnc_top_of_mem;
-		dnc_top_of_mem += nodes[0].ht[i].size;
+	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+		node->ht[i].base = dnc_top_of_mem;
+		dnc_top_of_mem += node->ht[i].size;
 
 		uint32_t cpuid = cht_read_conf(i, FUNC3_MISC, 0xfc);
 		if (cpuid == 0 || cpuid == 0xffffffff || cpuid != cpuid_bsp)
 			fatal("Master server has mixed processor models with CPUIDs %08x and %08x", cpuid_bsp, cpuid);
 
-		nodes[0].ht[i].pdom = ht_pdom_count++;
+		node->ht[i].pdom = ht_pdom_count++;
 
 		/* Assume at least one core */
-		nodes[0].ht[i].cores = 1;
+		node->ht[i].cores = 1;
 
 		if (family < 0x15) {
 			val = cht_read_conf(i, FUNC0_HT, 0x68);
-			if (val & 0x20) nodes[0].ht[i].cores++; /* Cpu1En */
+			if (val & 0x20) node->ht[i].cores++; /* Cpu1En */
 
 			val = cht_read_conf(i, FUNC0_HT, 0x168);
-			if (val & 0x01) nodes[0].ht[i].cores++; /* Cpu2En */
-			if (val & 0x02) nodes[0].ht[i].cores++; /* Cpu3En */
-			if (val & 0x04) nodes[0].ht[i].cores++; /* Cpu4En */
-			if (val & 0x08) nodes[0].ht[i].cores++; /* Cpu5En */
+			if (val & 0x01) node->ht[i].cores++; /* Cpu2En */
+			if (val & 0x02) node->ht[i].cores++; /* Cpu3En */
+			if (val & 0x04) node->ht[i].cores++; /* Cpu4En */
+			if (val & 0x08) node->ht[i].cores++; /* Cpu5En */
 		} else {
 			val = cht_read_conf(i, FUNC5_EXTD, 0x84);
-			nodes[0].ht[i].cores += val & 0xff;
+			node->ht[i].cores += val & 0xff;
 			val = cht_read_conf(i, FUNC3_MISC, 0x190);
 
 			while (val > 0) {
 				if (val & 1)
-					nodes[0].ht[i].cores--;
+					node->ht[i].cores--;
 
 				val >>= 1;
 			}
 		}
 
-		nodes[0].ht[i].apic_base = post_apic_mapping[tot_cores];
-		ht_next_apic = nodes[0].apic_offset + nodes[0].ht[i].apic_base + apic_per_node;
-		tot_cores += nodes[0].ht[i].cores;
+		node->ht[i].apic_base = post_apic_mapping[tot_cores];
+		ht_next_apic = node->apic_offset + node->ht[i].apic_base + apic_per_node;
+		tot_cores += node->ht[i].cores;
 	}
 
-	printf("SCI%03x has %u cores and %uMB of memory and I/O maps\n", nodes[0].sci, tot_cores, nodes[0].node_mem << 4);
-	nodes[0].dram_limit = dnc_top_of_mem;
+	printf("SCI%03x has %u cores and %uMB of memory and I/O maps\n", node->sci, tot_cores, node->node_mem << 4);
+	node->dram_limit = dnc_top_of_mem;
 
-	dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
+	dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (i = 0; i < 256; i++)
-		dnc_write_csr(nodes[0].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, nodes[0].sci);
+		dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, node->sci);
 
 	dnc_node_count++;
 	dnc_core_count += tot_cores;
@@ -380,12 +381,12 @@ void tally_local_node(void)
 
 static bool tally_remote_node(const uint16_t sci)
 {
-	uint32_t val, base, limit;
+	uint32_t val;
 	uint16_t i, tot_cores;
 	uint16_t apic_used[16];
 	uint16_t last = 0;
 	uint16_t cur_apic;
-	node_info_t *node;
+	node_info_t *const node = &nodes[dnc_node_count];
 
 	if (dnc_raw_read_csr(sci, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
 		warning("Unable to contact SCI%03x", sci);
@@ -400,7 +401,6 @@ static bool tally_remote_node(const uint16_t sci)
 		dnc_write_csr(sci, H2S_CSR_G3_MMCFG_BASE, DNC_MCFG_BASE >> 24);
 	}
 
-	node = &nodes[dnc_node_count];
 	node->node_mem = 0;
 	tot_cores = 0;
 	node->sci = sci;
@@ -445,8 +445,8 @@ static bool tally_remote_node(const uint16_t sci)
 				warning("No DRAM present on %03x#%u DCT%u", node->sci, i, dct);
 		}
 
-		base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
-		limit = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124);
+		uint32_t base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
+		uint32_t limit = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124);
 
 		assertf(limit & 0x1fffff, "No DRAM detected on %03x#%u", node->sci, i);
 

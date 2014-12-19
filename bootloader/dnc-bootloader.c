@@ -437,7 +437,6 @@ void e820_add(const uint64_t base, const uint64_t length, const uint32_t type)
 static void update_e820_map(void)
 {
 	uint64_t prev_end = 0;
-	uint64_t trace_buf = 0;
 	unsigned max = 0;
 	struct e820entry *e820 = (struct e820entry *)REL32(new_e820_map);
 	uint16_t *len = REL16(new_e820_len);
@@ -454,7 +453,7 @@ static void update_e820_map(void)
 
 	if ((trace_buf_size > 0) && (e820[max].length > trace_buf_size)) {
 		e820[max].length -= trace_buf_size;
-		trace_buf = e820[max].base + e820[max].length;
+		uint64_t trace_buf = e820[max].base + e820[max].length;
 		printf("SCI%03x#%x tracebuffer reserved @ 0x%llx:0x%llx\n",
 		       nodes[0].sci, 0, trace_buf, trace_buf + trace_buf_size - 1);
 	}
@@ -979,12 +978,12 @@ static void setup_apic_atts(void)
 		}
 
 		for (dnode = 0; dnode < dnc_node_count; dnode++) {
-			uint16_t cur, min, max;
+			uint16_t min, max;
 			min = ~0;
 			max = 0;
 
 			for (ht = nodes[dnode].nb_ht_lo; ht <= nodes[dnode].nb_ht_hi; ht++) {
-				cur = nodes[dnode].apic_offset + nodes[dnode].ht[ht].apic_base;
+				uint16_t cur = nodes[dnode].apic_offset + nodes[dnode].ht[ht].apic_base;
 
 				if (min > cur)
 					min = cur;
@@ -2045,10 +2044,8 @@ static void disable_iommu(void)
 
 static void lvt_setup(void)
 {
-	uint32_t val;
-
 	for (int ht = 0; ht < nodes[0].nc_ht; ht++) {
-		val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
+		uint32_t val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
 		if (((val >> 14) & 3) == 2) {
 			printf("- disabling ECC error SMI on HT#%d\n", ht);
 			cht_write_conf(ht, FUNC3_MISC, 0xb0, val & ~(3 << 14));
@@ -2156,29 +2153,24 @@ static void local_chipset_fixup(const bool master)
 
 static void global_chipset_fixup(void)
 {
-	uint16_t node;
-	uint32_t val;
-	int i;
 	printf("Performing global chipset configuration...");
 
-	for (i = 0; i < dnc_node_count; i++) {
-		node = nodes[i].sci;
-
-		uint32_t vendev = dnc_read_conf(node, 0, 0, 0, 0);
+	foreach_node(node) {
+		uint32_t vendev = dnc_read_conf(node->sci, 0, 0, 0, 0);
 		if ((vendev == VENDEV_SR5690) || (vendev == VENDEV_SR5670) || (vendev == VENDEV_SR5650)) {
 			/* Limit TOM2 to HyperTransport address */
 			uint64_t limit = min(ht_base, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT);
-			ioh_htiu_write(node, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
-			ioh_htiu_write(node, SR56X0_HTIU_TOM2HI, limit >> 32);
+			ioh_htiu_write(node->sci, SR56X0_HTIU_TOM2LO, (limit & 0xff800000) | 1);
+			ioh_htiu_write(node->sci, SR56X0_HTIU_TOM2HI, limit >> 32);
 
 			if (dnc_top_of_mem >= (1 << (40 - DRAM_MAP_SHIFT)))
-				ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) - 1) | (1 << 31));
+				ioh_nbmiscind_write(node->sci, SR56X0_MISC_TOM3, ((dnc_top_of_mem << (DRAM_MAP_SHIFT - 22)) - 1) | (1 << 31));
 			else
-				ioh_nbmiscind_write(node, SR56X0_MISC_TOM3, 0);
+				ioh_nbmiscind_write(node->sci, SR56X0_MISC_TOM3, 0);
 		} else if ((vendev == VENDEV_MCP55)) {
-			val = dnc_read_conf(node, 0, 0, 0, 0x90);
+			uint32_t val = dnc_read_conf(node->sci, 0, 0, 0, 0x90);
 			/* Disable mmcfg setting in bridge to avoid OS confusion */
-			dnc_write_conf(node, 0, 0, 0, 0x90, val & ~(1 << 31));
+			dnc_write_conf(node->sci, 0, 0, 0, 0x90, val & ~(1 << 31));
 		}
 	}
 
@@ -2307,8 +2299,8 @@ static void calibrate_nb_tscs(void)
 	for (ht_t ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
 		adjustment[ht] = -1;
 		for (int i = 0; i < 100000; i++) {
-			t1 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
-			t2 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+			t1 = dnc_read_conf(nodes[0].sci, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+			t2 = dnc_read_conf(nodes[0].sci, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
 			if ((t2 - t1) < adjustment[ht])
 				adjustment[ht] = t2 - t1;
 		}
@@ -2318,8 +2310,8 @@ static void calibrate_nb_tscs(void)
 	printf("\n- uncalibrated offset in clocks:");
 	/* Show clock offsets before calibration */
 	for (ht_t ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
-		t1 = dnc_read_conf(0x000, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
-		t2 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+		t1 = dnc_read_conf(nodes[0].sci, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
+		t2 = dnc_read_conf(nodes[0].sci, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
 		printf(" %d", t2 - t1 - (adjustment[0] + adjustment[ht]) / 2);
 	}
 
@@ -2327,15 +2319,15 @@ static void calibrate_nb_tscs(void)
 
 	for (ht_t ht = nodes[0].nb_ht_lo + skip + 1; ht <= nodes[0].nb_ht_hi; ht++) {
 		/* Set clock value on secondary sockets, adjusting for two half rount-trips */
-		t1 = dnc_read_conf(0x000, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
+		t1 = dnc_read_conf(nodes[0].sci, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
 		t1 += (adjustment[0] + adjustment[ht]) / 2;
-		dnc_write_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0, t1);
+		dnc_write_conf(nodes[0].sci, 0, 0x18 + ht, FUNC2_DRAM, 0xb0, t1);
 	}
 
 	printf("\n- calibrated offset in clocks:");
 	for (ht_t ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
-		t1 = dnc_read_conf(0x000, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
-		t2 = dnc_read_conf(0x000, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
+		t1 = dnc_read_conf(nodes[0].sci, 0, 0x18 + 0, FUNC2_DRAM, 0xb0);
+		t2 = dnc_read_conf(nodes[0].sci, 0, 0x18 + ht, FUNC2_DRAM, 0xb0);
 		printf(" %d", t2 - t1 - (adjustment[0] + adjustment[ht]) / 2);
 	}
 	printf("\n");

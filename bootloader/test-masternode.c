@@ -93,7 +93,6 @@ sci_fabric_setup(void)
 	}
 
 	printf("SCC microcode loaded.\n");
-	return 0;
 
 	/* [    0.000000] Bootmem setup node 1 0000000220000000-0000000420000000 */
 	/* Shared memory on node: 300000000-400000000 (4G window) */
