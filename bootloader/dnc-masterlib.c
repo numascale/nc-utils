@@ -123,20 +123,18 @@ void load_scc_microcode(void)
 	printf(", %u delays...", counter);
 
 	/* Write microcode */
-	for (unsigned i = 0; i < dnc_node_count; i++) {
-		uint16_t sci = (i == 0) ? 0xfff0 : nodes[i].sci;
-
-		dnc_write_csr(sci, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+	foreach_nodes(node) {
+		dnc_write_csr(node->sci, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 		for (uint16_t j = 0; j < mseq_ucode_length; j++)
-			dnc_write_csr(sci, H2S_CSR_G0_WCS_ENTRY, mseq_ucode[j]);
+			dnc_write_csr(node->sci, H2S_CSR_G0_WCS_ENTRY, mseq_ucode[j]);
 
-		dnc_write_csr(sci, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
+		dnc_write_csr(node->sci, H2S_CSR_G0_SEQ_INDEX, 0x80000000);
 		for (uint16_t j = 0; j < mseq_table_length; j++)
-			dnc_write_csr(sci, H2S_CSR_G0_JUMP_ENTRY, mseq_table[j]);
+			dnc_write_csr(node->sci, H2S_CSR_G0_JUMP_ENTRY, mseq_table[j]);
 
 		/* Start the microsequencer */
-		uint32_t val = dnc_read_csr(sci, H2S_CSR_G0_STATE_CLEAR);
-		dnc_write_csr(sci, H2S_CSR_G0_STATE_CLEAR, val);
+		uint32_t val = dnc_read_csr(node->sci, H2S_CSR_G0_STATE_CLEAR);
+		dnc_write_csr(node->sci, H2S_CSR_G0_STATE_CLEAR, val);
 	}
 	printf("done\n");
 }

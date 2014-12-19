@@ -96,7 +96,8 @@ typedef struct nodes_info {
 	uint8_t nc_neigh_link : 2;
 } node_info_t;
 
-#define foreach_node(x) for (node_info_t *(x) = &nodes[0]; (x) < &nodes[dnc_node_count]; (x)++)
+#define foreach_nodes(x) for (node_info_t *(x) = &nodes[0]; (x) < &nodes[dnc_node_count]; (x)++)
+#define foreach_slave_nodes(x) for (node_info_t *(x) = &nodes[1]; (x) < &nodes[dnc_node_count]; (x)++)
 #define foreach_nb(x, y) for (ht_t (x) = (y)->nb_ht_lo; (x) <= (y)->nb_ht_hi; (x)++)
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */

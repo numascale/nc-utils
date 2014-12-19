@@ -457,22 +457,22 @@ static void update_e820_map(void)
 	}
 
 	/* Add remote nodes */
-	for (int i = 0; i < dnc_node_count; i++) {
-		for (int j = nodes[i].nb_ht_lo; j <= nodes[i].nb_ht_hi; j++) {
-			if ((i == 0) && (j == 0))
+	foreach_nodes(node) {
+		for (int j = node->nb_ht_lo; j <= node->nb_ht_hi; j++) {
+			if ((node == &nodes[0]) && (j == 0))
 				continue; /* Skip BSP */
 
-			uint64_t base   = ((uint64_t)nodes[i].ht[j].base << DRAM_MAP_SHIFT);
-			uint64_t length = ((uint64_t)nodes[i].ht[j].size << DRAM_MAP_SHIFT);
+			uint64_t base   = ((uint64_t)node->ht[j].base << DRAM_MAP_SHIFT);
+			uint64_t length = ((uint64_t)node->ht[j].size << DRAM_MAP_SHIFT);
 
-			if (mem_offline && (i > 0)) {
+			if (mem_offline && (node != &nodes[0])) {
 				if (length > MIN_NODE_MEM)
 					length = MIN_NODE_MEM;
 			} else {
 				if ((trace_buf_size > 0) && (length > trace_buf_size)) {
 					length -= trace_buf_size;
 					printf("SCI%03x#%x tracebuffer reserved @ 0x%llx:0x%llx\n",
-					       nodes[i].sci, j, base + length, base + length + trace_buf_size - 1);
+					       node->sci, j, base + length, base + length + trace_buf_size - 1);
 				}
 			}
 
@@ -583,11 +583,11 @@ static uint8_t dist_fn(const sci_t src, const sci_t dst)
 	return 120 + changes * 40;
 }
 
-static bool core_enabled(const unsigned node, const unsigned core)
+static bool core_enabled(const node_info_t *node, const unsigned core)
 {
 #ifdef TEST
 	/* Online BSC on master only */
-	if (node == 0)
+	if (node == &nodes[0])
 		return core == 0;
 #endif
 	return !(core % downcore);
@@ -597,7 +597,6 @@ static void update_acpi_tables(void)
 {
 	acpi_sdt_p oroot;
 	unsigned int i, j, pnum;
-	unsigned int node, ht;
 
 	/* replace_root may fail if rptr is r/o, so we read the pointers
 	 * back. In case of failure, we'll assume the existing rsdt/xsdt
@@ -659,10 +658,10 @@ static void update_acpi_tables(void)
 		i += lapic->len;
 	}
 
-	for (node = 0; node < dnc_node_count; node++) {
-		for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-			for (j = 0; j < nodes[node].ht[ht].cores; j++) {
-				unsigned int apicid = j + nodes[node].ht[ht].apic_base + nodes[node].apic_offset;
+	foreach_nodes(node) {
+		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+			for (j = 0; j < node->ht[ht].cores; j++) {
+				unsigned int apicid = j + node->ht[ht].apic_base + node->apic_offset;
 				assert(apicid != 0xff);
 
 				if (ht_next_apic < 0x100) {
@@ -711,7 +710,7 @@ static void update_acpi_tables(void)
 	slit->checksum = 0;
 	memset(slit->data, 0, 8); /* Number of System Localities */
 	int index = 0;
-	const int nbs = nodes->nb_ht_hi - nodes->nb_ht_lo + 1;
+	const int nbs = nodes[0].nb_ht_hi - nodes[0].nb_ht_lo + 1;
 	uint8_t *odist, *dist = (uint8_t *)&(slit->data[8]);
 
 	if (oslit) {
@@ -722,18 +721,18 @@ static void update_acpi_tables(void)
 
 	if (verbose >= 3) {
 		printf("Topology distances:\n   ");
-		for (int snode = 0; snode < dnc_node_count; snode++)
+		foreach_nodes(snode)
 			for (ht_t snb = 0; snb < nbs; snb++)
-				printf(" %3d", snode * nbs + snb);
+				printf(" %3d", (snode - &nodes[0]) * nbs + snb);
 		printf("\n");
 	}
 
-	for (sci_t snode = 0; snode < dnc_node_count; snode++) {
+	foreach_nodes(snode) {
 		for (ht_t snb = 0; snb < nbs; snb++) {
 			if (verbose > 1)
-				printf("%2d:", snode * nbs + snb);
+				printf("%2d:", (snode - &nodes[0]) * nbs + snb);
 
-			for (sci_t dnode = 0; dnode < dnc_node_count; dnode++) {
+			foreach_nodes(dnode) {
 				for (ht_t dnb = 0; dnb < nbs; dnb++) {
 					if (snode == dnode) {
 						if (snb == dnb)
@@ -742,7 +741,7 @@ static void update_acpi_tables(void)
 						else
 							dist[index] = oslit ? odist[snb + dnb * nbs] : 16;
 					} else
-						dist[index] = dist_fn(nodes[snode].sci, nodes[dnode].sci);
+						dist[index] = dist_fn(snode->sci, dnode->sci);
 					if (verbose > 1)
 						printf(" %3d", dist[index]);
 					index++;
@@ -775,15 +774,15 @@ static void update_acpi_tables(void)
 	memcpy(srat->oemid, "NUMASC", 6);
 	srat->len = 48;
 
-	for (node = 0; node < dnc_node_count; node++) {
-		for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
+	foreach_nodes(node) {
+		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 			struct acpi_mem_affinity mem;
 			memset(&mem, 0, sizeof(mem));
 			mem.type     = 1;
 			mem.len      = sizeof(mem);
-			mem.prox_dom = nodes[node].ht[ht].pdom;
-			mem.mem_base = (uint64_t)nodes[node].ht[ht].base << DRAM_MAP_SHIFT;
-			mem.mem_size = (uint64_t)nodes[node].ht[ht].size << DRAM_MAP_SHIFT;
+			mem.prox_dom = node->ht[ht].pdom;
+			mem.mem_base = (uint64_t)node->ht[ht].base << DRAM_MAP_SHIFT;
+			mem.mem_size = (uint64_t)node->ht[ht].size << DRAM_MAP_SHIFT;
 			mem.enabled  = 1;
 			mem.hotplug  = 0;
 			mem.nonvol   = 0;
@@ -792,22 +791,22 @@ static void update_acpi_tables(void)
 		}
 	}
 
-	for (node = 0; node < dnc_node_count; node++) {
-		for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-			for (j = 0; j < nodes[node].ht[ht].cores; j++) {
-				uint16_t apicid = j + nodes[node].ht[ht].apic_base + nodes[node].apic_offset;
+	foreach_nodes(node) {
+		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+			for (j = 0; j < node->ht[ht].cores; j++) {
+				uint16_t apicid = j + node->ht[ht].apic_base + node->apic_offset;
 
 				if (ht_next_apic < 0x100) {
 					struct acpi_core_affinity core;
 					memset(&core, 0, sizeof(core));
 					core.type     = 0;
 					core.len      = sizeof(core);
-					core.prox_low = nodes[node].ht[ht].pdom & 0xff;
+					core.prox_low = node->ht[ht].pdom & 0xff;
 					core.apic_id  = apicid;
 					core.enabled  = core_enabled(node, j);
 					core.flags    = 0;
 					core.sapic_eid = 0;
-					core.prox_hi   = nodes[node].ht[ht].pdom >> 8;
+					core.prox_hi   = node->ht[ht].pdom >> 8;
 					memcpy((unsigned char *)srat + srat->len, &core, core.len);
 					srat->len += core.len;
 				} else {
@@ -815,7 +814,7 @@ static void update_acpi_tables(void)
 					memset(&x2core, 0, sizeof(x2core));
 					x2core.type     = 2;
 					x2core.len      = sizeof(x2core);
-					x2core.prox_dom = nodes[node].ht[ht].pdom;
+					x2core.prox_dom = node->ht[ht].pdom;
 					x2core.x2apic_id = apicid;
 					x2core.enabled  = core_enabled(node, j);
 					x2core.flags    = 0;
@@ -845,11 +844,11 @@ static void update_acpi_tables(void)
 	memcpy(mcfg->creatorid, "1B47", 4);
 	mcfg->creatorrev = 1;
 
-	for (node = 0; node < dnc_node_count; node++) {
+	foreach_nodes(node) {
 		struct acpi_mcfg_allocation *mcfg_allocation = (struct acpi_mcfg_allocation *)((unsigned char *)mcfg + mcfg->len);
 		memset(mcfg_allocation, 0, sizeof(*mcfg_allocation));
-		mcfg_allocation->address = DNC_MCFG_BASE | ((uint64_t)nodes[node].sci << 28ULL);
-		mcfg_allocation->pci_segment = node;
+		mcfg_allocation->address = DNC_MCFG_BASE | ((uint64_t)node->sci << 28ULL);
+		mcfg_allocation->pci_segment = node - &nodes[0];
 		mcfg_allocation->start_bus_number = 0;
 		mcfg_allocation->end_bus_number = 255;
 		mcfg->len += sizeof(*mcfg_allocation);
@@ -961,7 +960,7 @@ static void update_mptable(void)
 static void setup_apic_atts(void)
 {
 	uint32_t apic_shift;
-	uint16_t i, j;
+	uint16_t j;
 	apic_shift = 1;
 
 	while (apic_per_node >= (1 << apic_shift)) apic_shift++;
@@ -972,40 +971,35 @@ static void setup_apic_atts(void)
 	printf("Setting up APIC ATT tables with shift %d...", apic_shift);
 
 	/* Set APIC ATT for remote interrupts */
-	for (i = 0; i < dnc_node_count; i++) {
-		uint16_t snode = nodes[i].sci;
-		uint16_t dnode, ht;
-
-		dnc_write_csr(snode, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
+	foreach_nodes(node) {
+		dnc_write_csr(node->sci, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
 
 		/* Ensure MSI or spurious interrupts are decoded locally only */
 		for (j = 0; j < 4096; j++) {
 			if (j % 256 == 0)
-				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((j >> 8) & 0xf));
-			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j % 256) * 4, nodes[i].sci);
+				dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((j >> 8) & 0xf));
+			dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j % 256) * 4, node->sci);
 		}
 
-		for (dnode = 0; dnode < dnc_node_count; dnode++) {
-			uint16_t min, max;
-			min = ~0;
-			max = 0;
+		foreach_nodes(dnode) {
+			uint16_t max = 0, min = ~0;
 
-			for (ht = nodes[dnode].nb_ht_lo; ht <= nodes[dnode].nb_ht_hi; ht++) {
-				uint16_t cur = nodes[dnode].apic_offset + nodes[dnode].ht[ht].apic_base;
+			for (uint8_t ht = dnode->nb_ht_lo; ht <= dnode->nb_ht_hi; ht++) {
+				uint16_t cur = dnode->apic_offset + dnode->ht[ht].apic_base;
 
 				if (min > cur)
 					min = cur;
 
-				if (max < cur + nodes[dnode].ht[ht].cores)
-					max = cur + nodes[dnode].ht[ht].cores;
+				if (max < cur + dnode->ht[ht].cores)
+					max = cur + dnode->ht[ht].cores;
 			}
 
 			min = min >> apic_shift;
 			max = (max - 1) >> apic_shift;
 
-			dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((min >> 8) & 0xf));
+			dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((min >> 8) & 0xf));
 			for (j = min; j <= max; j++)
-				dnc_write_csr(snode, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, nodes[dnode].sci);
+				dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, dnode->sci);
 		}
 	}
 	printf("done\n");
@@ -1209,9 +1203,9 @@ static void setup_other_cores(void)
 	}
 
 	/* Check for MCEs here, as protocol errors can be observed on some servers */
-	for (unsigned node = 0; node < dnc_node_count; node++)
-		for (uint8_t ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++)
-			mce_check(nodes[node].sci, ht);
+	foreach_nodes(node)
+		for (uint8_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++)
+			mce_check(node->sci, ht);
 
 	critical_leave();
 	printf(" online\n");
@@ -2129,7 +2123,7 @@ static void global_chipset_fixup(void)
 {
 	printf("Performing global chipset configuration...");
 
-	foreach_node(node) {
+	foreach_nodes(node) {
 		uint32_t vendev = dnc_read_conf(node->sci, 0, 0, 0, 0);
 		if ((vendev == VENDEV_SR5690) || (vendev == VENDEV_SR5670) || (vendev == VENDEV_SR5650)) {
 			/* Limit TOM2 to HyperTransport address */
@@ -2230,7 +2224,7 @@ static void enable_cstate6(void)
 {
 	printf("Enabling C-state 6...");
 
-	for (node_info_t *node = &nodes[0]; node < &nodes[dnc_node_count]; node++) {
+	foreach_nodes(node) {
 		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 			/* Action field 0, 1 */
 			uint32_t val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC4_LINK, 0x118);
@@ -2310,8 +2304,6 @@ static void calibrate_nb_tscs(void)
 
 static void unify_all_nodes(void)
 {
-	uint16_t i;
-	uint16_t node;
 	bool abort = 0;
 	int model, model_first = 0;
 	dnc_node_count = 0;
@@ -2336,32 +2328,32 @@ static void unify_all_nodes(void)
 	if (pf_cstate6)
 		dnc_top_of_mem -= 1;
 
-	for (node = 0; node < dnc_node_count; node++) {
-		for (i = nodes[node].nb_ht_lo; i <= nodes[node].nb_ht_hi; i++) {
+	foreach_nodes(node) {
+		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 			/* Ensure all processors are the same for compatibility */
-			model = cpu_family(nodes[node].sci, i);
+			model = cpu_family(node->sci, ht);
 
 			if (!model_first)
 				model_first = model;
 			else if (model != model_first) {
 				error("%03x/%s has varying processor models 0x%08x and 0x%08x",
-					nodes[node].sci, get_master_name(nodes[node].sci), model_first, model);
+					node->sci, get_master_name(node->sci), model_first, model);
 				abort = 1;
 			}
 
 			/* 6200/4200 processors lack the HT lock mechanism, so abort */
 			if ((family >> 8) == 0x1501) {
 				error("%03x/%s has incompatible 6200/4200 processors; please use 6300/4300 or later",
-					nodes[node].sci, get_master_name(nodes[node].sci));
+					node->sci, get_master_name(node->sci));
 				abort = 1;
 			}
 
 			if ((model >> 16) >= 0x15) {
-				uint32_t val = dnc_read_conf(nodes[node].sci, 0, 24 + i, FUNC2_DRAM, 0x118);
+				uint32_t val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x118);
 
 				if (val & (1 << 19)) {
 					error("%03x/%s has CState C6 enabled in the BIOS",
-					       nodes[node].sci, get_master_name(nodes[node].sci));
+					       node->sci, get_master_name(node->sci));
 					abort = 1;
 				}
 			}
@@ -2372,21 +2364,21 @@ static void unify_all_nodes(void)
 		fatal("Processor/BIOS configuration issues need resolving");
 
 	/* Set up local mapping registers etc from 0 - master node max */
-	for (i = 0; i < nodes[0].nc_ht; i++) {
-		uint64_t base = (uint64_t)nodes[0].ht[i].base << DRAM_MAP_SHIFT;
-		uint64_t limit = ((uint64_t)(nodes[0].ht[i].base + nodes[0].ht[i].size) << DRAM_MAP_SHIFT) - 1;
+	for (ht_t ht = 0; ht < nodes[0].nc_ht; ht++) {
+		uint64_t base = (uint64_t)nodes[0].ht[ht].base << DRAM_MAP_SHIFT;
+		uint64_t limit = ((uint64_t)(nodes[0].ht[ht].base + nodes[0].ht[ht].size) << DRAM_MAP_SHIFT) - 1;
 
-		nc_dram_range(nodes[0].sci, i, base, limit, i);
+		nc_dram_range(nodes[0].sci, ht, base, limit, ht);
 	}
 
 	/* DRAM map on local CPUs to redirect all accesses outside our local range to NC
 	 * NB: Assuming that memory is assigned sequentially to SCI nodes */
-	for (i = 0; i < nodes[0].nc_ht; i++) {
-		int range = dram_range_unused(nodes[0].sci, i);
+	for (ht_t ht = 0; ht < nodes[0].nc_ht; ht++) {
+		int range = dram_range_unused(nodes[0].sci, ht);
 
 		/* Don't add if the second node's base is the not above the first's, since it'll be a 1-node partition */
 		if (nodes[1].dram_base > nodes[0].dram_base)
-			dram_range(nodes[0].sci, i, range, (uint64_t)nodes[1].dram_base << DRAM_MAP_SHIFT,
+			dram_range(nodes[0].sci, ht, range, (uint64_t)nodes[1].dram_base << DRAM_MAP_SHIFT,
 				((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT) - 1, nodes[0].nc_ht);
 	}
 
@@ -2397,27 +2389,25 @@ static void unify_all_nodes(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT, nodes[0].dram_limit);
 
 	/* Setup SCC routing */
-	for (i = 0; i < dnc_node_count; i++) {
-		uint16_t dnode;
+	foreach_nodes(node) {
 		uint32_t addr = 0;
-		node = nodes[i].sci;
 
-		for (dnode = 0; dnode < dnc_node_count; dnode++) {
-			addr = nodes[dnode].dram_base;
-			uint32_t end  = nodes[dnode].dram_limit;
+		foreach_nodes(dnode) {
+			addr = dnode->dram_base;
+			uint32_t end = dnode->dram_limit;
 
-			dnc_write_csr(node, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
+			dnc_write_csr(node->sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
 			  (1 << (27 + scc_att_index_range)) | (addr / SCC_ATT_GRAN));
 
 			while (addr < end) {
-				dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[dnode].sci);
+				dnc_write_csr(node->sci, H2S_CSR_G0_ATT_ENTRY, dnode->sci);
 				addr += SCC_ATT_GRAN;
 			}
 		}
 
 		/* Point the rest at the master */
 		while (addr < (4096 * SCC_ATT_GRAN)) {
-			dnc_write_csr(node, H2S_CSR_G0_ATT_ENTRY, nodes[0].sci);
+			dnc_write_csr(node->sci, H2S_CSR_G0_ATT_ENTRY, nodes[0].sci);
 			addr += SCC_ATT_GRAN;
 		}
 	}
@@ -2468,18 +2458,18 @@ static void unify_all_nodes(void)
 
 	/* Drop redundant MMIO ranges pointing to old MCFG space, if SMM isn't going to access it */
 	if (disable_smm) {
-		for (i = 0; i < nodes[0].nc_ht; i++) {
+		for (ht_t ht = 0; ht < nodes[0].nc_ht; ht++) {
 			for (int range = 0; range < 8; range++) {
 				uint64_t base, limit;
 				uint8_t dest;
 				int link;
 				bool lock, np;
 
-				if (!mmio_range_read(nodes[0].sci, i, range, &base, &limit, &dest, &link, &lock, &np))
+				if (!mmio_range_read(nodes[0].sci, ht, range, &base, &limit, &dest, &link, &lock, &np))
 					continue;
 
 				if (base == old_mcfg) {
-					mmio_range_del(nodes[0].sci, i, range);
+					mmio_range_del(nodes[0].sci, ht, range);
 					break;
 				}
 			}
@@ -2499,9 +2489,9 @@ static void unify_all_nodes(void)
 	setup_other_cores();
 
 	printf("Joining:");
-	for (i = 1; i < dnc_node_count; i++) {
-		setup_remote_cores(&nodes[i]);
-		check(&nodes[i]);
+	foreach_slave_nodes(node) {
+		setup_remote_cores(node);
+		check(node);
 	}
 	printf("\n");
 
@@ -2511,43 +2501,39 @@ static void unify_all_nodes(void)
 	printf("Clearing remote memory...");
 	critical_enter();
 
-	for (node = 0; node < dnc_node_count; node++) {
-		uint16_t sci = nodes[node].sci;
-
-		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
+	foreach_nodes(node) {
+		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 			/* Skip clearing first NB */
-			if (node == 0 && ht == nodes[node].bsp_ht)
+			if (node == &nodes[0] && ht == node->bsp_ht)
 				continue;
 
 			/* Disable memory controller prefetch */
-			uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
-			dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c, val | (3 << 12));
+			uint32_t val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
+			dnc_write_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x11c, val | (3 << 12));
 
 			/* Start memory clearing */
-			val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x110);
-			dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x110, val | (1 << 3));
+			val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x110);
+			dnc_write_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x110, val | (1 << 3));
 		}
 	}
 
 	/* Wait for clear to finish */
-	for (node = 0; node < dnc_node_count; node++) {
-		uint16_t sci = nodes[node].sci;
-
-		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
+	foreach_nodes(node) {
+		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 			/* Skip waiting for first NB */
-			if (node == 0 && ht == nodes[node].bsp_ht)
+			if (node == &nodes[0] && ht == node->bsp_ht)
 				continue;
 
 			while (1) {
-				uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x110);
+				uint32_t val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x110);
 				if (!(val & (1 << 9)))
 					break;
 				udelay(100);
 			}
 
 			/* Reenable memory controller prefetch */
-			uint32_t val = dnc_read_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
-			dnc_write_conf(sci, 0, 24 + ht, FUNC2_DRAM, 0x11c, val & ~(3 << 12));
+			uint32_t val = dnc_read_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x11c);
+			dnc_write_conf(node->sci, 0, 24 + ht, FUNC2_DRAM, 0x11c, val & ~(3 << 12));
 		}
 	}
 	critical_leave();
@@ -2557,25 +2543,23 @@ static void unify_all_nodes(void)
 	if (!trace_buf_size) {
 		printf("Enabling DRAM scrubbers...");
 
-		for (node = 0; node < dnc_node_count; node++) {
-			uint16_t sci = nodes[node].sci;
-
-			for (i = nodes[node].nb_ht_lo; i <= nodes[node].nb_ht_hi; i++) {
-				if (!(nodes[node].ht[i].scrub & 0x1f))
+		foreach_nodes(node) {
+			for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+				if (!(node->ht[ht].scrub & 0x1f))
 					continue;
 
-				uint64_t base = (uint64_t)nodes[node].ht[i].base << DRAM_MAP_SHIFT;
-				uint32_t redir = dnc_read_conf(sci, 0, 24 + i, FUNC3_MISC, 0x5c) & 1;
-				dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x5c, base | redir);
-				dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x60, base >> 32);
+				uint64_t base = (uint64_t)node->ht[ht].base << DRAM_MAP_SHIFT;
+				uint32_t redir = dnc_read_conf(node->sci, 0, 24 + ht, FUNC3_MISC, 0x5c) & 1;
+				dnc_write_conf(node->sci, 0, 24 + ht, FUNC3_MISC, 0x5c, base | redir);
+				dnc_write_conf(node->sci, 0, 24 + ht, FUNC3_MISC, 0x60, base >> 32);
 
 				/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 				   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 				   See erratum 505 */
 				if (family >= 0x15)
-					dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x10c, 0);
+					dnc_write_conf(node->sci, 0, 24 + ht, FUNC1_MAPS, 0x10c, 0);
 
-				dnc_write_conf(sci, 0, 24 + i, FUNC3_MISC, 0x58, nodes[node].ht[i].scrub);
+				dnc_write_conf(node->sci, 0, 24 + ht, FUNC3_MISC, 0x58, node->ht[ht].scrub);
 			}
 		}
 
@@ -2586,8 +2570,8 @@ static void unify_all_nodes(void)
 		enable_cstate6();
 
 	/* Ensure no latent issues */
-	for (node = 0; node < dnc_node_count; node++)
-		check(&nodes[node]);
+	foreach_nodes(node)
+		check(node);
 
 #ifdef UNUSED
 	calibrate_nb_tscs();
@@ -2741,7 +2725,7 @@ static void check_renumbering(void)
 
 	foreach_nb(ht, nodes) {
 		for (int i = 0; i < 8; i++) {
-			uint32_t val = dnc_read_conf(nodes->sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + i * 8);
+			uint32_t val = dnc_read_conf(nodes[0].sci, 0, 24 + ht, FUNC1_MAPS, 0x80 + i * 8);
 			if (val & (1 << 3)) {
 				renumber_bsp = 1;
 				goto out;
@@ -2752,7 +2736,7 @@ static void check_renumbering(void)
 			continue;
 
 		for (int i = 0; i < 4; i++) {
-			uint32_t val = dnc_read_conf(nodes->sci, 0, 24 + ht, FUNC1_MAPS, 0x1a0 + i * 8);
+			uint32_t val = dnc_read_conf(nodes[0].sci, 0, 24 + ht, FUNC1_MAPS, 0x1a0 + i * 8);
 			if (val & (1 << 3)) {
 				renumber_bsp = 1;
 				goto out;

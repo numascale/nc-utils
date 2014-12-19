@@ -2420,14 +2420,14 @@ void selftest_late_msrs(void)
 		bool printed = false;
 		uint64_t val0 = rdmsr(msr);
 
-		for (int node = 0; node < dnc_node_count; node++) {
-			for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-				for (int i = 0; i < nodes[node].ht[ht].cores; i++) {
-					if ((node == 0) && (ht == 0) && (i == 0))
+		foreach_nodes(node) {
+			for (int ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+				for (int i = 0; i < node->ht[ht].cores; i++) {
+					if ((node == &nodes[0]) && (ht == 0) && (i == 0))
 						continue; /* Skip BSP */
 
-					uint32_t oldid = nodes[node].ht[ht].apic_base + i;
-					uint32_t apicid = nodes[node].apic_offset + oldid;
+					uint32_t oldid = node->ht[ht].apic_base + i;
+					uint32_t apicid = node->apic_offset + oldid;
 					/* Use limited local IPI distribution until global is fixed */
 					if (apicid > 254)
 						break;
@@ -2469,14 +2469,14 @@ void selftest_late_apiclvt(void)
 
 	int n = 1;
 
-	for (int node = 0; node < dnc_node_count; node++) {
-		for (int ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-			for (int i = 0; i < nodes[node].ht[ht].cores; i++) {
-				if ((node == 0) && (ht == 0) && (i == 0))
+	foreach_nodes(node) {
+		for (int ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+			for (int i = 0; i < node->ht[ht].cores; i++) {
+				if ((node == &nodes[0]) && (ht == 0) && (i == 0))
 					continue; /* Skip BSP */
 
-				uint32_t oldid = nodes[node].ht[ht].apic_base + i;
-				uint32_t apicid = nodes[node].apic_offset + oldid;
+				uint32_t oldid = node->ht[ht].apic_base + i;
+				uint32_t apicid = node->apic_offset + oldid;
 
 				for (const uint32_t *offset = &apic_offsets[0]; offset < (apic_offsets + sizeof(apic_offsets) / sizeof(apic_offsets[0])); offset++) {
 					/* Use limited local IPI distribution until global is fixed */
@@ -2493,7 +2493,7 @@ void selftest_late_apiclvt(void)
 		}
 	}
 
-	foreach_node(node) {
+	foreach_nodes(node) {
 		foreach_nb(ht, node) {
 			for (unsigned int reg = 0x160; reg <= 0x170; reg += 8) {
 				val = dnc_read_conf(node->sci, 0, 24 + ht, 3, reg);

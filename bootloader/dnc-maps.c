@@ -30,9 +30,9 @@ static node_info_t *sci_to_node(const uint16_t sci)
 	if (sci == 0xfff0)
 		return &nodes[0];
 
-	for (int i = 0; i < dnc_node_count; i++)
-		if (nodes[i].sci == sci)
-			return &nodes[i];
+	foreach_nodes(node)
+		if (node->sci == sci)
+			return node;
 
 	fatal("Unable to find SCI%03x in nodes table", sci);
 }
@@ -483,48 +483,48 @@ void nc_dram_range_print(const uint16_t sci, const int range)
 void ranges_print(void)
 {
 	uint64_t base, base2, limit, limit2;
-	int node, range, link, link2;
+	int range, link, link2;
 	uint8_t dest, dest2;
 	bool en, en2, lock, lock2, np, np2;
 	ht_t ht;
 
 	printf("\nNorthbridge DRAM ranges:\n");
-	for (node = 0; node < dnc_node_count; node++) {
+	foreach_nodes(node) {
 		for (range = 0; range < 8; range++) {
-			dram_range_print(nodes[node].sci, nodes[node].bsp_ht, range);
+			dram_range_print(node->sci, node->bsp_ht, range);
 
 			/* Verify consistency */
-			en = dram_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base, &limit, &dest);
-			for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-				en2 = dram_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base2, &limit2, &dest2);
+			en = dram_range_read(node->sci, node->bsp_ht, range, &base, &limit, &dest);
+			for (ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+				en2 = dram_range_read(node->sci, node->bsp_ht, range, &base2, &limit2, &dest2);
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest);
 			}
 		}
 	}
 
 	printf("\nNumachip DRAM ranges:\n");
-	for (node = 0; node < dnc_node_count; node++)
+	foreach_nodes(node)
 		for (range = 0; range < 8; range++)
-			nc_dram_range_print(nodes[node].sci, range);
+			nc_dram_range_print(node->sci, range);
 
 	printf("\nNorthbridge MMIO ranges:\n");
-	for (node = 0; node < dnc_node_count; node++) {
+	foreach_nodes(node) {
 		for (range = 0; range < 8; range++) {
-			mmio_range_print(nodes[node].sci, nodes[node].bsp_ht, range);
+			mmio_range_print(node->sci, node->bsp_ht, range);
 
 			/* Verify consistency */
-			en = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base, &limit, &dest, &link, &lock, &np);
-			for (ht = nodes[node].nb_ht_lo; ht <= nodes[node].nb_ht_hi; ht++) {
-				en2 = mmio_range_read(nodes[node].sci, nodes[node].bsp_ht, range, &base2, &limit2, &dest2, &link2, &lock2, &np2);
+			en = mmio_range_read(node->sci, node->bsp_ht, range, &base, &limit, &dest, &link, &lock, &np);
+			for (ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+				en2 = mmio_range_read(node->sci, node->bsp_ht, range, &base2, &limit2, &dest2, &link2, &lock2, &np2);
 				assert(en2 == en && base2 == base && limit2 == limit && dest2 == dest && link2 == link && lock2 == lock && np2 == np);
 			}
 		}
 	}
 
 	printf("\nNumachip MMIO ranges:\n");
-	for (node = 0; node < dnc_node_count; node++)
+	foreach_nodes(node)
 		for (range = 0; range < 8; range++)
-			nc_mmio_range_print(nodes[node].sci, range);
+			nc_mmio_range_print(node->sci, range);
 
 	printf("\nNumachip SCC routing:\n");
 
@@ -534,18 +534,18 @@ void ranges_print(void)
 	printf("SCI%03x: 0x%011llx:", last, 0ULL);
 
 	/* Select SCC ATT base address, enable autoinc */
-	for (node = 0; node < dnc_node_count; node++)
-		dnc_write_csr(nodes[node].sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + scc_att_index_range)));
+	foreach_nodes(node)
+		dnc_write_csr(node->sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + scc_att_index_range)));
 
 	for (i = 0; i < 4096; i++) {
 		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY);
 
 		/* Verify consistency */
-		for (node = 1; node < dnc_node_count; node++) {
-			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G0_ATT_ENTRY);
+		foreach_slave_nodes(node) {
+			uint32_t sci2 = dnc_read_csr(node->sci, H2S_CSR_G0_ATT_ENTRY);
 			if (sci2 != sci)
 				warning("SCC address 0x%011llx routes to SCI%03x on SCI%03x but routes to SCI%03x on SCI%03x",
-				  (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT), sci, nodes[0].sci, sci2, nodes[node].sci);
+				  (uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT), sci, nodes[0].sci, sci2, node->sci);
 		}
 
 		if (sci != last) {
@@ -565,17 +565,17 @@ void ranges_print(void)
 	for (i = 0; i < 4096; i++) {
 		/* Select MMIO32 ATT RAM on all nodes */
 		if ((i % 256) == 0)
-			for (node = 0; node < dnc_node_count; node++)
-				dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | (i / 256));
+			foreach_nodes(node)
+				dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | (i / 256));
 
 		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 
 		/* Verify consistency */
-		for (node = 1; node < dnc_node_count; node++) {
-			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
+		foreach_slave_nodes(node) {
+			uint32_t sci2 = dnc_read_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 			if (sci2 != sci)
 				warning("MMIO32 address 0x%08x routes to SCI%03x on SCI%03x but routes to SCI%03x on SCI%03x",
-				  i << NC_ATT_MMIO32_GRAN, sci, nodes[0].sci, sci2, nodes[node].sci);
+				  i << NC_ATT_MMIO32_GRAN, sci, nodes[0].sci, sci2, node->sci);
 		}
 
 		if (sci != last) {
@@ -592,18 +592,18 @@ void ranges_print(void)
 	printf("SCI%03x: 0x%07x:", last, 0);
 
 	/* Select IO ATT RAM on all nodes */
-	for (node = 0; node < dnc_node_count; node++)
-		dnc_write_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
+	foreach_nodes(node)
+		dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 
 	for (i = 0; i < 256; i++) {
 		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 
 		/* Verify consistency */
-		for (node = 1; node < dnc_node_count; node++) {
-			uint32_t sci2 = dnc_read_csr(nodes[node].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
+		foreach_slave_nodes(node) {
+			uint32_t sci2 = dnc_read_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 			if (sci2 != sci)
 				warning("IO address 0x%07x routes to SCI%03x on SCI%03x but routes to SCI%03x on SCI%03x",
-				  i << NC_ATT_IO_GRAN, sci, nodes[0].sci, sci2, nodes[node].sci);
+				  i << NC_ATT_IO_GRAN, sci, node->sci, sci2, node->sci);
 		}
 
 		if (sci != last) {
