@@ -27,7 +27,7 @@ int escrow_populate(void *data)
 	struct escrow_ent *start = (escrow_ent *)data;
 	struct escrow_ent *cur = start;
 
-	cur->numachip_rev = dnc_chip_rev;
+	cur->numachip_rev = 2;
 	cur->size_x       = cfg_fabric.size[0];
 	cur->size_y       = cfg_fabric.size[1];
 	cur->size_z       = cfg_fabric.size[2];

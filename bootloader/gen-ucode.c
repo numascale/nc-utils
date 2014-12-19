@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 		}
 
 		assert(close(fd) == 0);
-		printf("static const uint16_t numachip_mseq_table_revc[] = {\n");
+		printf("static const uint16_t numachip_mseq_table[] = {\n");
 		convert_buf_uint16_t(data, stat.st_size / sizeof(data[0]));
 		printf("};\n");
 		free(data);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 		}
 
 		assert(close(fd) == 0);
-		printf("static uint32_t numachip_mseq_ucode_revc[] = {\n");
+		printf("static uint32_t numachip_mseq_ucode[] = {\n");
 		convert_buf_uint32_t(data, stat.st_size / sizeof(data[0]));
 		printf("};\n");
 		free(data);

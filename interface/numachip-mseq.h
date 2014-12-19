@@ -1,4 +1,4 @@
-static const uint16_t numachip_mseq_table_revc[] = {
+static const uint16_t numachip_mseq_table[] = {
     0x0003, 0xa853, 0x0003, 0x0003,
     0xa89d, 0x0001, 0xa8bc, 0xa8c7,
     0xa8b3, 0x0003, 0xa8a8, 0x0003,
@@ -26,7 +26,7 @@ static const uint16_t numachip_mseq_table_revc[] = {
     0x000f, 0x0001, 0x001a, 0x001d,
 };
 
-static uint32_t numachip_mseq_ucode_revc[] = {
+static uint32_t numachip_mseq_ucode[] = {
     0x0055f320, 0x0051f220, 0x0014001a, 0x0051f02c,
     0x00140010, 0x00140015, 0x00140024, 0x00140024,
     0x00140024, 0x00140024, 0x0013000c, 0x0071c2a6,

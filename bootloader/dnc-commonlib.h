@@ -215,7 +215,6 @@ struct kvm_port {
 };
 
 extern bool dnc_asic_mode;
-extern uint32_t dnc_chip_rev;
 extern char dnc_card_type[16];
 extern const char *config_file_name;
 extern const char *next_label;
@@ -237,7 +236,7 @@ extern bool boot_wait;
 extern int family;
 extern uint32_t tsc_mhz;
 extern uint64_t pf_maxmem;
-extern uint32_t max_mem_per_server;
+extern uint64_t max_mem_per_server;
 extern int force_probefilteroff;
 extern int force_probefilteron;
 extern uint64_t mem_gap;
@@ -271,7 +270,7 @@ void critical_leave(void);
 void adjust_oscillator(const char p_type[16], const uint32_t osc_setting);
 void check_numachip(const sci_t sci);
 void check(const node_info_t *node);
-checked int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode);
+checked int dnc_init_bootloader(char p_type[16], bool *p_asic_mode);
 checked bool dnc_check_fabric(const struct node_info *info);
 uint32_t dnc_check_mctr_status(const int cdata);
 void dnc_dram_initialise(void);

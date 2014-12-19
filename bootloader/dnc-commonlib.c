@@ -49,7 +49,6 @@ static bool route_only = 0;
 static bool disable_nc = 0;
 static int enable_nbmce = -1;
 int enable_nbwdt = 0;
-static bool disable_sram = 0;
 static int ht_force_ganged = 1;
 static bool ht_8bit_only = 0;
 static bool ht_200mhz_only = 0;
@@ -81,7 +80,6 @@ bool test_manufacture = 0;
 int relaxed_io = 0;
 int pf_prefetch = 1;
 int router = 0;
-uint64_t memlimit = 0;
 static bool fastboot = 0;
 uint64_t io_limit = 0;
 bool io_nonpref_high = 0;
@@ -90,7 +88,7 @@ int downcore = 1;
 /* Non-options */
 int family = 0;
 uint32_t tsc_mhz = 2200;
-uint32_t max_mem_per_server;
+uint64_t max_mem_per_server = ~0;
 bool link_up = 0;
 uint8_t scc_att_index_range = 2;   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24 */
 
@@ -493,40 +491,6 @@ uint32_t dnc_check_mctr_status(const int cdata)
 	return val;
 }
 
-static void dnc_initialize_sram(void)
-{
-	uint32_t val;
-
-	/* RevC and later has no SRAM */
-	if (dnc_chip_rev > 1)
-		return;
-
-	val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
-
-	if (((val >> 24) & 0xff) != 0x3f)
-		printf("Waiting for SRAM clock calibration\n");
-
-	while (((val >> 24) & 0xff) != 0x3f) {
-		udelay(100);
-		val = dnc_read_csr(0xfff0, H2S_CSR_G2_DDL_STATUS);
-		assertf(!(val & 0xc000000), "SRAM clock calibration overflow detected");
-	}
-
-	printf("SRAM clock calibration complete\n");
-	/* Zero out FTag SRAM */
-	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000002);
-
-	while (1) {
-		udelay(100);
-		val = dnc_read_csr(0xfff0, H2S_CSR_G2_FTAG_STATUS);
-		if ((val & 1) == 0)
-			break;
-	}
-
-	printf("Enabling FTag SRAM\n");
-	dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000000);
-}
-
 void dnc_dram_initialise(void)
 {
 	int cdata;
@@ -602,58 +566,40 @@ void dnc_init_caches(void)
 			}
 		}
 
-		if ((dnc_asic_mode && dnc_chip_rev >= 2) || !dnc_asic_mode) {
-			int tmp = dimms[cdata].mem_size;
+		int tmp = dimms[cdata].mem_size;
 
-			/* New RevC MCTag setting for supporting larger local memory */
-			if (!cdata) {
-				if (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) {        /* 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory */
-					tmp = 0;
-				} else if (dimms[0].mem_size == 0 && dimms[1].mem_size == 2) { /* 1GB MCTag_Size  4GB Remote Cache   16GB Coherent Local Memory */
-					tmp = 1;
-				} else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { /* 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory */
-					tmp = 2;
-				} else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { /* 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory */
-					tmp = 3;
-				} else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { /* 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory */
-					tmp = 4;
-				} else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { /* 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory */
-					tmp = 5;
-				} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { /* 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory */
-					tmp = 6;
-				} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
-					tmp = 7;
-				} else
-					fatal("Unsupported MCTag/CData combination (%d/%dGB)",
-					       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size));
-			}
-
-			if (!cdata) {
-				max_mem_per_server = (1U << (5 + dimms[0].mem_size)) - (1U << (2 + dimms[1].mem_size));
-				printf("%dGB MCTag, %dGB Remote Cache, %3dGB Max Coherent Local Memory\n",
-				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_server);
-				max_mem_per_server = max_mem_per_server << (30 - DRAM_MAP_SHIFT);
-			}
-
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
-			              (val & ~7) | (1 << 12) | ((tmp & 7) << 4)); /* DRAM_AVAILABLE, MEMSIZE[2:0] */
-		} else { /* Older than Rev2 */
-			/* On Rev1 and older there's a direct relationship between the MTag size and RCache size */
-			if (cdata && dimms[cdata].mem_size == 0)
-				fatal("Unsupported CData size of %dGB", (1 << dimms[cdata].mem_size));
-
-			if (!cdata) {
-				max_mem_per_server = 16U << dimms[0].mem_size;
-				printf("%dGB tag and %dGB remote cache; %dGB max coherent local memory\n",
-				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_server);
-				max_mem_per_server = max_mem_per_server << (30 - DRAM_MAP_SHIFT);
-			}
-
-			val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
-			dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
-			              (val & ~7) | (1 << 12) | (1 << 7) | ((dimms[cdata].mem_size & 7) << 4)); /* DRAM_AVAILABLE, FTagBig, MEMSIZE[2:0] */
+		if (!cdata) {
+			if (dimms[0].mem_size == 0 && dimms[1].mem_size == 1) {        /* 1GB MCTag_Size  2GB Remote Cache   24GB Coherent Local Memory */
+				tmp = 0;
+			} else if (dimms[0].mem_size == 0 && dimms[1].mem_size == 2) { /* 1GB MCTag_Size  4GB Remote Cache   16GB Coherent Local Memory */
+				tmp = 1;
+			} else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 1) { /* 2GB MCTag_Size  2GB Remote Cache   56GB Coherent Local Memory */
+				tmp = 2;
+			} else if (dimms[0].mem_size == 1 && dimms[1].mem_size == 2) { /* 2GB MCTag_Size  4GB Remote Cache   48GB Coherent Local Memory */
+				tmp = 3;
+			} else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 2) { /* 4GB MCTag_Size  4GB Remote Cache  112GB Coherent Local Memory */
+				tmp = 4;
+			} else if (dimms[0].mem_size == 2 && dimms[1].mem_size == 3) { /* 4GB MCTag_Size  8GB Remote Cache   96GB Coherent Local Memory */
+				tmp = 5;
+			} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 2) { /* 8GB MCTag_Size  4GB Remote Cache  240GB Coherent Local Memory */
+				tmp = 6;
+			} else if (dimms[0].mem_size == 3 && dimms[1].mem_size == 3) { /* 8GB MCTag_Size  8GB Remote Cache  224GB Coherent Local Memory */
+				tmp = 7;
+			} else
+				fatal("Unsupported MCTag/CData combination (%d/%dGB)",
+				       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size));
 		}
+
+		if (!cdata) {
+			/* Constrain any existing memory limit */
+			max_mem_per_server = min(max_mem_per_server, (uint64_t)((1U << (5 + dimms[0].mem_size)) - (1U << (2 + dimms[1].mem_size))) << 30);
+			printf("%dGB MCTag, %dGB Remote Cache, %3lluGB Max Coherent Local Memory\n",
+			       (1 << dimms[0].mem_size), (1 << dimms[1].mem_size), max_mem_per_server >> 30);
+		}
+
+		val = dnc_read_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR);
+		dnc_write_csr(0xfff0, cdata ? H2S_CSR_G4_CDATA_COM_CTRLR : H2S_CSR_G4_MCTAG_COM_CTRLR,
+		              (val & ~7) | (1 << 12) | ((tmp & 7) << 4)); /* DRAM_AVAILABLE, MEMSIZE[2:0] */
 	}
 
 	dnc_dram_initialise();
@@ -667,18 +613,11 @@ void dnc_init_caches(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(3 << 26)) | ((dimms[1].mem_size - 1) << 26)); /* [27:26] Cache size: 0 - 2GB, 1 - 4GB, 2 - 8GB, 3 - 16GB */
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIU_CACHE_SIZE, dimms[1].mem_size + 1); /* ((2 ^ (N - 1)) * 1GB) */
 
-	/* Initialize SRAM */
-	if (!dnc_asic_mode) { /* Special FPGA considerations for Ftag SRAM */
-		printf("FPGA revision %d_%d detected, no FTag SRAM\n", dnc_chip_rev >> 16, dnc_chip_rev & 0xffff);
-	} else {
-		/* ASIC; initialize SRAM if disable_sram is unset */
-		if (!disable_sram)
-			dnc_initialize_sram();
-		else {
-			printf("No SRAM will be initialized\n");
-			dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
-		}
-	}
+	if (dnc_asic_mode) {
+		printf("No SRAM will be initialized\n");
+		dnc_write_csr(0xfff0, H2S_CSR_G2_SRAM_MODE, 0x00000001);  /* Disable SRAM on NC */
+	} else
+		printf("FPGA detected, no FTag SRAM\n");
 }
 
 int cpu_family(const sci_t sci, const ht_t ht)
@@ -1074,7 +1013,7 @@ static void print_ht_routing(const ht_t max_ht)
 }
 #endif
 
-static void ht_optimize_link(int nc, int rev, int asic_mode)
+static void ht_optimize_link(int nc, const bool asic_mode)
 {
 	if (ht_200mhz_only && asic_mode && !init_only) {
 		warning("200MHz-only operation not possible on ASIC; option ignored");
@@ -1123,13 +1062,6 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
 	printf("Checking HT width/freq");
 
-	/* Set T0Time to max on revB and older to avoid high LDTSTOP exit latency */
-	if (asic_mode && rev < 2) {
-		val = cht_read_conf(neigh, FUNC0_HT, 0x16c);
-		cht_write_conf(neigh, FUNC0_HT, 0x16c, (val & ~0x3f) | 0x3a);
-		printf(".");
-	}
-
 	/* Gang link when appropriate, as the BIOS may not */
 	if (ht_force_ganged) {
 		val = cht_read_conf(neigh, FUNC0_HT, 0x170 + link * 4);
@@ -1146,8 +1078,7 @@ static void ht_optimize_link(int nc, int rev, int asic_mode)
 	val &= ~(1 << 13); /* Disable LdtStopTriEn */
 	cht_write_conf(neigh, FUNC0_HT, 0x84 + link * 0x20, val);
 
-	if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11) &&
-	                      ((asic_mode && rev >= 2) || !asic_mode)))) {
+	if (!ht_8bit_only && (ht_force_ganged || (ganged && ((val >> 16) == 0x11)))) {
 		printf("*");
 		if ((val >> 24) != 0x11) {
 			printf("<CPU width>");
@@ -1559,7 +1490,7 @@ static void disable_link(int node, int link)
 }
 #endif /* __i386 */
 
-static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
+static int ht_fabric_find_nc(bool *p_asic_mode)
 {
 #ifndef __i386
 	printf("(Only doing HT discovery and reconfig in 32-bit mode)\n");
@@ -1653,19 +1584,13 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	if (val == 0) {
 		val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
 		printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
-		ht_optimize_link(nc_ht, val & 0xffff, 1);
+		ht_optimize_link(nc_ht, 1);
 		*p_asic_mode = 1;
-		*p_chip_rev = val & 0xffff;
 	} else {
 		printf("Doing link calibration of FPGA chip rev %d_%d\n", val >> 16, val & 0xffff);
-		ht_optimize_link(nc_ht, val, 0);
+		ht_optimize_link(nc_ht, 0);
 		*p_asic_mode = 0;
-		*p_chip_rev = val;
 	}
-
-	/* RevB ASIC requires syncflood to be disabled */
-	if (*p_asic_mode && *p_chip_rev < 2)
-		ht_suppress = 0x3fff; /* Suppress most sync-flood generation */
 
 	if (!(cht_read_conf(0, FUNC3_MISC, 0x58) & 0x1f))
 		warning("DRAM scrubbing not enabled in the BIOS\n");
@@ -1749,10 +1674,6 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 	if (route_only)
 		return nc_ht;
 
-	/* On ASIC revB we need to make sure probefilter is disabled */
-	if ((*p_asic_mode && (*p_chip_rev < 2)) || force_probefilteroff)
-		disable_probefilter(max_ht);
-
 	/* On Fam15h disable the Accelerated Transiton to Modified protocol */
 	if (family >= 0x15)
 		disable_atmmode(max_ht);
@@ -1784,7 +1705,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode, uint32_t *p_chip_rev)
 #endif
 }
 
-static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
+static int ht_fabric_fixup(bool *p_asic_mode)
 {
 	uint32_t val;
 	uint8_t node;
@@ -1805,22 +1726,19 @@ static int ht_fabric_fixup(bool *p_asic_mode, uint32_t *p_chip_rev)
 		if (val == 0) {
 			val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
 			printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
-			ht_optimize_link(nc_ht, val & 0xffff, 1);
+			ht_optimize_link(nc_ht, 1);
 			*p_asic_mode = 1;
-			*p_chip_rev = val & 0xffff;
 		} else {
 			printf("Doing link calibration of FPGA chip rev %d_%d\n", val >> 16, val & 0xffff);
-			ht_optimize_link(nc_ht, val, 0);
+			ht_optimize_link(nc_ht, 0);
 			*p_asic_mode = 0;
-			*p_chip_rev = val;
 		}
 	} else {
-		nc_ht = ht_fabric_find_nc(p_asic_mode, p_chip_rev);
+		nc_ht = ht_fabric_find_nc(p_asic_mode);
 
 		if (nc_ht < 0) {
 			printf("NumaChip not found\n");
 			*p_asic_mode = -1;
-			*p_chip_rev = -1;
 			return -1;
 		}
 
@@ -2045,7 +1963,7 @@ void adjust_oscillator(const char p_type[16], const uint32_t osc_setting)
 	/* Mask out bit7 of every byte because it's missing.. */
 	assertf(((val & 0x007f7f7f) == (0x0000b0e9 & 0x007f7f7f)), "External microcontroller not working");
 
-	/* On the RevC cards the micro controller isn't quite fast enough
+	/* The micro controller isn't quite fast enough
 	 * to send bit7 of every byte correctly on the I2C bus when reading;
 	 * the bits we care about are bit[1:0] of the high order byte */
 	if (((val >> 24) & 3) != osc_setting) {
@@ -2141,7 +2059,6 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"disable-nc",	    &parse_bool,   &disable_nc},      /* Disable the HT link to NumaChip */
 		{"enablenbmce",	    &parse_int,    &enable_nbmce},    /* Enable northbridge MCE */
 		{"enablenbwdt",	    &parse_int,    &enable_nbwdt},    /* Enable northbridge WDT */
-		{"disable-sram",    &parse_bool,   &disable_sram},    /* Disable SRAM chip, needed for newer cards without SRAM */
 		{"ht.testmode",	    &parse_int,    &ht_testmode},
 		{"ht.force-ganged", &parse_int,    &ht_force_ganged}, /* Force setup of 16bit (ganged) HT link to NC */
 		{"ht.8bit-only",    &parse_bool,   &ht_8bit_only},
@@ -2174,7 +2091,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"relaxed-io",      &parse_int,    &relaxed_io},
 		{"pf.prefetch",     &parse_int,    &pf_prefetch},     /* DRAM prefetch */
 		{"router",          &parse_int,    &router},          /* Fabric routing algorithm */
-		{"memlimit",        &parse_uint64,  &memlimit},        /* Per-NUMA node memory limit */
+		{"memlimit",        &parse_uint64, &max_mem_per_server}, /* Per-server memory limit */
 		{"fastboot",        &parse_bool,   &fastboot},
 		{"io.limit",        &parse_uint64,  &io_limit},        /* Limit of PCI BARs that will be allocated */
 		{"io.nonpref-high", &parse_bool,   &io_nonpref_high}, /* If non-prefetchable PCI BARs can be allocated in 64-bit prefetchable space */
@@ -2741,9 +2658,9 @@ void check(const node_info_t *node)
 	check_numachip(node->sci);
 }
 
-int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode)
+int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 {
-	uint32_t val, chip_rev;
+	uint32_t val;
 	int i, ht_id;
 	bool asic_mode;
 
@@ -2754,7 +2671,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 	if (handover_acpi)
 		stop_acpi();
 
-	ht_id = ht_fabric_fixup(&asic_mode, &chip_rev);
+	ht_id = ht_fabric_fixup(&asic_mode);
 
 	/* Indicate immediate jump to next-label (-2) if init-only is also given */
 	if (disable_nc && init_only)
@@ -2769,20 +2686,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 
 	/* ====================== START ERRATA WORKAROUNDS ====================== */
 
-	if (asic_mode && (chip_rev == 0)) {
-		/* ERRATA #N9: Reduce the number of HReq buffers to 2 (29:28), HPrb buffers to 2 (15:14)
-		 * and SReq buffers to 4 (7:4), to take off some pressure on the response channel
-		 * ERRATA #N20: Covered by the above, HReq uses different TransIDs (29:28) than HPrb (15:14) */
-		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1 << 4) | (1 << 3) | (1 << 2) | (1 << 0));
-		dnc_write_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL, 0x3fff0000);
-		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, 0x000f0000);
-	} else if (asic_mode && (chip_rev == 1)) {
-		/* ERRATA #N20: Disable buffer 0-15 to ensure that HPrb and HReq have different
-		 * transIDs (HPrb: 0-15, HReq: 16-30) */
-		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
-		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1 << 4));
-	} else if (asic_mode && (chip_rev == 2) && workaround_hreq) {
+	if (asic_mode && workaround_hreq) {
 		/* Unknown ERRATA: Disable buffer 0-15 to ease some pressure */
 		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1 << 4));
@@ -2803,38 +2707,19 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 		/* Unknown ERRATA: Disable the Early CData read. It causes data corruption */
 		val = (val & ~(3 << 6)) | (3 << 6);
-
-		if (chip_rev < 2) {
-			dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val);
-			/* Unknown ERRATA: Disable CTag cache */
-			val = dnc_read_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR);
-			dnc_write_csr(0xfff0, H2S_CSR_G4_MCTAG_MAINTR, val & ~(1 << 2));
-			/* Unknown ERRATA: Reduce the HPrb/FTag pipleline (M_PREF_MODE bit[7:4]) to avoid hang situations */
-			val = dnc_read_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE);
-			dnc_write_csr(0xfff0, H2S_CSR_G2_M_PREF_MODE, (val & ~(0xf << 4)) | (1 << 4));
-		} else { /* ASIC RevC */
-			/* Enable WeakOrdering */
-			val = val | (1 << 19);
-			/* Disable Fast CTag lookup (conflicts with HReq buffer#31) */
-			val = val | (1 << 5);
-			/* Enable CData writeback on RdBlkMod,ChgToDirty and ValBlk */
-			val = val | (7 << 8);
-			dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val);
-		}
+		/* Enable WeakOrdering */
+		val |= 1 << 19;
+		/* Disable Fast CTag lookup (conflicts with HReq buffer#31) */
+		val |= 1 << 5;
+		/* Enable CData writeback on RdBlkMod,ChgToDirty and ValBlk */
+		val |= 7 << 8;
+		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val);
 	} else { /* FPGA */
 		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 19)); /* Enable WeakOrdering */
 	}
 
-	if (asic_mode && (chip_rev < 2)) {
-		/* ERRATA #N17: Disable SCC Context #0 to avoid false baPiuTHit assertions when buffer #0 is active.
-		 * ERRATA #N23: Disable 8 SCC Contexts (0-7) to avoid SPrb filling up completely and thus asserting
-		 * pmInhRemoteReq and causing the pre-grant of pmGrant to de-assert which causes issues when both
-		 * BIU and MIU sends requests to an almost full SReq module.
-		 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
-		val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
-		dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, val | (0x00ff << 8) | (1 << 6));
-	} else { /* ASIC Rev2 and FPGA */
+	if (!asic_mode) { /* ASIC Rev2 and FPGA */
 		/* ERRATA #N37: On FPGA now we have an RTL fix in SCC buffers to throttle the amount of
 		 * local memory requests to accept (bit[27:24] in MIB_IBC). SReq has 4 buffers available
 		 * on FGPA, but cannot accept more than coherent requests total (1 reserved for
@@ -2884,7 +2769,7 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		cht_write_conf(i, FUNC0_HT, 0x68, val | (1 << 23));
 #endif
 
-		if (asic_mode && (chip_rev < 2)) {
+		if (asic_mode) {
 			/* ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
 			 * which have bad side-effects with NumaChip in certain scenarios */
 			val = cht_read_conf(i, FUNC2_DRAM, 0x11c);
@@ -2942,7 +2827,6 @@ int dnc_init_bootloader(uint32_t *p_chip_rev, char p_type[16], bool *p_asic_mode
 		return -2;
 
 	*p_asic_mode = asic_mode;
-	*p_chip_rev = chip_rev;
 	return ht_id;
 }
 

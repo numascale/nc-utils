@@ -77,14 +77,10 @@ void load_scc_microcode(void)
 	const uint16_t *mseq_table;
 	int mseq_ucode_length, mseq_table_length;
 
-	if (!dnc_asic_mode || (dnc_chip_rev == 2)) {
-		/* Use this microcode for FPGA and RevC asic */
-		mseq_ucode = numachip_mseq_ucode_revc;
-		mseq_table = numachip_mseq_table_revc;
-		mseq_ucode_length = sizeof(numachip_mseq_ucode_revc) / sizeof(numachip_mseq_ucode_revc[0]);
-		mseq_table_length = sizeof(numachip_mseq_table_revc) / sizeof(numachip_mseq_table_revc[0]);
-	} else
-		fatal("No microcode for NumaChip version %d", dnc_chip_rev);
+	mseq_ucode = numachip_mseq_ucode;
+	mseq_table = numachip_mseq_table;
+	mseq_ucode_length = sizeof(numachip_mseq_ucode) / sizeof(numachip_mseq_ucode[0]);
+	mseq_table_length = sizeof(numachip_mseq_table) / sizeof(numachip_mseq_table[0]);
 
 	/* Call pow() a second time to prevent result corruption */
 	pow(dnc_core_count, WASHDELAY_P);
@@ -162,23 +158,8 @@ static void print_node_info(const node_info_t *node)
 
 static void adjust_dram_maps(node_info_t *const node)
 {
-	if (memlimit) {
-		for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
-			uint64_t limit = memlimit;
-
-			/* First northbridges must have a minimum of 4GB */
-			if (node == &nodes[0] && i == node->nb_ht_lo)
-				limit = 4ULL << 30;
-
-			node->node_mem -= node->ht[i].size - (limit >> DRAM_MAP_SHIFT);
-			node->ht[i].size = (limit >> DRAM_MAP_SHIFT);
-		}
-
-		return;
-	}
-
 	/* Trim nodes if over supported memory config */
-	int over = max((int)(node->node_mem - max_mem_per_server), (int)(node->node_mem & (SCC_ATT_GRAN - 1)));
+	int over = max((int)node->node_mem - (max_mem_per_server >> DRAM_MAP_SHIFT), node->node_mem & (SCC_ATT_GRAN - 1));
 	if (over > 0) {
 		printf("Trimming %03x maps by %uMB\n", node->sci, over << (DRAM_MAP_SHIFT - 20));
 

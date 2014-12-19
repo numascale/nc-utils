@@ -54,7 +54,6 @@ extern "C" {
 #define MIN_NODE_MEM		256*1024*1024
 
 bool dnc_asic_mode;
-uint32_t dnc_chip_rev;
 char dnc_card_type[16];
 uint16_t dnc_node_count = 0, dnc_core_count = 0;
 node_info_t *nodes = NULL;
@@ -253,15 +252,14 @@ static void install_e820_handler(void)
 	for (i = 0; i < orig_e820_len / sizeof(struct e820entry); i++) {
 		uint64_t orig_end = orig_e820_map[i].base + orig_e820_map[i].length;
 
-		if ((orig_e820_map[i].base >> DRAM_MAP_SHIFT) > max_mem_per_server) {
+		if (orig_e820_map[i].base > max_mem_per_server)
 			/* Skip entry altogether */
 			continue;
-		}
 
-		if ((orig_end >> DRAM_MAP_SHIFT) > max_mem_per_server) {
+		if (orig_end > max_mem_per_server) {
 			/* Adjust length to fit */
 			printf("Master node exceeds cachable memory range, clamping...\n");
-			orig_end = (uint64_t)max_mem_per_server << DRAM_MAP_SHIFT;
+			orig_end = max_mem_per_server;
 			orig_e820_map[i].length = orig_end - orig_e820_map[i].base;
 		}
 
@@ -2112,40 +2110,6 @@ static void local_chipset_fixup(const bool master)
 #endif
 		}
 	}
-	/* Only needed to workaround rev A/B issue */
-	if (dnc_asic_mode && dnc_chip_rev < 2) {
-		uint16_t node;
-		uint64_t addr;
-		int i;
-		uint32_t sreq_ctrl;
-		addr = rdmsr(MSR_SMM_BASE) + 0x8000 + 0x37c40;
-		addr += 0x200000000000ULL;
-		val = dnc_read_csr(0xfff0, H2S_CSR_G0_NODE_IDS);
-		node = (val >> 16) & 0xfff;
-
-		for (i = 0; i < nodes[0].nc_ht; i++)
-			mmio_range(0xfff0, i, 10, 0x200000000000ULL, 0x2fffffffffffULL, nodes[0].nc_ht, 0, 0, 0);
-
-		add_scc_hotpatch_att(addr, node);
-		sreq_ctrl = dnc_read_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL);
-		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL,
-		              (sreq_ctrl & ~0xfff0) | (0xf00 << 4));
-		val = mem64_read32(addr + 4);
-		printf("SMM fingerprint: %08x\n", val);
-
-		if (val == 0x3160bf66) {
-			printf("SMM coh config space trigger fingerprint found, patching...\n");
-			val = mem64_read32(addr);
-			mem64_write32(addr, (val & 0xff) | 0x9040eb00);
-		}
-
-		val = mem64_read32(addr);
-		printf("MEM %llx: %08x\n", addr, val);
-		dnc_write_csr(0xfff0, H2S_CSR_G3_SREQ_CTRL, sreq_ctrl);
-
-		for (i = 0; i < nodes[0].nc_ht; i++)
-			mmio_range_del(0xfff0, i, 10);
-	}
 
 	pci_setup();
 	lvt_setup();
@@ -2803,7 +2767,7 @@ static int nc_start(void)
 
 	get_hostname();
 
-	int rc = dnc_init_bootloader(&dnc_chip_rev, dnc_card_type, &dnc_asic_mode);
+	int rc = dnc_init_bootloader(dnc_card_type, &dnc_asic_mode);
 	if (rc == -2)
 		start_user_os();
 
