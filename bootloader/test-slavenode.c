@@ -163,7 +163,7 @@ static char *_concat_argv(int argc, char **argv)
 	return cmdline;
 }
 
-int dnc_asic_mode;
+bool dnc_asic_mode;
 uint32_t dnc_chip_rev;
 
 int main(int argc, char **argv)

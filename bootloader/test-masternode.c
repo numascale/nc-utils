@@ -60,7 +60,7 @@ int udp_read_state(int handle, void *buf, int len)
 }
 
 int dnc_master_ht_id;      /* HT id of NC on master node, equivalent to nodes[0].nc_ht */
-int dnc_asic_mode;
+bool dnc_asic_mode;
 uint32_t dnc_chip_rev;
 uint16_t dnc_node_count = 0;
 node_info_t nodes[128];

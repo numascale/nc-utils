@@ -2154,68 +2154,64 @@ void parse_cmdline(const int argc, const char *argv[])
 		dimmtest = 0;
 }
 
-static void perform_selftest(int asic_mode, char p_type[16])
+static void perform_selftest(const bool asic_mode, const char p_type[16])
 {
-	int pass;
 	uint32_t val;
+	const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
 	printf("Performing internal RAM self test...");
 
-	for (pass = 0; pass < 10; pass++) {
-		const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
-		uint32_t i, chunk;
-
+	for (unsigned pass = 0; pass < 10; pass++) {
+		/* IO ATT */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
-		for (i = 0; i < 256; i++)
+		for (unsigned i = 0; i < 256; i++)
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, i);
 
-		for (i = 0; i < 256; i++) {
+		for (unsigned i = 0; i < 256; i++) {
 			val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-			assertf(val == i, "MMIO64 address map readback failed; have 0x%x, expected 0x%x", val, i);
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
+			assertf(val == i, "IO ATT readback failed; have 0x%x, expected 0x%x", val, i);
 		}
 
-		/* MMIO32 ATT has a slightly different layout on FPGA, so skip it for now */
+		/* MMIO32 ATT; skip on FPGA due to layout differences */
 		if (asic_mode) {
-			for (chunk = 0; chunk < maxchunk; chunk++) {
+			for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | chunk);
-				for (i = 0; i < 256; i++)
+				for (unsigned i = 0; i < 256; i++)
 					dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
 			}
 
-			for (chunk = 0; chunk < maxchunk; chunk++) {
+			for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | chunk);
 
-				for (i = 0; i < 256; i++) {
+				for (unsigned i = 0; i < 256; i++) {
 					val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 					uint32_t want = (chunk * 256) + i;
-					assertf(val == want, "MMIO32 address map readback failed; have 0x%x, expected 0x%x", val, want);
-					dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
+					assertf(val == want, "MMIO32 ATT readback failed; have 0x%x, expected 0x%x", val, want);
 				}
 			}
 		}
 
-		for (chunk = 0; chunk < maxchunk; chunk++) {
+		/* APIC ATT */
+		for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | chunk);
-			for (i = 0; i < 256; i++)
+			for (unsigned i = 0; i < 256; i++)
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, (chunk * 256) + i);
 		}
 
-		for (chunk = 0; chunk < maxchunk; chunk++) {
+		for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | chunk);
 
-			for (i = 0; i < 256; i++) {
+			for (unsigned i = 0; i < 256; i++) {
 				val = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
 				uint32_t want = (chunk * 256) + i;
 				assertf(val == want, "APIC address map readback failed; have 0x%x, expected 0x%x", val, want);
-				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0);
 			}
 		}
 
 		/* Test SCC routing tables, no readback verify */
-		for (chunk = 0; chunk < maxchunk; chunk++) {
+		for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
 
-			for (i = 0; i < 16; i++) {
+			for (unsigned i = 0; i < 16; i++) {
 				dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLL00 + i * 4, 0);
 				dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BLTBL00  + i * 4, 0);
 				dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_BXTBLH00 + i * 4, 0);
@@ -2223,18 +2219,22 @@ static void perform_selftest(int asic_mode, char p_type[16])
 		}
 	}
 
-	/* Zero out MMIO32 ATT */
-	for (int i = 0; i < 16; i++) {
-		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | i);
+	/* Point ATTs are invalid SCI ID to catch uninitialised access */
+	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
+	for (unsigned i = 0; i < 256; i++)
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0xffff);
 
-		for (int j = 0; j < 256; j++)
-			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + j * 4, 0);
-        }
+	for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | chunk);
+		for (unsigned i = 0; i < 256; i++)
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0xffff);
+	}
 
-	/* Zero out SCC ATT */
-	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, 1 << 31);
-	for (int i = 0; i < 4096; i++) /* FIXME: check */
-		dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, 0);
+	for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
+		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | chunk);
+		for (unsigned i = 0; i < 256; i++)
+			dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0xffff);
+	}
 
 	printf("done\n");
 
