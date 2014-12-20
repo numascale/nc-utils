@@ -231,6 +231,7 @@ extern int sync_interval;
 extern bool enable_relfreq;
 extern bool singleton;
 extern bool handover_acpi;
+extern bool disable_blink;
 extern bool remote_io;
 extern bool boot_wait;
 extern int family;

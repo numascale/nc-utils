@@ -491,7 +491,6 @@ void setup_mmio(void) {
 			int sec = (val >> 8) & 0xff;
 
 			const struct devspec devices[] = {
-				/* FIXME: hangs on x3755 */
 				{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
 				{PCI_CLASS_ANY, 0, PCI_TYPE_BRIDGE, disable_bridge},
 				{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
@@ -507,10 +506,12 @@ void setup_mmio(void) {
 			uint32_t val = ioh_nbmiscind_read(node->sci, 0xc);
 			ioh_nbmiscind_write(node->sci, 0xc, val | 0x1f00fc);
 
-			/* Disable B-link pads to SB and GPP3b */
-			/* FIXME: hangs on x3755 */
-			ioh_nbpcieind_write(node->sci, 3, 0x65, 0xffff);
-			ioh_nbpcieind_write(node->sci, 5, 0x65, 0xffff);
+			if (disable_blink) {
+				/* Disable B-link pads to SB and GPP3b */
+				/* FIXME: hangs on x3755 */
+				ioh_nbpcieind_write(node->sci, 3, 0x65, 0xffff);
+				ioh_nbpcieind_write(node->sci, 5, 0x65, 0xffff);
+			}
 		}
 
 		return;
