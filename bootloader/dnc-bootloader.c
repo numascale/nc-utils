@@ -2071,8 +2071,13 @@ static void lvt_setup(void)
 static void local_chipset_fixup(const bool master)
 {
 	uint32_t val;
-	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
 
+	/* Do legacy handover on slaves here before we start disabling devices.. */
+	if (!master)
+		handover_legacy();
+
+	/* Special PMIO tricks for the SP5100 SB */
+	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
 	if (val == VENDEV_SP5100) {
 		uint8_t val8 = pmio_readb(0x00);
 		if (val8 & 6) {
