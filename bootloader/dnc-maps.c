@@ -562,13 +562,14 @@ void ranges_print(void)
 	last = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0);
 	printf("SCI%03x: 0x%08x:", last, 0);
 
+	/* MMIO32 ATT should be consistent on the slaves, but unused on master */
 	for (i = 0; i < 4096; i++) {
 		/* Select MMIO32 ATT RAM on all nodes */
 		if ((i % 256) == 0)
-			foreach_nodes(node)
+			foreach_slave_nodes(node)
 				dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | (i / 256));
 
-		uint32_t sci = dnc_read_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
+		uint32_t sci = dnc_read_csr(nodes[dnc_node_count - 1].sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (i % 256) * 4);
 
 		/* Verify consistency */
 		foreach_slave_nodes(node) {

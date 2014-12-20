@@ -156,8 +156,8 @@ static void print_node_info(const node_info_t *node)
 
 static void adjust_dram_maps(node_info_t *const node)
 {
-	/* Trim nodes if over supported memory config */
-	int over = max((int)node->node_mem - (max_mem_per_server >> DRAM_MAP_SHIFT), node->node_mem & (SCC_ATT_GRAN - 1));
+	/* Trim nodes if over supported or requested memory config */
+	int over = max((int)(node->node_mem - (max_mem_per_server >> DRAM_MAP_SHIFT)), (int)(node->node_mem & (SCC_ATT_GRAN - 1)));
 	if (over > 0) {
 		printf("Trimming %03x maps by %uMB\n", node->sci, over << (DRAM_MAP_SHIFT - 20));
 
