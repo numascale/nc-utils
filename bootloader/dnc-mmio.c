@@ -478,6 +478,12 @@ public:
 
 void setup_mmio(void) {
 	foreach_nodes(node) {
+		uint32_t vendev = dnc_read_conf(node->sci, 0, 0, 0, 0);
+		if ((vendev != VENDEV_SR5690) && (vendev != VENDEV_SR5670) && (vendev != VENDEV_SR5650)) {
+			warning("Unable to perform global MMIO setup with hostbridge %08x", vendev);
+			return;
+		}
+
 		/* Enable SP5100 SATA MSI support */
 		uint32_t val2 = dnc_read_conf(node->sci, 0, 17, 0, 0x40);
 		dnc_write_conf(node->sci, 0, 17, 0, 0x40, val2 | 1);
@@ -496,6 +502,44 @@ void setup_mmio(void) {
 				{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 			};
 			pci_search(devices, node->sci, sec);
+
+			/* Clear bits in PCI Bridge Control */
+			dnc_write_conf(node->sci, 0, 20, 4, 0x3e, 0);
+
+			/* Disable the PCI bridge */
+			disable_bridge(node->sci, 0, 20, 4);
+
+			/* Disable and hide SP5100 IDE controller */
+			dnc_write_conf(node->sci, 0, 20, 1, 4, 0);
+			val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
+			dnc_write_conf(node->sci, 0, 20, 0, 0xac, val | (1 << 19));
+
+			/* Disable the LPC controller; hiding it causes hanging */
+			dnc_write_conf(node->sci, 0, 20, 3, 4, 0);
+
+			/* Disable and hide all USB controllers */
+			dnc_write_conf(node->sci, 0, 18, 0, 4, 0);
+			dnc_write_conf(node->sci, 0, 18, 1, 4, 0);
+			dnc_write_conf(node->sci, 0, 18, 2, 4, 0);
+			dnc_write_conf(node->sci, 0, 19, 0, 4, 0);
+			dnc_write_conf(node->sci, 0, 19, 1, 4, 0);
+			dnc_write_conf(node->sci, 0, 19, 2, 4, 0);
+			dnc_write_conf(node->sci, 0, 20, 5, 4, 0);
+			val = dnc_read_conf(node->sci, 0, 20, 0, 0x68);
+			dnc_write_conf(node->sci, 0, 20, 0, 0x68, val & ~0xf7);
+
+			/* Disable HPET MMIO decoding */
+			val = dnc_read_conf(node->sci, 0, 20, 0, 0x40);
+			dnc_write_conf(node->sci, 0, 20, 0, 0x40, val & ~(1 << 28));
+
+			/* Disable all bits in the PCI_COMMAND register of the ACPI/SMBus function */
+			dnc_write_conf(node->sci, 0, 20, 0, 4, 0);
+
+#ifdef FIXME /* Causes bus enumeration to loop */
+			/* Disable legacy bridge; unhides PCI bridge at device 8 */
+			val = ioh_nbmiscind_read(node->sci, 0x0);
+			ioh_nbmiscind_write(node->sci, 0x0, val | (1 << 6));
+#endif
 		}
 	}
 
@@ -508,52 +552,17 @@ void setup_mmio(void) {
 
 			if (disable_blink) {
 				/* Disable B-link pads to SB and GPP3b */
-				/* FIXME: hangs on x3755 */
 				ioh_nbpcieind_write(node->sci, 3, 0x65, 0xffff);
 				ioh_nbpcieind_write(node->sci, 5, 0x65, 0xffff);
+			} else {
+				/* We can't disable the SP5100 completely, disable and hide SATA controllers at least */
+				dnc_write_conf(node->sci, 0, 17, 0, 4, 0);
+				val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
+				dnc_write_conf(node->sci, 0, 20, 0, 0xac, val & ~(1 << 8));
 			}
 		}
 
 		return;
-	}
-
-	foreach_slave_nodes(node) {
-		/* Hide devices behind bridge (eg VGA controller) */
-		uint32_t val = dnc_read_conf(node->sci, 0, 20, 4, 0xfc);
-		dnc_write_conf(node->sci, 0, 20, 4, 0x5c, val & ~0xffff);
-
-		/* Disable and hide SP5100 IDE controller */
-		dnc_write_conf(node->sci, 0, 20, 1, 4, 0);
-		val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
-		dnc_write_conf(node->sci, 0, 20, 0, 0xac, val | (1 << 19));
-
-		/* Disable the LPC controller; hiding it causes hanging */
-		dnc_write_conf(node->sci, 0, 20, 3, 4, 0);
-
-		/* Disable and hide OHCI */
-		dnc_write_conf(node->sci, 0, 18, 0, 4, 0);
-		dnc_write_conf(node->sci, 0, 18, 1, 4, 0);
-		dnc_write_conf(node->sci, 0, 18, 2, 4, 0);
-		dnc_write_conf(node->sci, 0, 19, 0, 4, 0);
-		dnc_write_conf(node->sci, 0, 19, 1, 4, 0);
-		dnc_write_conf(node->sci, 0, 19, 2, 4, 0);
-
-		/* Disable all USB controllers */
-		val = dnc_read_conf(node->sci, 0, 20, 0, 0x68);
-		dnc_write_conf(node->sci, 0, 20, 0, 0x68, val & ~0xf7);
-
-		/* Disable HPET MMIO decoding */
-		val = dnc_read_conf(node->sci, 0, 20, 0, 0x40);
-		dnc_write_conf(node->sci, 0, 20, 0, 0x40, val & ~(1 << 28));
-
-		/* Disable all bits in the PCI_COMMAND register of the ACPI/SMBus function */
-		dnc_write_conf(node->sci, 0, 20, 0, 4, 0);
-
-#ifdef FIXME /* Causes bus enumeration to loop */
-		/* Disable legacy bridge; unhides PCI bridge at device 8 */
-		val = ioh_nbmiscind_read(node->sci, 0x0);
-		ioh_nbmiscind_write(node->sci, 0x0, val | (1 << 6));
-#endif
 	}
 
 	Vector<Container *> containers;
