@@ -23,29 +23,29 @@
 #include "dnc-bootloader.h"
 #include "dnc-commonlib.h"
 
-void pci_search(const struct devspec *list, const int bus)
+void pci_search(const struct devspec *list, const sci_t sci, const int bus)
 {
 	const struct devspec *listp;
 
 	for (int dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
 		for (int fn = 0; fn < 8; fn++) {
-			uint32_t val = dnc_read_conf(0xfff0, bus, dev, fn, 0xc);
+			uint32_t val = dnc_read_conf(sci, bus, dev, fn, 0xc);
 			/* PCI device functions are not necessarily contiguous */
 			if (val == 0xffffffff)
 				continue;
 
 			uint8_t type = val >> 16;
-			uint32_t ctlcap = dnc_read_conf(0xfff0, bus, dev, fn, 8);
+			uint32_t ctlcap = dnc_read_conf(sci, bus, dev, fn, 8);
 
 			for (listp = list; listp->classtype != PCI_CLASS_FINAL; listp++)
 				if ((listp->classtype == PCI_CLASS_ANY) || ((ctlcap >> ((4 - listp->classlen) * 8)) == listp->classtype))
 					if ((listp->type == PCI_TYPE_ANY) || (listp->type == (type & 0x7f)))
-						listp->handler(0xfff0, bus, dev, fn);
+						listp->handler(sci, bus, dev, fn);
 
 			/* Recurse down bridges */
 			if ((type & 0x7f) == 0x01) {
-				int sec = (dnc_read_conf(0xfff0, bus, dev, fn, 0x18) >> 8) & 0xff;
-				pci_search(list, sec);
+				int sec = (dnc_read_conf(sci, bus, dev, fn, 0x18) >> 8) & 0xff;
+				pci_search(list, sci, sec);
 			}
 
 			/* If not multi-function, break out of function loop */
@@ -57,7 +57,7 @@ void pci_search(const struct devspec *list, const int bus)
 
 static void pci_search_start(const struct devspec *list)
 {
-	pci_search(list, 0);
+	pci_search(list, 0xfff0, 0);
 }
 
 void disable_kvm_ports(const int port) {
@@ -111,7 +111,7 @@ uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const
 	return PCI_CAP_NONE;
 }
 
-void disable_device(const uint16_t sci, const int bus, const int dev, const int fn)
+void disable_device(const sci_t sci, const int bus, const int dev, const int fn)
 {
 	/* Disable I/O, memory, DMA and interrupts */
 	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
@@ -134,7 +134,7 @@ void disable_device(const uint16_t sci, const int bus, const int dev, const int 
 	}
 }
 
-void disable_bridge(const uint16_t sci, const int bus, const int dev, const int fn)
+void disable_bridge(const sci_t sci, const int bus, const int dev, const int fn)
 {
 	/* Disable I/O, memory, DMA and interrupts */
 	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
@@ -152,16 +152,6 @@ void disable_bridge(const uint16_t sci, const int bus, const int dev, const int 
 
 	/* Set Interrupt Line register to 0 (unallocated) */
 	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
-}
-
-void disable_dma_all(void)
-{
-	const struct devspec devices[] = {
-		{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
-		{PCI_CLASS_ANY, 0, PCI_TYPE_BRIDGE, disable_bridge},
-		{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
-	};
-	pci_search_start(devices);
 }
 
 static void completion_timeout(const uint16_t sci, const int bus, const int dev, const int fn)
@@ -487,4 +477,3 @@ void pci_setup(void)
 	printf("Adjusting PCI parameters:\n");
 	pci_search_start(devices);
 }
-

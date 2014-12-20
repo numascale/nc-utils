@@ -32,7 +32,6 @@
 
 uint64_t mmio64_base, mmio64_limit;
 static uint64_t io_cur, mmio64_cur;
-static uint64_t tmp_base[2], tmp_lim[2];
 class Map;
 static Map *map32;
 
@@ -47,6 +46,9 @@ void dump_device(const sci_t sci, const int bus, const int dev, const int fn)
 		printf("%08x\n", dnc_read_conf(sci, bus, dev, fn, offset));
 	printf("\n");
 }
+
+#ifdef UNUSED
+static uint64_t tmp_base[2], tmp_lim[2];
 
 static void pci_search(const uint16_t sci, const int bus,
 	bool (*barfn)(const uint16_t sci, const int bus, const int dev, const int fn, const int reg))
@@ -98,6 +100,7 @@ static void pci_search(const uint16_t sci, const int bus,
 		}
 	}
 }
+#endif
 
 class Map {
 public:
@@ -493,7 +496,7 @@ void setup_mmio(void) {
 				{PCI_CLASS_ANY, 0, PCI_TYPE_BRIDGE, disable_bridge},
 				{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 			};
-			pci_search(devices, sec);
+			pci_search(devices, node->sci, sec);
 		}
 	}
 
