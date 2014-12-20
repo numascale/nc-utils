@@ -43,7 +43,7 @@ void pci_search(const struct devspec *list, const sci_t sci, const int bus)
 						listp->handler(sci, bus, dev, fn);
 
 			/* Recurse down bridges */
-			if ((type & 0x7f) == 0x01) {
+			if ((type & 0x7f) == PCI_TYPE_BRIDGE) {
 				int sec = (dnc_read_conf(sci, bus, dev, fn, 0x18) >> 8) & 0xff;
 				pci_search(list, sci, sec);
 			}
