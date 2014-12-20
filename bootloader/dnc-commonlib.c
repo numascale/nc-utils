@@ -2624,7 +2624,7 @@ static void platform_quirks(void)
 
 	for (unsigned int i = 0; i < (sizeof acpi_blacklist / sizeof acpi_blacklist[0]); i++) {
 		if (!strcmp(product, acpi_blacklist[i])) {
-			printf(" (acpi blacklisted)");
+			printf(" (acpi quirk)");
 			handover_acpi = 1;
 			break;
 		}
@@ -2635,7 +2635,7 @@ static void platform_quirks(void)
 
 	for (unsigned int i = 0; i < (sizeof blink_blacklist / sizeof blink_blacklist[0]); i++) {
 		if (!strncmp(product, blink_blacklist[i], strlen(blink_blacklist[i]))) {
-			printf(" (b-link blacklisted)");
+			printf(" (b-link quirk)");
 			disable_blink = 0;
 			break;
 		}
