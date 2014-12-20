@@ -1674,6 +1674,10 @@ static int ht_fabric_find_nc(bool *p_asic_mode)
 	if (route_only)
 		return nc_ht;
 
+	/* Disable probefilter if requested */
+	if (force_probefilteroff)
+		disable_probefilter(max_ht);
+
 	/* On Fam15h disable the Accelerated Transiton to Modified protocol */
 	if (family >= 0x15)
 		disable_atmmode(max_ht);
@@ -2698,6 +2702,7 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 	 * cases (ref Errata #N28) */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~((3 << 24) | (7 << 13))) | (3 << 24) | ((ht_lockdelay & 7) << 13));
+
 	/* Since our microcode now supports remote owner state, we disable the
 	 * error responses on shared probes to GONE cache lines. */
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL);
@@ -2719,16 +2724,12 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, val | (1 << 19)); /* Enable WeakOrdering */
 	}
 
-	if (!asic_mode) { /* ASIC Rev2 and FPGA */
-		/* ERRATA #N37: On FPGA now we have an RTL fix in SCC buffers to throttle the amount of
-		 * local memory requests to accept (bit[27:24] in MIB_IBC). SReq has 4 buffers available
-		 * on FGPA, but cannot accept more than coherent requests total (1 reserved for
-		 * non-coherent transactions). We need atleast 1 free buffer to receive the retried
-		 * coherent requests to ensure forward progress on probes.
-		 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
-		val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
-		dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (6 << 24) | (1 << 6));
-	}
+	/* ERRATA #N37: We have an RTL fix in SCC buffers to throttle the amount of local
+	 * memory requests to accept (bit[27:24] in MIB_IBC).
+	 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
+	uint32_t sreq_bufcnt = (asic_mode) ? 6 : 3;
+	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (sreq_bufcnt << 24) | (1 << 6));
 
 	for (i = 0; i < ht_id; i++) {
 		/* Disable Northbridge WatchDog timer and MCE target/master abort for debugging */
@@ -2769,16 +2770,10 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 		cht_write_conf(i, FUNC0_HT, 0x68, val | (1 << 23));
 #endif
 
-		if (asic_mode) {
-			/* ERRATA #N26: Disable Write-bursting in the MCT to avoid a MCT "caching" effect on CPU writes (VicBlk)
-			 * which have bad side-effects with NumaChip in certain scenarios */
-			val = cht_read_conf(i, FUNC2_DRAM, 0x11c);
-			cht_write_conf(i, FUNC2_DRAM, 0x11c, val | (0x1f << 2));
-		}
-
 		/* ERRATA #N27: Disable Coherent Prefetch Probes (Query probes), as NumaChip don't handle them correctly and they are required to be disabled for Probe Filter */
 		val = cht_read_conf(i, FUNC2_DRAM, 0x1b0);
 		cht_write_conf(i, FUNC2_DRAM, 0x1b0, val & ~(7 << 8)); /* CohPrefPrbLimit=000b */
+
 		/* XXX: In case Traffic distribution is enabled on 2 socket systems, we
 		 * need to disable it for Directed Probes. Ref email to AMD dated 4/28/2010 */
 		val = cht_read_conf(i, FUNC0_HT, 0x164);
