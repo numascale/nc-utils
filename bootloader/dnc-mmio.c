@@ -510,21 +510,21 @@ void setup_mmio(void) {
 			disable_bridge(node->sci, 0, 20, 4);
 
 			/* Disable and hide SP5100 IDE controller */
-			dnc_write_conf(node->sci, 0, 20, 1, 4, 0);
+			disable_device(node->sci, 0, 20, 1);
 			val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
 			dnc_write_conf(node->sci, 0, 20, 0, 0xac, val | (1 << 19));
 
 			/* Disable the LPC controller; hiding it causes hanging */
-			dnc_write_conf(node->sci, 0, 20, 3, 4, 0);
+			disable_device(node->sci, 0, 20, 3);
 
 			/* Disable and hide all USB controllers */
-			dnc_write_conf(node->sci, 0, 18, 0, 4, 0);
-			dnc_write_conf(node->sci, 0, 18, 1, 4, 0);
-			dnc_write_conf(node->sci, 0, 18, 2, 4, 0);
-			dnc_write_conf(node->sci, 0, 19, 0, 4, 0);
-			dnc_write_conf(node->sci, 0, 19, 1, 4, 0);
-			dnc_write_conf(node->sci, 0, 19, 2, 4, 0);
-			dnc_write_conf(node->sci, 0, 20, 5, 4, 0);
+			disable_device(node->sci, 0, 18, 0);
+			disable_device(node->sci, 0, 18, 1);
+			disable_device(node->sci, 0, 18, 2);
+			disable_device(node->sci, 0, 19, 0);
+			disable_device(node->sci, 0, 19, 1);
+			disable_device(node->sci, 0, 19, 2);
+			disable_device(node->sci, 0, 20, 5);
 			val = dnc_read_conf(node->sci, 0, 20, 0, 0x68);
 			dnc_write_conf(node->sci, 0, 20, 0, 0x68, val & ~0xf7);
 
@@ -532,8 +532,8 @@ void setup_mmio(void) {
 			val = dnc_read_conf(node->sci, 0, 20, 0, 0x40);
 			dnc_write_conf(node->sci, 0, 20, 0, 0x40, val & ~(1 << 28));
 
-			/* Disable all bits in the PCI_COMMAND register of the ACPI/SMBus function */
-			dnc_write_conf(node->sci, 0, 20, 0, 4, 0);
+			/* Disable the ACPI/SMBus function */
+			disable_device(node->sci, 0, 20, 0);
 
 #ifdef FIXME /* Causes bus enumeration to loop */
 			/* Disable legacy bridge; unhides PCI bridge at device 8 */
@@ -556,7 +556,7 @@ void setup_mmio(void) {
 				ioh_nbpcieind_write(node->sci, 5, 0x65, 0xffff);
 			} else {
 				/* We can't disable the SP5100 completely, disable and hide SATA controllers at least */
-				dnc_write_conf(node->sci, 0, 17, 0, 4, 0);
+				disable_device(node->sci, 0, 17, 0);
 				val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
 				dnc_write_conf(node->sci, 0, 20, 0, 0xac, val & ~(1 << 8));
 			}
