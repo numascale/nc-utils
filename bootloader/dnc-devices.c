@@ -126,12 +126,15 @@ void disable_device(const sci_t sci, const int bus, const int dev, const int fn)
 	/* Set Interrupt Line register to 0 (unallocated) */
 	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
 
+#ifdef BROKEN
 	/* Put device into D3 if possible */
+	/* FIXME: hangs on x3755 */
 	uint16_t cap = capability(sci, bus, dev, fn, PCI_CAP_POWER);
 	if (cap != PCI_CAP_NONE) {
 		uint32_t val = dnc_read_conf(sci, bus, dev, fn, cap + 0x4);
 		dnc_write_conf(sci, bus, dev, fn, cap + 0x4, val | 3);
 	}
+#endif
 }
 
 void disable_bridge(const sci_t sci, const int bus, const int dev, const int fn)
