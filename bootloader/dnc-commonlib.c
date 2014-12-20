@@ -2858,6 +2858,7 @@ static void _add_route(uint16_t dest, uint8_t bxbarid, uint8_t link)
 	uint16_t offs = (dest >> 4) & 0xff;
 	uint16_t mask = 1 << (dest & 0xf);
 
+	assert(bxbarid != link);
 	if (bxbarid > 0) shadow_ltbl[bxbarid][offs] |= mask;
 
 	shadow_rtbll[bxbarid][offs] |= ((link & 1) ? mask : 0);
