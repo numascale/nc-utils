@@ -550,16 +550,8 @@ void setup_mmio(void) {
 			uint32_t val = ioh_nbmiscind_read(node->sci, 0xc);
 			ioh_nbmiscind_write(node->sci, 0xc, val | 0x1f00fc);
 
-			if (disable_blink) {
-				/* Disable B-link pads to SB and GPP3b */
-				ioh_nbpcieind_write(node->sci, 3, 0x65, 0xffff);
-				ioh_nbpcieind_write(node->sci, 5, 0x65, 0xffff);
-			} else {
-				/* We can't disable the SP5100 completely, disable and hide SATA controllers at least */
-				disable_device(node->sci, 0, 17, 0);
-				val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
-				dnc_write_conf(node->sci, 0, 20, 0, 0xac, val & ~(1 << 8));
-			}
+			/* Disable B-link pads to GPP1 */
+			ioh_nbpcieind_write(node->sci, 2, 0x65, 0xffff);
 		}
 
 		return;

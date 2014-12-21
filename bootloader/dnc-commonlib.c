@@ -58,7 +58,6 @@ int force_probefilteron = 0;
 int force_probefilteroff = 0;
 bool pf_cstate6 = 0;
 bool handover_acpi = 0;
-bool disable_blink = 1;
 bool disable_smm = 0;
 bool disable_c1e = 0;
 int renumber_bsp = -1;
@@ -2626,17 +2625,6 @@ static void platform_quirks(void)
 		if (!strcmp(product, acpi_blacklist[i])) {
 			printf(" (acpi quirk)");
 			handover_acpi = 1;
-			break;
-		}
-	}
-
-	/* Systems where SR56x0 B-Link can't be disabled */
-	const char *blink_blacklist[] = {"81Y6362", NULL};
-
-	for (unsigned int i = 0; i < (sizeof blink_blacklist / sizeof blink_blacklist[0]); i++) {
-		if (!strncmp(product, blink_blacklist[i], strlen(blink_blacklist[i]))) {
-			printf(" (b-link quirk)");
-			disable_blink = 0;
 			break;
 		}
 	}
