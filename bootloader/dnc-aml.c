@@ -499,11 +499,10 @@ unsigned char *remote_aml(uint32_t *len)
 	rbus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 	sb->children.add(rbus);
 
-	/* Add each slave starting from PCI2 */
 	for (int n = 1; n < nnodes; n++) {
 		char name[5];
 		node = &nodes[n];
-		snprintf(name, sizeof(name), "PCI%c", (n + 1) < 10 ? '0' + (n + 1) : 'A' + (n + 1) - 10);
+		snprintf(name, sizeof(name), "X%03u", n);
 
 		Container *bus = new Device(name);
 
