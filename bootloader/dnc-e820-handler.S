@@ -298,6 +298,24 @@ break:
 	mov	%eax, %cs:SYM_OFFSET(rem_smm_base_msr)
 	mov	%edx, %cs:SYM_OFFSET(rem_smm_base_msr + 4)
 
+	/* Load APIC base address into FS */
+	mov	$MSR_APIC_BAR, %ecx
+	rdmsr
+	and $~0xfff, %eax
+	mov $0, %edx
+	mov $MSR_FS_BASE, %ecx
+	wrmsr
+
+	/* Read and store APIC LVTs */
+	mov %fs:(0x500), %eax
+	mov %eax, %cs:SYM_OFFSET(lvt)
+	mov %fs:(0x510), %eax
+	mov %eax, %cs:SYM_OFFSET(lvt + 4)
+	mov %fs:(0x520), %eax
+	mov %eax, %cs:SYM_OFFSET(lvt + 8)
+	mov %fs:(0x530), %eax
+	mov %eax, %cs:SYM_OFFSET(lvt + 12)
+
 	mov	$SYM_OFFSET(cpu_done2), %si
 	call	print_strz
 
@@ -481,6 +499,8 @@ EXPORT(new_cucfg3_msr)
 	.long 0, 0
 EXPORT(new_nbcfg_msr)
 	.long 0, 0
+EXPORT(lvt)
+	.long 0, 0, 0, 0
 
 cpu_mtrr:
 	.asciz	"\r\nMTRR "

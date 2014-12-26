@@ -113,6 +113,7 @@ IMPORT_RELOCATED(new_mc4_misc0_msr);
 IMPORT_RELOCATED(new_mc4_misc1_msr);
 IMPORT_RELOCATED(new_mc4_misc2_msr);
 IMPORT_RELOCATED(msr_readback);
+IMPORT_RELOCATED(lvt);
 
 extern uint8_t smm_handler_start;
 extern uint8_t smm_handler_end;
@@ -1196,6 +1197,10 @@ static void setup_other_cores(void)
 
 			while (*REL32(cpu_status) != 0)
 				cpu_relax();
+
+			/* Ensure all the APIC LVTs are the same */
+			for (unsigned i = 0; i < 4; i++)
+				assert(*(REL32(lvt) + i) == apic[(0x500 + i * 0x10) / 4]);
 
 			if (disable_smm)
 				disable_smm_handler(*REL64(rem_smm_base_msr));
