@@ -499,83 +499,85 @@ unsigned char *remote_aml(uint32_t *len)
 	rbus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 	sb->children.add(rbus);
 
-	for (int n = 1; n < nnodes; n++) {
-		char name[5];
-		node = &nodes[n];
-		snprintf(name, sizeof(name), "X%03u", n);
+	if (!fastboot) {
+		for (int n = 1; n < nnodes; n++) {
+			char name[5];
+			node = &nodes[n];
+			snprintf(name, sizeof(name), "X%03u", n);
 
-		Container *bus = new Device(name);
+			Container *bus = new Device(name);
 
-		bus->children.add(new Name("_HID", new EisaId(EisaId::PNP0A08)));
-		bus->children.add(new Name("_CID", new EisaId(EisaId::PNP0A03)));
-		bus->children.add(new Name("_UID", new Constant(0x80 + n)));
-		bus->children.add(new Name("_BBN", new Constant(0x00)));
-		bus->children.add(new Name("_SEG", new Constant(n)));
-		bus->children.add(new Name("_ADR", new Constant(0x00)));
-		bus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
+			bus->children.add(new Name("_HID", new EisaId(EisaId::PNP0A08)));
+			bus->children.add(new Name("_CID", new EisaId(EisaId::PNP0A03)));
+			bus->children.add(new Name("_UID", new Constant(0x80 + n)));
+			bus->children.add(new Name("_BBN", new Constant(0x00)));
+			bus->children.add(new Name("_SEG", new Constant(n)));
+			bus->children.add(new Name("_ADR", new Constant(0x00)));
+			bus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 
-		Container *package = new Package();
+			Container *package = new Package();
 
-		package->children.add(new WordBusNumber(
-		  WordBusNumber::ResourceProducer,
-		  WordBusNumber::MinFixed,
-		  WordBusNumber::MaxFixed,
-		  WordBusNumber::PosDecode,
-		  0x0000,
-		  0x0000,
-		  0x00FF,
-		  0x0000,
-		  0x0100));
+			package->children.add(new WordBusNumber(
+			  WordBusNumber::ResourceProducer,
+			  WordBusNumber::MinFixed,
+			  WordBusNumber::MaxFixed,
+			  WordBusNumber::PosDecode,
+			  0x0000,
+			  0x0000,
+			  0x00FF,
+			  0x0000,
+			  0x0100));
 
-		if (node->io_limit > node->io_base)
-			package->children.add(new DWordIO(
-			  DWordIO::ResourceProducer,
-			  DWordIO::MinFixed,
-			  DWordIO::MaxFixed,
-			  DWordIO::PosDecode,
-			  DWordIO::EntireRange,
-			  0x000000,
-			  node->io_base,
-			  node->io_limit,
-			  0x000000,
-			  node->io_limit - node->io_base + 1));
+			if (node->io_limit > node->io_base)
+				package->children.add(new DWordIO(
+				  DWordIO::ResourceProducer,
+				  DWordIO::MinFixed,
+				  DWordIO::MaxFixed,
+				  DWordIO::PosDecode,
+				  DWordIO::EntireRange,
+				  0x000000,
+				  node->io_base,
+				  node->io_limit,
+				  0x000000,
+				  node->io_limit - node->io_base + 1));
 
-		if (node->mmio32_limit > node->mmio32_base)
-			package->children.add(new DWordMemory(
-			  DWordMemory::ResourceProducer,
-			  DWordMemory::MinFixed,
-			  DWordMemory::MaxFixed,
-			  DWordMemory::Cacheable,
-			  DWordMemory::ReadWrite,
-			  0x00000000,
-			  node->mmio32_base,
-			  node->mmio32_limit,
-			  0x00000000,
-			  node->mmio32_limit - node->mmio32_base + 1));
+			if (node->mmio32_limit > node->mmio32_base)
+				package->children.add(new DWordMemory(
+				  DWordMemory::ResourceProducer,
+				  DWordMemory::MinFixed,
+				  DWordMemory::MaxFixed,
+				  DWordMemory::Cacheable,
+				  DWordMemory::ReadWrite,
+				  0x00000000,
+				  node->mmio32_base,
+				  node->mmio32_limit,
+				  0x00000000,
+				  node->mmio32_limit - node->mmio32_base + 1));
 
-		if (node->mmio64_limit > node->mmio64_base)
-			package->children.add(new QWordMemory(
-			  QWordMemory::ResourceProducer,
-			  QWordMemory::MinFixed,
-			  QWordMemory::MaxFixed,
-			  QWordMemory::Prefetchable,
-			  QWordMemory::ReadWrite,
-			  0x00000000,
-			  node->mmio64_base,
-			  node->mmio64_limit,
-			  0x00000000,
-			  node->mmio64_limit - node->mmio64_base + 1));
+			if (node->mmio64_limit > node->mmio64_base)
+				package->children.add(new QWordMemory(
+				  QWordMemory::ResourceProducer,
+				  QWordMemory::MinFixed,
+				  QWordMemory::MaxFixed,
+				  QWordMemory::Prefetchable,
+				  QWordMemory::ReadWrite,
+				  0x00000000,
+				  node->mmio64_base,
+				  node->mmio64_limit,
+				  0x00000000,
+				  node->mmio64_limit - node->mmio64_base + 1));
 
-		bus->children.add(new Name("_CRS", package));
+			bus->children.add(new Name("_CRS", package));
 
-		Container *method = new Method("_CBA", 0, Method::NotSerialised);
-		const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
-		Container *passed = new Return(new Constant(config));
+			Container *method = new Method("_CBA", 0, Method::NotSerialised);
+			const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
+			Container *passed = new Return(new Constant(config));
 
-		method->children.add(passed);
-		bus->children.add(method);
+			method->children.add(passed);
+			bus->children.add(method);
 
-		sb->children.add(bus);
+			sb->children.add(bus);
+		}
 	}
 
 	*len = sb->build();
