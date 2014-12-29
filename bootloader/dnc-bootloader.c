@@ -1155,7 +1155,10 @@ static void setup_other_cores(void)
 		*REL64(new_cucfg3_msr) = msr;
 	}
 
-	printf("APICs");
+	printf("LVTs:");
+	for (unsigned i = 0; i < 4; i++)
+		printf(" %08x", apic[(0x510 + i * 16) / 4]);
+	printf("\n\nAPICs");
 	critical_enter();
 
 	/* Start all local cores (not BSP) and let them run our init_trampoline */
