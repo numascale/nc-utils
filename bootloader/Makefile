@@ -37,16 +37,16 @@ clean:
 .PHONY: realclean
 realclean: clean
 	rm -rf $(mjson_dir) mjson-$(mjson_version).tar.gz
-	rm -rf $(syslinux_dir) syslinux-$(syslinux_version).tar.bz2
+	rm -rf $(syslinux_dir) syslinux-$(syslinux_version)
 
-syslinux-%.tar.bz2:
-	wget -O $@ http://www.kernel.org/pub/linux/utils/boot/syslinux/4.xx/$@ || rm -f $@
+syslinux-%:
+	wget -O $@.tar.bz2 http://www.kernel.org/pub/linux/utils/boot/syslinux/4.xx/$@.tar.bz2 || rm -f $@.tar.bz2
 
-mjson-%.tar.gz:
-	wget -O $@ http://sourceforge.net/projects/mjson/files/latest/download?source=files || rm -f $@
+mjson-%:
+	wget -O $@.tar.gz http://sourceforge.net/projects/mjson/files/latest/download?source=files || rm -f $@.tar.gz
 
-$(syslinux_dir)/com32/samples/Makefile: syslinux-$(syslinux_version).tar.bz2
-	tar -jxf $<
+$(syslinux_dir)/com32/samples/Makefile: syslinux-$(syslinux_version)
+	tar -jxf $<.tar.bz2
 	touch -c $(syslinux_dir)/com32/samples/Makefile
 	(cd $(syslinux_dir) && make all-local)
 
@@ -61,9 +61,9 @@ $(syslinux_dir)/com32/lib/libcom32.a: $(syslinux_dir)/com32/samples/Makefile $(s
 	(cd $(syslinux_dir)/com32/lib && make all)
 
 $(mjson_dir)/src/json.h \
-$(mjson_dir)/src/json.c: mjson-$(mjson_version).tar.gz
+$(mjson_dir)/src/json.c: mjson-$(mjson_version)
 	echo $@
-	tar -zxf $<
+	tar -zxf $<.tar.gz
 	touch -c $(mjson_dir)/src/json.h
 	perl -npi -e 's/#include <memory.h>/#include <string.h>/' $(mjson_dir)/src/json.c
 	perl -npi -e 's/SIZE_MAX/10485760/' $(mjson_dir)/src/json.h
