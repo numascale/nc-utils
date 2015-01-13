@@ -1,4 +1,4 @@
-# r3
+# r4
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
@@ -249,7 +249,7 @@ class Northbridge:
 			desc += ' corrupted'
 
 		if status & (1 << 56):
-			desc += 'core=%u' % (status >> 32) & 0xf
+			desc += ' core=%u' % ((status >> 32) & 0xf)
 
 		if status & (1 << 40):
 			desc += ' scrub'
