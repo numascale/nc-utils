@@ -9,7 +9,7 @@ clean:
 	rm -f $(TARGETS) *~ *.o
 
 check:
-	cppcheck --enable=all *.c *.cc *.h
+	cppcheck --enable=all --inconclusive *.c *.cc *.h
 
 numaplace: numaplace.cc utils.h
 	$(CXX) $(CFLAGS) -o $@ $<

@@ -24,6 +24,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define max(a, b) (((a) > (b)) ? (a) : (b))
 #define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
 
 #define assertf(cond, format, args...) do { if (!(cond)) { \
@@ -36,7 +38,7 @@
 #define sysassertf(cond, format, args...) do { if (!(cond)) { \
   fprintf(stderr, "Error: "); \
   fprintf(stderr, format, ## args); \
-  fprintf(stderr, " with %s\n", strerror(errno)); \
+  fprintf(stderr, " with '%s'\n", strerror(errno)); \
   _exit(1); \
 } } while (0)
 
@@ -47,12 +49,36 @@
   exit(1); \
 } while (0)
 
+#define warn(format, args...) do { \
+  fprintf(stderr, "Warning: "); \
+  fprintf(stderr, format, ## args); \
+  fprintf(stderr, "\n"); \
+} while (0)
+
+#define warn_once(format, args...) do { \
+  static bool done = 0; \
+  if (!done) { \
+    fprintf(stderr, "Warning: "); \
+    fprintf(stderr, format, ## args); \
+    fprintf(stderr, "\n"); \
+    done = 1; \
+  } \
+} while (0)
+
 #define syserror(format, args...) do { \
   fprintf(stderr, "Error: "); \
   fprintf(stderr, format, ## args); \
-  fprintf(stderr, " with %s\n", strerror(errno)); \
+  fprintf(stderr, " with '%s'\n", strerror(errno)); \
   exit(1); \
 } while (0)
 
 #define FLAGS_VERBOSE 1
 #define FLAGS_DEBUG 3
+
+static inline uint64_t roundup_nextpow2(const uint64_t val)
+{
+	const uint64_t next = 1ULL << (64 - __builtin_clzll(val));
+	if (val & ((next >> 1) - 1))
+		return next;
+	return val;
+}

@@ -19,7 +19,7 @@ int main(void)
 	pthread_t threads[THREADS];
 
 	for (unsigned long n = 0; n < THREADS; n++)
-		pthread_create(&threads[n], NULL, workload, (void *)n);
+		pthread_create(&threads[n], NULL, workload, (void *)&n);
 
 	unsigned long rc;
 
