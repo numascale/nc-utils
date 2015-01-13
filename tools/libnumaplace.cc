@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 
 #define SHM_NAME "numaplace"
-#define MAX_CORES 16384
+#define MAX_CORES 8192
 #define MAX_NUMA 1024
 #define THP_ALIGN_THRESH (1 << 20)
 #define PTHREAD_STACK_SIZE (8 << 20)
@@ -26,6 +26,7 @@
 struct shared_s {
 	pthread_mutex_t lock;
 	unsigned attached;
+	bool initialised;
 	union {
 		cpu_set_t allocated;
 		char u[CPU_ALLOC_SIZE(MAX_CORES)];
@@ -33,38 +34,18 @@ struct shared_s {
 	unsigned char dist[MAX_NUMA][MAX_NUMA];
 };
 
-static struct shared_s *shared = NULL;
-static cpu_set_t *allowed = NULL;
+static struct shared_s *shared;
+static cpu_set_t *allowed;
 static cpu_set_t allocated;
-static uint16_t cores = 0;
-static size_t masksize = 0;
-static unsigned flags = 0;
-
-static void cleanup(void)
-{
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "cleanup\n");
-
-	pthread_mutex_lock(&shared->lock);
-
-	// cleanup allocated cores
-	for (unsigned n = 0; n < cores; n++)
-		if (CPU_ISSET_S(n, masksize, &allocated))
-			CPU_CLR_S(n, masksize, &shared->allocated);
-
-	shared->attached--;
-	pthread_mutex_unlock(&shared->lock);
-
-	sysassertf(!munmap(shared, sizeof(struct shared_s)), "munmap failed");
-	sysassertf(shm_unlink(SHM_NAME) == 0, "shm_unlink failed");
-
-	CPU_FREE(allowed);
-}
+static uint16_t cores;
+static size_t masksize;
+static unsigned flags;
 
 static void *malloc_spatial(const uint16_t core, const size_t size)
 {
+	const size_t gran = min(max(sizeof(long), roundup_nextpow2(size)), THP_ALIGN_THRESH);
 	void *addr;
-	assert(!posix_memalign(&addr, 2 << 20, size));
+	assert(!posix_memalign(&addr, gran, size));
 
 	int node = numa_node_of_cpu(core);
 	assert(node != -1);
@@ -73,7 +54,7 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 	assert(!mbind(addr, size, MPOL_BIND, &nodemask, sizeof(nodemask) * 8, MPOL_MF_MOVE));
 
 	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "allocated %zuMB on core %u, node %u\n", size >> 20, core, node);
+		fprintf(stderr, "allocated %zuMB on core %u, node %d\n", size >> 20, core, node);
 
 	return addr;
 }
@@ -82,6 +63,16 @@ static void populate(void)
 {
 	if (flags & FLAGS_DEBUG)
 		fprintf(stderr, "populate\n");
+
+	// check /proc/cmdline to check isolcpus param
+	int fd = open("/proc/cmdline", O_RDONLY);
+	assert(fd != -1);
+	char buf[4096];
+	assert(read(fd, buf, sizeof(buf)) > 0);
+	assert(!close(fd));
+	if (!strstr(buf, "isolcpus="))
+		fprintf(stderr, "Please boot with 'maxcpus=1-8191' for best parallel performance\n");
+	shared->initialised = 1;
 }
 
 // returns core number
@@ -102,7 +93,7 @@ static uint16_t allocate_core(void)
 
 	pthread_mutex_unlock(&shared->lock);
 	if (core == MAX_CORES)
-		error("All cores already allocated");
+		warn_once("All cores already allocated");
 
 	return core;
 }
@@ -117,17 +108,34 @@ static void state(void)
 	fprintf(stderr, "\n");
 }
 
+void _fini(void)
+{
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "cleanup\n");
+
+	pthread_mutex_lock(&shared->lock);
+
+	// cleanup allocated cores
+	for (unsigned n = 0; n < cores; n++)
+		if (CPU_ISSET_S(n, masksize, &allocated))
+			CPU_CLR_S(n, masksize, &shared->allocated);
+	shared->attached--;
+
+	pthread_mutex_unlock(&shared->lock);
+
+	sysassertf(!munmap(shared, sizeof(struct shared_s)), "munmap failed");
+	sysassertf(shm_unlink(SHM_NAME) == 0, "shm_unlink failed");
+
+	CPU_FREE(allowed);
+}
+
 __attribute__((constructor)) void init(void)
 {
 	char *flagstr = getenv("NUMAPLACE_FLAGS");
 	if (flagstr)
 		flags = atoi(flagstr);
 
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "init\n");
-
-	cores = sysconf(_SC_NPROCESSORS_CONF) - 1;
-	// FIXME: parse /proc/cmdline to check isolcpus param
+	cores = sysconf(_SC_NPROCESSORS_CONF);
 
 	allowed = CPU_ALLOC(cores);
 	sysassertf(allowed, "CPU_ALLOC failed");
@@ -143,31 +151,30 @@ __attribute__((constructor)) void init(void)
 	sysassertf(close(shared_fd) != -1, "close failed");
 
 	pthread_mutex_lock(&shared->lock);
-	if (shared->attached == 0)
+
+	if (!shared->initialised == 0)
 		populate();
 
 	if (flags & FLAGS_DEBUG)
 		state();
 
 	shared->attached++;
+	if (flags & FLAGS_DEBUG)
+		printf("attached %u\n", shared->attached);
 	pthread_mutex_unlock(&shared->lock);
 
 	// use batch scheduling priority to minimise preemption
 	const struct sched_param params = {0};
 	sysassertf(sched_setscheduler(0, SCHED_BATCH, &params) == 0, "sched_setscheduler failed");
-
-	assert(!atexit(cleanup));
-}
-
-__attribute__((destructor)) void fini(void)
-{
 }
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine) (void *), void *arg)
 {
+	int ret;
 	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *,
 	  void *(*) (void *), void *);
+
 	if (!xpthread_create) {
 		xpthread_create = (int (*)(pthread_t*, const pthread_attr_t*, void* (*)(void*), void*))dlsym(RTLD_NEXT, "pthread_create");
 		assertf(xpthread_create, "dlsym failed");
@@ -178,21 +185,23 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 			thread, attr, start_routine, arg);
 
 	const uint16_t core = allocate_core();
+	if (core < MAX_CORES) {
+		cpu_set_t cpuset;
+		CPU_ZERO(&cpuset);
+		CPU_SET(core, &cpuset);
 
-	cpu_set_t cpuset;
-	CPU_ZERO(&cpuset);
-	CPU_SET(core, &cpuset);
+		pthread_attr_t attr2;
+		assert(!pthread_attr_init(&attr2));
+		assert(!pthread_attr_setaffinity_np(&attr2, sizeof(cpuset), &cpuset));
 
-	pthread_attr_t attr2;
-	assert(!pthread_attr_init(&attr2));
-	assert(!pthread_attr_setaffinity_np(&attr2, sizeof(cpuset), &cpuset));
+		void *stack = malloc_spatial(core, PTHREAD_STACK_SIZE);
+		assert(!pthread_attr_setstack(&attr2, stack, PTHREAD_STACK_SIZE));
 
-	void *stack = malloc_spatial(core, PTHREAD_STACK_SIZE);
-	assert(!pthread_attr_setstack(&attr2, stack, PTHREAD_STACK_SIZE));
+		ret = xpthread_create(thread, &attr2, start_routine, arg);
+		assert(!pthread_attr_destroy(&attr2));
+	} else
+		ret = xpthread_create(thread, NULL, start_routine, arg);
 
-	int ret = xpthread_create(thread, &attr2, start_routine, arg);
-
-	assert(!pthread_attr_destroy(&attr2));
 	return ret;
 }
 
@@ -206,13 +215,10 @@ void *malloc(size_t size)
 	if (flags & FLAGS_DEBUG)
 		fprintf(stderr, "malloc(size=%lu)\n", size);
 
-	if (size >= THP_ALIGN_THRESH) {
-		void *ret;
-		assert(!posix_memalign(&ret, 2 << 20, size));
-		return ret;
-	}
-
-	return xmalloc(size);
+	const size_t gran = min(max(sizeof(long), roundup_nextpow2(size)), THP_ALIGN_THRESH);
+	void *ret;
+	assert(!posix_memalign(&ret, gran, size));
+	return ret;
 }
 
 #ifdef DEV

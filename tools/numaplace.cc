@@ -12,15 +12,17 @@ int main(int argc, char *argv[])
 		error("Usage: numaplace [-v|-vv] cmd [args..]");
 
 	unsigned n = 1, flagval = 0;
-	if (!strcmp(argv[1], "-v"))
+	if (!strcmp(argv[n], "-v")) {
 		flagval = FLAGS_VERBOSE;
-	else if (!strcmp(argv[1], "-vv"))
+		n++;
+	} else if (!strcmp(argv[1], "-vv")) {
 		flagval = FLAGS_DEBUG;
+		n++;
+	}
 
 	char flags[16];
 	snprintf(flags, sizeof(flags), "%u", flagval);
 	sysassertf(setenv("NUMAPLACE_FLAGS", flags, 1) == 0, "setenv failed");
-	n++;
 
 	char path[PATH_MAX];
 	sysassertf(realpath(argv[0], path) != NULL, "realpath failed");
