@@ -636,7 +636,7 @@ void setup_mmio(void) {
 		dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 
 	foreach_nodes(dnode) {
-		if (dnode->io_limit < dnode->io_base)
+		if (!dnode->io_limit || dnode->io_limit < dnode->io_base)
 			continue;
 
 		printf("- 0x%x:0x%x -> SCI%03x\n", dnode->io_base, dnode->io_limit, dnode->sci);
@@ -652,7 +652,7 @@ void setup_mmio(void) {
 
 	printf("Setting up SCC ATTs for MMIO64:\n");
 	foreach_nodes(dnode) {
-		if (dnode->mmio64_limit < dnode->mmio64_base)
+		if (!dnode->mmio64_limit || dnode->mmio64_limit < dnode->mmio64_base)
 			continue;
 
 		printf("- 0x%llx:0x%llx -> SCI%03x\n", dnode->mmio64_base, dnode->mmio64_limit, dnode->sci);
