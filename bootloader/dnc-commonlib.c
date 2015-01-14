@@ -201,21 +201,21 @@ void mce_check(const sci_t sci, const ht_t ht)
 	}
 
 	uint32_t v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x160);
-	if (v & 0xff) { // looks like bits 7:0 only are usable
+	if (v & 0xff) { // BIOS sets up to 0xf00 to interrupt after 256 errors
 		warning("DRAM machine check 0x%08x on SCI%03x#%u", v, sci, ht);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x160, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x160, v & ~0xff);
 	}
 
 	v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x168);
 	if (v & 0xfff) {
 		warning("HT Link machine check 0x%08x on SCI%03x#%u", v, sci, ht);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x168, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x168, v & ~0xfff);
 	}
 
 	v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x170);
 	if (v & 0xfff) {
 		warning("L3 Cache machine check 0x%08x on SCI%03x#%u", v, sci, ht);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x170, 0);
+		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x170, v & ~0xfff);
 	}
 }
 
@@ -1532,7 +1532,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode)
 	}
 
 	if (use) {
-		error("No unrouted coherent links found");
+		error("NumaConnect adapter not found; ensure a processor is in the adjacent socket");
 		return -1;
 	}
 
