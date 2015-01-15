@@ -711,8 +711,8 @@ void detect_southbridge(void)
 void disable_smi(void)
 {
 	if (southbridge_id == 0x43851002) {
-		smi_state = pmio_readb(0x53);
-		pmio_writeb(0x53, smi_state | (1 << 3));
+		smi_state = pmio_read8(0x53);
+		pmio_write8(0x53, smi_state | (1 << 3));
 	}
 }
 
@@ -720,7 +720,7 @@ void disable_smi(void)
 void enable_smi(void)
 {
 	if (southbridge_id == 0x43851002) {
-		pmio_writeb(0x53, smi_state);
+		pmio_write8(0x53, smi_state);
 	}
 }
 
@@ -891,10 +891,10 @@ void probefilter_tokens(const ht_t max_ht)
 	}
 
 	printf("Asserting LDTSTOP# to optimise HT buffer allocation...");
-	uint8_t val = pmio_readb(0x8a);
-	pmio_writeb(0x8a, 0xf0);
-	pmio_writeb(0x87, 1);
-	pmio_writeb(0x8a, val);
+	uint8_t val = pmio_read8(0x8a);
+	pmio_write8(0x8a, 0xf0);
+	pmio_write8(0x87, 1);
+	pmio_write8(0x8a, val);
 	printf("done\n");
 }
 #endif /* __i386 */

@@ -2087,43 +2087,43 @@ static void local_chipset_fixup(const bool master)
 	/* Special PMIO tricks for the SP5100 SB */
 	val = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
 	if (val == VENDEV_SP5100) {
-		uint8_t val8 = pmio_readb(0x00);
+		uint8_t val8 = pmio_read8(0x00);
 		if (val8 & 6) {
 			printf("- disabling PM IO timers\n");
-			pmio_writeb(0x00, val8 & ~6);
+			pmio_write8(0x00, val8 & ~6);
 		}
 
-		val8 = pmio_readb(0xa8);
+		val8 = pmio_read8(0xa8);
 		if (val8 & 0x30) {
 			printf("- disabling config-space triggered SMI\n");
-			pmio_writeb(0xa8, val8 & ~0x30);
+			pmio_write8(0xa8, val8 & ~0x30);
 		}
 
-		val8 = pmio_readb(0xd2);
+		val8 = pmio_read8(0xd2);
 		if (val8 & 1) {
 			printf("- disabling BMC I2C link\n");
-			pmio_writeb(0xd2, val8 & ~1);
+			pmio_write8(0xd2, val8 & ~1);
 		}
 
 		const uint8_t sources[] = {0x02, 0x03, 0x04, 0x1c, 0xa8};
 		for (unsigned int i = 0; i < sizeof(sources); i++) {
-			val8 = pmio_readb(sources[i]);
+			val8 = pmio_read8(sources[i]);
 			if (val8) {
 				printf("- disabling SMI sources 0x%02x in PM IO register 0x%02x\n", val8, sources[i]);
-				pmio_writeb(sources[i], 0);
+				pmio_write8(sources[i], 0);
 			}
 		}
 
 		/* Needs local access */
 		if (!master) {
 			/* Disable and hide HD audio */
-			val8 = pmio_readb(0x59);
-			pmio_writeb(0x59, val8 & ~(1 << 3));
+			val8 = pmio_read8(0x59);
+			pmio_write8(0x59, val8 & ~(1 << 3));
 
 #ifdef HANGS /* XXX: If we do this, On H8QGL the BMC fails to properly power-off/power-on servers */
 			/* Hide SMBus controller */
-			val8 = pmio_readb(0xba);
-			pmio_writeb(0xba, val8 | (1 << 6));
+			val8 = pmio_read8(0xba);
+			pmio_write8(0xba, val8 | (1 << 6));
 #endif
 		}
 	}
@@ -2998,6 +2998,10 @@ int main(const int argc, const char *argv[])
 
 	constants();
 	parse_cmdline(argc, argv);
+
+	uint16_t reason = pmio_read16(0x44);
+	if (reason)
+		warning("Last reboot reason (PM44h) was 0x%x", reason);
 
 	if (test_manufacture) {
 		msg_testing();

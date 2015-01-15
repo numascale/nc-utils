@@ -81,77 +81,77 @@ uint8_t rtc_read(const int addr)
 	return val;
 }
 
-uint8_t pmio_readb(uint16_t offset)
+uint8_t pmio_read8(uint16_t offset)
 {
 	outb(offset, PMIO_PORT /* PMIO index */);
 	return inb(PMIO_PORT + 1 /* PMIO data */);
 }
 
-void pmio_writeb(uint16_t offset, uint8_t val)
+void pmio_write8(uint16_t offset, uint8_t val)
 {
 	/* Write offset and value in single 16-bit write */
 	outw(offset | val << 8, PMIO_PORT);
 
 	if (verbose > 2) {
-		uint8_t val2 = pmio_readb(offset);
+		uint8_t val2 = pmio_read8(offset);
 
 		if (val2 != val)
 			warning("PMIO reg 0x%02x readback (0x%02x) differs from write (0x%02x)", offset, val2, val);
 	}
 }
 
-uint16_t pmio_reads(uint16_t offset)
+uint16_t pmio_read16(uint16_t offset)
 {
 	unsigned int i;
 	uint16_t val = 0;
 
 	for (i = 0; i < sizeof(val); i++)
-		val |= pmio_readb(offset + i) << (i * 8);
+		val |= pmio_read8(offset + i) << (i * 8);
 
 	return val;
 }
 
-uint32_t pmio_readl(uint16_t offset)
+uint32_t pmio_read32(uint16_t offset)
 {
 	unsigned int i;
 	uint32_t val = 0;
 
 	for (i = 0; i < sizeof(val); i++)
-		val |= pmio_readb(offset + i) << (i * 8);
+		val |= pmio_read8(offset + i) << (i * 8);
 
 	return val;
 }
 
-void pmio_writel(uint16_t offset, uint32_t val)
+void pmio_write32(uint16_t offset, uint32_t val)
 {
 	unsigned int i;
 
 	for (i = 0; i < sizeof(val); i++)
-		pmio_writeb(offset + i, val >> (i * 8));
+		pmio_write8(offset + i, val >> (i * 8));
 }
 
-void pmio_setb(uint16_t offset, uint8_t mask)
+void pmio_set8(uint16_t offset, uint8_t mask)
 {
-	uint8_t val = pmio_readb(offset) | mask;
-	pmio_writeb(offset, val);
+	uint8_t val = pmio_read8(offset) | mask;
+	pmio_write8(offset, val);
 }
 
-void pmio_clearb(uint16_t offset, uint8_t mask)
+void pmio_clear8(uint16_t offset, uint8_t mask)
 {
-	uint8_t val = pmio_readb(offset) & ~mask;
-	pmio_writeb(offset, val);
+	uint8_t val = pmio_read8(offset) & ~mask;
+	pmio_write8(offset, val);
 }
 
-void pmio_setl(uint16_t offset, uint32_t mask)
+void pmio_set32(uint16_t offset, uint32_t mask)
 {
-	uint32_t val = pmio_readl(offset) | mask;
-	pmio_writel(offset, val);
+	uint32_t val = pmio_read32(offset) | mask;
+	pmio_write32(offset, val);
 }
 
-void pmio_clearl(uint16_t offset, uint32_t mask)
+void pmio_clear32(uint16_t offset, uint32_t mask)
 {
-	uint32_t val = pmio_readb(offset) & ~mask;
-	pmio_writel(offset, val);
+	uint32_t val = pmio_read8(offset) & ~mask;
+	pmio_write32(offset, val);
 }
 
 uint32_t ioh_nbmiscind_read(const sci_t sci, const uint8_t reg)
@@ -239,14 +239,14 @@ void watchdog_stop(void)
 void watchdog_setup(void)
 {
 	/* Enable watchdog timer */
-	pmio_clearb(0x69, 1);
+	pmio_clear8(0x69, 1);
 	/* Enable watchdog decode */
 	uint32_t val2 = dnc_read_conf(0xfff0, 0, 20, 0, 0x41);
 	dnc_write_conf(0xfff0, 0, 20, 0, 0x41, val2 | (1 << 3));
 
 	watchdog_base = WATCHDOG_BASE;
 	/* Write watchdog base address */
-	pmio_writel(0x6c, (unsigned int)watchdog_base);
+	pmio_write32(0x6c, (unsigned int)watchdog_base);
 }
 
 void reset_cf9(int mode, int last)

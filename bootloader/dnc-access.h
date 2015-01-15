@@ -162,11 +162,11 @@ static inline void mem64_write8(const uint64_t addr, const uint8_t val)
 
 void dump(const void *addr, const unsigned len);
 checked uint8_t rtc_read(const int addr);
-void pmio_writeb(uint16_t offset, uint8_t val);
-void pmio_writel(uint16_t offset, uint32_t val);
-checked uint8_t pmio_readb(uint16_t offset);
-checked uint16_t pmio_reads(uint16_t offset);
-checked uint32_t pmio_readl(uint16_t offset);
+void pmio_write8(uint16_t offset, uint8_t val);
+void pmio_write32(uint16_t offset, uint32_t val);
+checked uint8_t pmio_read8(uint16_t offset);
+checked uint16_t pmio_read16(uint16_t offset);
+checked uint32_t pmio_read32(uint16_t offset);
 void pmio_setb(uint16_t offset, uint8_t val);
 void pmio_clearb(uint16_t offset, uint8_t val);
 void pmio_setl(uint16_t offset, uint32_t val);
