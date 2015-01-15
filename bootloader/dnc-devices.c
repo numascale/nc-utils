@@ -174,9 +174,9 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 		dnc_write_conf(sci, bus, dev, fn, cap + 0x8, val | (1 << 4) | (1 << 8) | (1 << 11));
 		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x8);
 		if (val & (1 << 4))
-			printf("Relaxed Ordering enabled");
+			printf("; Relaxed Ordering enabled");
 		else
-			printf("failed to enable Relaxed Ordering");
+			printf("; failed to enable Relaxed Ordering");
 
 		if (val & (1 << 8))
 			printf("; Extended Tag enabled");
