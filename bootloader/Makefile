@@ -37,12 +37,12 @@ clean:
 .PHONY: realclean
 realclean: clean
 	rm -rf $(mjson_dir) mjson-$(mjson_version).tar.gz
-	rm -rf $(syslinux_dir) syslinux-$(syslinux_version)
+	rm -rf $(syslinux_dir) syslinux-$(syslinux_version).tar.bz2
 
 syslinux-%:
 	wget -O $@.tar.bz2 http://www.kernel.org/pub/linux/utils/boot/syslinux/4.xx/$@.tar.bz2 || rm -f $@.tar.bz2
 
-mjson-%:
+json-%:
 	wget -O $@.tar.gz http://sourceforge.net/projects/mjson/files/latest/download?source=files || rm -f $@.tar.gz
 
 $(syslinux_dir)/com32/samples/Makefile: syslinux-$(syslinux_version)
@@ -61,7 +61,7 @@ $(syslinux_dir)/com32/lib/libcom32.a: $(syslinux_dir)/com32/samples/Makefile $(s
 	(cd $(syslinux_dir)/com32/lib && make all)
 
 $(mjson_dir)/src/json.h \
-$(mjson_dir)/src/json.c: mjson-$(mjson_version)
+$(mjson_dir)/src/json.c: json-$(mjson_version)
 	echo $@
 	tar -zxf $<.tar.gz
 	touch -c $(mjson_dir)/src/json.h
