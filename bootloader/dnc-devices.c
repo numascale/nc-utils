@@ -162,6 +162,11 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 	uint32_t val;
 	printf("PCI device @ %02x:%02x.%x: ", bus, dev, fn);
 
+	/* For legacy devices */
+	val = dnc_read_conf(sci, bus, dev, fn, 4);
+	dnc_write_conf(sci, bus, dev, fn, 4, val & ~(1 << 8));
+	printf("disabled SERR");
+
 	uint16_t cap = capability(PCI_CAP_PCIE, sci, bus, dev, fn);
 	if (cap != PCI_CAP_NONE) {
 		/* Device Control */
@@ -209,11 +214,6 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 			printf("; Completion Timeout disabled");
 		} else
 			printf("; Disabling Completion Timeout unsupported");
-	} else {
-		/* For legacy devices */
-		val = dnc_read_conf(sci, bus, dev, fn, 4);
-		dnc_write_conf(sci, bus, dev, fn, 4, val & ~(1 << 8));
-		printf("disabled SERR");
 	}
 
 	cap = extcapability(PCI_ECAP_AER, sci, bus, dev, fn);
@@ -232,6 +232,16 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 		printf("; no AER");
 
 	printf("\n");
+}
+
+static void adjust_bridge(const uint16_t sci, const int bus, const int dev, const int fn)
+{
+	uint32_t val = dnc_read_conf(sci, bus, dev, fn, 0x3c);
+	val &= ~(1 << 17); /* Disable SERR# Enable */
+	val &= ~(1 << 24); /* Set primary Discard Timer to 2^15 cycles */
+	val &= ~(1 << 25); /* Set secondary Discard Timer to 2^15 cycles */
+	val &= ~(1 << 27); /* Disable Discard Timer SERR# Enable */
+	dnc_write_conf(sci, bus, dev, fn, 0x3c, val);
 }
 
 static void stop_ohci(const uint16_t sci, const int bus, const int dev, const int fn)
@@ -474,6 +484,7 @@ void pci_setup(void)
 {
 	const struct devspec devices[] = {
 		{PCI_CLASS_ANY,             0, PCI_TYPE_ANY, completion_timeout},
+		{PCI_CLASS_ANY,             0, PCI_TYPE_BRIDGE, adjust_bridge},
 		{PCI_CLASS_FINAL,           0, PCI_TYPE_ANY, NULL}
 	};
 
