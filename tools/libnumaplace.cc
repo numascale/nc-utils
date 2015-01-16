@@ -39,18 +39,18 @@ typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
 
 static inline void set_bit(const unsigned nr, unsigned long *addr)
 {
-    addr[nr / BITS_PER_LONG] |= 1UL << (nr % BITS_PER_LONG);
+	addr[nr / BITS_PER_LONG] |= 1UL << (nr % BITS_PER_LONG);
 }
 
 static inline void clear_bit(const unsigned nr, unsigned long *addr)
 {
-    addr[nr / BITS_PER_LONG] &= ~(1UL << (nr % BITS_PER_LONG));
+	addr[nr / BITS_PER_LONG] &= ~(1UL << (nr % BITS_PER_LONG));
 }
 
 static __always_inline int test_bit(const unsigned nr, const unsigned long *addr)
 {
-    return ((1UL << (nr % BITS_PER_LONG)) &
-        (((unsigned long *)addr)[nr / BITS_PER_LONG])) != 0;
+	return ((1UL << (nr % BITS_PER_LONG)) &
+	  (((unsigned long *)addr)[nr / BITS_PER_LONG])) != 0;
 }
 
 static void print_mask(const unsigned long *addr, const unsigned long bits)
@@ -63,93 +63,79 @@ static void print_mask(const unsigned long *addr, const unsigned long bits)
 
 static inline unsigned long find_first_bit(const unsigned long *addr, unsigned long size)
 {
-    long_alias_t *p = (long_alias_t *) addr;
-    unsigned long result = 0;
-    unsigned long tmp;
+	long_alias_t *p = (long_alias_t *) addr;
+	unsigned long result = 0;
+	unsigned long tmp;
 
-    while (size & ~(BITS_PER_LONG-1)) {
-        if ((tmp = *(p++)))
-            goto found;
-        result += BITS_PER_LONG;
-        size -= BITS_PER_LONG;
-    }
-    if (!size)
-        return result;
+	while (size & ~(BITS_PER_LONG - 1)) {
+		if ((tmp = *(p++)))
+			goto found;
+		result += BITS_PER_LONG;
+		size -= BITS_PER_LONG;
+	}
+	if (!size)
+		return result;
 
-    tmp = (*p) & (~0UL >> (BITS_PER_LONG - size));
-    if (tmp == 0UL)     /* Are any bits set? */
-        return result + size;   /* Nope. */
-found:
-    return result + ffsl(tmp);
+	tmp = (*p) & (~0UL >> (BITS_PER_LONG - size));
+	if (tmp == 0UL)     /* Are any bits set? */
+		return result + size;   /* Nope. */
+	found:
+		return result + ffsl(tmp);
 }
 
 static inline unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)
 {
-    const unsigned long *p = addr + BITOP_WORD(offset);
-    unsigned long result = offset & ~(BITS_PER_LONG-1);
-    unsigned long tmp;
+	const unsigned long *p = addr + BITOP_WORD(offset);
+	unsigned long result = offset & ~(BITS_PER_LONG - 1);
+	unsigned long tmp;
 
-    if (offset >= size)
-        return size;
-    size -= result;
-    offset %= BITS_PER_LONG;
-    if (offset) {
-        tmp = *(p++);
-        tmp &= (~0UL << offset);
-        if (size < BITS_PER_LONG)
-            goto found_first;
-        if (tmp)
-            goto found_middle;
-        size -= BITS_PER_LONG;
-        result += BITS_PER_LONG;
-    }
-    while (size & ~(BITS_PER_LONG-1)) {
-        if ((tmp = *(p++)))
-            goto found_middle;
-        result += BITS_PER_LONG;
-        size -= BITS_PER_LONG;
-    }
-    if (!size)
-        return result;
-    tmp = *p;
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset %= BITS_PER_LONG;
+	if (offset) {
+		tmp = *(p++);
+		tmp &= (~0UL << offset);
+		if (size < BITS_PER_LONG)
+			goto found_first;
+		if (tmp)
+			goto found_middle;
+		size -= BITS_PER_LONG;
+		result += BITS_PER_LONG;
+	}
+	while (size & ~(BITS_PER_LONG - 1)) {
+		if ((tmp = *(p++)))
+			goto found_middle;
+			result += BITS_PER_LONG;
+			size -= BITS_PER_LONG;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
 
-found_first:
-    tmp &= (~0UL >> (BITS_PER_LONG - size));
-    if (tmp == 0UL)     /* Are any bits set? */
-        return result + size;   /* Nope. */
-found_middle:
-    return result + ffsl(tmp);
+	found_first:
+	tmp &= (~0UL >> (BITS_PER_LONG - size));
+	if (tmp == 0UL)     /* Are any bits set? */
+		return result + size;   /* Nope. */
+	found_middle:
+		return result + ffsl(tmp);
 }
-
-#ifdef OLD
-static void *malloc_spatial(const uint16_t core, const size_t size)
-{
-	const int node = numa_node_of_cpu(core);
-	assert(node != -1);
-
-	void *addr = numa_alloc_onnode(size, node);
-	if (addr)
-		assert(!mbind(addr, size, MPOL_BIND, &nodemask, sizeof(nodemask) * 8, MPOL_MF_MOVE));
-	return ret;
-}
-#endif
 
 static void *malloc_spatial(const uint16_t core, const size_t size)
 {
-	const size_t gran = min(max(sizeof(long), roundup_nextpow2(size)), THP_ALIGN_THRESH);
-	void *addr;
-	assert(!posix_memalign(&addr, gran, size));
+	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	assert(addr != MAP_FAILED);
+	assert(!madvise(addr, size, MADV_WILLNEED | MADV_UNMERGEABLE | MADV_HUGEPAGE));
 
 	int node = numa_node_of_cpu(core);
 	assert(node != -1);
 
 	size_t masksize = roundup(node / 8 + 1, sizeof(long));
 	unsigned long *nodemask = (unsigned long *)alloca(masksize);
-	memset(nodemask, 0, sizeof(masksize));
+	memset(nodemask, 0, masksize);
 	set_bit(node, nodemask);
-//	print_mask(nodemask, masksize);
 
-	int f = mbind(addr, size, MPOL_PREFERRED, nodemask, masksize * 8, MPOL_MF_MOVE);
+	int f = mbind(addr, size, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
 	assertf(f == 0, "mbind errno %d\n", errno);
 
 	if (flags & FLAGS_DEBUG)
@@ -236,12 +222,11 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		CPU_ZERO_S(setsize, cpuset);
 		CPU_SET_S(core, setsize, cpuset);
 
-		int r = pthread_attr_setaffinity_np(&attr2, setsize, cpuset);
-		printf("core=%u attr=%p attr2=%p setsize=%zu cpuset=%p r=%d errno=%d\n", core, attr, &attr2, setsize, cpuset, r, errno);
+		assert(!pthread_attr_setaffinity_np(&attr2, setsize, cpuset));
+		
 
 		void *stack = malloc_spatial(core, stacksize);
 		assert(stack);
-//		assert(!pthread_attr_setstack(&attr2, stack, stacksize));
 
 		ret = xpthread_create(thread, &attr2, start_routine, arg);
 	} else
@@ -259,7 +244,7 @@ void *malloc(size_t size)
 		assertf(xmalloc, "dlsym failed");
 	}
 	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "malloc(size=%lu)\n", size);
+		fprintf(stderr, "malloc(size=%zu)\n", size);
 
 	const size_t gran = min(max(sizeof(long), roundup_nextpow2(size)), THP_ALIGN_THRESH);
 	void *ret;
@@ -333,7 +318,7 @@ void *memcpy(void *dest, const void *src, size_t n)
 	}
 
 	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "memcpy(dest=%p src=%p size=%lu)\n", dest, src, n);
+		fprintf(stderr, "memcpy(dest=%p src=%p size=%zu)\n", dest, src, n);
 
 	return xmemcpy(dest, src, n);
 }
@@ -347,7 +332,7 @@ void *memmove(void *dest, const void *src, size_t n)
 	}
 
 	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "memmove(dest=%p src=%p size=%lu)\n", dest, src, n);
+		fprintf(stderr, "memmove(dest=%p src=%p size=%zu)\n", dest, src, n);
 
 	return xmemmove(dest, src, n);
 }
@@ -361,7 +346,7 @@ void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 	}
 
 	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "mmap(addr=%p length=%lu prot=%d flags=%d fd=%d offset=%ld)\n",
+		fprintf(stderr, "mmap(addr=%p length=%zu prot=%d flags=%d fd=%d offset=%ld)\n",
 			addr, length, prot, flags, fd, offset);
 
 	void *map = xmmap(addr, length, prot, flags | MAP_HUGETLB, fd, offset);
@@ -385,7 +370,7 @@ void *calloc(size_t nmemb, size_t size)
 	}
 
 	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "calloc(nmemb=%lu size=%lu)\n", nmemb, size);
+		fprintf(stderr, "calloc(nmemb=%zu size=%zu)\n", nmemb, size);
 
 	return xcalloc(nmemb, size);
 }
