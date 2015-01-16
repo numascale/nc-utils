@@ -1,3 +1,8 @@
+// libbnumaplace
+// acquire a set of cores as needed from UNIX-domain locks
+// TODO: round-robin thread allocations within this set
+// TODO: implement lockless rand()
+
 #include "utils.h"
 
 #include <stdio.h>
@@ -6,40 +11,128 @@
 #include <sched.h>
 #include <assert.h>
 #include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <pthread.h>
 #include <numa.h>
 #include <numaif.h>
+#include <strings.h>
+#include <sys/un.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 
-#define SHM_NAME "numaplace"
 #define MAX_CORES 8192
 #define MAX_NUMA 1024
 #define THP_ALIGN_THRESH (1 << 20)
 #define PTHREAD_STACK_SIZE (8 << 20)
+#define BITS_PER_LONG (sizeof(long) * 8)
+#define BITOP_WORD(nr)      ((nr) / BITS_PER_LONG)
 
-// TODO: implement lockless rand()
-
-struct shared_s {
-	pthread_mutex_t lock;
-	unsigned attached;
-	bool initialised;
-	union {
-		cpu_set_t allocated;
-		char u[CPU_ALLOC_SIZE(MAX_CORES)];
-	};
-	unsigned char dist[MAX_NUMA][MAX_NUMA];
-};
-
-static struct shared_s *shared;
-static cpu_set_t *allowed;
-static cpu_set_t allocated;
-static uint16_t cores;
-static size_t masksize;
+static uint16_t cores, nodes;
 static unsigned flags;
+static unsigned long available[MAX_CORES / BITS_PER_LONG];
+
+typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
+
+static inline void set_bit(const unsigned nr, unsigned long *addr)
+{
+    addr[nr / BITS_PER_LONG] |= 1UL << (nr % BITS_PER_LONG);
+}
+
+static inline void clear_bit(const unsigned nr, unsigned long *addr)
+{
+    addr[nr / BITS_PER_LONG] &= ~(1UL << (nr % BITS_PER_LONG));
+}
+
+static __always_inline int test_bit(const unsigned nr, const unsigned long *addr)
+{
+    return ((1UL << (nr % BITS_PER_LONG)) &
+        (((unsigned long *)addr)[nr / BITS_PER_LONG])) != 0;
+}
+
+static void print_mask(const unsigned long *addr, const unsigned long bits)
+{
+	printf("mask: %lu ", bits);
+	for (unsigned bit = 0; bit < bits; bit++)
+		printf("%u", test_bit(bit, addr));
+	printf("\n");
+}
+
+static inline unsigned long find_first_bit(const unsigned long *addr, unsigned long size)
+{
+    long_alias_t *p = (long_alias_t *) addr;
+    unsigned long result = 0;
+    unsigned long tmp;
+
+    while (size & ~(BITS_PER_LONG-1)) {
+        if ((tmp = *(p++)))
+            goto found;
+        result += BITS_PER_LONG;
+        size -= BITS_PER_LONG;
+    }
+    if (!size)
+        return result;
+
+    tmp = (*p) & (~0UL >> (BITS_PER_LONG - size));
+    if (tmp == 0UL)     /* Are any bits set? */
+        return result + size;   /* Nope. */
+found:
+    return result + ffsl(tmp);
+}
+
+static inline unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)
+{
+    const unsigned long *p = addr + BITOP_WORD(offset);
+    unsigned long result = offset & ~(BITS_PER_LONG-1);
+    unsigned long tmp;
+
+    if (offset >= size)
+        return size;
+    size -= result;
+    offset %= BITS_PER_LONG;
+    if (offset) {
+        tmp = *(p++);
+        tmp &= (~0UL << offset);
+        if (size < BITS_PER_LONG)
+            goto found_first;
+        if (tmp)
+            goto found_middle;
+        size -= BITS_PER_LONG;
+        result += BITS_PER_LONG;
+    }
+    while (size & ~(BITS_PER_LONG-1)) {
+        if ((tmp = *(p++)))
+            goto found_middle;
+        result += BITS_PER_LONG;
+        size -= BITS_PER_LONG;
+    }
+    if (!size)
+        return result;
+    tmp = *p;
+
+found_first:
+    tmp &= (~0UL >> (BITS_PER_LONG - size));
+    if (tmp == 0UL)     /* Are any bits set? */
+        return result + size;   /* Nope. */
+found_middle:
+    return result + ffsl(tmp);
+}
+
+#ifdef OLD
+static void *malloc_spatial(const uint16_t core, const size_t size)
+{
+	const int node = numa_node_of_cpu(core);
+	assert(node != -1);
+
+	void *addr = numa_alloc_onnode(size, node);
+	if (addr)
+		assert(!mbind(addr, size, MPOL_BIND, &nodemask, sizeof(nodemask) * 8, MPOL_MF_MOVE));
+	return ret;
+}
+#endif
 
 static void *malloc_spatial(const uint16_t core, const size_t size)
 {
@@ -49,9 +142,15 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 
 	int node = numa_node_of_cpu(core);
 	assert(node != -1);
-	unsigned long nodemask = 1 << node;
 
-	assert(!mbind(addr, size, MPOL_BIND, &nodemask, sizeof(nodemask) * 8, MPOL_MF_MOVE));
+	size_t masksize = roundup(node / 8 + 1, sizeof(long));
+	unsigned long *nodemask = (unsigned long *)alloca(masksize);
+	memset(nodemask, 0, sizeof(masksize));
+	set_bit(node, nodemask);
+//	print_mask(nodemask, masksize);
+
+	int f = mbind(addr, size, MPOL_PREFERRED, nodemask, masksize * 8, MPOL_MF_MOVE);
+	assertf(f == 0, "mbind errno %d\n", errno);
 
 	if (flags & FLAGS_DEBUG)
 		fprintf(stderr, "allocated %zuMB on core %u, node %d\n", size >> 20, core, node);
@@ -59,74 +158,34 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 	return addr;
 }
 
-static void populate(void)
+// find next system-wide unallocated core, using UNIX domain sockets
+// returns core number allocated
+uint16_t allocate_core(void)
 {
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "populate\n");
+	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	assert(sfd > -1);
 
-	// check /proc/cmdline to check isolcpus param
-	int fd = open("/proc/cmdline", O_RDONLY);
-	assert(fd != -1);
-	char buf[4096];
-	assert(read(fd, buf, sizeof(buf)) > 0);
-	assert(!close(fd));
-	if (!strstr(buf, "isolcpus="))
-		fprintf(stderr, "Please boot with 'maxcpus=1-8191' for best parallel performance\n");
-	shared->initialised = 1;
-}
+	struct sockaddr_un addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
 
-// returns core number
-static uint16_t allocate_core(void)
-{
-	uint16_t core = MAX_CORES;
+	unsigned long core = find_first_bit(available, cores);
+	do {
+		snprintf(&addr.sun_path[1], sizeof(addr.sun_path) - 1, "numaplace-%lu", core - 1);
 
-	pthread_mutex_lock(&shared->lock);
-
-	for (unsigned n = 0; n < cores; n++) {
-		if (!CPU_ISSET_S(n, masksize, &shared->allocated)) {
-			CPU_SET_S(n, masksize, &shared->allocated);
-			CPU_SET_S(n, masksize, &allocated);
-			core = n;
-			break;
+		// if bind succeeds, core wasn't already taken
+		if (bind(sfd, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+			clear_bit(core - 1, available);
+			assertf(core <= cores, "core=%lu cores=%u", core, cores);
+			return core - 1;
 		}
-	}
 
-	pthread_mutex_unlock(&shared->lock);
-	if (core == MAX_CORES)
-		warn_once("All cores already allocated");
+		assert(errno == EADDRINUSE);
+		core = find_next_bit(available, cores, core);
+	} while (core < cores);
 
-	return core;
-}
-
-// called with lock held
-static void state(void)
-{
-	fprintf(stderr, "cores used:");
-	for (unsigned n = 0; n < cores; n++)
-		if (CPU_ISSET_S(n, masksize, &shared->allocated))
-			fprintf(stderr, " %u", n);
-	fprintf(stderr, "\n");
-}
-
-void _fini(void)
-{
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "cleanup\n");
-
-	pthread_mutex_lock(&shared->lock);
-
-	// cleanup allocated cores
-	for (unsigned n = 0; n < cores; n++)
-		if (CPU_ISSET_S(n, masksize, &allocated))
-			CPU_CLR_S(n, masksize, &shared->allocated);
-	shared->attached--;
-
-	pthread_mutex_unlock(&shared->lock);
-
-	sysassertf(!munmap(shared, sizeof(struct shared_s)), "munmap failed");
-	sysassertf(shm_unlink(SHM_NAME) == 0, "shm_unlink failed");
-
-	CPU_FREE(allowed);
+	warn_once("All cores already allocated");
+	return MAX_CORES;
 }
 
 __attribute__((constructor)) void init(void)
@@ -135,33 +194,10 @@ __attribute__((constructor)) void init(void)
 	if (flagstr)
 		flags = atoi(flagstr);
 
-	cores = sysconf(_SC_NPROCESSORS_CONF);
-
-	allowed = CPU_ALLOC(cores);
-	sysassertf(allowed, "CPU_ALLOC failed");
-	masksize = CPU_ALLOC_SIZE(cores);
-
-	int shared_fd = shm_open(SHM_NAME, O_RDWR | O_CREAT, 0666);
-	sysassertf(shared_fd != -1, "shm_open failed");
-
-	sysassertf(ftruncate(shared_fd, sizeof(struct shared_s)) == 0, "ftruncate failed");
-	shared = (struct shared_s *)mmap(NULL, sizeof(struct shared_s), PROT_READ | PROT_WRITE,
-	  MAP_SHARED | MAP_POPULATE, shared_fd, 0);
-	sysassertf(shared != MAP_FAILED, "mmap failed");
-	sysassertf(close(shared_fd) != -1, "close failed");
-
-	pthread_mutex_lock(&shared->lock);
-
-	if (!shared->initialised == 0)
-		populate();
-
-	if (flags & FLAGS_DEBUG)
-		state();
-
-	shared->attached++;
-	if (flags & FLAGS_DEBUG)
-		printf("attached %u\n", shared->attached);
-	pthread_mutex_unlock(&shared->lock);
+	nodes = numa_max_node() + 1;
+	cores = sysconf(_SC_NPROCESSORS_ONLN);
+	for (unsigned core = 0; core < cores; core++)
+		set_bit(core, available);
 
 	// use batch scheduling priority to minimise preemption
 	const struct sched_param params = {0};
@@ -185,26 +221,36 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 			thread, attr, start_routine, arg);
 
 	const uint16_t core = allocate_core();
-	if (core < MAX_CORES) {
-		cpu_set_t cpuset;
-		CPU_ZERO(&cpuset);
-		CPU_SET(core, &cpuset);
 
-		pthread_attr_t attr2;
+	size_t stacksize = PTHREAD_STACK_SIZE;
+	pthread_attr_t attr2;
+	if (attr) {
+		assert(!pthread_attr_getstacksize(attr, &stacksize));
+		memcpy(&attr2, attr, sizeof(attr2));
+	} else
 		assert(!pthread_attr_init(&attr2));
-		assert(!pthread_attr_setaffinity_np(&attr2, sizeof(cpuset), &cpuset));
 
-		void *stack = malloc_spatial(core, PTHREAD_STACK_SIZE);
-		assert(!pthread_attr_setstack(&attr2, stack, PTHREAD_STACK_SIZE));
+	if (core < MAX_CORES) {
+		const size_t setsize = CPU_ALLOC_SIZE(core + 1);
+		cpu_set_t *cpuset = (cpu_set_t *)alloca(setsize);
+		CPU_ZERO_S(setsize, cpuset);
+		CPU_SET_S(core, setsize, cpuset);
+
+		int r = pthread_attr_setaffinity_np(&attr2, setsize, cpuset);
+		printf("core=%u attr=%p attr2=%p setsize=%zu cpuset=%p r=%d errno=%d\n", core, attr, &attr2, setsize, cpuset, r, errno);
+
+		void *stack = malloc_spatial(core, stacksize);
+		assert(stack);
+//		assert(!pthread_attr_setstack(&attr2, stack, stacksize));
 
 		ret = xpthread_create(thread, &attr2, start_routine, arg);
-		assert(!pthread_attr_destroy(&attr2));
 	} else
 		ret = xpthread_create(thread, NULL, start_routine, arg);
 
 	return ret;
 }
 
+#ifdef DEV
 void *malloc(size_t size)
 {
 	static void *(*xmalloc)(size_t);
@@ -221,7 +267,6 @@ void *malloc(size_t size)
 	return ret;
 }
 
-#ifdef DEV
 void pthread_exit(void *retval)
 {
 	static void (*xpthread_exit)(void *);
