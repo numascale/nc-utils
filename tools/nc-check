@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect checker r4
+# NumaConnect checker r5
 
 import os, time, optparse
 from nclib import Platform, Numachip, Northbridge
@@ -49,9 +49,16 @@ databahn_int_status = {
 	 5: 'Multiple uncorrectable ECC events',
 	 4: 'Single uncorrectable ECC event',
 	 3: 'Multiple correctable ECC events',
-	 2:' Single correctable ECC event',
+	 2: 'Single correctable ECC event',
 	 1: 'Multiple accesses outside address space',
 	 0: 'Single access outside address space',
+}
+
+error_status = {
+	3: 'MC Tag Interrupt',
+	2: 'MC Tag Error',
+	1: 'CData Interrupt',
+	0: 'CData Error',
 }
 
 class Node:
@@ -130,7 +137,7 @@ class Node:
 
 			self.ncensure('CDATA_ERROR_STATR', 0xffffffff, 0x00000000, cdata_error_statr)
 			self.ncensure('MCTAG_ERROR_STATR', 0xffffffff, 0x00000000)
-			self.ncensure('ERROR_STATUS', 0xffffffff, 0x00000000)
+			self.ncensure('ERROR_STATUS', 0xffffffff, 0x00000000, error_status)
 			self.ncensure('ERROR_NFSTAT', 0xffffffff, 0x01000100, error_nfstat)
 			self.ncensure('ERROR_FSTAT', 0xffffffff, 0x00000000, error_fstat)
 			self.ncensure('MCTAG_INT_STATUS', 0x0000effc, 0x00000000, databahn_int_status)
