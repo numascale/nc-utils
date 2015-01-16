@@ -6,6 +6,8 @@
 #include <limits.h>
 #include <unistd.h>
 
+// FIXME: './numaplace -v' SEGV
+
 int main(int argc, char *argv[])
 {
 	if (argc < 2)
@@ -46,6 +48,7 @@ int main(int argc, char *argv[])
 
 	// don't overwrite any existing variable
 	assert(!setenv("OMP_NUM_THREADS", num, 0));
+	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
 
 	execvp(argv[n], &argv[n]);
 	syserror("Launching %s failed", argv[n]);
