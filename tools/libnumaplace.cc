@@ -32,6 +32,7 @@
 #define BITOP_WORD(nr)      ((nr) / BITS_PER_LONG)
 
 static uint16_t cores, nodes;
+static uint8_t stride = 1;
 static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
 
@@ -148,6 +149,7 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 // returns core number allocated
 uint16_t allocate_core(void)
 {
+	static unsigned long lastcore = 0;
 	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	assert(sfd > -1);
 
@@ -155,7 +157,9 @@ uint16_t allocate_core(void)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 
-	unsigned long core = find_first_bit(available, cores);
+	unsigned long core = find_next_bit(available, cores, lastcore);
+	lastcore += stride;
+
 	do {
 		snprintf(&addr.sun_path[1], sizeof(addr.sun_path) - 1, "numaplace-%lu", core - 1);
 
@@ -176,9 +180,13 @@ uint16_t allocate_core(void)
 
 __attribute__((constructor)) void init(void)
 {
-	char *flagstr = getenv("NUMAPLACE_FLAGS");
-	if (flagstr)
-		flags = atoi(flagstr);
+	char *envstr = getenv("NUMAPLACE_FLAGS");
+	if (envstr)
+		flags = atoi(envstr);
+
+	envstr = getenv("NUMAPLACE_STRIDE");
+	if (envstr)
+		stride = atoi(envstr);
 
 	nodes = numa_max_node() + 1;
 	cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -188,6 +196,19 @@ __attribute__((constructor)) void init(void)
 	// use batch scheduling priority to minimise preemption
 	const struct sched_param params = {0};
 	sysassertf(sched_setscheduler(0, SCHED_BATCH, &params) == 0, "sched_setscheduler failed");
+
+	const uint16_t core = allocate_core();
+	if (flags & FLAGS_DEBUG)
+		printf("init core %u\n", core);
+
+	if (core < MAX_CORES) {
+		const size_t setsize = CPU_ALLOC_SIZE(core + 1);
+		cpu_set_t *cpuset = (cpu_set_t *)alloca(setsize);
+		CPU_ZERO_S(setsize, cpuset);
+		CPU_SET_S(core, setsize, cpuset);
+
+		assert(!sched_setaffinity(0, setsize, cpuset));
+	}
 }
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
@@ -207,6 +228,8 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 			thread, attr, start_routine, arg);
 
 	const uint16_t core = allocate_core();
+	if (flags & FLAGS_DEBUG)
+		printf("core %u\n", core);
 
 	size_t stacksize = PTHREAD_STACK_SIZE;
 	pthread_attr_t attr2;
