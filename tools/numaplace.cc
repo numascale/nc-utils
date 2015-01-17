@@ -15,10 +15,9 @@ static void usage(const int code)
 
 int main(int argc, char *argv[])
 {
-	int c, digit_optind = 0, flagval = 0;
+	unsigned flagval = 0;
 
 	while (1) {
-		int this_option_optind = optind ? optind : 1;
 		int option_index = 0;
 
 		static const struct option long_options[] = {
@@ -28,7 +27,7 @@ int main(int argc, char *argv[])
 			{0,         0,                 0, 0},
 		};
 
-		c = getopt_long(argc, argv, "s:vd", long_options, &option_index);
+		int c = getopt_long(argc, argv, "s:vd", long_options, &option_index);
 		if (c == -1)
 			break;
 
