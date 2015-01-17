@@ -18,4 +18,4 @@ numaplace-test: numaplace-test.c utils.h
 	$(CXX) $(CFLAGS) -o $@ $< -lpthread
 
 libnumaplace.so: libnumaplace.cc utils.h
-	$(CC) $(CFLAGS) -fPIC -shared -o $@ $< -lrt -ldl -lnuma
+	$(CXX) $(CFLAGS) -fPIC -shared -o $@ $< -lrt -ldl -lnuma
