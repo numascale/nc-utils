@@ -149,7 +149,7 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 // returns core number allocated
 uint16_t allocate_core(void)
 {
-	static unsigned long lastcore = 0;
+	static unsigned long lastcore = stride - 1;
 	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	assert(sfd > -1);
 
@@ -198,7 +198,7 @@ __attribute__((constructor)) void init(void)
 	sysassertf(sched_setscheduler(0, SCHED_BATCH, &params) == 0, "sched_setscheduler failed");
 
 	const uint16_t core = allocate_core();
-	if (flags & FLAGS_DEBUG)
+	if (flags & FLAGS_VERBOSE)
 		printf("init core %u\n", core);
 
 	if (core < MAX_CORES) {
@@ -228,7 +228,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 			thread, attr, start_routine, arg);
 
 	const uint16_t core = allocate_core();
-	if (flags & FLAGS_DEBUG)
+	if (flags & FLAGS_VERBOSE)
 		printf("core %u\n", core);
 
 	size_t stacksize = PTHREAD_STACK_SIZE;
