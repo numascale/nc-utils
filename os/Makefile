@@ -1,4 +1,4 @@
-SUBDIRS = lib nc_test #examples
+SUBDIRS = lib numaplace nc_test #examples
 
 .PHONY: subdirs $(SUBDIRS)
 
