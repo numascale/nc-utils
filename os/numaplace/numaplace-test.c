@@ -5,25 +5,23 @@
 #include <pthread.h>
 #include <assert.h>
 
-#define THREADS 6
-
-void *workload(void *arg)
+static void *workload(void *arg)
 {
-	unsigned long tid = (unsigned long)arg;
-	sleep(3);
+	sleep(1);
 	return (void *)0;
 }
 
 int main(void)
 {
-	pthread_t threads[THREADS];
+	unsigned long cores = sysconf(_SC_NPROCESSORS_ONLN);
+	pthread_t threads[cores];
 
-	for (unsigned long n = 0; n < THREADS; n++)
+	for (unsigned long n = 0; n < (cores - 1); n++)
 		pthread_create(&threads[n], NULL, workload, (void *)&n);
 
 	unsigned long rc;
 
-	for (unsigned long n = 0; n < THREADS; n++) {
+	for (unsigned long n = 0; n < (cores - 1); n++) {
 		sysassertf(pthread_join(threads[n], (void **)&rc) == 0, "pthread_join failed");
 		assert(rc == 0);
 	}
