@@ -1,5 +1,5 @@
 TARGETS	:= numaplace libnumaplace.so numaplace-test
-CFLAGS	:= -Wall -Wextra -Wshadow -O3 -g
+CFLAGS	:= -std=gnu11 -Wall -Wextra -Wshadow -O3 -g -D_GNU_SOURCE
 
 .PHONY: all
 all: $(TARGETS)
@@ -9,13 +9,13 @@ clean:
 	rm -f $(TARGETS) *~ *.o
 
 check:
-	cppcheck --enable=all --inconclusive *.c *.cc *.h
+	cppcheck --enable=all --inconclusive *.c *.c *.h
 
-numaplace: numaplace.cc utils.h
-	$(CXX) $(CFLAGS) -o $@ $<
+numaplace: numaplace.c utils.h
+	$(CC) $(CFLAGS) -o $@ $<
 
 numaplace-test: numaplace-test.c utils.h
-	$(CXX) $(CFLAGS) -o $@ $< -lpthread
+	$(CC) $(CFLAGS) -o $@ $< -lpthread
 
-libnumaplace.so: libnumaplace.cc utils.h
-	$(CXX) $(CFLAGS) -fPIC -shared -o $@ $< -lrt -ldl -lnuma
+libnumaplace.so: libnumaplace.c utils.h
+	$(CC) $(CFLAGS) -fPIC -shared -o $@ $< -lrt -ldl -lnuma

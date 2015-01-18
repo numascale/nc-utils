@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <getopt.h>
 
+// FIXME: parse /proc/cmdline to check isolcpus param
+
 static void usage(const int code)
 {
 	fprintf(stderr, "Usage: numaplace [-v] [-s <stride>] cmd [args..]\n");
@@ -67,15 +69,10 @@ int main(int argc, char *argv[])
 	assertf(access(path2, R_OK) == 0, "%s nonexisting or unreadable", path2);
 	assert(!setenv("LD_PRELOAD", path2, 1));
 
-	long cores = sysconf(_SC_NPROCESSORS_CONF);
-	// FIXME: parse /proc/cmdline to check isolcpus param
-
-	char num[32];
-	snprintf(num, sizeof(num), "%ld", cores);
-
 	// don't overwrite any existing variable
-	assert(!setenv("OMP_NUM_THREADS", num, 0));
 	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
+	assert(!unsetenv("GOMP_CPU_AFFINITY"));
+	assert(!unsetenv("OMP_PROC_BIND"));
 
 	execvp(argv[optind], &argv[optind]);
 	syserror("Launching %s failed", argv[optind]);

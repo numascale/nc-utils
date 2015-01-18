@@ -20,6 +20,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -73,7 +74,7 @@
 } while (0)
 
 #define FLAGS_VERBOSE 1
-#define FLAGS_DEBUG 3
+#define FLAGS_DEBUG 2
 
 static inline uint64_t roundup_nextpow2(const uint64_t val)
 {

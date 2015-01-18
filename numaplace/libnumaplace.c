@@ -1,5 +1,6 @@
 // libbnumaplace
 // acquire a set of cores as needed from UNIX-domain locks
+
 // TODO: round-robin thread allocations within this set
 // TODO: implement lockless rand()
 
@@ -33,6 +34,7 @@
 
 static uint16_t cores, nodes;
 static uint8_t stride = 1;
+static unsigned long lastcore;
 static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
 
@@ -48,7 +50,7 @@ static inline void clear_bit(const unsigned nr, unsigned long *addr)
 	addr[nr / BITS_PER_LONG] &= ~(1UL << (nr % BITS_PER_LONG));
 }
 
-static __always_inline int test_bit(const unsigned nr, const unsigned long *addr)
+static inline int test_bit(const unsigned nr, const unsigned long *addr)
 {
 	return ((1UL << (nr % BITS_PER_LONG)) &
 	  (((unsigned long *)addr)[nr / BITS_PER_LONG])) != 0;
@@ -62,7 +64,7 @@ static void print_mask(const unsigned long *addr, const unsigned long bits)
 	printf("\n");
 }
 
-static inline unsigned long find_first_bit(const unsigned long *addr, unsigned long size)
+static unsigned long find_first_bit(const unsigned long *addr, unsigned long size)
 {
 	long_alias_t *p = (long_alias_t *) addr;
 	unsigned long result = 0;
@@ -84,7 +86,7 @@ static inline unsigned long find_first_bit(const unsigned long *addr, unsigned l
 		return result + ffsl(tmp);
 }
 
-static inline unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)
+static unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)
 {
 	const unsigned long *p = addr + BITOP_WORD(offset);
 	unsigned long result = offset & ~(BITS_PER_LONG - 1);
@@ -132,7 +134,7 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 	assert(node != -1);
 
 	size_t masksize = roundup(node / 8 + 1, sizeof(long));
-	unsigned long *nodemask = (unsigned long *)alloca(masksize);
+	unsigned long nodemask[MAX_CORES / 8 / sizeof(long)];
 	memset(nodemask, 0, masksize);
 	set_bit(node, nodemask);
 
@@ -147,9 +149,8 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 
 // find next system-wide unallocated core, using UNIX domain sockets
 // returns core number allocated
-uint16_t allocate_core(void)
+static uint16_t allocate_core(void)
 {
-	static unsigned long lastcore = stride - 1;
 	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	assert(sfd > -1);
 
@@ -178,15 +179,17 @@ uint16_t allocate_core(void)
 	return MAX_CORES;
 }
 
-__attribute__((constructor)) void init(void)
+static __attribute__((constructor)) void init(void)
 {
 	char *envstr = getenv("NUMAPLACE_FLAGS");
 	if (envstr)
 		flags = atoi(envstr);
 
 	envstr = getenv("NUMAPLACE_STRIDE");
-	if (envstr)
+	if (envstr) {
 		stride = atoi(envstr);
+		lastcore = stride - 1;
+	}
 
 	nodes = numa_max_node() + 1;
 	cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -197,18 +200,18 @@ __attribute__((constructor)) void init(void)
 	const struct sched_param params = {0};
 	sysassertf(sched_setscheduler(0, SCHED_BATCH, &params) == 0, "sched_setscheduler failed");
 
-	const uint16_t core = allocate_core();
+	unsigned long core = sched_getcpu();
+	clear_bit(core, available);
+	// FIXME: lock core out with bind()
 	if (flags & FLAGS_VERBOSE)
-		printf("init core %u\n", core);
+		printf("init core %lu\n", core);
 
-	if (core < MAX_CORES) {
-		const size_t setsize = CPU_ALLOC_SIZE(core + 1);
-		cpu_set_t *cpuset = (cpu_set_t *)alloca(setsize);
-		CPU_ZERO_S(setsize, cpuset);
-		CPU_SET_S(core, setsize, cpuset);
+	const size_t setsize = CPU_ALLOC_SIZE(core + 1);
+	cpu_set_t cpuset[MAX_CORES / 8 / sizeof(cpu_set_t)];
+	CPU_ZERO_S(setsize, cpuset);
+	CPU_SET_S(core, setsize, cpuset);
 
-		assert(!sched_setaffinity(0, setsize, cpuset));
-	}
+	assert(!sched_setaffinity(0, setsize, cpuset));
 }
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
@@ -241,7 +244,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	if (core < MAX_CORES) {
 		const size_t setsize = CPU_ALLOC_SIZE(core + 1);
-		cpu_set_t *cpuset = (cpu_set_t *)alloca(setsize);
+		cpu_set_t cpuset[MAX_CORES / 8 / sizeof(cpu_set_t)];
 		CPU_ZERO_S(setsize, cpuset);
 		CPU_SET_S(core, setsize, cpuset);
 
