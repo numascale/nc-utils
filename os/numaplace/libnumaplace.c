@@ -152,6 +152,10 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 static uint16_t allocate_core(void)
 {
 	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sfd == -1 && errno == EMFILE) {
+		fprintf(stderr, "Error: open file descriptor too low; please increase with 'ulimit -n 8192'\n");
+		exit(1);
+	}
 	assert(sfd > -1);
 
 	struct sockaddr_un addr;
@@ -249,7 +253,6 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		CPU_SET_S(core, setsize, cpuset);
 
 		assert(!pthread_attr_setaffinity_np(&attr2, setsize, cpuset));
-		
 
 		void *stack = malloc_spatial(core, stacksize);
 		assert(stack);
