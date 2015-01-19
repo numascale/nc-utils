@@ -141,7 +141,6 @@ static void find_stack(void **start, void **end)
 			continue;
 
 		if (!strncmp(&line[m], STACKNAME, sizeof(STACKNAME) - 1)) {
-			printf("[%s]\n", line);
 			fclose(maps);
 			return;
 		}
