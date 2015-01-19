@@ -19,6 +19,8 @@
 #include <numa.h>
 #include <numaif.h>
 #include <strings.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/un.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -31,6 +33,7 @@
 #define PTHREAD_STACK_SIZE (8 << 20)
 #define BITS_PER_LONG (sizeof(long) * 8)
 #define BITOP_WORD(nr)      ((nr) / BITS_PER_LONG)
+#define STACKNAME "[stack]"
 
 static uint16_t cores, nodes;
 static uint8_t stride = 1;
@@ -124,6 +127,29 @@ static unsigned long find_next_bit(const unsigned long *addr, unsigned long size
 		return result + ffsl(tmp);
 }
 
+static void find_stack(void **start, void **end)
+{
+	FILE *maps = fopen("/proc/self/maps", "r");
+	assert(maps);
+
+	char line[128];
+
+	while (fgets(line, sizeof(line), maps)) {
+		int m = -1;
+
+		if (sscanf(line, "%p-%p rw-p %*x %*x:%*x %*u %n", start, end, &m) != 2 || m < 0)
+			continue;
+
+		if (!strncmp(&line[m], STACKNAME, sizeof(STACKNAME) - 1)) {
+			printf("[%s]\n", line);
+			fclose(maps);
+			return;
+		}
+	}
+
+	abort();
+}
+
 static void *malloc_spatial(const uint16_t core, const size_t size)
 {
 	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -139,7 +165,7 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 	set_bit(node, nodemask);
 
 	int f = mbind(addr, size, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
-	assertf(f == 0, "mbind errno %d\n", errno);
+	assertf(!f, "mbind errno %d\n", errno);
 
 	if (flags & FLAGS_DEBUG)
 		fprintf(stderr, "allocated %zuMB on core %u, node %d\n", size >> 20, core, node);
@@ -216,6 +242,23 @@ static __attribute__((constructor)) void init(void)
 	CPU_SET_S(core, setsize, cpuset);
 
 	assert(!sched_setaffinity(0, setsize, cpuset));
+
+	// pin stack
+	struct rlimit limit;
+	assert(!getrlimit(RLIMIT_STACK, &limit));
+
+	int node = numa_node_of_cpu(core);
+	assert(node != -1);
+
+	size_t masksize = roundup(node / 8 + 1, sizeof(long));
+	unsigned long nodemask[MAX_CORES / 8 / sizeof(long)];
+	memset(nodemask, 0, masksize);
+	set_bit(node, nodemask);
+
+	void *start, *end;
+	find_stack(&start, &end);
+	int f = mbind(start, end - start, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
+	assertf(!f, "mbind errno %d\n", errno);
 }
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
