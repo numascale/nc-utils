@@ -1,7 +1,6 @@
 // libbnumaplace
 // acquire a set of cores as needed from UNIX-domain locks
 
-// TODO: round-robin thread allocations within this set
 // TODO: implement lockless rand()
 
 #include "utils.h"
@@ -37,7 +36,8 @@
 
 static uint16_t cores, nodes;
 static uint8_t stride = 1;
-static unsigned long lastcore;
+static uint8_t stride_alloc; // threshold for allocation in group of 'stride' bits
+static unsigned lastcore;
 static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
 
@@ -58,7 +58,7 @@ static inline int test_bit(const unsigned nr, const unsigned long *addr)
 	return ((1UL << (nr % BITS_PER_LONG)) &
 	  (((unsigned long *)addr)[nr / BITS_PER_LONG])) != 0;
 }
-
+#if UNUSED
 static void print_mask(const unsigned long *addr, const unsigned long bits)
 {
 	printf("mask: %lu ", bits);
@@ -126,7 +126,7 @@ static unsigned long find_next_bit(const unsigned long *addr, unsigned long size
 	found_middle:
 		return result + ffsl(tmp);
 }
-
+#endif
 static void find_stack(void **start, void **end)
 {
 	FILE *maps = fopen("/proc/self/maps", "r");
@@ -149,6 +149,30 @@ static void find_stack(void **start, void **end)
 	abort();
 }
 
+static bool lock_core(unsigned core)
+{
+	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sfd == -1 && errno == EMFILE) {
+		fprintf(stderr, "Error: open file descriptor too low; please increase with 'ulimit -n 8192'\n");
+		exit(1);
+	}
+	assert(sfd > -1);
+
+	struct sockaddr_un addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	snprintf(&addr.sun_path[1], sizeof(addr.sun_path) - 1, "numaplace-%u", core);
+
+	// if bind succeeds, core wasn't already taken
+	int ret = bind(sfd, (struct sockaddr *)&addr, sizeof(addr));
+	if (ret) {
+		assert(errno == EADDRINUSE);
+		assert(!close(sfd));
+	}
+
+	return !ret;
+}
+
 static void *malloc_spatial(const uint16_t core, const size_t size)
 {
 	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -163,8 +187,8 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 	memset(nodemask, 0, masksize);
 	set_bit(node, nodemask);
 
-	int f = mbind(addr, size, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
-	assertf(!f, "mbind errno %d\n", errno);
+	int ret = mbind(addr, size, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
+	assertf(!ret, "mbind errno %d\n", errno);
 
 	if (flags & FLAGS_DEBUG)
 		fprintf(stderr, "allocated %zuMB on core %u, node %d\n", size >> 20, core, node);
@@ -176,36 +200,36 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 // returns core number allocated
 static uint16_t allocate_core(void)
 {
-	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sfd == -1 && errno == EMFILE) {
-		fprintf(stderr, "Error: open file descriptor too low; please increase with 'ulimit -n 8192'\n");
-		exit(1);
-	}
-	assert(sfd > -1);
+	while (1) {
+		// find group of 'stride' bits with sufficiently low occupancy
+		unsigned core, used;
 
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
+		do {
+			used = 0;
 
-	unsigned long core = find_next_bit(available, cores, lastcore);
-	lastcore += stride;
+			for (core = lastcore; core < (lastcore + stride); core++)
+				used += !test_bit(core, available);
 
-	do {
-		snprintf(&addr.sun_path[1], sizeof(addr.sun_path) - 1, "numaplace-%lu", core - 1);
+			lastcore += stride;
+			if (lastcore > cores) {
+				lastcore = 0;
+				stride_alloc++;
+				printf("pass %u\n", stride_alloc + 1);
+				if (stride_alloc > stride) {
+					warn_once("All cores already allocated");
+					return MAX_CORES;
+				}
+			}
+		} while (used > stride_alloc);
 
-		// if bind succeeds, core wasn't already taken
-		if (bind(sfd, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
-			clear_bit(core - 1, available);
-			assertf(core <= cores, "core=%lu cores=%u", core, cores);
-			return core - 1;
+		// use first available bit
+		for (unsigned core2 = core - 1; core2 >= core - stride; core2--) {
+			if (test_bit(core2, available)) {
+				clear_bit(core2, available);
+				return core2;
+			}
 		}
-
-		assert(errno == EADDRINUSE);
-		core = find_next_bit(available, cores, core);
-	} while (core < cores);
-
-	warn_once("All cores already allocated");
-	return MAX_CORES;
+	}
 }
 
 static __attribute__((constructor)) void init(void)
@@ -215,10 +239,8 @@ static __attribute__((constructor)) void init(void)
 		flags = atoi(envstr);
 
 	envstr = getenv("NUMAPLACE_STRIDE");
-	if (envstr) {
+	if (envstr)
 		stride = atoi(envstr);
-		lastcore = stride - 1;
-	}
 
 	nodes = numa_max_node() + 1;
 	cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -231,7 +253,8 @@ static __attribute__((constructor)) void init(void)
 
 	unsigned long core = sched_getcpu();
 	clear_bit(core, available);
-	// FIXME: lock core out with bind()
+	lock_core(core);
+
 	if (flags & FLAGS_VERBOSE)
 		printf("init core %lu\n", core);
 
