@@ -94,6 +94,7 @@ uint8_t scc_att_index_range = 2;   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24
 
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
+static uint32_t southbridge_id = -1;
 
 void *operator new(const size_t n)
 {
@@ -696,30 +697,21 @@ static void reorganize_mmio(int nc)
 }
 #endif /* UNUSED */
 
-uint32_t southbridge_id = -1;
 static uint8_t smi_state;
-
-void detect_southbridge(void)
-{
-	southbridge_id = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
-
-	if (southbridge_id != 0x43851002)
-		printf("Warning: Unable to disable SMI due to unknown southbridge 0x%08x; this may cause hangs\n", southbridge_id);
-}
 
 /* Mask southbridge SMI generation */
 void disable_smi(void)
 {
-	if (southbridge_id == 0x43851002) {
+	if (southbridge_id == VENDEV_SP5100) {
 		smi_state = pmio_read8(0x53);
 		pmio_write8(0x53, smi_state | (1 << 3));
 	}
 }
 
-/* Restore previous southbridge SMI mask */
+/* Unmask southbridge SMI generation */
 void enable_smi(void)
 {
-	if (southbridge_id == 0x43851002) {
+	if (southbridge_id == VENDEV_SP5100) {
 		pmio_write8(0x53, smi_state);
 	}
 }
@@ -2591,6 +2583,11 @@ static void platform_quirks(void)
 	const char *buf = (const char *)0xf0000;
 	size_t fp;
 
+	southbridge_id = dnc_read_conf(0xfff0, 0, 0x14, 0, 0);
+
+	if (southbridge_id != VENDEV_SP5100)
+		printf("Warning: Unable to disable SMI due to unknown southbridge 0x%08x; this may cause hangs\n", southbridge_id);
+
 	/* Search for signature */
 	for (fp = 0; fp <= 0xfff0; fp += 16)
 		if (!memcmp(buf + fp, "_SM_", 4))
@@ -2669,7 +2666,6 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 	bool asic_mode;
 
 	platform_quirks();
-	detect_southbridge();
 
 	/* SMI often assumes HT nodes are Northbridges, so handover early */
 	if (handover_acpi)
