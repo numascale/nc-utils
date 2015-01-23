@@ -40,8 +40,16 @@ static uint8_t stride_alloc; // threshold for allocation in group of 'stride' bi
 static unsigned lastcore;
 static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
+static pthread_key_t thread_key;
 
 typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
+
+struct thread_info {
+	void *(* start_routine)(void *);
+	void *arg;
+	int fd;
+	uint16_t core;
+};
 
 static inline void set_bit(const unsigned nr, unsigned long *addr)
 {
@@ -149,7 +157,7 @@ static void find_stack(void **start, void **end)
 	abort();
 }
 
-static bool lock_core(unsigned core)
+static int lock_core(const unsigned core)
 {
 	int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sfd == -1 && errno == EMFILE) {
@@ -168,9 +176,10 @@ static bool lock_core(unsigned core)
 	if (ret) {
 		assert(errno == EADDRINUSE);
 		assert(!close(sfd));
+		return -1;
 	}
 
-	return !ret;
+	return sfd;
 }
 
 static void *malloc_spatial(const uint16_t core, const size_t size)
@@ -198,7 +207,7 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 
 // find next system-wide unallocated core, using UNIX domain sockets
 // returns core number allocated
-static uint16_t allocate_core(void)
+static bool core_allocate(struct thread_info *info)
 {
 	while (1) {
 		// find group of 'stride' bits with sufficiently low occupancy
@@ -217,7 +226,7 @@ static uint16_t allocate_core(void)
 				printf("pass %u\n", stride_alloc + 1);
 				if (stride_alloc > stride) {
 					warn_once("All cores already allocated");
-					return MAX_CORES;
+					return 0;
 				}
 			}
 		} while (used > stride_alloc);
@@ -225,11 +234,27 @@ static uint16_t allocate_core(void)
 		// use first available bit
 		for (unsigned core2 = core - 1; core2 >= core - stride; core2--) {
 			if (test_bit(core2, available)) {
-				clear_bit(core2, available);
-				return core2;
+				int fd = lock_core(core2);
+				if (fd > -1) {
+					clear_bit(core2, available);
+					info->core = core2;
+					info->fd = fd;
+					return 1;
+				}
 			}
 		}
 	}
+}
+
+static void core_deallocate(struct thread_info *info)
+{
+	assert(!close(info->fd)); // unbind lock
+	set_bit(info->core, available);
+
+	if (flags & FLAGS_VERBOSE)
+		printf("core %u deallocate\n", info->core);
+
+	free(info);
 }
 
 static __attribute__((constructor)) void init(void)
@@ -253,7 +278,7 @@ static __attribute__((constructor)) void init(void)
 
 	unsigned long core = sched_getcpu();
 	clear_bit(core, available);
-	lock_core(core);
+	lock_core(core); // OS will close fd on destruction
 
 	if (flags & FLAGS_VERBOSE)
 		printf("init core %lu\n", core);
@@ -283,15 +308,27 @@ static __attribute__((constructor)) void init(void)
 	assertf(!f, "mbind errno %d\n", errno);
 }
 
+static void *pthread_create_inner(struct thread_info *info)
+{
+	assert(!pthread_setspecific(thread_key, info));
+	return info->start_routine(info->arg);
+}
+
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine) (void *), void *arg)
 {
 	int ret;
+	static bool key_created;
 	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *,
 	  void *(*) (void *), void *);
 
+	if (!key_created) {
+		assert(!pthread_key_create(&thread_key, (void(*)(void *))core_deallocate));
+		key_created = 1;
+	}
+
 	if (!xpthread_create) {
-		xpthread_create = (int (*)(pthread_t*, const pthread_attr_t*, void* (*)(void*), void*))dlsym(RTLD_NEXT, "pthread_create");
+		xpthread_create = (int (*)(pthread_t*, const pthread_attr_t*, void *(*)(void *), void *))dlsym(RTLD_NEXT, "pthread_create");
 		assertf(xpthread_create, "dlsym failed");
 	}
 
@@ -299,9 +336,10 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		fprintf(stderr, "pthread_create(thread=%p attr=%p start_routine=%p arg=%p\n",
 			thread, attr, start_routine, arg);
 
-	const uint16_t core = allocate_core();
-	if (flags & FLAGS_VERBOSE)
-		printf("core %u\n", core);
+	struct thread_info *info = malloc(sizeof(struct thread_info));
+	assert(info);
+	info->start_routine = start_routine;
+	info->arg = arg;
 
 	size_t stacksize = PTHREAD_STACK_SIZE;
 	pthread_attr_t attr2;
@@ -311,20 +349,27 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	} else
 		assert(!pthread_attr_init(&attr2));
 
-	if (core < MAX_CORES) {
-		const size_t setsize = CPU_ALLOC_SIZE(core + 1);
+	if (core_allocate(info)) {
+		if (flags & FLAGS_VERBOSE)
+			printf("core %u\n", info->core);
+
+		const size_t setsize = CPU_ALLOC_SIZE(info->core + 1);
 		cpu_set_t cpuset[MAX_CORES / 8 / sizeof(cpu_set_t)];
 		CPU_ZERO_S(setsize, cpuset);
-		CPU_SET_S(core, setsize, cpuset);
+		CPU_SET_S(info->core, setsize, cpuset);
 
 		assert(!pthread_attr_setaffinity_np(&attr2, setsize, cpuset));
 
-		void *stack = malloc_spatial(core, stacksize);
+		void *stack = malloc_spatial(info->core, stacksize);
 		assert(stack);
 
-		ret = xpthread_create(thread, &attr2, start_routine, arg);
-	} else
-		ret = xpthread_create(thread, NULL, start_routine, arg);
+		ret = xpthread_create(thread, &attr2, (void *(*)(void *))pthread_create_inner, info);
+	} else {
+		if (flags & FLAGS_VERBOSE)
+			printf("cores overallocated\n");
+
+		ret = xpthread_create(thread, NULL, (void *(*)(void *))pthread_create_inner, info);
+	}
 
 	return ret;
 }

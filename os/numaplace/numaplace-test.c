@@ -26,5 +26,7 @@ int main(void)
 		assert(rc == 0);
 	}
 
+	sleep(1);
+
 	return 0;
 }
