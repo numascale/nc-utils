@@ -449,6 +449,12 @@ void stop_acpi(void)
 	val = &fadt->data[64 - 36];
 	const uint32_t acpipm1cntblk = *(uint32_t *)val;
 	uint16_t sci_en = inb(acpipm1cntblk);
+
+	if ((sci_en & 1) == 1) {
+		printf("already handed over\n");
+		return;
+	}
+
 	outb(acpi_enable, smi_cmd);
 	int limit = 1000;
 
