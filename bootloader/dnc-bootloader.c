@@ -3000,7 +3000,7 @@ int main(const int argc, const char *argv[])
 	parse_cmdline(argc, argv);
 
 	uint16_t reason = pmio_read16(0x44);
-	if (reason)
+	if (reason & ~(1 << 2)) /* Mask out CF9 reset */
 		warning("Last reboot reason (PM44h) was 0x%x", reason);
 
 	if (test_manufacture) {
