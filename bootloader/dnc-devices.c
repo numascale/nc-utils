@@ -433,7 +433,7 @@ void stop_acpi(void)
 	acpi_sdt_p fadt = find_sdt("FACP");
 
 	if (!fadt) {
-		printf("ACPI FACP table not found\n");
+		printf("FACP table not found\n");
 		return;
 	}
 
@@ -442,7 +442,7 @@ void stop_acpi(void)
 	const uint8_t acpi_enable = fadt->data[52 - 36];
 
 	if (!smi_cmd || !acpi_enable) {
-		printf("legacy support not enabled\n");
+		printf("not needed\n");
 		return;
 	}
 
@@ -463,7 +463,7 @@ void stop_acpi(void)
 		sci_en = inb(acpipm1cntblk);
 
 		if ((sci_en & 1) == 1) {
-			printf("legacy handover succeeded\n");
+			printf("succeeded\n");
 			return;
 		}
 	} while (--limit);
