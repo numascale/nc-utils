@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
 	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
 	assert(!unsetenv("GOMP_CPU_AFFINITY"));
 	assert(!unsetenv("OMP_PROC_BIND"));
+	assert(!unsetenv("KMP_AFFINITY"));
 
 	execvp(argv[optind], &argv[optind]);
 	syserror("Launching %s failed", argv[optind]);
