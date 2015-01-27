@@ -366,6 +366,9 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		assert(stack);
 
 		ret = xpthread_create(thread, &attr2, (void *(*)(void *))pthread_create_inner, info);
+#ifdef REGRESSION
+		assert(!pthread_attr_setstack(&attr2, stack, stacksize));
+#endif
 	} else {
 		if (flags & FLAGS_VERBOSE)
 			printf("cores overallocated\n");
