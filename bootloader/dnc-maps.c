@@ -375,7 +375,7 @@ void nc_mmio_range_high(const uint16_t sci, const int range, const uint64_t base
 	const uint64_t mask = (limit - base) >> 27;
 
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
-	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS, ht | ((base >> 27) << 8));
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS, dht | ((base >> 27) << 8));
 	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS, (mask << 8) | 1);
 }
 
