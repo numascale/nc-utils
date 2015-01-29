@@ -336,12 +336,6 @@ class Container {
 				offset += probe(bus, dev, fn, cap + offset);
 
 		printf("\n");
-
-		/* Disable IO on slaves */
-		if (node->sci) {
-			uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 4);
-			dnc_write_conf(node->sci, bus, dev, fn, 4, val & ~1);
-		}
 	}
 
 public:
@@ -369,8 +363,14 @@ public:
 				if (val == 0xffffffff)
 					continue;
 
+				/* Disable I/O and legacy interrupt generation on slave bridges/devices */
+				if (node->sci) {
+					uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 4);
+					dnc_write_conf(node->sci, bus, dev, fn, 4, (val & ~1) | (1 << 10));
+				}
+
 				uint8_t type = val >> 16;
-				if ((type & 0x7f) == 1)
+				if ((type & 0x7f) == 1) /* Bridge */
 					containers.add(new Container(node, bus, dev, fn));
 				else {
 					assert((type & 0x7f) == 0);
