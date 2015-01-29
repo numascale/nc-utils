@@ -859,7 +859,7 @@ static void optimise_all_linkbuffers(const ht_t max_ht)
 	printf("Asserting LDTSTOP# to optimise HT buffer allocation...");
 	uint8_t val8 = pmio_readb(0x8a);
 	pmio_writeb(0x8a, 0xf0);
-	pmio_writeb(0x87, 1);
+	pmio_writeb(0x87, 1); /* LdtStopCmd: Enter C3 */
 	pmio_writeb(0x8a, val8);
 	printf("done\n");
 }
