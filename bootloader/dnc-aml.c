@@ -491,7 +491,7 @@ unsigned char *remote_aml(uint32_t *len)
 {
 	Container *sb = new Scope("\\_SB_");
 
-	const int nnodes = min(dnc_node_count, AML_MAXNODES);
+	const unsigned nnodes = min(dnc_node_count, AML_MAXNODES);
 	node_info_t *node = &nodes[0];
 
 	/* For the master's PCI bus, add a proximity object */
@@ -500,7 +500,7 @@ unsigned char *remote_aml(uint32_t *len)
 	sb->children.add(rbus);
 
 	if (!fastboot) {
-		for (int n = 1; n < nnodes; n++) {
+		for (unsigned n = 1; n < nnodes; n++) {
 			char name[5];
 			node = &nodes[n];
 			snprintf(name, sizeof(name), "X%03u", n);
