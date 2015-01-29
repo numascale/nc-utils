@@ -30,7 +30,9 @@ void nc_mmio_range(const uint16_t sci, const int range, const uint64_t base, con
 void nc_mmio_range_high(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht);
 void nc_mmio_range_del(const uint16_t sci, const int range);
 checked bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht);
+checked bool nc_mmio_range_high_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht);
 void nc_mmio_range_print(const uint16_t sci, const int range);
+void nc_mmio_range_high_print(const uint16_t sci, const int range);
 void nc_dram_range_print(const uint16_t sci, const int range);
 void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht);
 void nc_dram_range_del(const uint16_t sci, const int range);

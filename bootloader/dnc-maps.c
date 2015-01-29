@@ -411,6 +411,22 @@ bool nc_mmio_range_read(const uint16_t sci, const int range, uint64_t *base, uin
 	return a & 3;
 }
 
+bool nc_mmio_range_high_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht)
+{
+	assert(range < 8);
+	uint8_t ht = sci_to_node(sci)->nc_ht;
+
+	dnc_write_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_RESOURCE_MAPPING_ENTRY_INDEX, range);
+	uint32_t a = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_BASE_REGISTERS);
+	uint32_t b = dnc_read_conf(sci, 0, 24 + ht, 1, H2S_CSR_F1_EXT_D_MMIO_ADDRESS_MASK_REGISTERS);
+
+	*base = (uint64_t)(a & ~0xff) << (27 - 8);
+	*limit = *base | ((uint64_t)(b & ~0xff) << (27 - 8)) | ((1 << 27) - 1);
+	*dht = a & 7;
+
+	return b & 1;
+}
+
 void nc_mmio_range_print(const uint16_t sci, const int range)
 {
 	uint64_t base, limit;
@@ -418,6 +434,15 @@ void nc_mmio_range_print(const uint16_t sci, const int range)
 
 	if (nc_mmio_range_read(sci, range, &base, &limit, &dht))
 		printf("SCI%03x MMIO range %d: 0x%08llx:0x%08llx to %d\n", sci, range, base, limit, dht);
+}
+
+void nc_mmio_range_high_print(const uint16_t sci, const int range)
+{
+	uint64_t base, limit;
+	uint8_t dht;
+
+	if (nc_mmio_range_high_read(sci, range, &base, &limit, &dht))
+		printf("SCI%03x MMIO high range %d: 0x%011llx:0x%011llx to %d\n", sci, range, base, limit, dht);
 }
 
 void nc_dram_range(const uint16_t sci, const int range, const uint64_t base, const uint64_t limit, const uint8_t dht)
@@ -525,6 +550,11 @@ void ranges_print(void)
 	foreach_nodes(node)
 		for (range = 0; range < 8; range++)
 			nc_mmio_range_print(node->sci, range);
+
+	printf("\nNumachip high MMIO ranges:\n");
+	foreach_nodes(node)
+		for (range = 0; range < 8; range++)
+			nc_mmio_range_high_print(node->sci, range);
 
 	printf("\nNumachip SCC routing:\n");
 
