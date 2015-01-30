@@ -297,7 +297,7 @@ static void _write_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg, 
 uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg)
 {
 	uint32_t ret;
-	DEBUG("HT#%d F%xx%03x -> ",
+	DEBUG("HT%d F%xx%03x -> ",
 	      node, func, reg);
 	cli();
 	outl(HT_REG(node, func, reg), PCI_CONF_SEL);
@@ -309,7 +309,7 @@ uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg)
 
 void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
 {
-	DEBUG("HT#%d F%xx%03x <- %08x",
+	DEBUG("HT%d F%xx%03x <- %08x",
 	      node, func, reg, val);
 	cli();
 	outl(HT_REG(node, func, reg), PCI_CONF_SEL);

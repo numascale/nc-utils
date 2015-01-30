@@ -617,7 +617,7 @@ void setup_mmio(void) {
 
 	printf("Setting up MMIO32 ATTs (default SCI%03x):\n", nodes[0].sci);
 	foreach_slave_nodes(dnode) {
-		printf("- 0x%x:0x%x -> SCI%03x\n",
+		printf("- 0x%x:0x%x to %03x\n",
 			dnode->mmio32_base, dnode->mmio32_limit, dnode->sci);
 
 		/* Ensure alignment */
@@ -640,7 +640,7 @@ void setup_mmio(void) {
 		if (!dnode->io_limit || dnode->io_limit < dnode->io_base)
 			continue;
 
-		printf("- 0x%x:0x%x -> SCI%03x\n", dnode->io_base, dnode->io_limit, dnode->sci);
+		printf("- 0x%x:0x%x to %03x\n", dnode->io_base, dnode->io_limit, dnode->sci);
 
 		/* Ensure alignment */
 		const uint32_t mask = (1 << NC_ATT_IO_GRAN) - 1;
@@ -656,7 +656,7 @@ void setup_mmio(void) {
 		if (!dnode->mmio64_limit || dnode->mmio64_limit < dnode->mmio64_base)
 			continue;
 
-		printf("- 0x%llx:0x%llx -> SCI%03x\n", dnode->mmio64_base, dnode->mmio64_limit, dnode->sci);
+		printf("- 0x%llx:0x%llx to %03x\n", dnode->mmio64_base, dnode->mmio64_limit, dnode->sci);
 
 		foreach_nodes(node) {
 			uint64_t addr = dnode->mmio64_base;

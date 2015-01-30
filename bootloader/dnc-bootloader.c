@@ -1255,7 +1255,7 @@ static void renumber_remote_bsp(node_info_t *const node)
 		dnc_write_conf(sci, 0, 24 + i, FUNC0_HT, 0x40 + 4 * max_ht, val);
 	}
 
-	/* Renumber HT#0 */
+	/* Renumber HT0 */
 	val = dnc_read_conf(sci, 0, 24 + node->bsp_ht, FUNC0_HT, 0x60);
 	dnc_write_conf(sci, 0, 24 + node->bsp_ht, FUNC0_HT, 0x60,
 	               (val & ~0x7707) | (max_ht << 12) | (max_ht << 8) | max_ht);
@@ -1319,7 +1319,7 @@ static void renumber_remote_bsp(node_info_t *const node)
 		dnc_write_conf(sci, 0, 24 + i, FUNC0_HT, 0x40, val);
 	}
 
-	/* Move NC to HT#0, update SbNode, LkNode */
+	/* Move NC to HT0, update SbNode, LkNode */
 	dnc_write_conf(sci, 0, 24 + max_ht + 1, 0, H2S_CSR_F0_CHTX_NODE_ID,
 	               (max_ht << 24) | (max_ht << 16) | (max_ht << 8) | 0);
 	val = dnc_read_csr(sci, H2S_CSR_G3_HT_NODEID);
@@ -2057,19 +2057,19 @@ static void lvt_setup(void)
 	for (int ht = 0; ht < nodes[0].nc_ht; ht++) {
 		uint32_t val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
 		if (((val >> 14) & 3) == 2) {
-			printf("- disabling ECC error SMI on HT#%d\n", ht);
+			printf("- disabling ECC error SMI on HT%d\n", ht);
 			cht_write_conf(ht, FUNC3_MISC, 0xb0, val & ~(3 << 14));
 		}
 
 		val = cht_read_conf(ht, FUNC3_MISC, 0xb0);
 		if (((val >> 12) & 3) == 2) {
-			printf("- disabling online DIMM swap complete SMI on HT#%d\n", ht);
+			printf("- disabling online DIMM swap complete SMI on HT%d\n", ht);
 			cht_write_conf(ht, FUNC3_MISC, 0xb0, val & ~(3 << 12));
 		}
 
 		val = cht_read_conf(ht, FUNC3_MISC, 0x1d4);
 		if (((val >> 22) & 3) == 2) {
-			printf("- disabling probe filter error SMI on HT#%d\n", ht);
+			printf("- disabling probe filter error SMI on HT%d\n", ht);
 			cht_write_conf(ht, FUNC3_MISC, 0x1d4, val & ~(3 << 22));
 		}
 	}

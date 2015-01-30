@@ -115,9 +115,9 @@ sci_fabric_setup(void)
 	for (i = 1; i < dnc_node_count; i++) {
 		uint8_t ht_id = nodes[i].nc_ht;
 		node = nodes[i].sci;
-		/* Set DRAM Limit on HT#1 to 0x2ffffffff */
+		/* Set DRAM Limit on HT1 to 0x2ffffffff */
 		dnc_write_conf(node, 0, 24 + 1, FUNC1_MAPS, 0x124, 0x5f);
-		/* Adjust Limit on HT#1 window to 0x2ffffffff */
+		/* Adjust Limit on HT1 window to 0x2ffffffff */
 		dnc_write_conf(node, 0, 24 + 0, FUNC1_MAPS, 0x4c, 0x02ff0001);
 		dnc_write_conf(node, 0, 24 + 1, FUNC1_MAPS, 0x4c, 0x02ff0001);
 		/* Insert new window for 0x300000000 - 0x3ffffffff to point to NC */

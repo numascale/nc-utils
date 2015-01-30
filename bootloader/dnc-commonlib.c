@@ -645,7 +645,7 @@ static uint32_t get_phy_register(int node, int link, int idx, int direct)
 			return cht_read_conf(node, FUNC4_LINK, base + 4);
 	}
 
-	printf("Read from phy register HT#%d F4x%x idx %x did not complete\n",
+	printf("Read from phy register HT%d F4x%x idx %x did not complete\n",
 	       node, base, idx);
 	return 0;
 }
@@ -663,7 +663,7 @@ static void set_phy_register(int node, int link, int idx, int direct, uint32_t v
 			return;
 	}
 
-	printf("Write to phy register HT#%d F4x%x idx %x did not complete\n",
+	printf("Write to phy register HT%d F4x%x idx %x did not complete\n",
 	       node, base, idx);
 }
 #endif /* __i386 */
@@ -686,7 +686,7 @@ static void reorganize_mmio(int nc)
 		if (((base & ~0xff) << 8) < mmio_start)
 			mmio_start = (base & ~0xff) << 8;
 
-		printf("HT#0 MMIO range %d: %08x:%08x\n", i, base, lim);
+		printf("HT0 MMIO range %d: %08x:%08x\n", i, base, lim);
 
 		if (base & 0x8) {
 			printf("Range locked, remapping...\n");
@@ -775,16 +775,16 @@ static void cht_mirror(int neigh, int link)
 static void cht_print(int neigh, int link)
 {
 	uint32_t val;
-	printf("HT#%d L%d Link Control      : 0x%08x\n", neigh, link,
+	printf("HT%d L%d Link Control      : 0x%08x\n", neigh, link,
 	      cht_read_conf(neigh, FUNC0_HT, 0x84 + link * 0x20));
-	printf("HT#%d L%d Link Freq/Revision: 0x%08x\n", neigh, link,
+	printf("HT%d L%d Link Freq/Revision: 0x%08x\n", neigh, link,
 	       cht_read_conf(neigh, FUNC0_HT, 0x88 + link * 0x20));
-	printf("HT#%d L%d Link Ext. Control : 0x%08x\n", neigh, link,
+	printf("HT%d L%d Link Ext. Control : 0x%08x\n", neigh, link,
 	       cht_read_conf(neigh, 0, 0x170 + link * 4));
 	val = get_phy_register(neigh, link, 0xe0, 0); /* Link phy compensation and calibration control 1 */
 
 	uint8_t rtt = (val >> 23) & 0x1f;
-	printf("HT#%d L%d Link Phy Settings : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
+	printf("HT%d L%d Link Phy Settings : Rtt=%d Ron=%d\n", neigh, link, rtt, (val >> 18) & 0x1f);
 
 	if (rtt == 0) {
 		if (workaround_rtt)
@@ -1051,7 +1051,7 @@ static void ht_optimize_link(int nc, const bool asic_mode)
 	nodes[0].nc_neigh_ht = neigh;
 	nodes[0].nc_neigh_link = link;
 	ganged = cht_read_conf(neigh, 0, 0x170 + link * 4) & 1;
-	printf("Found %s link to NC on HT#%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
+	printf("Found %s link to NC on HT%d L%d\n", ganged ? "ganged" : "unganged", neigh, link);
 	printf("Checking HT width/freq");
 
 	/* Gang link when appropriate, as the BIOS may not */
@@ -1472,12 +1472,12 @@ static void disable_link(int node, int link)
 	uint32_t val;
 	val = cht_read_conf(node, FUNC0_HT, 0x16c);
 	cht_write_conf(node, FUNC0_HT, 0x16c, val & ~(1 << 8));
-	printf("HT#%d F0x16c: %08x\n", node, cht_read_conf(node, FUNC0_HT, 0x16c));
-	printf("HT#%d F0x%02x: %08x\n", node, 0x84 + 0x20 * link,
+	printf("HT%d F0x16c: %08x\n", node, cht_read_conf(node, FUNC0_HT, 0x16c));
+	printf("HT%d F0x%02x: %08x\n", node, 0x84 + 0x20 * link,
 	       cht_read_conf(node, FUNC0_HT, 0x84 + 0x20 * link));
 	val = cht_read_conf(node, FUNC0_HT, 0x84 + 0x20 * link);
 	cht_write_conf(node, FUNC0_HT, 0x84 + 0x20 * link, val | 0xc0);
-	printf("HT#%d F0x%02x: %08x\n", node, 0x84 + 0x20 * link,
+	printf("HT%d F0x%02x: %08x\n", node, 0x84 + 0x20 * link,
 	       cht_read_conf(node, FUNC0_HT, 0x84 + 0x20 * link));
 }
 #endif /* __i386 */
@@ -1528,7 +1528,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode)
 		return -1;
 	}
 
-	printf("HT#%d L%d is coherent and unrouted\n", neigh_ht, link);
+	printf("HT%d L%d is coherent and unrouted\n", neigh_ht, link);
 
 	if (disable_nc) {
 		printf("Disabling NC link\n");
@@ -2203,7 +2203,7 @@ static void perform_selftest(const bool asic_mode, const char p_type[16])
 			}
 		}
 
-		/* Test SCC routing tables, no readback verify */
+		/* Test SCC/Xbar routing tables, no readback verify */
 		for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
 			dnc_write_csr(0xfff0, H2S_CSR_G0_ROUT_TABLE_CHUNK, chunk);
 
