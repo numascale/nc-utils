@@ -338,7 +338,7 @@ static int cht_error(int node, int link)
 
 void cht_test(uint8_t node, int neigh, int neigh_link)
 {
-	static int loop = 0, errors = 0;
+	static int errors = 0;
 	uint32_t base;
 	int i;
 
@@ -348,8 +348,10 @@ void cht_test(uint8_t node, int neigh, int neigh_link)
 	} else
 		printf("Testing HT link...");
 
-	if (ht_testmode & HT_TESTMODE_LOOP)
+	if (ht_testmode & HT_TESTMODE_LOOP) {
+		static int loop = 0;
 		printf("loop %d ", loop++);
+	}
 
 	base = cht_read_conf(node, 1, H2S_CSR_F1_MMIO_BASE_ADDRESS_REGISTERS);
 

@@ -141,7 +141,7 @@ static void *_map_mem64(uint64_t addr, uint64_t len)
 		uint64_t len;
 		char *mem;
 	} maps[16];
-	static unsigned int map_next = 0, map_cur = 0;
+	static unsigned int map_next = 0;
 	char *mem = NULL;
 	unsigned int i;
 
@@ -169,6 +169,7 @@ static void *_map_mem64(uint64_t addr, uint64_t len)
 		if (map_next < sizeof(maps) / sizeof(maps[0])) {
 			i = map_next++;
 		} else {
+			static unsigned map_cur = 0;
 			i = map_cur;
 			map_cur = (map_cur + 1) % 16;
 			munmap(maps[i].mem, maps[i].len);

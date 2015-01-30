@@ -187,11 +187,12 @@ public:
 class BAR {
 	const sci_t sci;
 	const int bus, dev, fn, reg;
+	const uint16_t vfs; /* Virtual Functions; used to allow extra space after allocation */
 public:
 	bool io, s64, pref;
 	uint64_t assigned, len;
-	BAR(const sci_t _sci, const int _bus, const int _dev, const int _fn, const int _reg)
-		: sci(_sci), bus(_bus), dev(_dev), fn(_fn), reg(_reg) {
+	BAR(const sci_t _sci, const int _bus, const int _dev, const int _fn, const int _reg, const uint16_t _vfs = 0)
+		: sci(_sci), bus(_bus), dev(_dev), fn(_fn), reg(_reg), vfs(_vfs) {
 		uint32_t cmd = dnc_read_conf(sci, bus, dev, fn, 4);
 		dnc_write_conf(sci, bus, dev, fn, 4, 0);
 
@@ -268,7 +269,7 @@ out:
 		}
 
 		assigned = *addr;
-		*addr += len;
+		*addr += len * max(vfs, 1); /* Allocate vfs times the space */
 
 	out:
 		printf("SCI%03x %02x:%02x.%x allocating %d-bit %s %s BAR 0x%x at 0x%llx\n",
@@ -297,14 +298,14 @@ class Container {
 	}
 
 	/* Returns offset to skip for 64-bit BAR */
-	int probe(const int bus, const int dev, const int fn, const int offset) {
-		BAR *bar = new BAR(node->sci, bus, dev, fn, offset);
+	int probe(const int bus, const int dev, const int fn, const int offset, const uint16_t vfs = 0) {
+		BAR *bar = new BAR(node->sci, bus, dev, fn, offset, vfs);
 		if (bar->len == 0) {
 			delete bar;
 			return 0;
 		}
 
-		/* Skip second register is a 64-bit BAR */
+		/* Skip second register if a 64-bit BAR */
 		int skip = bar->s64 ? 4 : 0;
 
 		/* Allocate 64-bit non-prefetchable BARs in 64-bit prefetchable space, as it's safe on SR56x0s */
@@ -331,9 +332,13 @@ class Container {
 
 		/* Assign BARs in particular capabilities */
 		uint16_t cap = extcapability(PCI_ECAP_SRIOV, node->sci, bus, dev, fn);
-		if (cap != PCI_CAP_NONE)
+		if (cap != PCI_CAP_NONE) {
+			/* PCI SR-IOV spec needs the number of Virtual Functions times the BAR in space */
+			const uint16_t vfs = dnc_read_conf(node->sci, bus, dev, fn, cap + 0x0c) >> 16;
+
 			for (int offset = 0x24; offset <= 0x38; offset += 4)
-				offset += probe(bus, dev, fn, cap + offset);
+				offset += probe(bus, dev, fn, cap + offset, vfs);
+		}
 
 		printf("\n");
 	}
