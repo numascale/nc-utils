@@ -364,7 +364,7 @@ public:
 					continue;
 
 				/* Disable I/O and legacy interrupt generation on slave bridges/devices */
-				if (node->sci) {
+				if (node->sci != local_info->sci) {
 					uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 4);
 					dnc_write_conf(node->sci, bus, dev, fn, 4, (val & ~1) | (1 << 10));
 				}
@@ -409,7 +409,7 @@ public:
 		uint64_t mmio64_start = mmio64_cur;
 
 		/* Only reallocate 32-bit BARs on slaves */
-		if (node->sci)
+		if (node->sci != local_info->sci)
 			for (BAR **bar = mmio32_bars.elements; bar < mmio32_bars.limit; bar++)
 				if ((*bar)->allocate(&map32->next))
 					return 1;
@@ -419,12 +419,12 @@ public:
 			if ((*c)->allocate())
 				return 1;
 
-		if (node->sci)
+		if (node->sci != local_info->sci)
 			for (BAR **bar = mmio64_bars.elements; bar < mmio64_bars.limit; bar++)
 				assert(!(*bar)->allocate(&mmio64_cur));
 
 		/* Only reallocate IO BARs on slaves */
-		if (node->sci)
+		if (node->sci != local_info->sci)
 			for (BAR **bar = io_bars.elements; bar < io_bars.limit; bar++)
 				assert(!(*bar)->allocate(&io_cur));
 
@@ -439,7 +439,7 @@ public:
 			node->sci, pbus, pdev, pfn, sec, io_start, io_cur - 1, mmio32_start, map32->next - 1, mmio64_start, mmio64_cur - 1);
 
 		/* Only re-allocate IO and 32-bit BARs on slaves */
-		if (node->sci) {
+		if (node->sci != local_info->sci) {
 			if (io_bars.used == 0 || io_cur == io_start ||
 			  (pbus == 0 && pdev == 0 && pfn == 0)) {
 				dnc_write_conf(node->sci, pbus, pdev, pfn, 0x1c, 0xf0);
