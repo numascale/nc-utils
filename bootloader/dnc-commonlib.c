@@ -2217,7 +2217,7 @@ static void perform_selftest(const bool asic_mode, const char p_type[16])
 
 	/* Point ATTs at invalid SCI ID to catch uninitialised access */
 	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + scc_att_index_range)));
-	for (uint32_t i = 0; i < (4096 * SCC_ATT_GRAN); i += SCC_ATT_GRAN)
+	for (uint32_t i = 0; i < 4096; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, 0xffff);
 
 
