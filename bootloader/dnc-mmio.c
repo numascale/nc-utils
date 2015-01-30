@@ -350,7 +350,6 @@ public:
 	  pbus(_pbus), pdev(_pdev), pfn(_pfn), node(_node) {
 		bus = (dnc_read_conf(node->sci, pbus, pdev, pfn, 0x18) >> 8) & 0xff;
 		printf("- bus %d\n", bus);
-		const int limit = bus == 0 ? 24 : 32;
 
 		/* Allocate bridge BARs and expansion ROM */
 		for (int offset = 0x10; offset <= 0x38; offset += 4) {
@@ -361,7 +360,7 @@ public:
 			offset += probe(pbus, pdev, pfn, offset);
 		}
 
-		for (int dev = 0; dev < limit; dev++) {
+		for (int dev = 0; dev < 32; dev++) {
 			for (int fn = 0; fn < 8; fn++) {
 				uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 0xc);
 				/* PCI device functions are not necessarily contiguous */
