@@ -87,7 +87,7 @@ $(mjson_dir)/src/json.c: json-$(mjson_version)
 
 $(mjson_dir)/src/json.o: $(mjson_dir)/src/json.c
 
-dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-maps.h dnc-route.h dnc-acpi.h dnc-config.h dnc-fabric.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-bootloader.h dnc-defs.h dnc-masterlib.h dnc-regs.h ddr_spd.h dnc-access.c dnc-commonlib.c dnc-fabric.c dnc-monitor.c dnc-escrow.c dnc-trace.c test-slavenode.c dnc-acpi.c dnc-config.c dnc-masterlib.c dnc-route.c gen-ucode.c test-masternode.c dnc-bootloader.c dnc-dimmtest.c dnc-devices.c dnc-mmio.c dnc-test-access.c test-routing.c
+dnc-version.h: dnc-access.h dnc-commonlib.h dnc-devices.h dnc-mmio.h dnc-maps.h dnc-route.h dnc-acpi.h dnc-config.h dnc-fabric.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-bootloader.h dnc-defs.h dnc-masterlib.h dnc-regs.h ddr_spd.h dnc-access.c dnc-commonlib.c dnc-fabric.c dnc-monitor.c dnc-escrow.c dnc-trace.c test-slavenode.c dnc-acpi.c dnc-config.c dnc-masterlib.c dnc-route.c gen-ucode.c test-masternode.c dnc-bootloader.c dnc-dimmtest.c dnc-devices.c dnc-mmio.c dnc-test-access.c test-routing.c Makefile
 	@echo \#define VER \"`git describe --always --dirty=+`\" >dnc-version.h
 
 dnc-bootloader.elf: dnc-bootloader.o dnc-commonlib.o dnc-dimmtest.o dnc-devices.o dnc-monitor.o dnc-escrow.o dnc-trace.o dnc-masterlib.o dnc-mmio.o dnc-maps.o \
