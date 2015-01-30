@@ -253,9 +253,6 @@ out:
 			goto out;
 		}
 
-		if (io_nonpref_high && s64 && !pref)
-			warning("Allocating non-prefetchable 64-bit BAR 0x%x on SCI%03x %02x:%02x.%d in 64-bit prefetchable space", reg, sci, bus, dev, fn);
-
 		/* MMIO BARs are aligned from page size to their size */
 		*addr = roundup(*addr, max(len, 4096));
 
