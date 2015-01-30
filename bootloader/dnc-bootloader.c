@@ -2402,28 +2402,9 @@ static void unify_all_nodes(void)
 	dnc_write_csr(0xfff0, H2S_CSR_G3_DRAM_SHARED_LIMIT, nodes[0].dram_limit);
 
 	/* Setup SCC routing */
-	foreach_nodes(node) {
-		uint32_t addr = 0;
-
-		foreach_nodes(dnode) {
-			addr = dnode->dram_base;
-			uint32_t end = dnode->dram_limit;
-
-			dnc_write_csr(node->sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
-			  (1 << (27 + scc_att_index_range)) | (addr / SCC_ATT_GRAN));
-
-			while (addr < end) {
-				dnc_write_csr(node->sci, H2S_CSR_G0_ATT_ENTRY, dnode->sci);
-				addr += SCC_ATT_GRAN;
-			}
-		}
-
-		/* Point the rest at the master */
-		while (addr < (4096 * SCC_ATT_GRAN)) {
-			dnc_write_csr(node->sci, H2S_CSR_G0_ATT_ENTRY, nodes[0].sci);
-			addr += SCC_ATT_GRAN;
-		}
-	}
+	foreach_nodes(node)
+		foreach_nodes(dnode)
+			scc_att_range(node->sci, (uint64_t)dnode->dram_base << DRAM_MAP_SHIFT, ((uint64_t)dnode->dram_limit << DRAM_MAP_SHIFT) - 1, dnode->sci);
 
 	load_scc_microcode();
 	scc_started = 1;

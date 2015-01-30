@@ -39,4 +39,4 @@ void nc_dram_range_del(const uint16_t sci, const int range);
 checked bool nc_dram_range_read(const uint16_t sci, const int range, uint64_t *base, uint64_t *limit, uint8_t *dht);
 void nc_dram_range_print(const uint16_t sci, const int range);
 void ranges_print(void);
-
+void scc_att_range(const uint16_t sci, uint64_t base, const uint64_t limit, const sci_t dest);

@@ -188,7 +188,7 @@ void mmio_range_print(const uint16_t sci, const int ht, const int range)
 	uint8_t dest;
 	bool lock, np;
 
-	assert(range < 8);
+	assert(range < (family >= 0x15 ? 12 : 8));
 
 	if (mmio_range_read(sci, ht, range, &base, &limit, &dest, &link, &lock, &np))
 		printf("SCI%03x#%d MMIO range %d: 0x%08llx:0x%08llx to %d.%d%s%s\n",
@@ -534,7 +534,7 @@ void ranges_print(void)
 
 	printf("\nNorthbridge MMIO ranges:\n");
 	foreach_nodes(node) {
-		for (range = 0; range < 8; range++) {
+		for (range = 0; range < (family >= 0x15 ? 12 : 8); range++) {
 			mmio_range_print(node->sci, node->bsp_ht, range);
 
 			/* Verify consistency */
@@ -586,6 +586,12 @@ void ranges_print(void)
 	}
 
 	printf("0x%011llx\n", ((uint64_t)i * (SCC_ATT_GRAN << DRAM_MAP_SHIFT)) - 1);
+
+	/* FIXME:
+	   Numachip MMIO32 routing:
+	   SCIffff: 0x00000000:0xffffffff
+	   SCI000: 0x00000000:0x4fffffff
+	*/
 
 	printf("\nNumachip MMIO32 routing:\n");
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32);
@@ -644,5 +650,22 @@ void ranges_print(void)
 		}
 	}
 	printf("0x%07x\n\n", (i << NC_ATT_IO_GRAN) - 1);
+}
+
+void scc_att_range(const uint16_t sci, const uint64_t base, const uint64_t limit, const sci_t dest)
+{
+	if (verbose > 1)
+		printf("%03x: SCC ATT 0x%llx:0x%llx to %03x\n", sci, base, limit, dest);
+
+	assert(limit > base);
+	const uint64_t mask = ((uint64_t)SCC_ATT_GRAN << DRAM_MAP_SHIFT) - 1;
+	assert((base & mask) == 0);
+	assert((limit & mask) == mask);
+
+	/* Select SCC ATT base address, enable autoinc */
+	dnc_write_csr(sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + scc_att_index_range)) | (base / ((uint64_t)SCC_ATT_GRAN << DRAM_MAP_SHIFT)));
+
+	for (uint64_t addr = base; addr < (limit + 1U); addr += (uint64_t)SCC_ATT_GRAN << DRAM_MAP_SHIFT)
+		dnc_write_csr(sci, H2S_CSR_G0_ATT_ENTRY, dest);
 }
 

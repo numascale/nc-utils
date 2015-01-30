@@ -599,7 +599,8 @@ void setup_mmio(void) {
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
 		assert(map32->next < MMIO32_LIMIT);
 
-		/* May need to address Numachip extended MMIO mask constraint */
+		mmio64_cur = roundup(mmio64_cur, (uint64_t)SCC_ATT_GRAN << DRAM_MAP_SHIFT);
+		/* Address Numachip extended MMIO mask constraint */
 		mmio64_cur = (*c)->node->mmio64_base + roundup_nextpow2(mmio64_cur - (*c)->node->mmio64_base);
 
 		(*c)->node->mmio32_limit = map32->next - 1;
@@ -615,7 +616,7 @@ void setup_mmio(void) {
 
 	mmio64_limit = mmio64_cur;
 
-	printf("Setting up MMIO32 ATTs (default SCI%03x):\n", nodes[0].sci);
+	printf("Setting up MMIO32 ATTs:\n");
 	foreach_slave_nodes(dnode) {
 		printf("- 0x%x:0x%x to %03x\n",
 			dnode->mmio32_base, dnode->mmio32_limit, dnode->sci);
@@ -658,18 +659,9 @@ void setup_mmio(void) {
 
 		printf("- 0x%llx:0x%llx to %03x\n", dnode->mmio64_base, dnode->mmio64_limit, dnode->sci);
 
-		foreach_nodes(node) {
-			uint64_t addr = dnode->mmio64_base;
-			uint64_t end  = dnode->mmio64_limit;
-
-			dnc_write_csr(node->sci, H2S_CSR_G0_ATT_INDEX, (1 << 31) |
-			  (1 << (27 + scc_att_index_range)) | (addr / (SCC_ATT_GRAN << DRAM_MAP_SHIFT)));
-
-			while (addr < end) {
-				dnc_write_csr(node->sci, H2S_CSR_G0_ATT_ENTRY, dnode->sci);
-				addr += SCC_ATT_GRAN << DRAM_MAP_SHIFT;
-			}
-		}
+		foreach_nodes(node)
+			if (dnode->mmio64_limit > dnode->mmio64_base)
+				scc_att_range(node->sci, dnode->mmio64_base, dnode->mmio64_limit, dnode->sci);
 	}
 
 	uint64_t tom = rdmsr(MSR_TOPMEM);
@@ -733,20 +725,16 @@ void setup_mmio(void) {
 			while (range < 8)
 				mmio_range_del(node->sci, ht, range++);
 
-			/* Skip CSR ranges */
-			range = 10;
+			/* Skip CSR range */
+			range = 9;
 
 			/* 64-bit under local range */
-			if (node->mmio64_base > ((uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT))
-				mmio_range(node->sci, ht, range++, (uint64_t)dnc_top_of_mem << DRAM_MAP_SHIFT, node->mmio64_base - 1, node->nc_ht, 0, 1, 0);
+			if (node->mmio64_base > mmio64_base)
+				mmio_range(node->sci, ht, range++, mmio64_base, node->mmio64_base - 1, node->nc_ht, 0, 1, 0);
 
 			/* 64-bit local range */
 			if (node->mmio64_limit > node->mmio64_base)
 				mmio_range(node->sci, ht, range++, node->mmio64_base, node->mmio64_limit, ioh_ht, ioh_link, 1, 0);
-
-			/* Fam15h has 12 MMIO ranges, so use 7 */
-			if (family > 0x10)
-				range = 7;
 
 			/* 64-bit above local range */
 			if (nodes[dnc_node_count - 1].mmio64_limit > node->mmio64_limit && node < &nodes[dnc_node_count - 1])
@@ -791,7 +779,7 @@ void setup_mmio(void) {
 				mmio_range_del(nodes[0].sci, ht, range++);
 
 			/* Skip CSR ranges */
-			range = 10;
+			range = 9;
 
 			if (nodes[0].mmio64_limit > nodes[0].mmio64_base)
 				mmio_range(nodes[0].sci, ht, range++, nodes[0].mmio64_base, nodes[0].mmio64_limit, ioh_ht, ioh_link, 1, 0);

@@ -2215,7 +2215,12 @@ static void perform_selftest(const bool asic_mode, const char p_type[16])
 		}
 	}
 
-	/* Point ATTs are invalid SCI ID to catch uninitialised access */
+	/* Point ATTs at invalid SCI ID to catch uninitialised access */
+	dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_INDEX, (1 << 31) | (1 << (27 + scc_att_index_range)));
+	for (uint32_t i = 0; i < (4096 * SCC_ATT_GRAN); i += SCC_ATT_GRAN)
+		dnc_write_csr(0xfff0, H2S_CSR_G0_ATT_ENTRY, 0xffff);
+
+
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_IO);
 	for (unsigned i = 0; i < 256; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, 0xffff);
