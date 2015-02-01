@@ -504,19 +504,15 @@ void setup_mmio(void) {
 			};
 			pci_search(devices, node->sci, sec);
 
-			/* Clear bits in PCI Bridge Control */
-			dnc_write_conf(node->sci, 0, 20, 4, 0x3e, 0);
-
-			/* Disable the PCI bridge */
-			disable_bridge(node->sci, 0, 20, 4);
-
-			/* Disable and hide SP5100 IDE controller */
+			/* Disable and hide IDE controller */
 			disable_device(node->sci, 0, 20, 1);
 			val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
 			dnc_write_conf(node->sci, 0, 20, 0, 0xac, val | (1 << 19));
 
-			/* Disable the LPC controller; hiding it causes hanging */
+			/* Disable and hide the ISA LPC controller */
 			disable_device(node->sci, 0, 20, 3);
+			val = dnc_read_conf(node->sci, 0, 20, 0, 0x64);
+			dnc_write_conf(node->sci, 0, 20, 0, 0x64, val & ~(1 << 20));
 
 			/* Disable and hide all USB controllers */
 			disable_device(node->sci, 0, 18, 0);
@@ -535,6 +531,13 @@ void setup_mmio(void) {
 
 			/* Disable the ACPI/SMBus function */
 			disable_device(node->sci, 0, 20, 0);
+
+			/* Disable VGA controller and bridge to it, and hide VGA controller */
+			dnc_write_conf(node->sci, 0, 20, 4, 0x3e, 0); /* Disable forwarding SERR response */
+			disable_bridge(node->sci, 0, 20, 4);
+			disable_device(node->sci, 1, 4, 0);
+			val = dnc_read_conf(node->sci, 0, 20, 4, 0x5c);
+			dnc_write_conf(node->sci, 0, 20, 4, 0x5c, val & ~0xffff0000);
 
 #ifdef FIXME /* Causes bus enumeration to loop */
 			/* Disable legacy bridge; unhides PCI bridge at device 8 */
