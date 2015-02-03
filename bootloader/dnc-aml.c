@@ -499,7 +499,7 @@ unsigned char *remote_aml(uint32_t *len)
 	rbus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 	sb->children.add(rbus);
 
-	if (!fastboot) {
+	if (!fastboot || remote_io) {
 		for (unsigned n = 1; n < nnodes; n++) {
 			char name[5];
 			node = &nodes[n];
