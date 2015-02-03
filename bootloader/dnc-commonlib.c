@@ -1805,7 +1805,7 @@ static int ht_fabric_fixup(bool *p_asic_mode)
 	val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER);
 	if (val & (1 << 1))
 		cht_write_conf(nc_ht, 0, H2S_CSR_F0_STATUS_COMMAND_REGISTER, val & ~(1 << 1));
-	cht_write_conf(nc_ht, 0, H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0xff000000);
+	cht_write_conf(nc_ht, 0, H2S_CSR_F0_BASE_ADDRESS_REGISTER_0, 0);
 	cht_write_conf(nc_ht, 0, H2S_CSR_F0_EXPANSION_ROM_BASE_ADDRESS, 0);
 
 	/* Setup 128MB extended MMIO map granularity */

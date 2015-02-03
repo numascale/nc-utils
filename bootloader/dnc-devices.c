@@ -92,6 +92,11 @@ static uint16_t capability(const uint8_t cap, const sci_t sci, const int bus, co
 
 uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const int dev, const int fn)
 {
+	uint16_t cap2 = capability(PCI_CAP_PCIE, sci, bus, dev, fn);
+
+	if (cap2 == PCI_CAP_NONE)
+		return PCI_CAP_NONE;
+
 	uint8_t visited[0x1000];
 	uint16_t offset = 0x100;
 
@@ -111,10 +116,21 @@ uint16_t extcapability(const uint16_t cap, const sci_t sci, const int bus, const
 	return PCI_CAP_NONE;
 }
 
+static void disable_common(const sci_t sci, const int bus, const int dev, const int fn)
+{
+	/* Disable MSI interrupt */
+	uint16_t cap = capability(PCI_CAP_MSI, sci, bus, dev, fn);
+	if (cap != PCI_CAP_NONE) {
+		bool s64 = dnc_read_conf(sci, bus, dev, fn, cap + 0) & (1 << 7);
+		for (unsigned offset = 0x0; offset <= (s64 ? 0xc : 0x8); offset += 4)
+			dnc_write_conf(sci, bus, dev, fn, cap + offset, 0);
+	}
+}
+
 void disable_device(const sci_t sci, const int bus, const int dev, const int fn)
 {
-	/* Disable I/O, memory, DMA and interrupts */
-	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
+	/* Disable I/O, DMA and legacy interrupts; enable memory decode */
+	dnc_write_conf(sci, bus, dev, fn, 0x4, 0x0402);
 
 	/* Clear BARs */
 	for (unsigned i = 0x10; i <= 0x24; i += 4)
@@ -126,28 +142,31 @@ void disable_device(const sci_t sci, const int bus, const int dev, const int fn)
 	/* Set Interrupt Line register to 0 (unallocated) */
 	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
 
-#ifdef BROKEN
-	/* Put device into D3 if possible */
-	/* FIXME: hangs on x3755 */
-	uint16_t cap = capability(sci, bus, dev, fn, PCI_CAP_POWER);
-	if (cap != PCI_CAP_NONE) {
-		uint32_t val = dnc_read_conf(sci, bus, dev, fn, cap + 0x4);
-		dnc_write_conf(sci, bus, dev, fn, cap + 0x4, val | 3);
-	}
-#endif
+	/* Disable SR-IOV BARs */
+	uint16_t cap = extcapability(PCI_ECAP_SRIOV, sci, bus, dev, fn);
+	if (cap != PCI_CAP_NONE)
+		for (unsigned offset = 0x24; offset <= 0x38; offset += 4)
+			dnc_write_conf(sci, bus, dev, fn, cap + offset, 0);
+
+	disable_common(sci, bus, dev, fn);
 }
 
 void disable_bridge(const sci_t sci, const int bus, const int dev, const int fn)
 {
-	/* Disable I/O, memory, DMA and interrupts */
-	dnc_write_conf(sci, bus, dev, fn, 0x4, 0);
+	/* Disable I/O, DMA and legacy interrupts; enable memory decode */
+	dnc_write_conf(sci, bus, dev, fn, 0x4, 0x0402);
 
 	/* Clear BARs */
 	for (unsigned i = 0x10; i <= 0x14; i += 4)
 		dnc_write_conf(sci, bus, dev, fn, i, 0);
 
-	/* Clear IO and memory ranges */
-	for (unsigned i = 0x1c; i <= 0x30; i += 4)
+	/* Disable IO and memory ranges */
+	dnc_write_conf(sci, bus, dev, fn, 0x1c, 0x000000f0);
+	dnc_write_conf(sci, bus, dev, fn, 0x20, 0x0000fff0);
+	dnc_write_conf(sci, bus, dev, fn, 0x20, 0x0000fff0);
+
+	/* Clear upper bits */
+	for (unsigned i = 0x28; i <= 0x30; i += 4)
 		dnc_write_conf(sci, bus, dev, fn, i, 0);
 
 	/* Clear expansion ROM base address */
@@ -155,6 +174,8 @@ void disable_bridge(const sci_t sci, const int bus, const int dev, const int fn)
 
 	/* Set Interrupt Line register to 0 (unallocated) */
 	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
+
+	disable_common(sci, bus, dev, fn);
 }
 
 static void completion_timeout(const uint16_t sci, const int bus, const int dev, const int fn)

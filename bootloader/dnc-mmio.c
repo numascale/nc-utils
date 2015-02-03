@@ -47,61 +47,6 @@ void dump_device(const sci_t sci, const int bus, const int dev, const int fn)
 	printf("\n");
 }
 
-#ifdef UNUSED
-static uint64_t tmp_base[2], tmp_lim[2];
-
-static void pci_search(const uint16_t sci, const int bus,
-	bool (*barfn)(const uint16_t sci, const int bus, const int dev, const int fn, const int reg))
-{
-	for (int dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
-		for (int fn = 0; fn < 8; fn++) {
-			uint32_t val = dnc_read_conf(sci, bus, dev, fn, 0xc);
-			/* PCI device functions are not necessarily contiguous */
-			if (val == 0xffffffff)
-				continue;
-
-			uint8_t type = val >> 16;
-			printf("%s @ %02x:%02x.%x:", (type & 0x7f) == 0 ? " - endpoint" : "bridge", bus, dev, fn);
-
-			if (barfn(sci, bus, dev, fn, 0x10))
-				barfn(sci, bus, dev, fn, 0x14);
-
-			if ((type & 0x7f) == 0) { /* Device */
-				if (barfn(sci, bus, dev, fn, 0x18))
-					barfn(sci, bus, dev, fn, 0x1c);
-				if (barfn(sci, bus, dev, fn, 0x20))
-					barfn(sci, bus, dev, fn, 0x24);
-			}
-
-			printf("\n");
-
-			/* Recurse down bridges */
-			if ((type & 0x7f) == 0x01) {
-				int sec = (dnc_read_conf(sci, bus, dev, fn, 0x18) >> 8) & 0xff;
-				pci_search(sci, sec, barfn);
-
-				for (int i = 0; i < 2; i++) {
-					/* Round up limit */
-					if (tmp_lim[i])
-						tmp_lim[i] = roundup(tmp_lim[i], NC_ATT_MMIO32_GRAN) - 1;
-
-					printf("window %d: 0x%08llx:0x%08llx\n", i, tmp_base[i], tmp_lim[i]);
-
-					if (tmp_base[i] < nodes[0].mmio32_base)
-						nodes[0].mmio32_base = tmp_base[i];
-					if (tmp_lim[i] > nodes[0].mmio32_limit)
-						nodes[0].mmio32_limit = tmp_lim[i];
-				}
-			}
-
-			/* If not multi-function, break out of function loop */
-			if (!fn && !(type & 0x80))
-				break;
-		}
-	}
-}
-#endif
-
 class Map {
 public:
 	Vector<struct range> excluded;
@@ -357,18 +302,12 @@ public:
 			offset += probe(pbus, pdev, pfn, offset);
 		}
 
-		for (int dev = 0; dev < 32; dev++) {
+		for (int dev = 0; dev < (bus == 0 ? 24 : 32); dev++) {
 			for (int fn = 0; fn < 8; fn++) {
 				uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 0xc);
 				/* PCI device functions are not necessarily contiguous */
 				if (val == 0xffffffff)
 					continue;
-
-				/* Disable I/O and legacy interrupt generation on slave bridges/devices */
-				if (node->sci != local_info->sci) {
-					uint32_t val = dnc_read_conf(node->sci, bus, dev, fn, 4);
-					dnc_write_conf(node->sci, bus, dev, fn, 4, (val & ~1) | (1 << 10));
-				}
 
 				uint8_t type = val >> 16;
 				if ((type & 0x7f) == 1) /* Bridge */
@@ -492,58 +431,48 @@ void setup_mmio(void) {
 		dnc_write_conf(node->sci, 0, 17, 0, 0x60, (val & ~0xff00) | 0x5000);
 		dnc_write_conf(node->sci, 0, 17, 0, 0x40, val2);
 
-		if (node != &nodes[0]) {
-			/* Disable IO, memory and interrupts on devices behind bridge */
-			uint32_t val = dnc_read_conf(node->sci, 0, 20, 4, 0x18);
-			int sec = (val >> 8) & 0xff;
+		/* Disable VGA bridge forwarding SERR response */
+		dnc_write_conf(node->sci, 0, 20, 4, 0x3e, 0);
 
+		if (node->sci != nodes[0].sci) {
 			const struct devspec devices[] = {
 				{PCI_CLASS_ANY, 0, PCI_TYPE_ENDPOINT, disable_device},
 				{PCI_CLASS_ANY, 0, PCI_TYPE_BRIDGE, disable_bridge},
 				{PCI_CLASS_FINAL, 0, PCI_TYPE_ANY, NULL}
 			};
-			pci_search(devices, node->sci, sec);
-
-			/* Disable and hide IDE controller */
-			disable_device(node->sci, 0, 20, 1);
-			val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
-			dnc_write_conf(node->sci, 0, 20, 0, 0xac, val | (1 << 19));
-
-			/* Disable and hide the ISA LPC controller */
-			disable_device(node->sci, 0, 20, 3);
-			val = dnc_read_conf(node->sci, 0, 20, 0, 0x64);
-			dnc_write_conf(node->sci, 0, 20, 0, 0x64, val & ~(1 << 20));
-
-			/* Disable and hide all USB controllers */
-			disable_device(node->sci, 0, 18, 0);
-			disable_device(node->sci, 0, 18, 1);
-			disable_device(node->sci, 0, 18, 2);
-			disable_device(node->sci, 0, 19, 0);
-			disable_device(node->sci, 0, 19, 1);
-			disable_device(node->sci, 0, 19, 2);
-			disable_device(node->sci, 0, 20, 5);
-			val = dnc_read_conf(node->sci, 0, 20, 0, 0x68);
-			dnc_write_conf(node->sci, 0, 20, 0, 0x68, val & ~0xf7);
+			pci_search(devices, node->sci, 0);
 
 			/* Disable HPET MMIO decoding */
 			val = dnc_read_conf(node->sci, 0, 20, 0, 0x40);
 			dnc_write_conf(node->sci, 0, 20, 0, 0x40, val & ~(1 << 28));
 
-			/* Disable the ACPI/SMBus function */
-			disable_device(node->sci, 0, 20, 0);
+			/* Hide IDE controller */
+			val = dnc_read_conf(node->sci, 0, 20, 0, 0xac);
+			dnc_write_conf(node->sci, 0, 20, 0, 0xac, val | (1 << 19));
 
-			/* Disable VGA controller and bridge to it, and hide VGA controller */
-			dnc_write_conf(node->sci, 0, 20, 4, 0x3e, 0); /* Disable forwarding SERR response */
-			disable_bridge(node->sci, 0, 20, 4);
-			disable_device(node->sci, 1, 4, 0);
+			/* Hide the ISA LPC controller */
+			val = dnc_read_conf(node->sci, 0, 20, 0, 0x64);
+			dnc_write_conf(node->sci, 0, 20, 0, 0x64, val & ~(1 << 20));
+
+			/* Disable and hide all USB controllers */
+			dnc_write_conf(node->sci, 0, 18, 0, 4, 0x0400);
+			dnc_write_conf(node->sci, 0, 18, 1, 4, 0x0400);
+			dnc_write_conf(node->sci, 0, 18, 2, 4, 0x0400);
+			dnc_write_conf(node->sci, 0, 19, 0, 4, 0x0400);
+			dnc_write_conf(node->sci, 0, 19, 1, 4, 0x0400);
+			dnc_write_conf(node->sci, 0, 19, 2, 4, 0x0400);
+			dnc_write_conf(node->sci, 0, 19, 5, 4, 0x0400);
+			val = dnc_read_conf(node->sci, 0, 20, 0, 0x68);
+			dnc_write_conf(node->sci, 0, 20, 0, 0x68, val & ~0xf7);
+
+			/* Disable the ACPI/SMBus function */
+			dnc_write_conf(node->sci, 0, 20, 0, 4, 0x0400);
+
+			/* Disable and hide VGA controller */
+			dnc_write_conf(node->sci, 0, 20, 4, 4, 0x0400);
+			dnc_write_conf(node->sci, 1, 4, 0, 4, 0x0400);
 			val = dnc_read_conf(node->sci, 0, 20, 4, 0x5c);
 			dnc_write_conf(node->sci, 0, 20, 4, 0x5c, val & ~0xffff0000);
-
-#ifdef FIXME /* Causes bus enumeration to loop */
-			/* Disable legacy bridge; unhides PCI bridge at device 8 */
-			val = ioh_nbmiscind_read(node->sci, 0x0);
-			ioh_nbmiscind_write(node->sci, 0x0, val | (1 << 6));
-#endif
 		}
 	}
 
