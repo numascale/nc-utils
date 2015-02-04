@@ -570,7 +570,7 @@ unsigned char *remote_aml(uint32_t *len)
 			bus->children.add(new Name("_CRS", package));
 
 			Container *method = new Method("_CBA", 0, Method::NotSerialised);
-			const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node << 32);
+			const uint64_t config = DNC_MCFG_BASE | ((uint64_t)node->sci << 28);
 			Container *passed = new Return(new Constant(config));
 
 			method->children.add(passed);
