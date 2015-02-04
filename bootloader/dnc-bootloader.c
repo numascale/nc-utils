@@ -797,32 +797,17 @@ static void update_acpi_tables(void)
 			for (j = 0; j < node->ht[ht].cores; j++) {
 				uint16_t apicid = j + node->ht[ht].apic_base + node->apic_offset;
 
-				if (ht_next_apic < 0x100) {
-					struct acpi_core_affinity core;
-					memset(&core, 0, sizeof(core));
-					core.type     = 0;
-					core.len      = sizeof(core);
-					core.prox_low = node->ht[ht].pdom & 0xff;
-					core.apic_id  = apicid;
-					core.enabled  = core_enabled(node, j);
-					core.flags    = 0;
-					core.sapic_eid = 0;
-					core.prox_hi   = node->ht[ht].pdom >> 8;
-					memcpy((unsigned char *)srat + srat->len, &core, core.len);
-					srat->len += core.len;
-				} else {
-					struct acpi_x2apic_affinity x2core;
-					memset(&x2core, 0, sizeof(x2core));
-					x2core.type     = 2;
-					x2core.len      = sizeof(x2core);
-					x2core.prox_dom = node->ht[ht].pdom;
-					x2core.x2apic_id = apicid;
-					x2core.enabled  = core_enabled(node, j);
-					x2core.flags    = 0;
-					x2core.clock_dom = ~0;
-					memcpy((unsigned char *)srat + srat->len, &x2core, x2core.len);
-					srat->len += x2core.len;
-				}
+				struct acpi_x2apic_affinity x2core;
+				memset(&x2core, 0, sizeof(x2core));
+				x2core.type     = 2;
+				x2core.len      = sizeof(x2core);
+				x2core.prox_dom = node->ht[ht].pdom;
+				x2core.x2apic_id = apicid;
+				x2core.enabled  = core_enabled(node, j);
+				x2core.flags    = 0;
+				x2core.clock_dom = node - &nodes[0];
+				memcpy((unsigned char *)srat + srat->len, &x2core, x2core.len);
+				srat->len += x2core.len;
 			}
 		}
 	}
