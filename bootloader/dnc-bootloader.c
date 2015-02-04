@@ -895,7 +895,7 @@ static void update_acpi_tables_late(void)
 	/* Ensure BIOS-provided DSDT uses ACPI revision 2, to 64-bit intergers are accepted */
 	acpi_sdt_p dsdt = find_child("DSDT", rsdt, 4);
 	if (dsdt->revision < 2) {
-		printf("Promoting DSDT to revision 2\n");
+		printf("Promoting DSDT from ACPI revision %u to 2\n", dsdt->revision);
 		dsdt->revision = 2;
 		dsdt->checksum += checksum(dsdt, dsdt->len);
 	}
