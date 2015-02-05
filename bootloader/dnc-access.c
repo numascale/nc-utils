@@ -102,10 +102,10 @@ void pmio_write8(uint16_t offset, uint8_t val)
 
 uint16_t pmio_read16(uint16_t offset)
 {
-	unsigned int i;
+	assert(!(offset & 1));
 	uint16_t val = 0;
 
-	for (i = 0; i < sizeof(val); i++)
+	for (unsigned i = 0; i < sizeof(val); i++)
 		val |= pmio_read8(offset + i) << (i * 8);
 
 	return val;
@@ -113,10 +113,11 @@ uint16_t pmio_read16(uint16_t offset)
 
 uint32_t pmio_read32(uint16_t offset)
 {
-	unsigned int i;
+	assert(!(offset & 3));
+
 	uint32_t val = 0;
 
-	for (i = 0; i < sizeof(val); i++)
+	for (unsigned i = 0; i < sizeof(val); i++)
 		val |= pmio_read8(offset + i) << (i * 8);
 
 	return val;
@@ -124,9 +125,9 @@ uint32_t pmio_read32(uint16_t offset)
 
 void pmio_write32(uint16_t offset, uint32_t val)
 {
-	unsigned int i;
+	assert(!(offset & 3));
 
-	for (i = 0; i < sizeof(val); i++)
+	for (unsigned i = 0; i < sizeof(val); i++)
 		pmio_write8(offset + i, val >> (i * 8));
 }
 
@@ -144,12 +145,14 @@ void pmio_clear8(uint16_t offset, uint8_t mask)
 
 void pmio_set32(uint16_t offset, uint32_t mask)
 {
+	assert(!(offset & 3));
 	uint32_t val = pmio_read32(offset) | mask;
 	pmio_write32(offset, val);
 }
 
 void pmio_clear32(uint16_t offset, uint32_t mask)
 {
+	assert(!(offset & 3));
 	uint32_t val = pmio_read8(offset) & ~mask;
 	pmio_write32(offset, val);
 }
@@ -269,6 +272,7 @@ static uint32_t _read_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t re
 {
 	uint32_t ret;
 	DEBUG("pci:%02x:%02x.%x %03x -> ", bus, dev, func, reg);
+	assert(!(reg & 3));
 	cli();
 	outl(PCI_EXT_CONF(bus, ((dev << 3) | func), reg), PCI_CONF_SEL);
 	ret = inl(PCI_CONF_DATA);
@@ -280,6 +284,7 @@ static uint32_t _read_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t re
 static void _write_config(uint8_t bus, uint8_t dev, uint8_t func, uint16_t reg, uint32_t val)
 {
 	DEBUG("pci:%02x:%02x.%x %03x <- %08x", bus, dev, func, reg, val);
+	assert(!(reg & 3));
 	cli();
 	outl(PCI_EXT_CONF(bus, ((dev << 3) | func), reg), PCI_CONF_SEL);
 	outl(val, PCI_CONF_DATA);
@@ -299,6 +304,7 @@ uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg)
 	uint32_t ret;
 	DEBUG("HT%d F%xx%03x -> ",
 	      node, func, reg);
+	assert(!(reg & 3));
 	cli();
 	outl(HT_REG(node, func, reg), PCI_CONF_SEL);
 	ret = inl(PCI_CONF_DATA);
@@ -311,6 +317,7 @@ void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
 {
 	DEBUG("HT%d F%xx%03x <- %08x",
 	      node, func, reg, val);
+	assert(!(reg & 3));
 	cli();
 	outl(HT_REG(node, func, reg), PCI_CONF_SEL);
 	outl(val, PCI_CONF_DATA);
@@ -387,6 +394,8 @@ void cht_test(uint8_t node, int neigh, int neigh_link)
 #ifdef UNUSED
 uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg)
 {
+	assert(!(reg & 3));
+
 	uint32_t ret;
 	bool reboot;
 
@@ -419,6 +428,8 @@ uint32_t cht_read_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link,
 
 void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, uint16_t reg, uint32_t val)
 {
+	assert(!(reg & 3));
+
 	if (ht_testmode & HT_TESTMODE_WATCHDOG)
 		watchdog_run(100); /* 1s timeout if write hangs due to unstable link */
 
@@ -440,6 +451,7 @@ uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
 {
 	uint32_t val;
 	DEBUG("SCI%03x:csr%04x :  ", node, csr);
+	assert(!(csr & 3));
 	val = uint32_tbswap(mem64_read32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr));
 	DEBUG("%08x\n", val);
 	return val;
@@ -448,12 +460,14 @@ uint32_t dnc_read_csr(uint32_t node, uint16_t csr)
 void dnc_write_csr(uint32_t node, uint16_t csr, uint32_t val)
 {
 	DEBUG("SCI%03x:csr%04x <- %08x", node, csr, val);
+	assert(!(csr & 3));
 	mem64_write32(DNC_CSR_BASE | (node << 16) | 0x8000 | csr, uint32_tbswap(val));
 	DEBUG("\n");
 }
 
 uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr)
 {
+	assert(!(csr & 3));
 	if (csr >= 0x800) {
 		printf("Error: dnc_write_csr_geo read from unsupported range: "
 		       "%04x#%d @%x\n",
@@ -466,6 +480,7 @@ uint32_t dnc_read_csr_geo(uint32_t node, uint8_t bid, uint16_t csr)
 
 void dnc_write_csr_geo(uint32_t node, uint8_t bid, uint16_t csr, uint32_t val)
 {
+	assert(!(csr & 3));
 	if (csr >= 0x800) {
 		printf("Error: dnc_write_csr_geo write to unsupported range: "
 		       "%04x#%d @%x, %08x\n",
@@ -482,6 +497,7 @@ uint32_t dnc_read_conf(const sci_t sci, const uint8_t bus, const uint8_t device,
 		return _read_config(bus, device, func, reg);
 
 	DEBUG("SCI%03x:dev%02x:%02x F%xx%03x:  ", sci, bus, device, func, reg);
+	assert(!(reg & 3));
 	uint32_t val = mem64_read32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg));
 	DEBUG("%08x\n", val);
 
@@ -490,6 +506,7 @@ uint32_t dnc_read_conf(const sci_t sci, const uint8_t bus, const uint8_t device,
 
 uint64_t dnc_read_conf64(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg)
 {
+	assert(!(reg & 7));
 	uint64_t addr = DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg);
 
 	/* Processor will issue two 4-byte non-coherent reads */
@@ -508,12 +525,14 @@ void dnc_write_conf(const sci_t sci, const uint8_t bus, const uint8_t device, co
 	}
 
 	DEBUG("SCI%03x:dev%02x:%02x F%xx%03x <- %08x", sci, bus, device, func, reg, val);
+	assert(!(reg & 3));
 	mem64_write32(DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg), val);
 	DEBUG("\n");
 }
 
 void dnc_write_conf64_split(const sci_t sci, const uint8_t bus, const uint8_t device, const uint8_t func, const uint16_t reg, const uint64_t val)
 {
+	assert(!(reg & 7));
 	uint64_t addr = DNC_MCFG_BASE | ((uint64_t)sci << 28) | PCI_MMIO_CONF(bus, device, func, reg);
 
 	/* Processor does not support single 64-bit transaction */
