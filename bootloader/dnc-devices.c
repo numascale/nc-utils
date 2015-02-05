@@ -139,8 +139,7 @@ void disable_device(const sci_t sci, const int bus, const int dev, const int fn)
 	/* Clear expansion ROM base address */
 	dnc_write_conf(sci, bus, dev, fn, 0x30, 0);
 
-	/* Set Interrupt Line register to 0 (unallocated) */
-	dnc_write_conf(sci, bus, dev, fn, 0x3c, 0);
+	/* The Interrupt Line register cannot be cleared, since the Nvidia driver refuses to initialise */
 
 	/* Disable SR-IOV BARs */
 	uint16_t cap = extcapability(PCI_ECAP_SRIOV, sci, bus, dev, fn);
