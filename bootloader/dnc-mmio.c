@@ -470,13 +470,6 @@ void setup_mmio(void) {
 			dnc_write_conf(node->sci, 1, 4, 0, 4, 0x0400);
 			val = dnc_read_conf(node->sci, 0, 20, 4, 0x5c);
 			dnc_write_conf(node->sci, 0, 20, 4, 0x5c, val & ~0xffff0000);
-
-			/* Disable VGA bridge */
-			dnc_write_conf(node->sci, 0, 20, 4, 0x3e, 0);
-		} else {
-			/* Disable VGA bridge forwarding SERR response */
-			val = dnc_read_conf(node->sci, 0, 20, 4, 0x3e);
-			dnc_write_conf(node->sci, 0, 20, 4, 0x3e, val & ~2);
 		}
 	}
 
