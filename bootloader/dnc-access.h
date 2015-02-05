@@ -23,6 +23,7 @@
 
 #include "dnc-types.h"
 #include "dnc-defs.h"
+#include "dnc-commonlib.h"
 
 #define HT_TESTMODE_PRINT	1
 #define HT_TESTMODE_TEST	2
@@ -90,6 +91,7 @@ checked static inline uint32_t uint32_tbswap(uint32_t val)
 
 static inline uint64_t mem64_read64(const uint64_t addr)
 {
+	assert(!(addr & 7));
 	uint64_t val;
 	cli();
 	setup_fs(addr);
@@ -100,6 +102,7 @@ static inline uint64_t mem64_read64(const uint64_t addr)
 
 static inline uint32_t mem64_read32(const uint64_t addr)
 {
+	assert(!(addr & 3));
 	uint32_t ret;
 	cli();
 	setup_fs(addr);
@@ -110,6 +113,7 @@ static inline uint32_t mem64_read32(const uint64_t addr)
 
 static inline void mem64_write64(const uint64_t addr, const uint64_t val)
 {
+	assert(!(addr & 7));
 	cli();
 	setup_fs(addr);
 	asm volatile("movq (%0), %%mm0; movq %%mm0, %%fs:(0)" : :"r"(&val) :"memory");
@@ -118,6 +122,7 @@ static inline void mem64_write64(const uint64_t addr, const uint64_t val)
 
 static inline void mem64_write32(const uint64_t addr, const uint32_t val)
 {
+	assert(!(addr & 3));
 	cli();
 	setup_fs(addr);
 	asm volatile("mov %0, %%fs:(0)" :: "a"(val));
@@ -126,6 +131,7 @@ static inline void mem64_write32(const uint64_t addr, const uint32_t val)
 
 static inline uint16_t mem64_read16(const uint64_t addr)
 {
+	assert(!(addr & 1));
 	uint16_t ret;
 	cli();
 	setup_fs(addr);
@@ -136,6 +142,7 @@ static inline uint16_t mem64_read16(const uint64_t addr)
 
 static inline void mem64_write16(const uint64_t addr, const uint16_t val)
 {
+	assert(!(addr & 1));
 	cli();
 	setup_fs(addr);
 	asm volatile("movw %0, %%fs:(0)" :: "a"(val));
