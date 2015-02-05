@@ -200,24 +200,6 @@ void mce_check(const sci_t sci, const ht_t ht)
 		dnc_write_conf64_split(sci, 0, 24 + ht, FUNC3_MISC, 0x48, 0);
 		dnc_write_conf64_split(sci, 0, 24 + ht, FUNC3_MISC, 0x50, 0);
 	}
-
-	uint32_t v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x160);
-	if (v & 0xff) { // BIOS sets up to 0xf00 to interrupt after 256 errors
-		warning("DRAM machine check 0x%08x on SCI%03x#%u", v, sci, ht);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x160, v & ~0xff);
-	}
-
-	v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x168);
-	if (v & 0xfff) {
-		warning("HT Link machine check 0x%08x on SCI%03x#%u", v, sci, ht);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x168, v & ~0xfff);
-	}
-
-	v = dnc_read_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x170);
-	if (v & 0xfff) {
-		warning("L3 Cache machine check 0x%08x on SCI%03x#%u", v, sci, ht);
-		dnc_write_conf(sci, 0, 24 + ht, FUNC3_MISC, 0x170, v & ~0xfff);
-	}
 }
 
 static void read_spd_info(char p_type[16], const bool cdata, struct dimm_config *dimm)
