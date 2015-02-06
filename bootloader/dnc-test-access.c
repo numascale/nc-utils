@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <sys/types.h>
@@ -38,19 +37,11 @@
 
 int cht_config_use_extd_addressing = 0;
 int lirq_nest = 0;
-
+bool test_manufacture;
 uint64_t dnc_csr_base = DEF_DNC_CSR_BASE;
 uint64_t dnc_csr_lim = DEF_DNC_CSR_LIM;
 
 static int devmemfd = -1;
-static inline int getdevmemfd(void)
-{
-	if (devmemfd < 0)  {
-		devmemfd = open("/dev/mem", O_RDWR);
-	}
-
-	return devmemfd;
-}
 
 static int cfgfd[32][8] = {
 	{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0},
@@ -62,6 +53,19 @@ static int cfgfd[32][8] = {
 	{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}
 };
+
+void broadcast_error(const bool persistent, const char *format, ...)
+{
+}
+
+static inline int getdevmemfd(void)
+{
+	if (devmemfd < 0)  {
+		devmemfd = open("/dev/mem", O_RDWR);
+	}
+
+	return devmemfd;
+}
 
 static int get_config_space(uint8_t bus, uint8_t device, uint8_t func)
 {
@@ -133,6 +137,7 @@ void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val)
 #define PAGE_LEN 0x1000ULL
 #endif
 
+#ifdef UNUSED
 static void *_map_mem64(uint64_t addr, uint64_t len)
 {
 	static int memfd = -1;
@@ -190,7 +195,7 @@ static void *_map_mem64(uint64_t addr, uint64_t len)
 
 	return mem + (addr & 0xfff);
 }
-#ifdef CONFLICT
+
 uint32_t mem64_read32(uint64_t addr)
 {
 	uint32_t ret;

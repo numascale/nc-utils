@@ -30,6 +30,7 @@ int cfg_nodes, cfg_partitions;
 bool name_matching = 0;
 char *hostname;
 
+#ifdef UNUSED
 static bool parse_json_bool(json_t *obj, const char *label, uint32_t *val, bool opt)
 {
 	json_t *item;
@@ -55,6 +56,7 @@ static bool parse_json_bool(json_t *obj, const char *label, uint32_t *val, bool 
 
 	return 1;
 }
+#endif
 
 static bool parse_json_num(json_t *obj, const char *label, uint32_t *val, int opt)
 {
