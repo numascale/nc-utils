@@ -3211,7 +3211,7 @@ static bool phy_check_status(const int phy, const bool print)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
 	if (val != 0x1fff) {
 		if (print)
-			warning("Fabric link error 0x%x; check %s link cables to/from %03x", val, _get_linkname(phy), local_info->sci);
+			error("Fabric link error 0x%x; check %s link cables to/from %03x", val, _get_linkname(phy), local_info->sci);
 		return 1;
 	}
 
