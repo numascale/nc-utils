@@ -2560,21 +2560,22 @@ static void unify_all_nodes(void)
 static void start_user_os(void)
 {
 	static com32sys_t rm;
-	/* Restore 32-bit only access */
-	set_wrap32_enable();
+	memset(&rm, 0, sizeof(rm));
 
-	char *param = (char *)lmalloc(sizeof next_label + 1);
-	assert(param);
-	strcpy(param, next_label);
-	rm.eax.w[0] = 0x0003;
-	rm.ebx.w[0] = OFFS(param);
-	rm.es = SEG(param);
 	printf(BANNER "Unification succeeded at 20%02d-%02d-%02d %02d:%02d:%02d; loading %s..." COL_DEFAULT "\n",
 		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
 		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS), next_label);
 
 	if (boot_wait)
 		wait_key();
+
+	/* Restore 32-bit only access */
+	set_wrap32_enable();
+
+	strcpy((char *)__com32.cs_bounce, next_label);
+	rm.eax.w[0] = 0x0003;
+	rm.ebx.w[0] = OFFS(__com32.cs_bounce);
+	rm.es = SEG(__com32.cs_bounce);
 
 	__intcall(0x22, &rm, NULL);
 	fatal("Failed to boot");
