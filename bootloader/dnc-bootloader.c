@@ -23,6 +23,7 @@
 #include <sys/io.h>
 extern "C" {
 	#include <com32.h>
+	#include <syslinux/loadfile.h>
 	#include <syslinux/pxe.h>
 	#include <consoles.h>
 }
@@ -584,7 +585,7 @@ static uint8_t dist_fn(const sci_t src, const sci_t dst)
 	return 120 + changes * 40;
 }
 
-static bool core_enabled(const node_info_t *node, const unsigned core)
+static bool core_enabled(const node_info_t *node __attribute__((unused)), const unsigned core)
 {
 #ifdef TEST
 	/* Online BSC on master only */
@@ -1524,168 +1525,13 @@ static void setup_remote_cores(node_info_t *const node)
 	}
 }
 
-static char *read_file(const char *filename, int *len)
-{
-	static com32sys_t inargs, outargs;
-	int fd, bsize;
-
-	char *buf = (char *)lmalloc(strlen(filename) + 1);
-	strcpy(buf, filename);
-
-	printf("Opening %s...", filename);
-	memset(&inargs, 0, sizeof inargs);
-	inargs.eax.w[0] = 0x0006; /* Open file */
-	inargs.esi.w[0] = OFFS(buf);
-	inargs.es = SEG(buf);
-	__intcall(0x22, &inargs, &outargs);
-	lfree(buf);
-
-	fd = outargs.esi.w[0];
-	*len = outargs.eax.l;
-	bsize = outargs.ecx.w[0];
-
-	if (!fd || *len < 0) {
-		*len = 0;
-		printf("not found\n");
-		return NULL;
-	}
-
-	buf = (char *)lzalloc(roundup(*len, bsize));
-	assert(buf);
-
-	memset(&inargs, 0, sizeof inargs);
-	inargs.eax.w[0] = 0x0007; /* Read file */
-	inargs.esi.w[0] = fd;
-	inargs.ecx.w[0] = (*len / bsize) + 1;
-	inargs.ebx.w[0] = OFFS(buf);
-	inargs.es = SEG(buf);
-	__intcall(0x22, &inargs, &outargs);
-	*len = outargs.ecx.l;
-
-	memset(&inargs, 0, sizeof inargs);
-	inargs.eax.w[0] = 0x0008; /* Close file */
-	inargs.esi.w[0] = fd;
-	__intcall(0x22, &inargs, NULL);
-
-	printf("done\n");
-	return buf;
-}
-
-#ifdef UNUSED
-static int convert_buf_uint32_t(char *src, uint32_t *dst, int max_offset)
-{
-	char *b;
-	int offs = 0;
-
-	for (b = strtok(src, " \n"); b != NULL && offs < max_offset; b = strtok(NULL, "\n")) {
-		if (b[0] == '@') {
-			offs = strtol(&b[1], NULL, 16);
-
-			if (offs >= max_offset) {
-				printf("Error converting offset %s, value too large\n", b);
-				return -1;
-			}
-		} else {
-			dst[offs++] = strtol(b, NULL, 16);
-		}
-	}
-
-	return offs - 1;
-}
-
-static int convert_buf_uint16_t(char *src, uint16_t *dst, int max_offset)
-{
-	char *b;
-	int offs = 0;
-
-	for (b = strtok(src, " \n"); b != NULL && offs < max_offset; b = strtok(NULL, "\n")) {
-		if (b[0] == '@') {
-			offs = strtol(&b[1], NULL, 16);
-			assert(offs < max_offset);
-		} else
-			dst[offs++] = strtol(b, NULL, 16);
-	}
-
-	return offs - 1;
-}
-
-static uint32_t mseq_ucode_update[1024];
-static uint16_t mseq_table_update[128];
-
-static void read_microcode_update(void)
-{
-	char path[512];
-	int psep;
-	int ucode_len, table_len;
-	uint32_t ucode_xor, table_xor;
-	uint16_t i;
-	ucode_xor = 0;
-
-	for (i = 0; i < mseq_ucode_length; i++) {
-		ucode_xor = ucode_xor ^(i * mseq_ucode[i]);
-	}
-
-	table_xor = 0;
-
-	for (i = 0; i < mseq_table_length; i++) {
-		table_xor = table_xor ^(i * mseq_table[i]);
-	}
-
-	memset(path, 0, sizeof(path));
-	strncpy(path, microcode_path, sizeof(path));
-
-	psep = strlen(path);
-	if (psep == 0) {
-		printf("Using internal microcode (xor %u, %u)\n", ucode_xor, table_xor);
-		return;
-	}
-
-	if ((psep > 0) && (path[psep - 1] != '/'))
-		path[psep++] = '/';
-
-	strcat(path, "mseq.code");
-	int len;
-	char *data = read_file(path, &len);
-	assertf(data, "Microcode mseq.code not found");
-
-	ucode_len = convert_buf_uint32_t(data, mseq_ucode_update, len);
-	assertf(ucode_len >= 0, "Microcode mseq.code corrupted");
-	lfree(data);
-
-	path[psep] = '\0';
-	strcat(path, "mseq.table");
-	data = read_file(path, &len);
-	assertf(data, "Microcode mseq.table not found");
-
-	table_len = convert_buf_uint16_t(data, mseq_table_update, len);
-	assetf(table_len >= 0, "Microcode mseq.table corrupted");
-	lfree(data);
-
-	mseq_ucode = mseq_ucode_update;
-	mseq_table = mseq_table_update;
-	mseq_ucode_length = ucode_len;
-	mseq_table_length = table_len;
-	ucode_xor = 0;
-
-	for (i = 0; i < mseq_ucode_length; i++) {
-		ucode_xor = ucode_xor ^(i * mseq_ucode[i]);
-	}
-
-	table_xor = 0;
-
-	for (i = 0; i < mseq_table_length; i++) {
-		table_xor = table_xor ^(i * mseq_table[i]);
-	}
-
-	printf("Using updated microcode (xor %u, %u)\n", ucode_xor, table_xor);
-}
-#endif
-
 int read_config_file(const char *filename)
 {
-	int config_len;
-	char *config = read_file(filename, &config_len);
-	assertf(config, "Fabric configuration file <%s> not found", filename);
+	size_t config_len;
+	char *config;
+	printf("Opening %s...", filename);
+	int rv = loadfile(filename, (void **)&config, &config_len);
+	assertf(!rv, "Fabric configuration file <%s> not found", filename);
 
 	config[config_len] = '\0';
 	if (!parse_config_file(config))
@@ -2866,9 +2712,6 @@ static int nc_start(void)
 			nodedata[cfg_nodelist[i].sci] = 0x80;
 		}
 
-#ifdef UNUSED
-		read_microcode_update();
-#endif
 		unify_all_nodes();
 
 		dnc_check_mctr_status(0);
