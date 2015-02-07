@@ -25,6 +25,7 @@ extern "C" {
 	#include <com32.h>
 	#include <syslinux/loadfile.h>
 	#include <syslinux/pxe.h>
+	#include <syslinux/boot.h>
 	#include <consoles.h>
 }
 
@@ -2418,12 +2419,7 @@ static void start_user_os(void)
 	/* Restore 32-bit only access */
 	set_wrap32_enable();
 
-	strcpy((char *)__com32.cs_bounce, next_label);
-	rm.eax.w[0] = 0x0003;
-	rm.ebx.w[0] = OFFS(__com32.cs_bounce);
-	rm.es = SEG(__com32.cs_bounce);
-
-	__intcall(0x22, &rm, NULL);
+	(void)syslinux_run_command(next_label);
 	fatal("Failed to boot");
 }
 
