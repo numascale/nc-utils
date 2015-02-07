@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect checker r5
+# NumaConnect checker r6
 
 import os, time, optparse
 from nclib import Platform, Numachip, Northbridge
@@ -134,6 +134,10 @@ class Node:
 
 		try:
 			ht = self.nc_ht
+
+			if not numachip.csr_raw_read(self.sci, numachip.regs['ATT_INDEX']):
+				self.log(ht, 'rebooted')
+				return
 
 			self.ncensure('CDATA_ERROR_STATR', 0xffffffff, 0x00000000, cdata_error_statr)
 			self.ncensure('MCTAG_ERROR_STATR', 0xffffffff, 0x00000000)
