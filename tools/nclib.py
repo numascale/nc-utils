@@ -1,4 +1,4 @@
-# r4
+# r5
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
@@ -270,6 +270,7 @@ class Numachip:
 	G3_PERFORMANCE_COUNTER_0_40_BIT_LOWER_BITS = 0x3fc4
 
 	regs = {
+		'STATE_CLEAR':         0x0000,
 		'PHYXA_LINK_STAT':     0x0a00,
 		'PHYXA_ELOG':          0x0a08,
 		'HSSXA_STAT_1':        0x0a30,
@@ -291,6 +292,7 @@ class Numachip:
 		'SEQ_INFO':            0x0c34,
 		'ERROR_FSTAT':         0x0d10,
 		'ERROR_NFSTAT':        0x0d20,
+		'ATT_INDEX':           0x0dc0,
 		'ERROR_STATUS':        0x3424,
 		'MCTAG_INT_STATUS':    0x4084,
 		'MCTAG_ERROR_STATR':   0x470c,
