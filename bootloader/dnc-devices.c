@@ -248,6 +248,10 @@ static void completion_timeout(const uint16_t sci, const int bus, const int dev,
 				printf("; failed to set Completion Timeout as non-fatal");
 		} else
 			printf("; Completion Timeout already non-fatal");
+
+		/* Mask root complex error reporting */
+		val = dnc_read_conf(sci, bus, dev, fn, cap + 0x2c);
+		dnc_write_conf(sci, bus, dev, fn, cap + 0x2c, val | ~7);
 	} else
 		printf("; no AER");
 
