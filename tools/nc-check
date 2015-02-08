@@ -1,7 +1,7 @@
 #!/usr/bin/python
-# NumaConnect checker r6
+# NumaConnect checker r7
 
-import os, time, optparse
+import os, time, optparse, operator
 from nclib import Platform, Numachip, Northbridge
 
 error_fstat = {
@@ -129,6 +129,14 @@ class Node:
 #		addr = 0x00000018076cc000
 		self.log(ht, self.nbs[ht].mce(status, addr))
 
+	def state(self):
+		try:
+			val = numachip.csr_raw_read(self.sci, numachip.regs['SEQ_INFO'])
+		except (Numachip.TimeoutException, Numachip.HTErrorException, Numachip.BlockedException):
+			return
+
+		return val & 0x3ff
+
 	def check(self):
 		self.errors = []
 
@@ -224,9 +232,24 @@ except Numachip.BlockedException:
 
 try:
 	while True:
-		timestr = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-		print timestr
-		print >>logf, timestr
+		timestr = time.strftime('%Y-%m-%d %H:%M:%S [', time.localtime())
+		print timestr,
+		print >>logf, timestr,
+
+		ptrs = {}
+		total = 0
+		for node in nodes:
+			ptr = node.state()
+			if ptr:
+				try:
+					ptrs[ptr] += 1
+				except KeyError:
+					ptrs[ptr] = 1
+				total += 1
+
+		for key, val in sorted(ptrs.items(), key=operator.itemgetter(1), reverse=True):
+			print '%2u%%@%03x' % (val * 100 / total, key),
+		print ' ]'
 
 		errors = 0
 		for node in nodes:
