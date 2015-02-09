@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect checker r7
+# NumaConnect checker r8
 
 import os, time, optparse, operator
 from nclib import Platform, Numachip, Northbridge
@@ -249,7 +249,7 @@ try:
 
 		for key, val in sorted(ptrs.items(), key=operator.itemgetter(1), reverse=True):
 			print '%2u%%@%03x' % (val * 100 / total, key),
-		print ' ]'
+		print ']'
 
 		errors = 0
 		for node in nodes:
