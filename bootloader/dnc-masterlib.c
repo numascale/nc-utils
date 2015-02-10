@@ -164,6 +164,11 @@ static void adjust_dram_maps(node_info_t *const node)
 	printf("Trimming %03x maps by %uMB\n", node->sci, over << (DRAM_MAP_SHIFT - 20));
 
 	while (over > 0) {
+#ifdef LEGACY
+		node->ht[node->nb_ht_hi].size -= 1;
+		node->node_mem -= 1;
+		over -= 1;
+#else
 		unsigned max = 0;
 
 		/* Find largest HT node */
@@ -180,6 +185,7 @@ static void adjust_dram_maps(node_info_t *const node)
 				break;
 			}
 		}
+#endif
 	}
 }
 
