@@ -16,7 +16,6 @@
  */
 
 #include <stdio.h>
-#include <unistd.h>
 
 #include "dnc-regs.h"
 #include "dnc-bootloader.h"

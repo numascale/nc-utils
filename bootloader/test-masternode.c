@@ -130,7 +130,9 @@ sci_fabric_setup(void)
 	for (i = 0; i < dnc_node_count; i++) {
 		node = (i == 0) ? 0xfff0 : nodes[i].sci;
 		printf("Setting HReq_Ctrl on SCI%03x\n", nodes[i].sci);
-/*        dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17) | (1<<12)); /* CacheSize=0 (2GB), Error, H2S_Init */
+#ifdef UNUSED
+        dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0<<26) | (1<<17) | (1<<12)); /* CacheSize=0 (2GB), Error, H2S_Init */
+#endif
 		dnc_write_csr(node, H2S_CSR_G3_HREQ_CTRL, (0 << 26) | (1 << 17)); /* CacheSize=0 (2GB), Error */
 		val = dnc_read_csr(node, H2S_CSR_G3_FAB_CONTROL);
 		printf("fab_control: %x\n", val);
