@@ -23,12 +23,7 @@ upload: dnc-bootloader.c32
 
 .PHONY: check
 check:
-	-grep 'assertf(".\+\\n"' *.c *.h
-	-grep 'fatal(".\+\\n"' *.c *.h
-	-grep 'fatal_reboot(".\+\\n"' *.c *.h
-	-grep 'warning(".\+\\n"' *.c *.h
-	-grep 'error(".\+\\n"' *.c *.h
-	-grep 'error_remote(".\+\\n"' *.c *.h
+	cppcheck -q --enable=all --inconclusive *.h *.c
 
 .PHONY: clean
 clean:

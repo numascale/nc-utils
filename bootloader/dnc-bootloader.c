@@ -2406,9 +2406,6 @@ static void unify_all_nodes(void)
 
 static void start_user_os(void)
 {
-	static com32sys_t rm;
-	memset(&rm, 0, sizeof(rm));
-
 	printf(BANNER "Unification succeeded at 20%02d-%02d-%02d %02d:%02d:%02d; loading %s..." COL_DEFAULT "\n",
 		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
 		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS), next_label);
