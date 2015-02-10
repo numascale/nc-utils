@@ -158,24 +158,26 @@ static void adjust_dram_maps(node_info_t *const node)
 {
 	/* Trim nodes if over supported or requested memory config */
 	int over = max((int)(node->node_mem - (max_mem_per_server >> DRAM_MAP_SHIFT)), (int)(node->node_mem & (SCC_ATT_GRAN - 1)));
-	if (over > 0) {
-		printf("Trimming %03x maps by %uMB\n", node->sci, over << (DRAM_MAP_SHIFT - 20));
+	if (over <= 0)
+		return;
 
-		while (over > 0) {
-			unsigned max = 0;
+	printf("Trimming %03x maps by %uMB\n", node->sci, over << (DRAM_MAP_SHIFT - 20));
 
-			/* Find largest HT node */
-			for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++)
-				if (node->ht[i].size > max)
-					max = node->ht[i].size;
+	while (over > 0) {
+		unsigned max = 0;
 
-			/* Reduce largest HT node by 16MB */
-			for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
-				if (node->ht[i].size == max) {
-					node->ht[i].size -= 1;
-					node->node_mem -= 1;
-					over -= 1;
-				}
+		/* Find largest HT node */
+		for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++)
+			if (node->ht[i].size > max)
+				max = node->ht[i].size;
+
+		/* Reduce largest HT node by 16MB */
+		for (int i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+			if (node->ht[i].size == max) {
+				node->ht[i].size -= 1;
+				node->node_mem -= 1;
+				over -= 1;
+				break;
 			}
 		}
 	}
@@ -248,12 +250,12 @@ void tally_local_node(void)
 
 			for (unsigned dimm = 0; dimm < 8; dimm++) {
 				uint32_t val = cht_read_conf(i, FUNC2_DRAM, 0x40 + dimm * 4);
-				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u", node->sci, i);
+				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u; performance will be degraded", node->sci, i);
 				en += val & 1;
 			}
 
 			if (!en)
-				warning("No DRAM present on %03x#%u DCT%u", node->sci, i, dct);
+				warning("No DRAM present on %03x#%u DCT%u; performance will be degraded", node->sci, i, dct);
 		}
 
 		uint32_t base = cht_read_conf(i, FUNC1_MAPS, 0x120);
