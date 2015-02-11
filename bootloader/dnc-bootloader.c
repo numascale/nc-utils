@@ -664,28 +664,21 @@ static void update_acpi_tables(void)
 	foreach_nodes(node) {
 		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 			for (j = 0; j < node->ht[ht].cores; j++) {
+				if (!core_enabled(node, j))
+					continue;
+
 				unsigned int apicid = j + node->ht[ht].apic_base + node->apic_offset;
 				assert(apicid != 0xff);
 
-				if (ht_next_apic < 0x100) {
-					struct acpi_local_apic *lapic = (acpi_local_apic *)&apic->data[apic->len - sizeof(*apic)];
-					lapic->type = 0;
-					lapic->len = 8;
-					lapic->proc_id = pnum; /* ACPI Processor ID */
-					lapic->apic_id = apicid; /* APIC ID */
-					lapic->flags = core_enabled(node, j);
-					apic->len += lapic->len;
-				} else {
-					struct acpi_local_x2apic *x2apic = (acpi_local_x2apic *)&apic->data[apic->len - sizeof(*apic)];
-					x2apic->type = 9;
-					x2apic->len = 16;
-					x2apic->reserved1[0] = 0;
-					x2apic->reserved1[1] = 0;
-					x2apic->x2apic_id = apicid;
-					x2apic->proc_uid = 0;
-					x2apic->flags = core_enabled(node, j);
-					apic->len += x2apic->len;
-				}
+				struct acpi_local_x2apic *x2apic = (acpi_local_x2apic *)&apic->data[apic->len - sizeof(*apic)];
+				x2apic->type = 9;
+				x2apic->len = 16;
+				x2apic->reserved1[0] = 0;
+				x2apic->reserved1[1] = 0;
+				x2apic->x2apic_id = apicid;
+				x2apic->proc_uid = 0;
+				x2apic->flags = 1;
+				apic->len += x2apic->len;
 
 				pnum++;
 			}
@@ -797,6 +790,9 @@ static void update_acpi_tables(void)
 	foreach_nodes(node) {
 		for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 			for (j = 0; j < node->ht[ht].cores; j++) {
+				if (!core_enabled(node, j))
+					continue;
+
 				uint16_t apicid = j + node->ht[ht].apic_base + node->apic_offset;
 
 				struct acpi_x2apic_affinity x2core;
@@ -805,7 +801,7 @@ static void update_acpi_tables(void)
 				x2core.len      = sizeof(x2core);
 				x2core.prox_dom = node->ht[ht].pdom;
 				x2core.x2apic_id = apicid;
-				x2core.enabled  = core_enabled(node, j);
+				x2core.enabled  = 1;
 				x2core.flags    = 0;
 				x2core.clock_dom = node - &nodes[0];
 				memcpy((unsigned char *)srat + srat->len, &x2core, x2core.len);
