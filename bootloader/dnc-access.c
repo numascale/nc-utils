@@ -218,6 +218,18 @@ void ioh_ioapicind_write(const uint16_t sci, const uint8_t reg, const uint32_t v
 	dnc_write_conf(sci, 0, 0, 0, 0xfc, val);
 }
 
+uint64_t ioapic_read64(const uint8_t reg)
+{
+	mem64_write32(IOAPIC_BASE, reg);
+	return mem64_read32(IOAPIC_BASE + 0x10);
+}
+
+void ioapic_write64(const uint8_t reg, const uint64_t val)
+{
+	mem64_write32(IOAPIC_BASE, reg);
+	return mem64_write64(IOAPIC_BASE + 0x10, val);
+}
+
 static void watchdog_write(const uint8_t reg, const uint32_t val)
 {
 	if (verbose >= 2)

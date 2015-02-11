@@ -44,6 +44,7 @@ extern uint64_t dnc_csr_lim;
 #define HT_LIMIT 0x10000000000ULL
 
 #define PMIO_PORT		0xcd6
+#define IOAPIC_BASE 0xfec00000
 
 #define SR56X0_HTIU_TOM2LO	0x30
 #define SR56X0_HTIU_TOM2HI	0x31
@@ -186,6 +187,8 @@ checked uint32_t ioh_htiu_read(const sci_t sci, uint8_t reg);
 void ioh_htiu_write(const sci_t sci, uint8_t reg, uint32_t val);
 checked uint32_t ioh_ioapicind_read(const uint16_t sci, const uint8_t reg);
 void ioh_ioapicind_write(const uint16_t sci, const uint8_t reg, const uint32_t val);
+uint64_t ioapic_read64(const uint8_t reg);
+void ioapic_write64(const uint8_t reg, const uint64_t val);
 void watchdog_setup(void);
 void watchdog_run(const unsigned counter);
 void watchdog_stop(void);

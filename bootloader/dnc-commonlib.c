@@ -33,6 +33,8 @@
 #include "dnc-maps.h"
 #include "ddr_spd.h"
 
+#define IOAPIC_VECTORS 24
+
 IMPORT_RELOCATED(cpu_status);
 IMPORT_RELOCATED(init_dispatch);
 IMPORT_RELOCATED(msr_readback);
@@ -95,6 +97,8 @@ uint8_t scc_att_index_range = 2;   /* 3 = 47:36, 2 = 43:32, 1 = 39:28, 0 = 35:24
 const char *node_state_name[] = { NODE_SYNC_STATES(ENUM_NAMES) };
 static struct dimm_config dimms[2]; /* 0 - MCTag, 1 - CData */
 static uint32_t southbridge_id = -1;
+static uint8_t smi_state;
+static uint64_t ioapic_vectors[IOAPIC_VECTORS];
 
 void *operator new(const size_t n)
 {
@@ -679,7 +683,19 @@ static void reorganize_mmio(int nc)
 }
 #endif /* UNUSED */
 
-static uint8_t smi_state;
+void disable_ioapic(void)
+{
+	for (unsigned i = 0; i < IOAPIC_VECTORS; i++) {
+		ioapic_vectors[i] = ioapic_read64(i * 8 + 0x10);
+		ioapic_write64(i * 8 + 0x10, ioapic_vectors[i] | (1 << 16));
+	}
+}
+
+void enable_ioapic(void)
+{
+	for (unsigned i = 0; i < IOAPIC_VECTORS; i++)
+		ioapic_write64(i * 8 + 0x10, ioapic_vectors[i]);
+}
 
 /* Mask southbridge SMI generation */
 void disable_smi(void)
@@ -700,6 +716,7 @@ void enable_smi(void)
 
 void critical_enter(void)
 {
+	disable_ioapic();
 	cli();
 	disable_smi();
 }
@@ -708,6 +725,7 @@ void critical_leave(void)
 {
 	enable_smi();
 	sti();
+	enable_ioapic();
 }
 
 #ifdef __i386
