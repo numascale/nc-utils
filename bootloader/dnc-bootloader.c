@@ -159,7 +159,7 @@ static void disable_ioapic(void)
 
 static void load_orig_e820_map(void)
 {
-	orig_e820_map = (struct e820entry *)lzalloc(E820_MAX_LEN);
+	orig_e820_map = (struct e820entry *)lzalloc(E820_MAP_LEN);
 	assert(orig_e820_map);
 
 	static com32sys_t rm;
@@ -183,7 +183,7 @@ static void load_orig_e820_map(void)
 		rm.es = SEG(orig_e820_map);
 		__intcall(0x15, &rm, &rm);
 		orig_e820_len += rm.ecx.l ? rm.ecx.l : sizeof(struct e820entry);
-		assert(orig_e820_len < E820_MAX_LEN);
+		assert(orig_e820_len < E820_MAP_LEN);
 	}
 
 	struct e820entry elem;
@@ -345,7 +345,7 @@ static void e820_insert(struct e820entry *pos)
 		memmove(pos + 1, pos, sizeof(*pos) * n);
 
 	*REL16(new_e820_len) += 1;
-	assert(*REL16(new_e820_len) < E820_MAX_LEN);
+	assert((*REL16(new_e820_len) * 24) < E820_MAP_LEN);
 }
 
 static void e820_remove(struct e820entry *start, struct e820entry *end)
@@ -493,7 +493,7 @@ static void update_e820_map(void)
 	/* Reserve MCFG address range so Linux accepts it */
 	e820_add(DNC_MCFG_BASE, DNC_MCFG_LIM - DNC_MCFG_BASE + 1, E820_RESERVED);
 
-	assert((len - REL16(new_e820_len)) < E820_MAX_LEN);
+	assert((len - REL16(new_e820_len)) < E820_MAP_LEN);
 	printf("Updated E820 map:\n");
 	e820_dump();
 }

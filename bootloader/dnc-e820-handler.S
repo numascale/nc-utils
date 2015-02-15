@@ -582,8 +582,9 @@ EXPORT(old_int15_vec)
 EXPORT(new_e820_len)
 	.word 0
 EXPORT(new_e820_map)
-	.skip E820_MAX_LEN * 24, 0
+	.skip E820_MAP_LEN, 0
 
+	.align 16
 EXPORT(new_e820_handler)
 	cmp	$0xe820, %eax
 	jne	1f
