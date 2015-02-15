@@ -17,7 +17,6 @@
 
 #include "dnc-defs.h"
 
-#define DEBUG_TRAMP 0
 #define EXPORT(sym) .global sym ## _relocate; sym ## _relocate: sym:
 #define SYM_OFFSET(sym) ((sym) - asm_relocate_start)
 #define STATUS(val) movl $val, %cs:SYM_OFFSET(cpu_status)
@@ -45,10 +44,12 @@ EXPORT(init_dispatch)
 	je	init_probefilter_early_f15
 	cmpl	$VECTOR_ENABLE_CACHE, %edx
 	je	init_enable_cache
+#ifdef LEGACY
 	cmpl	$VECTOR_READBACK_MSR, %edx
 	je	init_readback_msr
 	cmpl	$VECTOR_READBACK_APIC, %edx
 	je	init_readback_apic
+#endif
 1:
 	cli
 	hlt
@@ -128,9 +129,6 @@ break:
 
 	/* Copy old TOP_MEM value, set global value */
 	mov	$MSR_TOPMEM, %ecx
-	rdmsr
-	mov	%eax, %cs:SYM_OFFSET(rem_topmem_msr)
-	mov	%edx, %cs:SYM_OFFSET(rem_topmem_msr + 4)
 	mov	%cs:SYM_OFFSET(new_topmem_msr), %eax
 	mov	%cs:SYM_OFFSET(new_topmem_msr + 4), %edx
 	wrmsr
@@ -228,7 +226,7 @@ break:
 	mov %cs:SYM_OFFSET(new_nbcfg_msr + 4), %edx
 	mov $MSR_NB_CFG, %ecx
 	wrmsr
-
+#ifdef DEBUG
 	mov	$SYM_OFFSET(cpu_cr), %si
 	call	print_strz
 
@@ -243,37 +241,47 @@ break:
 
 	mov	$SYM_OFFSET(cpu_done1), %si
 	call	print_strz
-
+#endif
 	mov	$MSR_APIC_BAR, %ecx
 	rdmsr
 	push	%eax
+#ifdef DEBUG
 	call	print_hex32
+#endif
 	mov	$0x70800, %eax
 	mov	$MSR_APIC_BAR, %ecx
 	wrmsr
 	mov	$MSR_APIC_BAR, %ecx
+#ifdef DEBUG
 	rdmsr
 	call	print_hex32
+#endif
 	mov	$0x7000, %ax
 	mov	%ax, %es
+#ifdef DEBUG
 	mov	%es:0x20, %eax
 	call	print_hex32
+#endif
+#ifdef DEBUG
 	mov	%es:0x30, %eax
 	call	print_hex32
+#endif
 
 	mov	%cs:SYM_OFFSET(cpu_apic_renumber), %al
 	shl	$24, %eax
 	mov	%eax, %es:0x20
+#ifdef DEBUG
 	mov	%es:0x20, %eax
 	call	print_hex32
-
+#endif
 	pop	%eax
 	and	$~0x100, %eax	/* Clear BSP flag to let core accept INIT and STARTUP IPIs */
 	mov	$MSR_APIC_BAR, %ecx
 	wrmsr
+#ifdef DEBUG
 	rdmsr
 	call	print_hex32
-
+#endif
 	mov	$MSR_NODE_ID, %ecx
 	rdmsr
 
@@ -316,9 +324,10 @@ break:
 	mov %fs:(0x530), %eax
 	mov %eax, %cs:SYM_OFFSET(lvt + 12)
 
+#ifdef DEBUG
 	mov	$SYM_OFFSET(cpu_done2), %si
 	call	print_strz
-
+#endif
 	STATUS(0)
 1:
 	cli
@@ -392,7 +401,7 @@ init_readback_msr:
 	cli
 	hlt
 	jmp	1b
-
+#ifdef LEGACY
 init_readback_apic:
 	mov $MSR_APIC_BAR, %ecx
 	rdmsr
@@ -426,7 +435,7 @@ init_readback_apic:
 	cli
 	hlt
 	jmp	1b
-
+#endif
 	.align 16
 EXPORT(cpu_status)
 	.long 0
@@ -465,8 +474,6 @@ EXPORT(new_mtrr_var_mask)
 	.skip 8*8, 0
 EXPORT(new_syscfg_msr)
 	.long 0, 0
-EXPORT(rem_topmem_msr)
-	.long 0, 0
 EXPORT(rem_smm_base_msr)
 	.long 0, 0
 EXPORT(new_hwcr_msr)
@@ -502,6 +509,7 @@ EXPORT(new_nbcfg_msr)
 EXPORT(lvt)
 	.long 0, 0, 0, 0
 
+#if DEBUG
 cpu_mtrr:
 	.asciz	"\r\nMTRR "
 cpu_cr:
@@ -513,10 +521,9 @@ cpu_done2:
 
 /* Print asciiz string at by cs:si */
 print_strz:
-#if DEBUG_TRAMP
 	xor	%bx, %bx
 	xor	%dx, %dx
-1:	
+1:
 	mov	%cs:(%si), %al
 	inc	%si
 	or	%al, %al
@@ -526,15 +533,13 @@ print_strz:
 	mov	$0x01, %ah
 	int	$0x14
 	jmp	1b
-2:	
-#endif
+2:
 	ret
 
-hex32_buf:	
+hex32_buf:
 	.asciz	"[--------] "
 
 print_hex32:
-#if DEBUG_TRAMP
 	push	%eax
 	push	%ebx
 	push	%ecx
@@ -543,15 +548,15 @@ print_hex32:
 	mov	%eax, %ebx
 	mov	$8, %ecx
 	mov	$SYM_OFFSET(hex32_buf) + 8, %si
-	
-1:	
+
+1:
 	mov	%bl, %al
 	and	$0x0f, %al
 	add	$0x30, %al
 	cmp	$0x3a, %al
 	jb	2f
 	add	$0x27, %al
-2:	
+2:
 	mov	%al, %cs:(%si)
 	dec	%si
 	shr	$4, %ebx
@@ -564,12 +569,12 @@ print_hex32:
 	pop	%ecx
 	pop	%ebx
 	pop	%eax
-#endif
 	ret
+#endif
 
 	.align 16
 stack_start:  .skip 4096, 0
-stack_end:	
+stack_end:
 
 	.align 16
 EXPORT(old_int15_vec)
@@ -618,20 +623,17 @@ EXPORT(new_e820_handler)
 1:	or	$1, 4(%esp)	# Set carry flag to signify error
 2:	xor	%ebx, %ebx
 	iret
-	
+#ifdef LEGACY
 	.align 16
-
 EXPORT(new_mpfp)
 	.skip 16, 0
 EXPORT(new_mptable)
 	.skip 768, 0
-
+#endif
 	.global asm_relocate_end
 asm_relocate_end:
 
-
-/* Replacement code for brute-force SMM disable */
-
+	/* Replacement code for brute-force SMM disable */
 	.code16
 	.text
 	.align 4096
@@ -641,7 +643,3 @@ smm_handler_start:
 	rsm
 	.global smm_handler_end
 smm_handler_end:
-
-	.align 4096
-	.global apic_base
-apic_base:

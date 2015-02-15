@@ -98,7 +98,6 @@ IMPORT_RELOCATED(new_mtrr_fixed);
 IMPORT_RELOCATED(new_mtrr_var_base);
 IMPORT_RELOCATED(new_mtrr_var_mask);
 IMPORT_RELOCATED(new_syscfg_msr);
-IMPORT_RELOCATED(rem_topmem_msr);
 IMPORT_RELOCATED(rem_smm_base_msr);
 #ifdef BROKEN
 IMPORT_RELOCATED(new_osvw_id_len_msr);
@@ -243,6 +242,7 @@ static void install_e820_handler(void)
 	uint32_t tom_lower = *bda_tom_lower << 10;
 	uint32_t relocate_size;
 	int last_32b = -1;
+
 	relocate_size = (&asm_relocate_end - &asm_relocate_start + 1023) / 1024;
 	relocate_size *= 1024;
 	asm_relocated = (char *)((tom_lower - relocate_size) & ~0xfff);
@@ -250,6 +250,7 @@ static void install_e820_handler(void)
 	 * *bda_tom_lower = ((uint32_t)asm_relocated) >> 10; */
 	memcpy(asm_relocated, &asm_relocate_start, relocate_size);
 	e820 = (struct e820entry *)REL32(new_e820_map);
+
 	unsigned int i, j = 0;
 
 	for (i = 0; i < orig_e820_len / sizeof(struct e820entry); i++) {
@@ -311,7 +312,6 @@ static void install_e820_handler(void)
 
 	*REL16(new_e820_len)  = j;
 	*REL32(old_int15_vec) = int_vecs[0x15];
-
 	assertf(last_32b, "Unable to allocate room for ACPI tables");
 
 	tables_relocated = (char *)(long)zalloc_persist(TABLE_AREA_SIZE);
@@ -883,7 +883,7 @@ static void update_acpi_tables_late(void)
 		dsdt->checksum += checksum(dsdt, dsdt->len);
 	}
 }
-
+#ifdef LEGACY
 static struct mp_floating_pointer *find_mptable(const char *start, int len) {
 	const char *ret = NULL;
 	int i;
@@ -940,7 +940,7 @@ static void update_mptable(void)
 	mptable->data[i + 1] = 0xf;
 	mptable->checksum += checksum((acpi_sdt_p)mptable, mptable->len);
 }
-
+#endif
 static void setup_apic_atts(void)
 {
 	uint32_t apic_shift;
@@ -1161,7 +1161,6 @@ static void setup_other_cores(void)
 			*REL8(cpu_apic_renumber) = apicid & 0xff;
 			*REL8(cpu_apic_hi)       = apicid >> 8;
 			*REL32(cpu_status) = VECTOR_TRAMPOLINE;
-			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
 
 			if (verbose > 1)
@@ -1507,7 +1506,6 @@ static void setup_remote_cores(node_info_t *const node)
 
 			*REL8(cpu_apic_renumber) = apicid & 0xff;
 			*REL8(cpu_apic_hi)       = apicid >> 8;
-			*REL64(rem_topmem_msr) = ~0ULL;
 			*REL64(rem_smm_base_msr) = ~0ULL;
 
 			wake_core_global(oldid, VECTOR_TRAMPOLINE);
@@ -2257,8 +2255,9 @@ static void unify_all_nodes(void)
 		handover_legacy();
 
 	update_acpi_tables();
+#ifdef LEGACY
 	update_mptable();
-
+#endif
 	if (verbose > 0)
 		debug_acpi();
 
