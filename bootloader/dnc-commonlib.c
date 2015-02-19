@@ -2781,11 +2781,6 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 		cht_write_conf(i, FUNC0_HT, 0x164, val & ~0x1); /* Disable Traffic distribution for requests */
 
 		if (family >= 0x15) {
-			/* On Fam15h disable the core prefetch hits as NumaChip doesn't support these */
-			val = cht_read_conf(i, FUNC5_EXTD, 0x88);
-			if (!(val & (1 << 9)))
-				cht_write_conf(i, FUNC5_EXTD, 0x88, val | (1 << 9));
-
 			/* Due to HT fabric asymmetry, impact of NB P1 transitions can have performance impact,
 			   particularly with suboptimal HT connectivity, so disable */
 			val = cht_read_conf(i, FUNC5_EXTD, 0x170);
