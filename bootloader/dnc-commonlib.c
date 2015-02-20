@@ -1584,6 +1584,12 @@ static int ht_fabric_find_nc(bool *p_asic_mode)
 		*p_asic_mode = 0;
 	}
 
+	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
+	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
+	   See erratum 505 */
+	if (family >= 0x15)
+		cht_write_conf(0, FUNC1_MAPS, 0x10c, 0);
+
 	if (!(cht_read_conf(0, FUNC3_MISC, 0x58) & 0x1f))
 		warning("DRAM scrubbing not enabled in the BIOS\n");
 
