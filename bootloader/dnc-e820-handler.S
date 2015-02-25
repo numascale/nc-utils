@@ -226,62 +226,26 @@ break:
 	mov %cs:SYM_OFFSET(new_nbcfg_msr + 4), %edx
 	mov $MSR_NB_CFG, %ecx
 	wrmsr
-#ifdef DEBUG
-	mov	$SYM_OFFSET(cpu_cr), %si
-	call	print_strz
 
-	mov	%cr0, %eax
-	call	print_hex32
-
-	mov	%cr3, %eax
-	call	print_hex32
-
-	mov	%cr4, %eax
-	call	print_hex32
-
-	mov	$SYM_OFFSET(cpu_done1), %si
-	call	print_strz
-#endif
 	mov	$MSR_APIC_BAR, %ecx
 	rdmsr
 	push	%eax
-#ifdef DEBUG
-	call	print_hex32
-#endif
 	mov	$0x70800, %eax
 	mov	$MSR_APIC_BAR, %ecx
 	wrmsr
 	mov	$MSR_APIC_BAR, %ecx
-#ifdef DEBUG
-	rdmsr
-	call	print_hex32
-#endif
 	mov	$0x7000, %ax
 	mov	%ax, %es
-#ifdef DEBUG
-	mov	%es:0x20, %eax
-	call	print_hex32
-#endif
-#ifdef DEBUG
-	mov	%es:0x30, %eax
-	call	print_hex32
-#endif
 
 	mov	%cs:SYM_OFFSET(cpu_apic_renumber), %al
 	shl	$24, %eax
 	mov	%eax, %es:0x20
-#ifdef DEBUG
-	mov	%es:0x20, %eax
-	call	print_hex32
-#endif
+
 	pop	%eax
 	and	$~0x100, %eax	/* Clear BSP flag to let core accept INIT and STARTUP IPIs */
 	mov	$MSR_APIC_BAR, %ecx
 	wrmsr
-#ifdef DEBUG
-	rdmsr
-	call	print_hex32
-#endif
+
 	mov	$MSR_NODE_ID, %ecx
 	rdmsr
 
@@ -324,10 +288,6 @@ break:
 	mov %fs:(0x530), %eax
 	mov %eax, %cs:SYM_OFFSET(lvt + 12)
 
-#ifdef DEBUG
-	mov	$SYM_OFFSET(cpu_done2), %si
-	call	print_strz
-#endif
 	STATUS(0)
 1:
 	cli
@@ -390,6 +350,7 @@ init_enable_cache:
 	hlt
 	jmp	1b
 
+#ifdef LEGACY
 init_readback_msr:
 	mov	%cs:SYM_OFFSET(msr_readback), %ecx
 	rdmsr
@@ -401,41 +362,8 @@ init_readback_msr:
 	cli
 	hlt
 	jmp	1b
-#ifdef LEGACY
-init_readback_apic:
-	mov $MSR_APIC_BAR, %ecx
-	rdmsr
-
-	/* Store value for later rewrite */
-	mov %eax, %esi
-	mov %edx, %edi
-
-	and $0xfff, %eax /* Clear base address bits */
-	mov $0, %edx
-	or $SYM_OFFSET(apic_base), %eax
-	wrmsr
-
-	mov $SYM_OFFSET(apic_base), %eax
-	add %cs:SYM_OFFSET(apic_offset), %eax
-	mov (%eax), %ebx
-	mov %ebx, %cs:SYM_OFFSET(apic_readback)
-
-	/* Mask APIC vector to prevent hangs due to SMIs/NMIs */
-	mov $APIC_VECTOR_MASKED, %ebx
-	mov %ebx, (%eax)
-
-	/* Restore APIC base address */
-	mov $MSR_APIC_BAR, %ecx
-	mov %esi, %eax
-	mov %edi, %edx
-	wrmsr
-
-	STATUS(0)
-1:
-	cli
-	hlt
-	jmp	1b
 #endif
+
 	.align 16
 EXPORT(cpu_status)
 	.long 0
@@ -509,89 +437,24 @@ EXPORT(new_nbcfg_msr)
 EXPORT(lvt)
 	.long 0, 0, 0, 0
 
-#if DEBUG
-cpu_mtrr:
-	.asciz	"\r\nMTRR "
-cpu_cr:
-	.asciz	"\r\nCRx "
-cpu_done1:
-	.asciz	"\r\nCPU "
-cpu_done2:
-	.asciz  " done setting MTRRs\r\n"
-
-/* Print asciiz string at by cs:si */
-print_strz:
-	xor	%bx, %bx
-	xor	%dx, %dx
-1:
-	mov	%cs:(%si), %al
-	inc	%si
-	or	%al, %al
-	jz	2f
-	mov	$0x0e, %ah
-	int	$0x10
-	mov	$0x01, %ah
-	int	$0x14
-	jmp	1b
-2:
-	ret
-
-hex32_buf:
-	.asciz	"[--------] "
-
-print_hex32:
-	push	%eax
-	push	%ebx
-	push	%ecx
-	push	%edx
-	push	%esi
-	mov	%eax, %ebx
-	mov	$8, %ecx
-	mov	$SYM_OFFSET(hex32_buf) + 8, %si
-
-1:
-	mov	%bl, %al
-	and	$0x0f, %al
-	add	$0x30, %al
-	cmp	$0x3a, %al
-	jb	2f
-	add	$0x27, %al
-2:
-	mov	%al, %cs:(%si)
-	dec	%si
-	shr	$4, %ebx
-	loop	1b
-
-	mov	$SYM_OFFSET(hex32_buf), %si
-	call	print_strz
-	pop	%esi
-	pop	%edx
-	pop	%ecx
-	pop	%ebx
-	pop	%eax
-	ret
-#endif
-
-	.align 16
+	.align 64
 stack_start:  .skip 4096, 0
 stack_end:
 
-	.align 16
-EXPORT(old_int15_vec)
-	.word 0,0
-EXPORT(new_e820_len)
-	.word 0
 EXPORT(new_e820_map)
 	.skip E820_MAP_LEN, 0
 
 	.align 16
+EXPORT(old_int15_vec)
+	.long 0
+EXPORT(new_e820_len)
+	.word 0
 EXPORT(new_e820_handler)
 	cmp	$0xe820, %eax
 	jne	1f
 	cmp	$0x534d4150, %edx
 	je	2f
 1:	ljmp	%cs:*SYM_OFFSET(old_int15_vec)
-/* addr16	ljmp	%cs:*SYM_OFFSET(old_int15_vec) */
 
 2:	mov	$0x534d4150, %eax
 	cmp	$20, %ecx
@@ -616,21 +479,14 @@ EXPORT(new_e820_handler)
 	shr	$2, %ebx
 	inc	%ebx
 	mov	$20, %ecx
-	and	$~1, 4(%esp)	# Clear carry flag
+	and	$~1, 4(%esp)	/* Clear carry flag */
 	cmp	%cs:SYM_OFFSET(new_e820_len), %bx
 	jge	2f
 	iret
 
-1:	or	$1, 4(%esp)	# Set carry flag to signify error
+1:	or	$1, 4(%esp)	/* Set carry flag to signify error */
 2:	xor	%ebx, %ebx
 	iret
-#ifdef LEGACY
-	.align 16
-EXPORT(new_mpfp)
-	.skip 16, 0
-EXPORT(new_mptable)
-	.skip 768, 0
-#endif
 	.global asm_relocate_end
 asm_relocate_end:
 
