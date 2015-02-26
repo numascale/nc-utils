@@ -55,7 +55,6 @@ EXPORT(init_dispatch)
 	hlt
 	jmp	1b
 
-	.align 16
 init_trampoline:
 	STATUS(4)
 
@@ -364,13 +363,9 @@ init_readback_msr:
 	jmp	1b
 #endif
 
-	.align 16
+	.align 64
 EXPORT(cpu_status)
 	.long 0
-EXPORT(cpu_apic_renumber)
-	.byte 0
-EXPORT(cpu_apic_hi)
-	.byte 0
 EXPORT(new_mcfg_msr)
 	.long 0, 0
 EXPORT(new_topmem_msr)
@@ -436,6 +431,10 @@ EXPORT(new_nbcfg_msr)
 	.long 0, 0
 EXPORT(lvt)
 	.long 0, 0, 0, 0
+EXPORT(cpu_apic_renumber)
+	.byte 0
+EXPORT(cpu_apic_hi)
+	.byte 0
 
 	.align 64
 stack_start:  .skip 4096, 0
@@ -443,12 +442,12 @@ stack_end:
 
 EXPORT(new_e820_map)
 	.skip E820_MAP_LEN, 0
-
-	.align 16
 EXPORT(old_int15_vec)
 	.long 0
 EXPORT(new_e820_len)
 	.word 0
+
+	.align 64
 EXPORT(new_e820_handler)
 	cmp	$0xe820, %eax
 	jne	1f
