@@ -33,7 +33,7 @@ EXPORT(init_dispatch)
 	mov	%cs, %ax
 	add	$SYM_OFFSET(stack_start) / 16, %ax
 	mov	%ax, %ss
-	mov	$(stack_end - stack_start), %sp
+	movl	$(stack_end - stack_start), %esp
 
 	movl	%cs:SYM_OFFSET(cpu_status), %edx
 	cmpl	$VECTOR_TRAMPOLINE, %edx
