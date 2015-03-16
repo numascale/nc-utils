@@ -1172,6 +1172,7 @@ static void disable_atmmode(const ht_t max_ht)
 	/* 3.  Disable all cache activity in the system by setting
 	   CR0.CD for all active cores in the system */
 	/* 4.  Issue WBINVD on all active cores in the system */
+	wake_cores_local(VECTOR_DISABLE_CACHE);
 	disable_cache();
 #ifdef BROKEN
 
@@ -1200,6 +1201,7 @@ static void disable_atmmode(const ht_t max_ht)
 	/* 8.  Enable all cache activity in the system by clearing
 	   CR0.CD for all active cores in the system */
 	enable_cache();
+	wake_cores_local(VECTOR_ENABLE_CACHE);
 
 	/* 9. Restore L3 and DRAM scrubber register values */
 	for (ht_t ht = 0; ht <= max_ht; ht++) {

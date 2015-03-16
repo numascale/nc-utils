@@ -72,6 +72,7 @@ uint64_t ht_base = HT_BASE;
 uint64_t old_mcfg_base = 0;
 uint32_t old_mcfg_len = 0;
 uint64_t under_ht_base = HT_BASE;
+static uint16_t apic_used[16];
 
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 uint8_t nodedata[4096];
@@ -500,10 +501,9 @@ static void update_e820_map(void)
 	e820_dump();
 }
 
-static void load_existing_apic_map(void)
+static void load_existing_apic_map_early(void)
 {
 	acpi_sdt_p srat = find_sdt("SRAT");
-	uint16_t apic_used[16];
 	int i, c;
 	memset(post_apic_mapping, ~0, sizeof(post_apic_mapping));
 	memset(apic_used, 0, sizeof(apic_used));
@@ -530,10 +530,13 @@ static void load_existing_apic_map(void)
 		} else
 			break;
 	}
+}
 
+static void load_existing_apic_map(void)
+{
 	/* Use APIC ATT map as scratch area to communicate APIC maps to master */
 	dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
-	for (i = 0; i < 16; i++)
+	for (int i = 0; i < 16; i++)
 		dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4, apic_used[i]);
 }
 
@@ -2591,6 +2594,9 @@ static int nc_start(void)
 	assert(nodes);
 
 	get_hostname();
+	load_orig_e820_map();
+	install_e820_handler();
+	load_existing_apic_map_early();
 
 	int rc = dnc_init_bootloader(dnc_card_type, &dnc_asic_mode);
 	if (rc == -2)
@@ -2684,7 +2690,6 @@ static int nc_start(void)
 	if (verbose > 0)
 		debug_acpi();
 
-	load_orig_e820_map();
 	check_renumbering();
 
 	if (local_info->sync_only) {
@@ -2698,7 +2703,6 @@ static int nc_start(void)
 	}
 
 	dnc_init_caches();
-	install_e820_handler();
 
 	if (force_probefilteron && !force_probefilteroff) {
 		enable_probefilter(nodes[0].nc_ht - 1);
@@ -2776,7 +2780,6 @@ static int nc_start(void)
 			disable_kvm_ports(disable_kvm);
 		clear_bsp_flag();
 		disable_ioapic();
-		wake_cores_local(VECTOR_DISABLE_CACHE);
 		disable_cache();
 
 		/* Let master know we're ready for remapping/integration */
