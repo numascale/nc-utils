@@ -1354,7 +1354,7 @@ void wake_core_global(const int apicid, const int vector)
 	assertf(i < CORE_LOOPS_MAX, "APIC 0x%x stuck in vector %d with status 0x%x", apicid, vector, *REL32(cpu_status));
 }
 
-static void wake_cores_local(const int vector)
+void wake_cores_local(const int vector)
 {
 	for (int i = 1; post_apic_mapping[i] != 255; i++)
 		wake_core_local(post_apic_mapping[i], vector);

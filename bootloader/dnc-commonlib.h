@@ -281,6 +281,7 @@ void check_error(void);
 void wait_for_master(struct node_info *info, struct part_info *part);
 void wake_core_local(const int apicid, const int vector);
 void wake_core_global(const int apicid, const int vector);
+void wake_cores_local(const int vector);
 void enable_probefilter(const ht_t max_ht);
 void selftest_late_msrs(void);
 void selftest_late_apiclvt(void);

@@ -2776,6 +2776,7 @@ static int nc_start(void)
 			disable_kvm_ports(disable_kvm);
 		clear_bsp_flag();
 		disable_ioapic();
+		wake_cores_local(VECTOR_DISABLE_CACHE);
 		disable_cache();
 
 		/* Let master know we're ready for remapping/integration */

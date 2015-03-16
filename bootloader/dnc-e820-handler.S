@@ -44,6 +44,8 @@ EXPORT(init_dispatch)
 	je	init_probefilter_early_f15
 	cmpl	$VECTOR_ENABLE_CACHE, %edx
 	je	init_enable_cache
+	cmpl	$VECTOR_DISABLE_CACHE, %edx
+	je	init_disable_cache
 #ifdef LEGACY
 	cmpl	$VECTOR_READBACK_MSR, %edx
 	je	init_readback_msr
@@ -56,13 +58,17 @@ EXPORT(init_dispatch)
 	jmp	1b
 
 init_trampoline:
-	STATUS(4)
-
-	/* Disable caching */
+	/* Disable cache */
 	mov	%cr0, %eax
 	or	$0x40000000, %eax
 	mov	%eax, %cr0
 	wbinvd
+
+	/* Flush TLB */
+	mov %eax, %cr3
+	mov %cr3, %eax
+
+	STATUS(4)
 
 	/* Disable all MTRR entries */
 	mov	$MSR_MTRR_PHYS_MASK0, %ecx
@@ -342,6 +348,22 @@ init_enable_cache:
 	mov	%cr0, %eax
 	and	$~0x40000000, %eax
 	mov	%eax, %cr0
+
+	STATUS(0)
+1:
+	cli
+	hlt
+	jmp	1b
+
+init_disable_cache:
+	mov	%cr0, %eax
+	or	$0x40000000, %eax
+	mov	%eax, %cr0
+	wbinvd
+
+	/* Flush TLB */
+	mov %eax, %cr3
+	mov %cr3, %eax
 
 	STATUS(0)
 1:
