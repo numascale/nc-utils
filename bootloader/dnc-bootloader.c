@@ -43,6 +43,7 @@ extern "C" {
 #include "dnc-devices.h"
 #include "dnc-mmio.h"
 #include "dnc-maps.h"
+#include "dnc-trace.h"
 #include "dnc-version.h"
 
 #define PIC_MASTER_CMD          0x20
@@ -474,8 +475,9 @@ static void update_e820_map(void)
 			} else {
 				if ((trace_buf_size > 0) && (length > trace_buf_size)) {
 					length -= trace_buf_size;
+					uint64_t trace_buf = base + length;
 					printf("SCI%03x#%x tracebuffer reserved @ 0x%llx:0x%llx\n",
-					       node->sci, j, base + length, base + length + trace_buf_size - 1);
+					       node->sci, j, trace_buf, trace_buf + trace_buf_size - 1);
 				}
 			}
 
@@ -1146,6 +1148,14 @@ static void setup_other_cores(void)
 
 	/* Start all local cores (not BSP) and let them run our init_trampoline */
 	for (ht = nodes[0].nb_ht_lo; ht <= nodes[0].nb_ht_hi; ht++) {
+		uint64_t base   = ((uint64_t)nodes[0].ht[ht].base << DRAM_MAP_SHIFT);
+		uint64_t length = ((uint64_t)nodes[0].ht[ht].size << DRAM_MAP_SHIFT);
+
+		if ((trace_buf_size > 0) && (length > trace_buf_size)) {
+			length -= trace_buf_size;
+			tracing_arm(0xfff0, ht, base + length, base + length + trace_buf_size -1);
+		}
+
 		for (i = 0; i < nodes[0].ht[ht].cores; i++) {
 			oldid = nodes[0].ht[ht].apic_base + i;
 			apicid = nodes[0].apic_offset + oldid;
@@ -1447,6 +1457,13 @@ static void setup_remote_cores(node_info_t *const node)
 		/* Account for Cstate6 save area */
 		dnc_write_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124,
 		               (node->ht[i].base + node->ht[i].size - 1 + pf_cstate6) >> (27 - DRAM_MAP_SHIFT));
+
+		uint64_t base   = ((uint64_t)node->ht[i].base << DRAM_MAP_SHIFT);
+		uint64_t length = ((uint64_t)node->ht[i].size << DRAM_MAP_SHIFT);
+		if ((trace_buf_size > 0) && (length > trace_buf_size)) {
+			length -= trace_buf_size;
+			tracing_arm(sci, i, base + length, base + length + trace_buf_size -1);
+		}
 	}
 
 	/* Program our local DRAM ranges */
@@ -2318,6 +2335,10 @@ static void unify_all_nodes(void)
 
 	setup_mmio();
 	update_acpi_tables_late();
+
+
+	if ((trace_buf_size > 0) && boot_wait)
+		wait_key();
 
 	printf("Clearing remote memory...");
 	critical_enter();
