@@ -2801,6 +2801,9 @@ int main(const int argc, const char *argv[])
 	if (reason & ~(1 << 2)) /* Mask out CF9 reset */
 		warning("Last reboot reason (PM44h) was 0x%x", reason);
 
+	if (!rdmsr(MSR_PATCHLEVEL))
+		warning("BIOS hasn't updated processor microcode; please use newer BIOS");
+
 	if (test_manufacture) {
 		msg_testing();
 		printf(COL_DEFAULT "\n");
