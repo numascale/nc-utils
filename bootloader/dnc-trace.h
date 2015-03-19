@@ -15,10 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __DNC_TRACE_H
-#define __DNC_TRACE_H 1
+#ifndef __DNC_TRACE
+#define __DNC_TRACE 1
 
-void system_trace(void);
+void tracing_arm(const sci_t sci, const uint8_t ht, const uint64_t trace_base, const uint64_t trace_limit);
+void tracing_start(const sci_t sci, const uint8_t ht);
+void tracing_stop(const sci_t sci, const uint8_t ht);
 
 #endif
 

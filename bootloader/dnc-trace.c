@@ -15,36 +15,37 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef TRACING
+#include "dnc-types.h"
+#include "dnc-defs.h"
+#include "dnc-access.h"
 
-#include "dnc-trace.h"
-#include "dnc-commonlib.h"
-#include "dnc-bootloader.h"
-#include "ht-trace.h"
-
-void system_trace(void)
+void tracing_arm(const sci_t sci, const uint8_t ht, const uint64_t trace_base, const uint64_t trace_limit)
 {
-	if (!trace_buf_size) {
-		printf("Trace buffer not requested\n");
-		return;
-	}
-
-	if (!trace_buf) {
-		printf("Trace buffer not allocated yet\n");
-		return;
-	}
-
-	printf("Tracing HT activity...buf @ 0x%011llx for 0x%08x\n", trace_buf, trace_buf_size);
-	start_ht_trace(0);
-	udelay(100);
-	stop_ht_trace(0);
-	dump_ht_trace(0);
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xb8, ((trace_base >> 24) & 0xffff) | (((trace_limit >> 24) & 0xffff) << 16));
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0x120, (trace_base >> 40) | ((trace_limit >> 40) << 8) | ((trace_base >> 40) << 16));
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xbc, trace_base >> 6);
 }
 
-#else
-
-void system_trace(void)
+void tracing_start(const sci_t sci, const uint8_t ht)
 {
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc4, 0);
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc8, 1 < 31);
+
+	uint32_t val = dnc_read_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc0);
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc0, val & ~1);
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc0, 1 | (0 << 1) | (0 << 4) | (1 << 13) | (1 << 20) | (0 << 21) | (0 << 23) | (1 << 25));
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc8, 1 | (1 << 29));
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xcc, (1 << 31) | (1 << 14) | (0x3f << 24) | (0x3f << 16));
+
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc4, 1 << 31);
 }
 
-#endif
+void tracing_stop(const sci_t sci, const uint8_t ht)
+{
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc8, 1 << 31);
+
+	uint32_t val = dnc_read_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc0);
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc0, val | (1 << 12));
+	val = dnc_read_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc0);
+	dnc_write_conf(sci, 0, 0x18 + ht, FUNC2_DRAM, 0xc0, val & ~1);
+}
