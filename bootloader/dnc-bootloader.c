@@ -2333,13 +2333,6 @@ static void unify_all_nodes(void)
 	}
 	printf("\n");
 
-	setup_mmio();
-	update_acpi_tables_late();
-
-
-	if ((trace_buf_size > 0) && boot_wait)
-		wait_key();
-
 	printf("Clearing remote memory...");
 	critical_enter();
 
@@ -2380,6 +2373,9 @@ static void unify_all_nodes(void)
 	}
 	critical_leave();
 	printf("done\n");
+
+	setup_mmio();
+	update_acpi_tables_late();
 
 	/* Re-enable DRAM scrubbers with our new memory map, required by fam15h BKDG; see D18F2xC0 b0 */
 	if (!trace_buf_size) {
