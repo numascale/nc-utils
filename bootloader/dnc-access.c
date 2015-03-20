@@ -592,13 +592,17 @@ void *zalloc_persist(const size_t size)
 	/* Free last one guaranteeing space for allocation */
 	free(allocs[nallocs--]);
 
-	/* Allocate requested size */
-	void *ptr = zalloc(size);
+	/* Ensure allocation length is page-aligned */
+	assert(!(size & 0xfff));
+
+	/* Allocate requested size, with 2MB head padding and up to 4KB tail padding */
+	void *ptr = zalloc((2 << 20) + size);
 	assert(ptr);
 
 	/* Free remaining allocations */
 	while (nallocs)
 		free(allocs[nallocs--]);
 
+	ptr = (void *)roundup((uint32_t)ptr, 2 << 20);
 	return ptr;
 }
