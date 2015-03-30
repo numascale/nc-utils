@@ -19,15 +19,18 @@
 #include "dnc-config.h"
 #include "dnc-commonlib.h"
 #include "dnc-bootloader.h"
+#include "dnc-version.h"
 
 #include <stdio.h>
 
 int escrow_populate(void *data)
 {
+	assert(sizeof(struct escrow_ent) <= 32);
+
 	struct escrow_ent *start = (escrow_ent *)data;
 	struct escrow_ent *cur = start;
 
-	cur->numachip_rev = 2;
+	cur->layout       = ESCROW_REV;
 	cur->size_x       = cfg_fabric.size[0];
 	cur->size_y       = cfg_fabric.size[1];
 	cur->size_z       = cfg_fabric.size[2];
@@ -36,18 +39,21 @@ int escrow_populate(void *data)
 	cur->neigh_link   = nodes[0].nc_neigh_link;
 	cur->symmetric    = 1;
 	cur->renumbering  = renumber_bsp == 1;
-	cur->remote_io    = !!remote_io;
+	cur->devices      = !!remote_io;
 	cur->observer     = local_info->sync_only;
 	cur->cores        = 0;
+	cur->ht           = nodes[0].nc_ht;
+	assert(sizeof(VER) <= sizeof(cur->firmware_ver));
+	strncpy(cur->firmware_ver, VER, sizeof(cur->firmware_ver));
 
 	for (int i = 0; i < nodes[0].nc_ht; i++)
 		cur->cores += nodes[0].ht[i].cores;
 
 	if (verbose)
-		printf("Escrow: numachip_rev=%u size=%ux%ux%u northbridges=%u neigh=%u.%u symmetric=%u renumbering=%u remote-io=%u observer=%u cores=%u\n",
-			cur->numachip_rev, cur->size_x, cur->size_y, cur->size_z,
+		printf("Escrow: layout=%u size=%ux%ux%u northbridges=%u neigh=%u.%u symmetric=%u renumbering=%u devices=%u observer=%u cores=%u\n",
+			cur->layout, cur->size_x, cur->size_y, cur->size_z,
 			cur->northbridges, cur->neigh_ht, cur->neigh_link,
-			cur->symmetric, cur->renumbering, cur->remote_io,
+			cur->symmetric, cur->renumbering, cur->devices,
 			cur->observer, cur->cores);
 	cur++;
 

@@ -20,10 +20,10 @@
 
 #include "dnc-types.h"
 
-#define ESCROW_REV   4
+#define ESCROW_REV   5
 
 struct escrow_ent {
-	unsigned numachip_rev : 4;
+	unsigned layout : 4;
 	unsigned size_x : 4;
 	unsigned size_y : 4;
 	unsigned size_z : 4;
@@ -32,9 +32,16 @@ struct escrow_ent {
 	unsigned neigh_link : 2;
 	unsigned symmetric : 1;
 	unsigned renumbering : 1;
-	unsigned remote_io : 1;
+	unsigned devices : 1;
 	unsigned observer : 1;
 	unsigned cores : 8;
+	unsigned ht : 3;
+	uint8_t partition; // 0 for observer
+	uint16_t fabric_nodes : 12;
+	uint16_t part_start : 12;
+	uint16_t part_nodes : 12; // 81 bits
+	unsigned pad : 7;
+	char firmware_ver[18];
 } __attribute__((packed));
 
 checked int escrow_populate(void *data);
