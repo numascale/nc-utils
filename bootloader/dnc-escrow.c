@@ -42,19 +42,37 @@ int escrow_populate(void *data)
 	cur->devices      = !!remote_io;
 	cur->observer     = local_info->sync_only;
 	cur->cores        = 0;
-	cur->ht           = nodes[0].nc_ht;
-	assert(sizeof(VER) <= sizeof(cur->firmware_ver));
-	strncpy(cur->firmware_ver, VER, sizeof(cur->firmware_ver));
 
 	for (int i = 0; i < nodes[0].nc_ht; i++)
 		cur->cores += nodes[0].ht[i].cores;
 
+	cur->ht           = nodes[0].nc_ht;
+	cur->partition    = local_info->partition;
+	cur->fabric_nodes = cfg_nodes;
+
+	for (int i = 0; i < cfg_nodes; i++) {
+		if (cfg_nodelist[i].partition == local_info->partition) {
+			cur->part_start = cfg_nodelist[i].sci;
+			break;
+		}
+	}
+
+	cur->part_nodes   = 0;
+	for (int i = 0; i < cfg_nodes; i++)
+		if (cfg_nodelist[i].partition == local_info->partition)
+			cur->part_nodes++;
+
+	assert(sizeof(VER) <= sizeof(cur->firmware_ver));
+	strncpy(cur->firmware_ver, VER, sizeof(cur->firmware_ver));
+
 	if (verbose)
-		printf("Escrow: layout=%u size=%ux%ux%u northbridges=%u neigh=%u.%u symmetric=%u renumbering=%u devices=%u observer=%u cores=%u\n",
+		printf("Escrow: layout=%u size=%ux%ux%u northbridges=%u neigh=%u.%u symmetric=%u renumbering=%u"
+			" devices=%u observer=%u cores=%u ht=%u partition=%u fabric_nodes=%u part_start=%03x part_nodes=%u\n",
 			cur->layout, cur->size_x, cur->size_y, cur->size_z,
 			cur->northbridges, cur->neigh_ht, cur->neigh_link,
 			cur->symmetric, cur->renumbering, cur->devices,
-			cur->observer, cur->cores);
+			cur->observer, cur->cores, cur->ht, cur->partition,
+			cur->fabric_nodes, cur->part_start, cur->part_nodes);
 	cur++;
 
 	return (cur - start) * sizeof(cur[0]);
