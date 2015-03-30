@@ -2755,7 +2755,7 @@ static int nc_start(void)
 
 		/* Set G3x02c FAB_CONTROL bit 30 */
 		dnc_write_csr(0xfff0, H2S_CSR_G3_FAB_CONTROL, 1 << 30);
-		printf("Numascale NumaChip awaiting fabric set-up by master node...");
+		printf("Waiting for unification by master %s/%03x...", get_master_name(part->master), part->master);
 
 		do {
 			if (((dnc_check_mctr_status(0) & 0xfbc) != 0) ||
