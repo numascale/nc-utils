@@ -135,7 +135,7 @@ static unsigned long find_next_bit(const unsigned long *addr, unsigned long size
 		return result + ffsl(tmp);
 }
 #endif
-static void find_stack(void **start, void **end)
+static void find_stack(unsigned long **start, unsigned long **end)
 {
 	FILE *maps = fopen("/proc/self/maps", "r");
 	assert(maps);
@@ -145,7 +145,7 @@ static void find_stack(void **start, void **end)
 	while (fgets(line, sizeof(line), maps)) {
 		int m = -1;
 
-		if (sscanf(line, "%p-%p rw-p %*x %*x:%*x %*u %n", start, end, &m) != 2 || m < 0)
+		if (sscanf(line, "%16p-%16p rw-p %*x %*x:%*x %*u %n", start, end, &m) != 2 || m < 0)
 			continue;
 
 		if (!strncmp(&line[m], STACKNAME, sizeof(STACKNAME) - 1)) {
@@ -303,7 +303,7 @@ static __attribute__((constructor)) void init(void)
 	memset(nodemask, 0, masksize);
 	set_bit(node, nodemask);
 
-	void *start, *end;
+	unsigned long *start, *end;
 	find_stack(&start, &end);
 	int f = mbind(start, end - start, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
 	assertf(!f, "mbind errno %d\n", errno);
