@@ -276,7 +276,6 @@ static __attribute__((constructor)) void init(void)
 	const struct sched_param params = {0};
 	sysassertf(sched_setscheduler(0, SCHED_BATCH, &params) == 0, "sched_setscheduler failed");
 
-#ifdef REGRESSION
 	unsigned long core = sched_getcpu();
 	clear_bit(core, available);
 	lock_core(core); // OS will close fd on destruction
@@ -307,7 +306,6 @@ static __attribute__((constructor)) void init(void)
 	find_stack(&start, &end);
 	int f = mbind(start, end - start, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
 	assertf(!f, "mbind errno %d\n", errno);
-#endif
 }
 
 static void *pthread_create_inner(struct thread_info *info)
