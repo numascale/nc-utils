@@ -1,4 +1,4 @@
-# r5
+# r6
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
@@ -303,7 +303,7 @@ class Numachip:
 	events = (
 		{'name': 'scc-reqs', 'counter': 0, 'event': 2, 'mask': 2, 'limit': 100000, 'units': 'req/s'},
 	)
-	delay_poll = 2E-6 # 1us
+	delay_poll = 4E-6 # 4us
 	max_tries = 5000
 
 	class NumachipException(Exception):
