@@ -499,6 +499,10 @@ unsigned char *remote_aml(uint32_t *len)
 	rbus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 	sb->children.add(rbus);
 
+	/* If fastboot option is set to 2 or higher we skip remote PCI domains */
+	if (fastboot > 1)
+		goto exit;
+
 	for (unsigned n = 1; n < nnodes; n++) {
 		char name[5];
 		node = &nodes[n];
@@ -578,6 +582,7 @@ unsigned char *remote_aml(uint32_t *len)
 		sb->children.add(bus);
 	}
 
+exit:
 	*len = sb->build();
 	sb->insert();
 	return sb->buf;
