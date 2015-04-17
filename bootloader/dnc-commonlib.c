@@ -2773,11 +2773,9 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 				fatal("Please disable C1E support in the BIOS");
 		}
 
-#ifdef WORKAROUND_NOT_NEEDED
 		/* InstallStateS to avoid exclusive state */
 		val = cht_read_conf(i, FUNC0_HT, 0x68);
 		cht_write_conf(i, FUNC0_HT, 0x68, val | (1 << 23));
-#endif
 
 		/* ERRATA #N27: Disable Coherent Prefetch Probes (Query probes), as NumaChip don't handle them correctly and they are required to be disabled for Probe Filter */
 		val = cht_read_conf(i, FUNC2_DRAM, 0x1b0);
