@@ -206,7 +206,6 @@ parser.add_option('--lean', dest='lean', action='store_true', default=False, hel
 parser.add_option('--local', dest='local', action='store_true', default=False, help='check local registers only')
 
 options, args = parser.parse_args()
-verbose = options.verbose
 
 platform = Platform()
 numachip = Numachip(platform)
@@ -233,12 +232,12 @@ except Numachip.BlockedException:
 try:
 	while True:
 		timestr = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-		if verbose > 0:
+		if options.verbose > 0:
 			timestr += ' ['
 		print timestr,
 		print >>logf, timestr,
 
-		if verbose > 0:
+		if options.verbose > 0:
 			ptrs = {}
 			total = 0
 			for node in nodes:
