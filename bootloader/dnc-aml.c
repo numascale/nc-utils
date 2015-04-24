@@ -491,17 +491,13 @@ unsigned char *remote_aml(uint32_t *len)
 {
 	Container *sb = new Scope("\\_SB_");
 
-	const unsigned nnodes = min(dnc_node_count, AML_MAXNODES);
+	const unsigned nnodes = fastboot < 2 ? min(dnc_node_count, AML_MAXNODES) : 1;
 	node_info_t *node = &nodes[0];
 
 	/* For the master's PCI bus, add a proximity object */
 	Container *rbus = new Scope("PCI0");
 	rbus->children.add(new Name("_PXM", new Constant(node->ht[node->bsp_ht].pdom)));
 	sb->children.add(rbus);
-
-	/* If fastboot option is set to 2 or higher we skip remote PCI domains */
-	if (fastboot > 1)
-		goto exit;
 
 	for (unsigned n = 1; n < nnodes; n++) {
 		char name[5];
@@ -582,7 +578,6 @@ unsigned char *remote_aml(uint32_t *len)
 		sb->children.add(bus);
 	}
 
-exit:
 	*len = sb->build();
 	sb->insert();
 	return sb->buf;
