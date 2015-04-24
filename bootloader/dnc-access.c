@@ -263,10 +263,8 @@ void watchdog_setup(void)
 	pmio_write32(0x6c, (unsigned int)watchdog_base);
 }
 
-void reset_cf9(int mode, int last)
+void reset_cf9(const int mode)
 {
-	int i;
-
 	/* Ensure console drains */
 	udelay(1000000);
 
@@ -391,7 +389,7 @@ void cht_test(uint8_t node, int neigh, int neigh_link)
 	if (!(ht_testmode & HT_TESTMODE_LOOP) && (errors || cht_error(neigh, neigh_link))) {
 		printf("%d link errors while reading; resetting system...\n", errors);
 		/* Cold reset, since warm doesn't always reset the link enough */
-		reset_cf9(0xa, neigh);
+		reset_cf9(0xa);
 	}
 
 	printf("%d errors\n", errors);
@@ -448,7 +446,7 @@ void cht_write_conf_nc(uint8_t node, uint8_t func, int neigh, int neigh_link, ui
 	if (neigh != -1 && neigh_link != -1 && cht_error(neigh, neigh_link)) {
 		printf("Link error while writing; resetting system...\n");
 		/* Cold reset, since warm doesn't always reset the link enough */
-		reset_cf9(0xa, neigh);
+		reset_cf9(0xa);
 	}
 }
 #endif

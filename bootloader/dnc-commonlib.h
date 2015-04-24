@@ -122,7 +122,7 @@ static inline void msg_passed(void)
 	printf(COL_RED "Error: " format "; rebooting in 5s..." COL_DEFAULT, ## args); \
 	broadcast_error(0, format "; rebooting", ## args);		\
 	udelay(5000000);						\
-	reset_cf9(0xa, 0);						\
+	reset_cf9(0xa);						\
    } while (1)
 
 #define warning(format, args...) do {					\

@@ -192,7 +192,7 @@ void ioapic_write64(const uint8_t reg, const uint64_t val);
 void watchdog_setup(void);
 void watchdog_run(const unsigned counter);
 void watchdog_stop(void);
-void reset_cf9(int mode, int last);
+void reset_cf9(const int mode);
 void cht_test(uint8_t node, int neigh, int neigh_link);
 checked uint32_t cht_read_conf(uint8_t node, uint8_t func, uint16_t reg);
 void cht_write_conf(uint8_t node, uint8_t func, uint16_t reg, uint32_t val);
