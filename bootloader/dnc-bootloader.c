@@ -2419,11 +2419,11 @@ static void unify_all_nodes(void)
 #endif
 }
 
-static void start_user_os(void)
+static void start_user_os(const char *label)
 {
 	printf(BANNER "Unification succeeded at 20%02d-%02d-%02d %02d:%02d:%02d; loading %s..." COL_DEFAULT "\n",
 		rtc_read(RTC_YEAR), rtc_read(RTC_MONTH), rtc_read(RTC_DAY),
-		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS), next_label);
+		rtc_read(RTC_HOURS), rtc_read(RTC_MINUTES), rtc_read(RTC_SECONDS), label);
 
 	if (boot_wait)
 		wait_key();
@@ -2431,7 +2431,7 @@ static void start_user_os(void)
 	/* Restore 32-bit only access */
 	set_wrap32_enable();
 
-	(void)syslinux_run_command(next_label);
+	(void)syslinux_run_command(label);
 	fatal("Failed to boot");
 }
 
@@ -2600,7 +2600,7 @@ static int nc_start(void)
 
 	int rc = dnc_init_bootloader(dnc_card_type, &dnc_asic_mode);
 	if (rc == -2)
-		start_user_os();
+		start_user_os(next_label);
 
 	nodes[0].nc_ht = rc;
 
@@ -2699,7 +2699,7 @@ static int nc_start(void)
 		free(cfg_nodelist);
 		free(cfg_partlist);
 		lfree(orig_e820_map);
-		start_user_os();
+		start_user_os(observer_label ? observer_label : next_label);
 	}
 
 	dnc_init_caches();
@@ -2749,7 +2749,7 @@ static int nc_start(void)
 			set_wrap32_enable();
 		}
 
-		start_user_os();
+		start_user_os(next_label);
 	} else {
 		/* Slave */
 		uint32_t val;

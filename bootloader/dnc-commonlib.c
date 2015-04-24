@@ -45,6 +45,7 @@ IMPORT_RELOCATED(apic_readback);
 /* Options */
 const char *config_file_name = "nc-config/fabric.json";
 const char *next_label = "menu.c32";
+const char *observer_label = NULL;
 const char *microcode_path = "";
 static bool init_only = 0;
 static bool route_only = 0;
@@ -2057,6 +2058,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"BOOTIF",          NULL,          NULL},             /* PXE Boot parameters (not used) */
 		{"config",          &parse_string, &config_file_name},/* Config (JSON) file to use */
 		{"next-label",	    &parse_string, &next_label},      /* Next PXELINUX label to boot after loader */
+		{"observer-label",  &parse_string, &observer_label},  /* Next PXELINUX label to boot after loader for observers */
 		{"microcode",	    &parse_string, &microcode_path},  /* Path to microcode to be loaded into chip */
 		{"init-only",	    &parse_bool,   &init_only},       /* Only initialize chip, but then load <nest-label> without setting up a full system */
 		{"route-only",	    &parse_bool,   &route_only},

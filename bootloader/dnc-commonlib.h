@@ -218,6 +218,7 @@ extern bool dnc_asic_mode;
 extern char dnc_card_type[16];
 extern const char *config_file_name;
 extern const char *next_label;
+extern const char *observer_label;
 extern const char *microcode_path;
 extern bool disable_smm;
 extern bool disable_c1e;
