@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	sysassertf(len > 1, "readlink failed");
 
 	// readlink doesn't terminate string
-	path[len] = NULL;
+	path[len] = '\0';
 
 	// drop leaf name
 	char *last = strrchr(path, '/');
