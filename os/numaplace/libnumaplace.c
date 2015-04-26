@@ -227,7 +227,7 @@ static bool core_allocate(struct thread_info *info)
 				stride_alloc++;
 			}
 
-			if (stride_alloc > stride) {
+			if (stride_alloc >= stride) {
 				warn_once("Oversubscribing cores");
 				return lastcore;
 			}
