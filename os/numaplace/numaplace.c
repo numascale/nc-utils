@@ -56,7 +56,11 @@ int main(int argc, char *argv[])
 	assert(!setenv("NUMAPLACE_FLAGS", flags, 1));
 
 	char path[PATH_MAX];
-	sysassertf(readlink("/proc/self/exe", path, sizeof(path)) > 1, "readlink failed");
+	ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
+	sysassertf(len > 1, "readlink failed");
+
+	// readlink doesn't terminate string
+	path[len] = NULL;
 
 	// drop leaf name
 	char *last = strrchr(path, '/');

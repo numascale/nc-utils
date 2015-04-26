@@ -36,7 +36,7 @@
 
 static uint16_t cores, nodes;
 static uint8_t stride = 1;
-static uint8_t stride_alloc; // threshold for allocation in group of 'stride' bits
+static uint8_t stride_alloc = 1; // threshold for allocation in group of 'stride' bits
 static unsigned lastcore;
 static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
@@ -216,18 +216,20 @@ static bool core_allocate(struct thread_info *info)
 		do {
 			used = 0;
 
+			// find weight of 'stride' group of bits
 			for (core = lastcore; core < (lastcore + stride); core++)
 				used += !test_bit(core, available);
 
 			lastcore += stride;
+
 			if (lastcore > cores) {
 				lastcore = 0;
 				stride_alloc++;
-				printf("pass %u\n", stride_alloc + 1);
-				if (stride_alloc > stride) {
-					warn_once("All cores already allocated");
-					return 0;
-				}
+			}
+
+			if (stride_alloc > stride) {
+				warn_once("Oversubscribing cores");
+				return lastcore;
 			}
 		} while (used > stride_alloc);
 
