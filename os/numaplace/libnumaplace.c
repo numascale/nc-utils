@@ -36,7 +36,7 @@
 
 static uint16_t cores, nodes;
 static uint8_t stride = 1;
-static uint8_t stride_alloc = 1; // threshold for allocation in group of 'stride' bits
+static uint8_t stride_alloc; // threshold for allocation in group of 'stride' bits
 static unsigned lastcore;
 static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
