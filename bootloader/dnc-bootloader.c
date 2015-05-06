@@ -2581,6 +2581,28 @@ out:
 	printf("Renumbering flag %d\n", renumber_bsp);
 }
 
+static void probefilter_check(void)
+{
+	/* As ProbeFilter is a BIOS option on earlier boards, check consistency */
+	char msg[4096] = {0};
+	const bool pf = cht_read_conf(0, FUNC3_MISC, 0x1d4) & 2;
+
+	foreach_nodes(node) {
+		foreach_nb(ht, node) {
+			bool en = dnc_read_conf(node->sci, 0, 24 + ht, FUNC3_MISC, 0x1d4) & 2;
+			if (en != pf) {
+				char buf[32];
+				snprintf(buf, sizeof(buf), "%s/%03x ", get_master_name(node->sci), node->sci);
+				strncat(msg, buf, sizeof(msg));
+				break;
+			}
+		}
+	}
+
+	if (strlen(msg))
+		fatal("%shave inconsistent probefilter settings to master", msg);
+}
+
 static int nc_start(void)
 {
 	struct part_info *part;
@@ -2722,6 +2744,7 @@ static int nc_start(void)
 		}
 
 		unify_all_nodes();
+		probefilter_check();
 
 		dnc_check_mctr_status(0);
 		dnc_check_mctr_status(1);

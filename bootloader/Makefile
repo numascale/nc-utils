@@ -19,7 +19,7 @@ all: dnc-bootloader.c32 test-routing gen-ucode
 
 .PHONY: upload
 upload: dnc-bootloader.c32
-	rsync -z dnc-bootloader.c32 ns:/net/numastore/tftpboot/dnc-bootloader-$(USER).c32
+	rsync -z dnc-bootloader.c32 build:/net/numastore/tftpboot/dnc-bootloader-$(USER).c32
 
 .PHONY: check
 check:
