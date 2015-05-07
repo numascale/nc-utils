@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect checker r9
+# NumaConnect checker r10
 
 import os, time, optparse, operator
 from nclib import Platform, Numachip, Northbridge
@@ -263,6 +263,8 @@ try:
 			break
 
 		time.sleep(3)
+except Numachip.TimeoutException:
+	raise SystemError('error: fabric timeout')
 except Numachip.BlockedException:
 	raise SystemError('error: fabric blocked')
 except KeyboardInterrupt:
