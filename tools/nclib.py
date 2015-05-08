@@ -1,4 +1,4 @@
-# r6
+# r7
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
@@ -447,7 +447,8 @@ class Numachip:
 				raise self.HTErrorException()
 
 			if val != 4: # RESP_CONFLICT
-				raise Exception('read response status %d received' % val)
+				# retry
+				break
 
 			tries1 += 1
 			if tries1 > self.max_tries:
