@@ -39,7 +39,7 @@ static uint8_t stride = 1;
 static uint8_t stride_alloc; // threshold for allocation in group of 'stride' bits
 static unsigned lastcore;
 static unsigned flags;
-static unsigned long available[MAX_CORES / BITS_PER_LONG];
+static unsigned long occupied[MAX_CORES / BITS_PER_LONG];
 static pthread_key_t thread_key;
 
 typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
@@ -249,7 +249,7 @@ static bool core_allocate(struct thread_info *info)
 
 			// find weight of 'stride' group of bits
 			for (core = lastcore; core < (lastcore + stride); core++)
-				used += !test_bit(core, available);
+				used += test_bit(core, occupied);
 
 			lastcore += stride;
 
@@ -264,12 +264,12 @@ static bool core_allocate(struct thread_info *info)
 			}
 		} while (used > stride_alloc);
 
-		// use first available bit
+		// use first unset occupied bit
 		for (unsigned core2 = core - 1; core2 >= core - stride; core2--) {
-			if (test_bit(core2, available)) {
+			if (!test_bit(core2, occupied)) {
 				int fd = lock_core(core2);
 				if (fd > -1) {
-					clear_bit(core2, available);
+					set_bit(core2, occupied);
 					info->core = core2;
 					info->fd = fd;
 					return 1;
@@ -284,7 +284,7 @@ static bool core_allocate(struct thread_info *info)
 static void core_deallocate(struct thread_info *info)
 {
 	assert(!close(info->fd)); // unbind lock
-	set_bit(info->core, available);
+	clear_bit(info->core, occupied);
 
 	if (flags & FLAGS_VERBOSE)
 		printf("core %u deallocate\n", info->core);
@@ -341,8 +341,6 @@ static __attribute__((constructor)) void init(void)
 
 	nodes = numa_max_node() + 1;
 	cores = sysconf(_SC_NPROCESSORS_ONLN);
-
-	memset(available, 0xff, sizeof(available));
 }
 
 static void *pthread_create_inner(struct thread_info *info)
