@@ -42,8 +42,6 @@ static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
 static pthread_key_t thread_key;
 
-static void *(*xmmap)(void *, size_t, int, int, int, off_t);
-
 typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
 
 struct thread_info {
@@ -65,6 +63,8 @@ static inline void clear_bit(const unsigned nr, unsigned long *addr)
 
 static inline int test_bit(const unsigned nr, const unsigned long *addr)
 {
+	assert(nr < MAX_CORES);
+
 	return ((1UL << (nr % BITS_PER_LONG)) &
 	  (((unsigned long *)addr)[nr / BITS_PER_LONG])) != 0;
 }
@@ -139,7 +139,7 @@ static unsigned long find_next_bit(const unsigned long *addr, unsigned long size
 
 static void *malloc_spatial(const uint16_t core, const size_t size)
 {
-	void *addr = xmmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	assert(addr != MAP_FAILED);
 
 	assert(!madvise(addr, size, (flags & FLAGS_NOTHP) ? MADV_NOHUGEPAGE : MADV_HUGEPAGE));
@@ -149,6 +149,30 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 		fprintf(stderr, "allocated %zuMB on core %u\n", size >> 20, core);
 
 	return addr;
+}
+
+void *mmap(void *addr, size_t length, int prot, int mflags, int fd, off_t offset)
+{
+	static void *(*xmmap)(void *, size_t, int, int, int, off_t);
+
+	if (!xmmap) {
+		xmmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
+		assertf(xmmap, "dlsym failed");
+	}
+
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "mmap(addr=%p length=%zu prot=%d flags=%u fd=%d offset=%ld)\n",
+			addr, length, prot, flags, fd, offset);
+
+	void *map = xmmap(addr, length, prot, mflags, fd, offset);
+	if (map) {
+		int rc = madvise(map, length, (flags & FLAGS_NOTHP) ? MADV_NOHUGEPAGE : MADV_HUGEPAGE);
+		if (rc != 0)
+			fprintf(stderr, "madvise(map=%p length=%zu MADV_HUGEPAGE) failed with %d\n",
+			  map, length, errno);
+	}
+
+	return map;
 }
 #endif
 static void find_stack(unsigned long **start, unsigned long **end)
@@ -249,7 +273,9 @@ static bool core_allocate(struct thread_info *info)
 					info->core = core2;
 					info->fd = fd;
 					return 1;
-				}
+				} else
+					// skip
+					break;
 			}
 		}
 	}
@@ -266,58 +292,57 @@ static void core_deallocate(struct thread_info *info)
 	free(info);
 }
 
-static __attribute__((constructor)) void init(void)
+void bind_current(void)
 {
-	char *envstr = getenv("NUMAPLACE_FLAGS");
-	if (envstr)
-		flags = atoi(envstr);
-
-	envstr = getenv("NUMAPLACE_STRIDE");
-	if (envstr)
-		stride = atoi(envstr);
-
-	xmmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
-	assertf(xmmap, "dlsym failed");
-
-	nodes = numa_max_node() + 1;
-	cores = sysconf(_SC_NPROCESSORS_ONLN);
-	for (unsigned core = 0; core < cores; core++)
-		set_bit(core, available);
-
-	// use batch scheduling priority to minimise preemption
+	// use batch scheduling priority to reduce preemption
 	const struct sched_param params = {0};
 	sysassertf(sched_setscheduler(0, SCHED_BATCH, &params) == 0, "sched_setscheduler failed");
 
-	unsigned long core = sched_getcpu();
-	clear_bit(core, available);
-	lock_core(core); // OS will close fd on destruction
+	struct thread_info info;
+	if (core_allocate(&info)) {
+		if (flags & FLAGS_VERBOSE)
+			printf("init core %u\n", info.core);
 
-	if (flags & FLAGS_VERBOSE)
-		printf("init core %lu\n", core);
+		const size_t setsize = CPU_ALLOC_SIZE(info.core + 1);
+		cpu_set_t cpuset[MAX_CORES / 8 / sizeof(cpu_set_t)];
+		CPU_ZERO_S(setsize, cpuset);
+		CPU_SET_S(info.core, setsize, cpuset);
 
-	const size_t setsize = CPU_ALLOC_SIZE(core + 1);
-	cpu_set_t cpuset[MAX_CORES / 8 / sizeof(cpu_set_t)];
-	CPU_ZERO_S(setsize, cpuset);
-	CPU_SET_S(core, setsize, cpuset);
+		assert(!sched_setaffinity(0, setsize, cpuset));
 
-	assert(!sched_setaffinity(0, setsize, cpuset));
+		// pin stack
+		struct rlimit limit;
+		assert(!getrlimit(RLIMIT_STACK, &limit));
 
-	// pin stack
-	struct rlimit limit;
-	assert(!getrlimit(RLIMIT_STACK, &limit));
+		int node = numa_node_of_cpu(info.core);
+		assert(node != -1);
 
-	int node = numa_node_of_cpu(core);
-	assert(node != -1);
+		size_t masksize = roundup(node / 8 + 1, sizeof(long));
+		unsigned long nodemask[MAX_CORES / 8 / sizeof(long)];
+		memset(nodemask, 0, masksize);
+		set_bit(node, nodemask);
 
-	size_t masksize = roundup(node / 8 + 1, sizeof(long));
-	unsigned long nodemask[MAX_CORES / 8 / sizeof(long)];
-	memset(nodemask, 0, masksize);
-	set_bit(node, nodemask);
+		unsigned long *start, *end;
+		find_stack(&start, &end);
+		int f = mbind(start, end - start, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
+		assertf(!f, "mbind errno %d\n", errno);
+	}
+}
 
-	unsigned long *start, *end;
-	find_stack(&start, &end);
-	int f = mbind(start, end - start, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
-	assertf(!f, "mbind errno %d\n", errno);
+static __attribute__((constructor)) void init(void)
+{
+	char *envstr = getenv("NUMAPLACE_STRIDE");
+	if (envstr)
+		stride = atoi(envstr);
+
+	envstr = getenv("NUMAPLACE_FLAGS");
+	if (envstr)
+		flags = atoi(envstr);
+
+	nodes = numa_max_node() + 1;
+	cores = sysconf(_SC_NPROCESSORS_ONLN);
+
+	memset(available, 0xff, sizeof(available));
 }
 
 static void *pthread_create_inner(struct thread_info *info)
@@ -394,23 +419,6 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 			printf("cores overallocated\n");
 
 	return xpthread_create(thread, &attr2, (void *(*)(void *))pthread_create_inner, info);
-}
-
-void *mmap(void *addr, size_t length, int prot, int mflags, int fd, off_t offset)
-{
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "mmap(addr=%p length=%zu prot=%d flags=%u fd=%d offset=%ld)\n",
-			addr, length, prot, flags, fd, offset);
-
-	void *map = xmmap(addr, length, prot, mflags, fd, offset);
-	if (map) {
-		int rc = madvise(map, length, (flags & FLAGS_NOTHP) ? MADV_NOHUGEPAGE : MADV_HUGEPAGE);
-		if (rc != 0)
-			fprintf(stderr, "madvise(map=%p length=%zu MADV_HUGEPAGE) failed with %d\n",
-			  map, length, errno);
-	}
-
-	return map;
 }
 
 #ifdef DEV
