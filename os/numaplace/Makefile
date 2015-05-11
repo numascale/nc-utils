@@ -11,6 +11,11 @@ clean:
 check:
 	cppcheck --enable=all --inconclusive *.c *.c *.h
 
+upload:
+	rsync $(TARGETS) resources:resources/numaplace
+	rsync $(TARGETS) nc-demo:/opt/bin
+	rsync $(TARGETS) build:common
+
 numaplace: numaplace.c utils.h
 	$(CC) $(CFLAGS) -o $@ $<
 

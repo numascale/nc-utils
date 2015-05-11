@@ -28,7 +28,7 @@
 
 #define MAX_CORES 8192
 #define MAX_NUMA 1024
-#define THP_ALIGN_THRESH (1 << 20)
+#define THP_SIZE (1 << 20)
 #define PTHREAD_STACK_SIZE (8 << 20)
 #define BITS_PER_LONG (sizeof(long) * 8)
 #define BITOP_WORD(nr)      ((nr) / BITS_PER_LONG)
@@ -41,6 +41,8 @@ static unsigned lastcore;
 static unsigned flags;
 static unsigned long available[MAX_CORES / BITS_PER_LONG];
 static pthread_key_t thread_key;
+
+static void *(*xmmap)(void *, size_t, int, int, int, off_t);
 
 typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
 
@@ -134,6 +136,20 @@ static unsigned long find_next_bit(const unsigned long *addr, unsigned long size
 	found_middle:
 		return result + ffsl(tmp);
 }
+
+static void *malloc_spatial(const uint16_t core, const size_t size)
+{
+	void *addr = xmmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	assert(addr != MAP_FAILED);
+
+	assert(!madvise(addr, size, (flags & FLAGS_NOTHP) ? MADV_NOHUGEPAGE : MADV_HUGEPAGE));
+	membind(addr, size, core);
+
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "allocated %zuMB on core %u\n", size >> 20, core);
+
+	return addr;
+}
 #endif
 static void find_stack(unsigned long **start, unsigned long **end)
 {
@@ -182,12 +198,8 @@ static int lock_core(const unsigned core)
 	return sfd;
 }
 
-static void *malloc_spatial(const uint16_t core, const size_t size)
+static void membind(void *const addr, const unsigned long size, const uint16_t core)
 {
-	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	assert(addr != MAP_FAILED);
-	assert(!madvise(addr, size, MADV_WILLNEED | MADV_UNMERGEABLE | MADV_HUGEPAGE));
-
 	int node = numa_node_of_cpu(core);
 	assert(node != -1);
 
@@ -198,11 +210,6 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 
 	int ret = mbind(addr, size, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
 	assertf(!ret, "mbind errno %d\n", errno);
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "allocated %zuMB on core %u, node %d\n", size >> 20, core, node);
-
-	return addr;
 }
 
 // find next system-wide unallocated core, using UNIX domain sockets
@@ -269,6 +276,9 @@ static __attribute__((constructor)) void init(void)
 	if (envstr)
 		stride = atoi(envstr);
 
+	xmmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
+	assertf(xmmap, "dlsym failed");
+
 	nodes = numa_max_node() + 1;
 	cores = sysconf(_SC_NPROCESSORS_ONLN);
 	for (unsigned core = 0; core < cores; core++)
@@ -319,10 +329,8 @@ static void *pthread_create_inner(struct thread_info *info)
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine) (void *), void *arg)
 {
-	int ret;
 	static bool key_created;
-	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *,
-	  void *(*) (void *), void *);
+	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *, void *(*) (void *), void *);
 
 	if (!key_created) {
 		assert(!pthread_key_create(&thread_key, (void(*)(void *))core_deallocate));
@@ -343,13 +351,31 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	info->start_routine = start_routine;
 	info->arg = arg;
 
-	size_t stacksize = PTHREAD_STACK_SIZE;
+	size_t stacksize = 0;
+	void *stack = NULL;
 	pthread_attr_t attr2;
 	if (attr) {
-		assert(!pthread_attr_getstacksize(attr, &stacksize));
+		assert(!pthread_attr_getstack(attr, &stack, &stacksize));
 		memcpy(&attr2, attr, sizeof(attr2));
 	} else
 		assert(!pthread_attr_init(&attr2));
+
+	bool guard;
+
+	// allocate stack if not already
+	if (stacksize) {
+		guard = 0;
+		assert(!madvise(stack, stacksize, MADV_HUGEPAGE));
+	} else {
+		stacksize = PTHREAD_STACK_SIZE;
+		// 1 hugepage redzone
+		assert(!posix_memalign(&stack, 2 << 20, stacksize + THP_SIZE));
+		assert(!madvise(stack, stacksize + THP_SIZE, MADV_HUGEPAGE));
+
+		// protect redzone
+		assert(!mprotect(stack, 2 << 20, PROT_NONE));
+		assert(!pthread_attr_setstack(&attr2, stack, stacksize));
+	}
 
 	if (core_allocate(info)) {
 		if (flags & FLAGS_VERBOSE)
@@ -362,19 +388,29 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 		assert(!pthread_attr_setaffinity_np(&attr2, setsize, cpuset));
 
-		void *stack = malloc_spatial(info->core, stacksize);
-		assert(stack);
-		assert(!pthread_attr_setstack(&attr2, stack, stacksize));
-
-		ret = xpthread_create(thread, &attr2, (void *(*)(void *))pthread_create_inner, info);
-	} else {
+		membind(stack, stacksize + guard * THP_SIZE, info->core);
+	} else
 		if (flags & FLAGS_VERBOSE)
 			printf("cores overallocated\n");
 
-		ret = xpthread_create(thread, NULL, (void *(*)(void *))pthread_create_inner, info);
+	return xpthread_create(thread, &attr2, (void *(*)(void *))pthread_create_inner, info);
+}
+
+void *mmap(void *addr, size_t length, int prot, int mflags, int fd, off_t offset)
+{
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "mmap(addr=%p length=%zu prot=%d flags=%u fd=%d offset=%ld)\n",
+			addr, length, prot, flags, fd, offset);
+
+	void *map = xmmap(addr, length, prot, mflags, fd, offset);
+	if (map) {
+		int rc = madvise(map, length, (flags & FLAGS_NOTHP) ? MADV_NOHUGEPAGE : MADV_HUGEPAGE);
+		if (rc != 0)
+			fprintf(stderr, "madvise(map=%p length=%zu MADV_HUGEPAGE) failed with %d\n",
+			  map, length, errno);
 	}
 
-	return ret;
+	return map;
 }
 
 #ifdef DEV
@@ -477,30 +513,6 @@ void *memmove(void *dest, const void *src, size_t n)
 		fprintf(stderr, "memmove(dest=%p src=%p size=%zu)\n", dest, src, n);
 
 	return xmemmove(dest, src, n);
-}
-
-void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-	static void *(*xmmap)(void *, size_t, int, int, int, off_t);
-	if (!xmmap) {
-		xmmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
-		assertf(xmmap, "dlsym failed");
-	}
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "mmap(addr=%p length=%zu prot=%d flags=%d fd=%d offset=%ld)\n",
-			addr, length, prot, flags, fd, offset);
-
-	void *map = xmmap(addr, length, prot, flags | MAP_HUGETLB, fd, offset);
-	// MAP_NONBLOCK | MAP_POPULATE
-	if (map) {
-		int rc = madvise(map, length, MADV_HUGEPAGE);
-		if (rc != 0)
-			fprintf(stderr, "madvise(map=%p length=%zu MADV_HUGEPAGE) failed with %d\n",
-			  map, length, errno);
-	}
-
-	return map;
 }
 
 void *calloc(size_t nmemb, size_t size)

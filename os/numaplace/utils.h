@@ -73,8 +73,9 @@
   exit(1); \
 } while (0)
 
-#define FLAGS_VERBOSE 1
-#define FLAGS_DEBUG 2
+#define FLAGS_VERBOSE (1 << 0)
+#define FLAGS_DEBUG   (1 << 1)
+#define FLAGS_NOTHP   (1 << 2)
 
 static inline uint64_t roundup_nextpow2(const uint64_t val)
 {

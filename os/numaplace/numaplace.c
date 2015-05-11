@@ -11,7 +11,7 @@
 
 static void usage(const int code)
 {
-	fprintf(stderr, "Usage: numaplace [-v] [-s <stride>] cmd [args..]\n");
+	fprintf(stderr, "Usage: numaplace [-v] [-t] [-s <stride>] cmd [args..]\n");
 	exit(code);
 }
 
@@ -24,18 +24,22 @@ int main(int argc, char *argv[])
 
 		static const struct option long_options[] = {
 			{"stride",  required_argument, 0, 0},
+			{"no-thp",  no_argument,       0, 0},
 			{"verbose", no_argument,       0, 1},
 			{"debug",   no_argument,       0, 1},
 			{0,         0,                 0, 0},
 		};
 
-		int c = getopt_long(argc, argv, "s:vd", long_options, &option_index);
+		int c = getopt_long(argc, argv, "s:tvd", long_options, &option_index);
 		if (c == -1)
 			break;
 
 		switch (c) {
 		case 's':
 			assert(!setenv("NUMAPLACE_STRIDE", optarg, 1));
+			break;
+		case 't':
+			flagval |= FLAGS_NOTHP;
 			break;
 		case 'v':
 			flagval |= FLAGS_VERBOSE;
