@@ -75,14 +75,16 @@ int main(int argc, char *argv[])
 	snprintf(path2, PATH_MAX, "%s/libnumaplace.so", path);
 
 	assertf(access(path2, R_OK) == 0, "%s nonexisting or unreadable", path2);
-	assert(!setenv("LD_PRELOAD", path2, 1));
 
-	// don't overwrite any existing variable
-	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
 	assert(!unsetenv("GOMP_CPU_AFFINITY"));
 	assert(!unsetenv("OMP_PROC_BIND"));
 	assert(!unsetenv("KMP_AFFINITY"));
 
+	assert(!setenv("LD_PRELOAD", path2, 1));
+	// don't overwrite any existing variable
+	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
+
+	bind_current();
 	execvp(argv[optind], &argv[optind]);
 	syserror("Launching %s failed", argv[optind]);
 }

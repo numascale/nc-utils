@@ -29,6 +29,10 @@
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
 
+#define FLAGS_VERBOSE (1 << 0)
+#define FLAGS_DEBUG   (1 << 1)
+#define FLAGS_NOTHP   (1 << 2)
+
 #define assertf(cond, format, args...) do { if (!(cond)) { \
   fprintf(stderr, "Error: "); \
   fprintf(stderr, format, ## args); \
@@ -73,10 +77,6 @@
   exit(1); \
 } while (0)
 
-#define FLAGS_VERBOSE (1 << 0)
-#define FLAGS_DEBUG   (1 << 1)
-#define FLAGS_NOTHP   (1 << 2)
-
 static inline uint64_t roundup_nextpow2(const uint64_t val)
 {
 	const uint64_t next = 1ULL << (64 - __builtin_clzll(val));
@@ -84,3 +84,5 @@ static inline uint64_t roundup_nextpow2(const uint64_t val)
 		return next;
 	return val;
 }
+
+extern void bind_current(void);

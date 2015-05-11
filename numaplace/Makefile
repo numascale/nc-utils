@@ -16,8 +16,8 @@ upload:
 	rsync $(TARGETS) nc-demo:/opt/bin
 	rsync $(TARGETS) build:common
 
-numaplace: numaplace.c utils.h
-	$(CC) $(CFLAGS) -o $@ $<
+numaplace: numaplace.c utils.h libnumaplace.so
+	$(CC) $(CFLAGS) -o $@ $< -L. -lnumaplace -lpthread
 
 numaplace-test: numaplace-test.c utils.h
 	$(CC) $(CFLAGS) -o $@ $< -lpthread
