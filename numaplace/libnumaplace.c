@@ -34,9 +34,11 @@
 #define BITOP_WORD(nr)      ((nr) / BITS_PER_LONG)
 #define STACKNAME "[stack]"
 
-static uint16_t cores, nodes;
+#ifdef LEGACY
 static uint8_t stride = 1;
+static uint16_t cores;
 static uint8_t stride_alloc; // threshold for allocation in group of 'stride' bits
+#endif
 static unsigned lastcore;
 static unsigned flags;
 static unsigned long occupied[MAX_CORES / BITS_PER_LONG];
@@ -49,6 +51,11 @@ struct thread_info {
 	void *arg;
 	int fd;
 	uint16_t core;
+};
+
+struct distance {
+	uint16_t node;
+	uint8_t dist;
 };
 
 static inline void set_bit(const unsigned nr, unsigned long *addr)
@@ -233,12 +240,103 @@ static void membind(void *const addr, const unsigned long size, const uint16_t c
 	set_bit(node, nodemask);
 
 	int ret = mbind(addr, size, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
-	assertf(!ret, "mbind errno %d\n", errno);
+	if (ret && (flags & FLAGS_VERBOSE))
+		printf("failed to bind memory with errno %d\n", errno);
 }
 
+static bool lock_core_outer(const unsigned core, struct thread_info *info)
+{
+	if (!test_bit(core, occupied)) {
+		int fd = lock_core(core);
+		if (fd > -1) {
+			set_bit(core, occupied);
+			info->core = core;
+			info->fd = fd;
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static bool core_allocate(struct thread_info *info)
+{
+#ifdef TEST
+	// search local NUMA node for available cores
+	static struct bitmask *local = NULL;
+	if (!local) {
+		local = numa_allocate_cpumask();
+		assert(local);
+	}
+
+	const int node = numa_node_of_cpu(lastcore);
+	assert(!numa_node_to_cpus(node, local));
+
+	for (unsigned i = 0; i < local->size; i++)
+		if (numa_bitmask_isbitset(local, i) && lock_core_outer(i, info))
+			return 1;
+#endif
+	// next, search NUMA nodes in sequence
+	char buf[MAX_NUMA * 4]; // each NUMA distance is max 3 chars plus space each
+
+	const int node = numa_node_of_cpu(lastcore);
+	assert(node != -1);
+	snprintf(buf, sizeof(buf), "/sys/devices/system/node/node%d/distance", node);
+
+	int fd = open(buf, O_RDONLY);
+	assert(fd != -1);
+	int len = read(fd, buf, sizeof(buf));
+	assert(len > 0);
+	buf[len - 1] = '\0';
+	assert(!close(fd));
+
+	struct distance dist[MAX_NUMA];
+	unsigned dists = 0;
+	char *p = buf;
+
+	// parse string into array
+	while (1) {
+		dist[dists].node = dists;
+		dist[dists].dist = atoi(p);
+		dists++;
+
+		p = strchr(p, ' ');
+		if (!p)
+			break;
+		p++;
+	}
+
+	// sort
+	for (unsigned i = 1; i < dists; i++) {
+		unsigned j;
+		struct distance tmp = dist[i];
+
+		for (j = i; j >= 1 && tmp.dist < dist[j - 1].dist; j--)
+			dist[j] = dist[j - 1];
+
+		dist[j] = tmp;
+	}
+
+	struct bitmask *local = numa_allocate_cpumask();
+	assert(local);
+
+	for (unsigned i = 0; i < dists; i++) {
+		assert(!numa_node_to_cpus(dist[i].node, local));
+		for (unsigned j = 0; j < local->size; j++)
+			if (numa_bitmask_isbitset(local, j) && lock_core_outer(j, info)) {
+				if (flags & FLAGS_VERBOSE)
+					printf("core %u, lastcore %u, lastnode %u, i %u, dist %u\n", info->core, lastcore, node, i, dist[i].dist);
+				lastcore = j;
+				return 1;
+			}
+	}
+
+	return 0;
+}
+#ifdef LEGACY
 // find next system-wide unallocated core, using UNIX domain sockets
 // returns core number allocated
-static bool core_allocate(struct thread_info *info)
+static bool core_allocate2(struct thread_info *info)
 {
 	while (1) {
 		// find group of 'stride' bits with sufficiently low occupancy
@@ -260,7 +358,7 @@ static bool core_allocate(struct thread_info *info)
 
 			if (stride_alloc >= stride) {
 				warn_once("Oversubscribing cores");
-				return lastcore;
+				return 0;
 			}
 		} while (used > stride_alloc);
 
@@ -280,7 +378,7 @@ static bool core_allocate(struct thread_info *info)
 		}
 	}
 }
-
+#endif
 static void core_deallocate(struct thread_info *info)
 {
 	assert(!close(info->fd)); // unbind lock
@@ -331,16 +429,17 @@ void bind_current(void)
 
 static __attribute__((constructor)) void init(void)
 {
+	char *envstr = getenv("NUMAPLACE_FLAGS");
+	if (envstr)
+		flags = atoi(envstr);
+
+#ifdef LEGACY
 	char *envstr = getenv("NUMAPLACE_STRIDE");
 	if (envstr)
 		stride = atoi(envstr);
 
-	envstr = getenv("NUMAPLACE_FLAGS");
-	if (envstr)
-		flags = atoi(envstr);
-
-	nodes = numa_max_node() + 1;
 	cores = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 }
 
 static void *pthread_create_inner(struct thread_info *info)
@@ -388,7 +487,10 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	// allocate stack if not already
 	if (stacksize) {
 		guard = 0;
-		assert(!madvise(stack, stacksize, MADV_HUGEPAGE));
+		// ignore return code, allowing failure due to size and/or misalignment
+		int ret = madvise(stack, stacksize, MADV_HUGEPAGE);
+		if (ret && (flags & FLAGS_VERBOSE))
+			printf("madvise failed with errno %d\n", errno);
 	} else {
 		stacksize = PTHREAD_STACK_SIZE;
 		// 1 hugepage redzone
@@ -401,9 +503,6 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	}
 
 	if (core_allocate(info)) {
-		if (flags & FLAGS_VERBOSE)
-			printf("core %u\n", info->core);
-
 		const size_t setsize = CPU_ALLOC_SIZE(info->core + 1);
 		cpu_set_t cpuset[MAX_CORES / 8 / sizeof(cpu_set_t)];
 		CPU_ZERO_S(setsize, cpuset);
