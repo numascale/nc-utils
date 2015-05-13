@@ -11,7 +11,7 @@ clean:
 check:
 	cppcheck --enable=all --inconclusive *.c *.c *.h
 
-upload:
+upload: all
 	rsync $(TARGETS) resources:resources/numaplace
 	rsync $(TARGETS) nc-demo:/opt/bin
 	rsync $(TARGETS) build:common
