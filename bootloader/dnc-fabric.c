@@ -33,6 +33,10 @@ void fabric_stat(void)
 		return;
 
 	for (int phy = 0; phy < 6; phy++) {
+		/* Skip unconfigured dimensions */
+		if (!cfg_fabric.size[phy / 2])
+			continue;
+
 		uint32_t val = dnc_read_csr(0xfff0, H2S_CSR_G0_PHYXA_LINK_STAT + 0x40 * phy);
 		/* Check up links only to avoid blocking XBar */
 		if (!(val & 1))
