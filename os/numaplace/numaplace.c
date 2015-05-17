@@ -6,6 +6,9 @@
 #include <limits.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/prctl.h>
 
 // FIXME: parse /proc/cmdline to check isolcpus param
 
@@ -85,6 +88,23 @@ int main(int argc, char *argv[])
 	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
 
 	bind_current();
+
+	// warn when transparent huge pages are disabled
+	int fd = open("/sys/kernel/mm/transparent_hugepage/enabled", O_RDONLY);
+	assert(fd > -1);
+	char buf[16];
+	assert(read(fd, buf, sizeof(buf)) == 16);
+	assert(!close(fd));
+
+	if (strncmp(buf, "[always]", 8))
+		fprintf(stderr, "warning: transparent hugepages are disabled; performance may be suboptimal\n");
+
+	if (flagval & FLAGS_NOTHP)
+		assert(!prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0));
+
+	// enable low-latency socket behaviour
+	assert(!prctl(PR_SET_TIMERSLACK, 1, 0, 0, 0));
+
 	execvp(argv[optind], &argv[optind]);
 	syserror("Launching %s failed", argv[optind]);
 }
