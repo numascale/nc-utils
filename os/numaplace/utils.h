@@ -19,11 +19,14 @@
 
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <assert.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <limits.h>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -83,6 +86,25 @@ static inline uint64_t roundup_nextpow2(const uint64_t val)
 	if (val & ((next >> 1) - 1))
 		return next;
 	return val;
+}
+
+static inline uint64_t parseint(const char *str)
+{
+	char *end;
+	uint64_t val = strtoull(str, &end, 0);
+	assert(val);
+
+	const char prefix[] = {'\0', 'k', 'm', 'g'};
+	unsigned offset, shift = 0;
+
+	for (offset = 0; offset < sizeof(prefix); offset++) {
+		if (*end == prefix[offset])
+			break;
+		shift += 10;
+	}
+	assert(offset != sizeof(prefix));
+
+	return val << shift;
 }
 
 extern void bind_current(void);

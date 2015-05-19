@@ -29,7 +29,6 @@
 #define MAX_CORES 8192
 #define MAX_NUMA 1024
 #define THP_SIZE (1 << 20)
-#define PTHREAD_STACK_SIZE (8 << 20)
 #define BITS_PER_LONG (sizeof(long) * 8)
 #define BITOP_WORD(nr)      ((nr) / BITS_PER_LONG)
 #define STACKNAME "[stack]"
@@ -43,6 +42,7 @@ static unsigned lastcore;
 static unsigned flags;
 static unsigned long occupied[MAX_CORES / BITS_PER_LONG];
 static pthread_key_t thread_key;
+static uint64_t stacksize = 8 << 20;
 
 typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
 
@@ -434,12 +434,16 @@ static __attribute__((constructor)) void init(void)
 		flags = atoi(envstr);
 
 #ifdef LEGACY
-	char *envstr = getenv("NUMAPLACE_STRIDE");
+	envstr = getenv("NUMAPLACE_STRIDE");
 	if (envstr)
 		stride = atoi(envstr);
 
 	cores = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
+
+	envstr = getenv("OMP_STACKSIZE");
+	if (envstr)
+		stacksize = parseint(envstr);
 }
 
 static void *pthread_create_inner(struct thread_info *info)
@@ -473,11 +477,11 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	info->start_routine = start_routine;
 	info->arg = arg;
 
-	size_t stacksize = 0;
+	size_t stacksize2 = 0;
 	void *stack = NULL;
 	pthread_attr_t attr2;
 	if (attr) {
-		assert(!pthread_attr_getstack(attr, &stack, &stacksize));
+		assert(!pthread_attr_getstack(attr, &stack, &stacksize2));
 		memcpy(&attr2, attr, sizeof(attr2));
 	} else
 		assert(!pthread_attr_init(&attr2));
@@ -485,20 +489,19 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	bool guard;
 
 	// allocate stack if not already
-	if (stacksize) {
+	if (stacksize2) {
 		guard = 0;
 		// ignore return code, allowing failure due to size and/or misalignment
-		int ret = madvise(stack, stacksize, MADV_HUGEPAGE);
+		int ret = madvise(stack, stacksize2, MADV_HUGEPAGE);
 		if (ret && (flags & FLAGS_VERBOSE))
 			printf("madvise failed with errno %d\n", errno);
 	} else {
-		stacksize = PTHREAD_STACK_SIZE;
-		// 1 hugepage redzone
-		assert(!posix_memalign(&stack, 2 << 20, stacksize + THP_SIZE));
+		// hugepage redzone
+		assert(!posix_memalign(&stack, THP_SIZE, stacksize + THP_SIZE));
 		assert(!madvise(stack, stacksize + THP_SIZE, MADV_HUGEPAGE));
 
 		// protect redzone
-		assert(!mprotect(stack, 2 << 20, PROT_NONE));
+		assert(!mprotect(stack, THP_SIZE, PROT_NONE));
 		assert(!pthread_attr_setstack(&attr2, stack, stacksize));
 	}
 
