@@ -62,8 +62,7 @@ uint16_t dnc_node_count = 0, dnc_core_count = 0;
 node_info_t *nodes = NULL;
 struct node_info *local_info;
 uint16_t ht_pdom_count = 0;
-uint16_t apic_per_node;
-uint16_t ht_next_apic;
+uint16_t apicid_cur;
 uint32_t dnc_top_of_mem;       /* Top of MMIO, in 16MB chunks */
 uint8_t post_apic_mapping[256]; /* POST APIC assigments */
 static bool scc_started = 0;
@@ -672,15 +671,12 @@ static void update_acpi_tables(void)
 				if (!core_enabled(node, j))
 					continue;
 
-				unsigned int apicid = j + node->ht[ht].apic_base + node->apic_offset;
-				assert(apicid != 0xff);
-
 				struct acpi_local_x2apic *x2apic = (acpi_local_x2apic *)&apic->data[apic->len - sizeof(*apic)];
 				x2apic->type = 9;
 				x2apic->len = 16;
 				x2apic->reserved1[0] = 0;
 				x2apic->reserved1[1] = 0;
-				x2apic->x2apic_id = apicid;
+				x2apic->x2apic_id = node->ht[ht].apicid[j];
 				x2apic->proc_uid = 0;
 				x2apic->flags = 1;
 				apic->len += x2apic->len;
@@ -798,14 +794,12 @@ static void update_acpi_tables(void)
 				if (!core_enabled(node, j))
 					continue;
 
-				uint16_t apicid = j + node->ht[ht].apic_base + node->apic_offset;
-
 				struct acpi_x2apic_affinity x2core;
 				memset(&x2core, 0, sizeof(x2core));
 				x2core.type     = 2;
 				x2core.len      = sizeof(x2core);
 				x2core.prox_dom = node->ht[ht].pdom;
-				x2core.x2apic_id = apicid;
+				x2core.x2apic_id = node->ht[ht].apicid[j];
 				x2core.enabled  = 1;
 				x2core.flags    = 0;
 				x2core.clock_dom = node - &nodes[0];
@@ -948,33 +942,26 @@ static void update_mptable(void)
 #endif
 static void setup_apic_atts(void)
 {
-	uint32_t apic_shift;
-	uint16_t j;
-	apic_shift = 1;
-
-	while (apic_per_node >= (1 << apic_shift)) apic_shift++;
-
-	if (apic_shift > 4)
-		apic_shift = 4;
-
-	printf("Setting up APIC ATT tables with shift %d...", apic_shift);
+	const uint32_t apic_shift = 4;
+	printf("Setting up APIC ATT tables with shift %u...", apic_shift);
 
 	/* Set APIC ATT for remote interrupts */
 	foreach_nodes(node) {
 		dnc_write_csr(node->sci, H2S_CSR_G3_APIC_MAP_SHIFT, apic_shift - 1);
 
 		/* Ensure MSI or spurious interrupts are decoded locally only */
-		for (j = 0; j < 4096; j++) {
+		for (unsigned j = 0; j < 4096; j++) {
 			if (j % 256 == 0)
 				dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((j >> 8) & 0xf));
 			dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j % 256) * 4, node->sci);
 		}
 
+		/* Write local APIC routing */
 		foreach_nodes(dnode) {
 			uint16_t max = 0, min = ~0;
 
 			for (uint8_t ht = dnode->nb_ht_lo; ht <= dnode->nb_ht_hi; ht++) {
-				uint16_t cur = dnode->apic_offset + dnode->ht[ht].apic_base;
+				uint16_t cur = dnode->ht[ht].apicid[0];
 
 				if (min > cur)
 					min = cur;
@@ -987,7 +974,7 @@ static void setup_apic_atts(void)
 			max = (max - 1) >> apic_shift;
 
 			dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC | ((min >> 8) & 0xf));
-			for (j = min; j <= max; j++)
+			for (unsigned j = min; j <= max; j++)
 				dnc_write_csr(node->sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + (j & 0xff) * 4, dnode->sci);
 		}
 	}
@@ -1086,7 +1073,7 @@ static void disable_smm_handler(uint64_t smm_base)
 
 static void setup_other_cores(void)
 {
-	uint32_t ht, apicid, oldid, i, val;
+	uint32_t ht, i, val;
 	volatile uint32_t *icr, *apic;
 
 	/* Set H2S_Init */
@@ -1160,8 +1147,8 @@ static void setup_other_cores(void)
 		}
 
 		for (i = 0; i < nodes[0].ht[ht].cores; i++) {
-			oldid = nodes[0].ht[ht].apic_base + i;
-			apicid = nodes[0].apic_offset + oldid;
+			uint8_t apicid_orig = nodes[0].ht[ht].apicid_orig[i];
+			uint16_t apicid = nodes[0].ht[ht].apicid[i];
 
 			if ((ht == 0) && (i == 0)) {
 				uint32_t val = apic[0x20 / 4];
@@ -1179,13 +1166,13 @@ static void setup_other_cores(void)
 			if (verbose > 1)
 				printf(" %d", apicid);
 
-			apic[0x310 / 4] = oldid << 24;
+			apic[0x310 / 4] = apicid_orig << 24;
 			*icr = 0x00004500;
 
 			while (*icr & 0x1000)
 				cpu_relax();
 
-			apic[0x310 / 4] = oldid << 24;
+			apic[0x310 / 4] = apicid_orig << 24;
 
 			assert(((uint32_t)REL32(init_dispatch) & ~0xff000) == 0);
 			*icr = 0x00004600 | (((uint32_t)REL32(init_dispatch) >> 12) & 0xff);
@@ -1361,7 +1348,6 @@ static void setup_remote_cores(node_info_t *const node)
 {
 	uint8_t i, map_index;
 	uint16_t sci = node->sci;
-	uint16_t apicid, oldid;
 	uint32_t j;
 	uint32_t val;
 
@@ -1521,14 +1507,14 @@ static void setup_remote_cores(node_info_t *const node)
 	/* Start all remote cores and let them run our init_trampoline */
 	for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
 		for (i = 0; i < node->ht[ht].cores; i++) {
-			oldid = node->ht[ht].apic_base + i;
-			apicid = node->apic_offset + oldid;
+			uint8_t apicid_orig = node->ht[ht].apicid_orig[i];
+			uint16_t apicid = node->ht[ht].apicid[i];
 
 			*REL8(cpu_apic_renumber) = apicid & 0xff;
 			*REL8(cpu_apic_hi)       = apicid >> 8;
 			*REL64(rem_smm_base_msr) = ~0ULL;
 
-			wake_core_global(oldid, VECTOR_TRAMPOLINE);
+			wake_core_global(apicid_orig, VECTOR_TRAMPOLINE);
 
 			if (verbose > 1)
 				printf(" %d", apicid);

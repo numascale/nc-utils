@@ -2437,21 +2437,16 @@ void selftest_late_msrs(void)
 					if ((node == &nodes[0]) && (ht == 0) && (i == 0))
 						continue; /* Skip BSP */
 
-					uint32_t oldid = node->ht[ht].apic_base + i;
-					uint32_t apicid = node->apic_offset + oldid;
-					/* Use limited local IPI distribution until global is fixed */
-					if (apicid > 254)
-						break;
-
 					*REL32(msr_readback) = msr;
-					wake_core_local(apicid, VECTOR_READBACK_MSR);
+					wake_core_global(node->ht[ht].apicid[i], VECTOR_READBACK_MSR);
+
 					if (*REL64(msr_readback) != val0) {
 						if (!printed) {
 							printf("MSR 0x%08x should be %016llx:", msr, val0);
 							printed = true;
 						}
 
-						printf(" %d:%016llx", apicid, *REL64(msr_readback));
+						printf(" %d:%016llx", node->ht[ht].apicid[i], *REL64(msr_readback));
 					}
 				}
 			}
@@ -2486,16 +2481,10 @@ void selftest_late_apiclvt(void)
 				if ((node == &nodes[0]) && (ht == 0) && (i == 0))
 					continue; /* Skip BSP */
 
-				uint32_t oldid = node->ht[ht].apic_base + i;
-				uint32_t apicid = node->apic_offset + oldid;
-
 				for (const uint32_t *offset = &apic_offsets[0]; offset < (apic_offsets + sizeof(apic_offsets) / sizeof(apic_offsets[0])); offset++) {
-					/* Use limited local IPI distribution until global is fixed */
-					if (apicid > 254)
-						break;
-
 					*REL32(apic_offset) = *offset;
-					wake_core_local(apicid, VECTOR_READBACK_APIC);
+					wake_core_global(node->ht[ht].apicid[i], VECTOR_READBACK_APIC);
+
 					if (*REL32(apic_readback) != APIC_VECTOR_MASKED)
 						printf("- masked core %d APIC vector 0x%x (was 0x%08x)\n", n, *offset, *REL32(apic_readback));
 					n++;

@@ -141,15 +141,23 @@ void load_scc_microcode(void)
 
 static void print_node_info(const node_info_t *node)
 {
-	for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++)
-		printf("- HT%d: base=0x%x size=%d pdom=%d cores=%d apic_base=%d scrub=0x%x\n",
-			ht, node->ht[ht].base, node->ht[ht].size, node->ht[ht].pdom, node->ht[ht].cores, node->ht[ht].apic_base, node->ht[ht].scrub);
+	for (ht_t ht = node->nb_ht_lo; ht <= node->nb_ht_hi; ht++) {
+		printf("- HT%d: base=0x%x size=%d pdom=%d cores=%d scrub=0x%x\n",
+			ht, node->ht[ht].base, node->ht[ht].size, node->ht[ht].pdom, node->ht[ht].cores, node->ht[ht].scrub);
+
+		printf("- apicids_orig:");
+		for (unsigned c = 0; c < node->ht[ht].cores; c++)
+			printf(" %u", node->ht[ht].apicid_orig[c]);
+		printf("\n- apicids:");
+		for (unsigned c = 0; c < node->ht[ht].cores; c++)
+			printf(" %u", node->ht[ht].apicid[c]);
+		printf("\n");
+	}
 	printf("- node_mem=%d\n", node->node_mem);
 	printf("- dram_base=0x%x dram_limit=0x%x\n", node->dram_base, node->dram_limit);
 	printf("- mmio32_base=0x%x mmio32_limit=0x%x\n", node->mmio32_base, node->mmio32_limit);
 	printf("- mmio64_base=0x%llx mmio64_limit=0x%llx\n", node->mmio64_base, node->mmio64_limit);
 	printf("- io_base=0x%x io_limit=0x%x\n", node->io_base, node->io_limit);
-	printf("- apic_offset=%d\n", node->apic_offset);
 	printf("- nb_ht_lo=%d nb_ht_hi=%d nc_ht=%d nc_neigh_ht=%d nc_neigh_link=%d\n",
 		node->nb_ht_lo, node->nb_ht_hi, node->nc_ht, node->nc_neigh_ht, node->nc_neigh_link);
 }
@@ -232,16 +240,6 @@ void tally_local_node(void)
 	node->nb_ht_hi = node->nc_ht - 1;
 	node->dram_base = 0;
 	val = cht_read_conf(0, FUNC0_HT, 0x60);
-#ifdef __i386
-	/* Save and restore EBX for the position-independent syslinux com32 binary */
-	asm volatile("mov $0x80000008, %%eax; pushl %%ebx; cpuid; popl %%ebx" : "=c"(val) :: "eax", "edx");
-#else
-	asm volatile("mov $0x80000008, %%eax; cpuid" : "=c"(val) :: "eax", "ebx", "edx");
-#endif
-	apic_per_node = 1 << ((val >> 12) & 0xf);
-
-	/* Start APICs at 0x100 when remote IO is enabled to keep device interrupts local */
-	node->apic_offset = remote_io ? 0x100 : 0;
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
@@ -348,8 +346,11 @@ void tally_local_node(void)
 			}
 		}
 
-		node->ht[i].apic_base = post_apic_mapping[tot_cores];
-		ht_next_apic = node->apic_offset + node->ht[i].apic_base + apic_per_node;
+		for (unsigned c = 0; c < node->ht[i].cores; c++) {
+			node->ht[i].apicid_orig[c] = post_apic_mapping[tot_cores + c];
+			node->ht[i].apicid[c] = (remote_io ? 0x100 : 0) + (dnc_node_count << 7) + i * 16 + c;
+		}
+
 		tot_cores += node->ht[i].cores;
 	}
 
@@ -370,9 +371,6 @@ static bool tally_remote_node(const uint16_t sci)
 {
 	uint32_t val;
 	uint16_t i, tot_cores;
-	uint16_t apic_used[16];
-	uint16_t last = 0;
-	uint16_t cur_apic;
 	node_info_t *const node = &nodes[dnc_node_count];
 
 	if (dnc_raw_read_csr(sci, H2S_CSR_G3_FAB_CONTROL, &val) != 0) {
@@ -404,14 +402,6 @@ static bool tally_remote_node(const uint16_t sci)
 	node->dram_base = dnc_top_of_mem;
 	val = dnc_read_conf(sci, 0, 24, FUNC0_HT, 0x60);
 	assertf(val != 0xffffffff, "Failed to access config space on SCI%03x", sci);
-
-	dnc_write_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_APIC);
-	for (i = 0; i < 16; i++)
-		apic_used[i] = dnc_read_csr(sci, H2S_CSR_G3_NC_ATT_MAP_SELECT_0 + i * 4);
-
-	ht_next_apic = (ht_next_apic + 0xf) & ~0xf;
-	node->apic_offset = ht_next_apic;
-	cur_apic = 0;
 
 	uint32_t cpuid_bsp = cht_read_conf(0, FUNC3_MISC, 0xfc);
 
@@ -474,9 +464,6 @@ static bool tally_remote_node(const uint16_t sci)
 
 		node->ht[i].pdom = ht_pdom_count++;
 
-		while ((cur_apic < 256) && !(apic_used[cur_apic >> 4] & (1 << (cur_apic & 0xf))))
-			cur_apic++;
-
 		/* Assume at least one core */
 		node->ht[i].cores = 1;
 
@@ -502,10 +489,12 @@ static bool tally_remote_node(const uint16_t sci)
 			}
 		}
 
-		node->ht[i].apic_base = cur_apic;
+		for (unsigned c = 0; c < node->ht[i].cores; c++) {
+			node->ht[i].apicid_orig[c] = post_apic_mapping[tot_cores + c];
+			node->ht[i].apicid[c] = (remote_io ? 0x100 : 0) + (dnc_node_count << 7) + i * 16 + c;
+		}
+
 		tot_cores += node->ht[i].cores;
-		cur_apic += node->ht[i].cores;
-		last = i;
 	}
 
 	/* Check if any DRAM ranges overlap the HyperTransport address space */
@@ -525,13 +514,6 @@ static bool tally_remote_node(const uint16_t sci)
 		dnc_top_of_mem += shift;
 	}
 
-	/* If rebased apicid[7:0] of last core is above a given threshold,
-	   bump base for entire SCI node to next 8-bit interval */
-	if ((ht_next_apic & 0xff) + node->ht[last].apic_base + node->ht[last].cores > 0xf0)
-		ht_next_apic = (ht_next_apic & ~0xff) + 0x100 + node->ht[0].apic_base;
-
-	node->apic_offset = ht_next_apic - node->ht[0].apic_base;
-	ht_next_apic = node->apic_offset + node->ht[last].apic_base + apic_per_node;
 	node->dram_limit = dnc_top_of_mem;
 
 	printf("SCI%03x has %u cores and %uMB of memory\n", sci, tot_cores, node->node_mem << (DRAM_MAP_SHIFT - 20));

@@ -70,8 +70,9 @@ typedef struct ht_node_info {
 	uint32_t size;		/* Amount of DRAM at individual HT nodes, in 16MB chunks */
 	uint16_t pdom;		/* Proximity domain of individual HT nodes */
 	uint16_t cores;		/* Number of cores at individual HT nodes */
-	uint16_t apic_base;
 	uint32_t scrub;
+	uint8_t apicid_orig[8];
+	uint16_t apicid[8];
 } ht_node_info_t;
 
 typedef struct nodes_info {
@@ -87,7 +88,6 @@ typedef struct nodes_info {
 	uint32_t ioapic_addr;
 	ht_node_info_t ht[8];
 	sci_t sci;                  /* Maps logical DNC node ids to physical (SCI) ids */
-	uint16_t apic_offset;       /* Offset to shift APIC ids by when unifying */
 	ht_t bsp_ht : 3;            /* Bootstrap processor HT ID (may be renumbered) */
 	ht_t nb_ht_lo : 3;          /* Lowest Northbridge HT ID */
 	ht_t nb_ht_hi : 3;          /* Highest Northbridge HT ID */
@@ -103,12 +103,11 @@ typedef struct nodes_info {
 /* Traversal info per node.  Bit 7: seen, bits 5:0 rings walked */
 extern uint8_t nodedata[4096];
 extern uint8_t post_apic_mapping[256];
+extern uint16_t apicid_cur;
 extern uint16_t dnc_node_count, dnc_core_count;
 extern node_info_t *nodes;
 extern struct node_info *local_info;
 extern uint16_t ht_pdom_count;
-extern uint16_t apic_per_node;
-extern uint16_t ht_next_apic;
 extern uint32_t dnc_top_of_mem;
 extern char *asm_relocated;
 extern unsigned char asm_relocate_start;
