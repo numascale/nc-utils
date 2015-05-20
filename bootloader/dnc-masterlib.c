@@ -82,13 +82,16 @@ void load_scc_microcode(void)
 	mseq_ucode_length = sizeof(numachip_mseq_ucode) / sizeof(numachip_mseq_ucode[0]);
 	mseq_table_length = sizeof(numachip_mseq_table) / sizeof(numachip_mseq_table[0]);
 
-	/* Call pow() a second time to prevent result corruption */
-	pow(dnc_core_count, WASHDELAY_P);
-	const unsigned goal = min(zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q), WASHDELAY_LIMIT);
-	printf("Loading SCC microcode with washdelay %u for %u cores...", goal, dnc_core_count);
+	if (!washdelay) {
+		/* Call pow() a second time to prevent result corruption */
+		pow(dnc_core_count, WASHDELAY_P);
+		washdelay = min(zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q), WASHDELAY_LIMIT);
+	}
+
+	printf("Loading SCC microcode with washdelay %u for %u cores...", washdelay, dnc_core_count);
 
 	unsigned calls = 0, delays = 0;
-	ratio(goal, &calls, &delays);
+	ratio(washdelay, &calls, &delays);
 	uint32_t counter = 0;
 
 	/* Tune number of calls */

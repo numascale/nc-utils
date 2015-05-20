@@ -87,6 +87,7 @@ int fastboot = 0;
 uint64_t io_limit = 0;
 bool io_nonpref_high = 0;
 int downcore = 1;
+int washdelay = 0;
 
 /* Non-options */
 int family = 0;
@@ -2102,6 +2103,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"io.limit",        &parse_uint64, &io_limit},        /* Limit of PCI BARs that will be allocated */
 		{"io.nonpref-high", &parse_bool,   &io_nonpref_high}, /* If non-prefetchable PCI BARs can be allocated in 64-bit prefetchable space */
 		{"downcore",        &parse_int,    &downcore},        /* Enable every nth core */
+		{"washdelay",       &parse_int,    &washdelay},
 	};
 
 	int errors = 0;
