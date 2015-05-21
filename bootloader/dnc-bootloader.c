@@ -1347,13 +1347,8 @@ static void renumber_remote_bsp(node_info_t *const node)
 static void setup_remote_cores(node_info_t *const node)
 {
 	uint8_t i, map_index;
-<<<<<<< HEAD
-	uint16_t sci = node->sci;
-=======
 	uint16_t apicid, oldid;
->>>>>>> Use SCI directly for clarity
-	uint32_t j;
-	uint32_t val;
+	uint32_t j, val;
 
 	printf(" %03x", node->sci);
 	/* Toggle go-ahead flag to remote node */
