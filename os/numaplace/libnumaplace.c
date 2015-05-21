@@ -422,7 +422,7 @@ void bind_current(void)
 
 		unsigned long *start, *end;
 		find_stack(&start, &end);
-		int f = mbind(start, end - start, MPOL_BIND, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
+		int f = mbind(start, end - start, MPOL_PREFERRED, nodemask, node + 2, MPOL_MF_MOVE | MPOL_MF_STRICT);
 		assertf(!f, "mbind errno %d\n", errno);
 	}
 }
