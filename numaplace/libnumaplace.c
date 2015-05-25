@@ -325,7 +325,7 @@ static bool core_allocate(struct thread_info *info)
 		for (unsigned j = 0; j < local->size; j++)
 			if (numa_bitmask_isbitset(local, j) && lock_core_outer(j, info)) {
 				if (flags & FLAGS_VERBOSE)
-					printf("core %u, lastcore %u, lastnode %u, i %u, dist %u\n", info->core, lastcore, node, i, dist[i].dist);
+					printf("core %u, lastcore %u, lastnode %d, i %u, dist %u\n", info->core, lastcore, node, i, dist[i].dist);
 				lastcore = j;
 				return 1;
 			}
