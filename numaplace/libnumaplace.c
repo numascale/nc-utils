@@ -149,7 +149,6 @@ static void *malloc_spatial(const uint16_t core, const size_t size)
 	void *addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	assert(addr != MAP_FAILED);
 
-	assert(!madvise(addr, size, (flags & FLAGS_NOTHP) ? MADV_NOHUGEPAGE : MADV_HUGEPAGE));
 	membind(addr, size, core);
 
 	if (flags & FLAGS_DEBUG)
@@ -172,12 +171,6 @@ void *mmap(void *addr, size_t length, int prot, int mflags, int fd, off_t offset
 			addr, length, prot, flags, fd, offset);
 
 	void *map = xmmap(addr, length, prot, mflags, fd, offset);
-	if (map) {
-		int rc = madvise(map, length, (flags & FLAGS_NOTHP) ? MADV_NOHUGEPAGE : MADV_HUGEPAGE);
-		if (rc != 0)
-			fprintf(stderr, "madvise(map=%p length=%zu MADV_HUGEPAGE) failed with %d\n",
-			  map, length, errno);
-	}
 
 	return map;
 }
@@ -491,14 +484,9 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	// allocate stack if not already
 	if (stacksize2) {
 		guard = 0;
-		// ignore return code, allowing failure due to size and/or misalignment
-		int ret = madvise(stack, stacksize2, MADV_HUGEPAGE);
-		if (ret && (flags & FLAGS_VERBOSE))
-			printf("madvise failed with errno %d\n", errno);
 	} else {
 		// hugepage redzone
 		assert(!posix_memalign(&stack, THP_SIZE, stacksize + THP_SIZE));
-		assert(!madvise(stack, stacksize + THP_SIZE, MADV_HUGEPAGE));
 
 		// protect redzone
 		assert(!mprotect(stack, THP_SIZE, PROT_NONE));

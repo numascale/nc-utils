@@ -30,13 +30,13 @@ int main(int argc, char *argv[])
 		int option_index = 0;
 
 		static const struct option long_options[] = {
-			{"cores",   required_argument, 0, 0},
+			{"cores",   required_argument, 0, 'c'},
 #ifdef FIXME // needs implementing in library
-			{"stride",  required_argument, 0, 0},
+			{"stride",  required_argument, 0, 's'},
 #endif
-			{"no-thp",  no_argument,       0, 0},
-			{"verbose", no_argument,       0, 1},
-			{"debug",   no_argument,       0, 1},
+			{"no-thp",  no_argument,       0, 't'},
+			{"verbose", no_argument,       0, 'v'},
+			{"debug",   no_argument,       0, 'd'},
 			{0,         0,                 0, 0},
 		};
 
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 			break;
 #endif
 		case 't':
-			flagval |= FLAGS_NOTHP;
+			assert(!prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0));
 			break;
 		case 'v':
 			flagval |= FLAGS_VERBOSE;
@@ -110,9 +110,6 @@ int main(int argc, char *argv[])
 
 	if (strncmp(buf, "[always]", 8))
 		fprintf(stderr, "warning: transparent hugepages are disabled; performance may be suboptimal\n");
-
-	if (flagval & FLAGS_NOTHP)
-		assert(!prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0));
 
 	// enable low-latency socket behaviour
 	assert(!prctl(PR_SET_TIMERSLACK, 1, 0, 0, 0));
