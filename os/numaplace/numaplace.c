@@ -14,7 +14,11 @@
 
 static void usage(const int code)
 {
-	fprintf(stderr, "Usage: numaplace [-v] [-t] [-s <stride>] cmd [args..]\n");
+	fprintf(stderr, "usage: numaplace [-tvd] [-c <cores>] cmd [args ...]\n");
+	fprintf(stderr, "\t-c, --cores\t\tset number of OpenMP cores\n");
+	fprintf(stderr, "\t-t, --no-thp\t\tdisable Transparent Huge Pages\n");
+	fprintf(stderr, "\t-v, --verbose\t\tshow cores allocated\n");
+	fprintf(stderr, "\t-d, --debug\t\tshow internal information\n");
 	exit(code);
 }
 
@@ -26,21 +30,29 @@ int main(int argc, char *argv[])
 		int option_index = 0;
 
 		static const struct option long_options[] = {
+			{"cores",   required_argument, 0, 0},
+#ifdef FIXME // needs implementing in library
 			{"stride",  required_argument, 0, 0},
+#endif
 			{"no-thp",  no_argument,       0, 0},
 			{"verbose", no_argument,       0, 1},
 			{"debug",   no_argument,       0, 1},
 			{0,         0,                 0, 0},
 		};
 
-		int c = getopt_long(argc, argv, "s:tvd", long_options, &option_index);
+		int c = getopt_long(argc, argv, "c:tvd", long_options, &option_index);
 		if (c == -1)
 			break;
 
 		switch (c) {
+		case 'c':
+			assert(!setenv("OMP_NUM_THREADS", optarg, 1));
+			break;
+#ifdef FIXME
 		case 's':
 			assert(!setenv("NUMAPLACE_STRIDE", optarg, 1));
 			break;
+#endif
 		case 't':
 			flagval |= FLAGS_NOTHP;
 			break;

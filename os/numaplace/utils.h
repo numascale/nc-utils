@@ -18,6 +18,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -98,7 +99,7 @@ static inline uint64_t parseint(const char *str)
 	unsigned offset, shift = 0;
 
 	for (offset = 0; offset < sizeof(prefix); offset++) {
-		if (*end == prefix[offset])
+		if (tolower(*end) == prefix[offset])
 			break;
 		shift += 10;
 	}
