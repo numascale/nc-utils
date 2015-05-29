@@ -1347,7 +1347,6 @@ static void renumber_remote_bsp(node_info_t *const node)
 static void setup_remote_cores(node_info_t *const node)
 {
 	uint8_t i, map_index;
-	uint16_t apicid, oldid;
 	uint32_t j, val;
 
 	printf(" %03x", node->sci);
@@ -1525,7 +1524,7 @@ static void setup_remote_cores(node_info_t *const node)
 	}
 }
 
-int read_config_file(const char *filename)
+void read_config_file(const char *filename)
 {
 	size_t config_len;
 	char *config;
@@ -1535,10 +1534,9 @@ int read_config_file(const char *filename)
 
 	config[config_len] = '\0';
 	if (!parse_config_file(config))
-		return -1;
+		fatal("Errors in fabric configuration");
 
 	lfree(config);
-	return 0;
 }
 
 static int pxeapi_call(int func, const uint8_t *buf)
@@ -2476,10 +2474,6 @@ static void get_hostname(void)
 	hostname = NULL;
 }
 
-#define ERR_NODE_CONFIG            -3
-#define ERR_PARTITION_CONFIG       -4
-#define ERR_GENERAL_NC_START_ERROR -9
-
 static void constants(void)
 {
 	family = cpu_family(0xfff0, 0) >> 16;
@@ -2588,7 +2582,7 @@ static void probefilter_check(void)
 		fatal("%shave inconsistent probefilter settings to master", msg);
 }
 
-static int nc_start(void)
+static void nc_start(void)
 {
 	struct part_info *part;
 
@@ -2616,10 +2610,8 @@ static int nc_start(void)
 		broadcast_error(0, "Starting Manufacture test");
 	} else if (singleton) {
 		make_singleton_config();
-	} else {
-		if (read_config_file(config_file_name) < 0)
-			return ERR_NODE_CONFIG;
-	}
+	} else
+		read_config_file(config_file_name);
 
 	nodes = (node_info_t *)realloc(nodes, sizeof(*nodes) * cfg_nodes);
 	assert(nodes);
@@ -2637,7 +2629,7 @@ static int nc_start(void)
 
 	part = get_partition_config(local_info->partition);
 	if (!part)
-		return ERR_PARTITION_CONFIG;
+		fatal("Partition entry %u is missing in fabric configuration", local_info->partition);
 
 	printf("Partition master: 0x%03x; builder: 0x%03x\n", part->master, part->builder);
 	printf("Fabric dimensions: x: %d, y: %x, z: %d\n",
@@ -2802,7 +2794,8 @@ static int nc_start(void)
 		}
 	}
 
-	return ERR_GENERAL_NC_START_ERROR;
+	error("Failed to unify; check configuration files match hardware and UUIDs");
+	wait_key();
 }
 
 int main(const int argc, const char *argv[])
@@ -2838,13 +2831,9 @@ int main(const int argc, const char *argv[])
 		printf(COL_DEFAULT "\n");
 	}
 
-	int ret = nc_start();
-	if (ret < 0) {
-		error("nc_start() failed with error code %d; check configuration files match hardware and UUIDs", ret);
-		wait_key();
-	}
+	nc_start();
 
 	/* Restore 32-bit only access */
 	set_wrap32_enable();
-	return ret;
+	return -1;
 }

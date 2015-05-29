@@ -120,7 +120,7 @@ extern uint32_t old_mcfg_len;
 extern uint64_t under_ht_base;
 
 void set_cf8extcfg_enable(const int ht);
-checked int read_config_file(const char *filename);
+void read_config_file(const char *filename);
 void udp_open(void);
 void udp_broadcast_state(const void *buf, const size_t len);
 checked int udp_read_state(void *buf, const size_t len, uint32_t *ip);

@@ -88,7 +88,7 @@ void load_scc_microcode(void)
 		washdelay = min(zceil(pow(dnc_core_count, WASHDELAY_P) / WASHDELAY_Q), WASHDELAY_LIMIT);
 	}
 
-	printf("Loading SCC microcode with washdelay %u for %u cores...", washdelay, dnc_core_count);
+	printf("Loading SCC microcode with washdelay %d for %u cores...", washdelay, dnc_core_count);
 
 	unsigned calls = 0, delays = 0;
 	ratio(washdelay, &calls, &delays);
