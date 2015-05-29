@@ -538,7 +538,7 @@ void tally_all_remote_nodes(void)
 {
 	bool ret = 1;
 
-	for (uint16_t num = 1; num < 4096; num++)
+	for (uint16_t num = 0; num < 4096; num++)
 		if ((nodedata[num] & 0xc0) == 0x80)
 			ret &= tally_remote_node(num);
 
