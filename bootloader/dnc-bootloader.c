@@ -2636,6 +2636,9 @@ static void nc_start(void)
 	       cfg_fabric.size[0], cfg_fabric.size[1], cfg_fabric.size[2]);
 
 	for (int i = 0; i < cfg_nodes; i++) {
+		if (cfg_nodelist[i].sci == part->builder)
+			assertf(!cfg_nodelist[i].sync_only, "Partition builder %03x cannot be an observer", part->builder);
+
 		if (config_local(&cfg_nodelist[i], local_info->uuid))
 			continue;
 
