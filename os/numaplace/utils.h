@@ -35,7 +35,6 @@
 
 #define FLAGS_VERBOSE (1 << 0)
 #define FLAGS_DEBUG   (1 << 1)
-#define FLAGS_NOTHP   (1 << 2)
 
 #define assertf(cond, format, args...) do { if (!(cond)) { \
   fprintf(stderr, "Error: "); \
