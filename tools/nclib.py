@@ -1,8 +1,198 @@
-# r7
+# r8
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
 verbose = 0
+
+error_fstat = {
+	11: 'Internal BIU bus packet discard',
+	10: 'Internal MIU bus packet discard',
+	 9: 'Internal PIU bus packet discard',
+	 8: 'B-Link packet parity error',
+	 3: 'SCC request split timeout',
+	 2: 'Error response',
+	 1: 'SCC coherence error',
+	 0: 'SCC coherence processor stack overflow',
+}
+
+error_nfstat = {
+#	24: 'Raw packet response again',
+	23: 'Interrupt again',
+	22: 'Performance counter 1 set again',
+	21: 'Performance counter 2 set again',
+	20: 'SCI line locking again',
+	19: 'GCM memory address miss again',
+	16: 'B-Link device needs attention',
+#	 8: 'Raw packet response'
+	 7: 'Interrupt target',
+	 6: 'Performance counter 1 set',
+	 5: 'Performance counter 2 set',
+	 4: 'SCI line locking',
+	 3: 'GCM memory address miss',
+	 0: 'B-Link device needs attention',
+}
+
+cdata_error_statr = {
+	5: 'Denali controller sum interrupt',
+	4: 'RSC error in read queue',
+	3: 'RHN error in read queue',
+	2: 'Correctable error on port1',
+	1: 'Correctable error on port0',
+	0: 'Uncorrectable error',
+}
+
+databahn_int_status = {
+	11: 'DLL unlock condition',
+	10: 'Read DQS gate error',
+	 9: 'ODT and CAS latecy 3 programmed',
+	 8: 'Unaligned write access',
+	 5: 'Multiple uncorrectable ECC events',
+	 4: 'Single uncorrectable ECC event',
+	 3: 'Multiple correctable ECC events',
+	 2: 'Single correctable ECC event',
+	 1: 'Multiple accesses outside address space',
+	 0: 'Single access outside address space',
+}
+
+error_status = {
+	3: 'MC Tag Interrupt',
+	2: 'MC Tag Error',
+	1: 'CData Interrupt',
+	0: 'CData Error',
+}
+
+class Node:
+	def write(self, bus, dev, fun, reg, val):
+		self.numachip.mmcfg_raw_write(self.sci, bus, dev, fun, reg, val)
+
+	def read(self, bus, dev, fun, reg):
+		return self.numachip.mmcfg_raw_read(self.sci, bus, dev, fun, reg)
+
+	def __init__(self, sci, numachip, oemn, lean):
+		self.sci = sci
+		self.numachip = numachip
+		self.oemn = oemn
+		self.lean = lean
+		# assume NC is top HT
+		self.nc_ht = (self.numachip.mmcfg_raw_read(sci, 0, 0x18, 0, 0x60) >> 4) & 7
+		self.nbs = []
+
+		# assume NBs below
+		for ht in range(self.nc_ht):
+			self.nbs.append(Northbridge(self.sci, ht))
+
+	def log(self, ht, msg):
+		# check for first error for HT
+		if ht not in self.errors:
+			self.errstr += '%03x#%u ' % (self.sci, ht)
+			self.errors.append(ht)
+		else:
+			self.errstr += '      '
+
+		self.errstr += msg
+
+	def ncensure(self, reg, mask, expect, bits=None):
+		val = self.numachip.csr_raw_read(self.sci, self.numachip.regs[reg]) & mask
+		if val != expect:
+			msg = '%s:%08x' % (reg, val)
+
+			if bits:
+				strings = []
+				for bit, string in bits.iteritems():
+					if (val ^ expect) & (1 << bit):
+						strings.append(string)
+
+				if strings:
+					msg += ' (' + ', '.join(strings) + ')'
+
+			self.log(self.nc_ht, msg)
+
+	def nbensure(self, ht, reg, expect):
+		reg = Northbridge.regs[reg]
+		val = self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, reg >> 12, reg & 0xfff)
+		if val != expect:
+			self.log(ht, '%s:%08x' % (reg, val))
+
+	def mces(self, ht):
+		statreg = Northbridge.regs['MC STATUS']
+		status = self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, statreg & 0xfff)
+		status |= self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, (statreg & 0xfff) + 4) << 32
+
+#		status = 0xdc4540004d080813
+		if not status & (1 << 63):
+			return
+
+		addrreg = Northbridge.regs['MC ADDR']
+		addr = self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, addrreg >> 12, addrreg & 0xfff)
+		addr |= self.numachip.mmcfg_raw_read(self.sci , 0, 0x18 + ht, addrreg >> 12, (addrreg & 0xfff) + 4) << 32
+
+#		addr = 0x00000018076cc000
+		self.log(ht, self.nbs[ht].mce(status, addr))
+
+	def state(self):
+		try:
+			val = self.numachip.csr_raw_read(self.sci, self.numachip.regs['SEQ_INFO'])
+		except (Numachip.TimeoutException, Numachip.HTErrorException, Numachip.BlockedException):
+			return
+
+		return val & 0x3ff
+
+	def check(self):
+		self.errors = []
+		self.errstr = ''
+
+		try:
+			ht = self.nc_ht
+
+			if not self.numachip.csr_raw_read(self.sci, self.numachip.regs['ATT_INDEX']):
+				self.log(ht, 'rebooted')
+				return
+
+			self.ncensure('CDATA_ERROR_STATR', 0xffffffff, 0x00000000, cdata_error_statr)
+			self.ncensure('MCTAG_ERROR_STATR', 0xffffffff, 0x00000000)
+			self.ncensure('ERROR_STATUS', 0xffffffff, 0x00000000, error_status)
+			self.ncensure('ERROR_NFSTAT', 0xffffffff, 0x01000100, error_nfstat)
+			self.ncensure('ERROR_FSTAT', 0xffffffff, 0x00000000, error_fstat)
+			self.ncensure('MCTAG_INT_STATUS', 0x0000effc, 0x00000000, databahn_int_status)
+			self.ncensure('CDATA_INT_STATUS', 0x0000effc, 0x00000000, databahn_int_status)
+
+			if self.oemn.size_x:
+				self.ncensure('HSSXA_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('HSSXB_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('PHYXA_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYXB_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYXA_LINK_STAT', 0xffffffff, 0x00001fff)
+				self.ncensure('PHYXB_LINK_STAT', 0xffffffff, 0x00001fff)
+
+			if self.oemn.size_y:
+				self.ncensure('HSSYA_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('HSSYB_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('PHYYA_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYZB_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYYA_LINK_STAT', 0xffffffff, 0x00001fff)
+				self.ncensure('PHYYB_LINK_STAT', 0xffffffff, 0x00001fff)
+
+			if self.oemn.size_z:
+				self.ncensure('HSSZA_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('HSSZB_STAT_1', 0xffffffff, 0x00000100)
+				self.ncensure('PHYZA_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYZB_ELOG', 0xffffffff, 0x00000000)
+				self.ncensure('PHYZA_LINK_STAT', 0xffffffff, 0x00001fff)
+				self.ncensure('PHYZB_LINK_STAT', 0xffffffff, 0x00001fff)
+
+			if not self.lean:
+				for ht in range(self.nc_ht):
+					self.mces(ht)
+					self.nbensure(ht, 'DRAM HOT', 0x00000000)
+
+		except Numachip.TimeoutException:
+			self.log(ht, 'timeout')
+		except Numachip.HTErrorException:
+			self.log(ht, 'HT error')
+		except Numachip.BlockedException:
+			self.log(ht, 'blocked')
+
+		return self.errstr
 
 class Platform:
 	class OEMN(ctypes.Structure):
