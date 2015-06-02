@@ -2,8 +2,6 @@
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
-verbose = 0
-
 error_fstat = {
 	11: 'Internal BIU bus packet discard',
 	10: 'Internal MIU bus packet discard',
@@ -63,18 +61,15 @@ error_status = {
 
 class Node:
 	def write(self, bus, dev, fun, reg, val):
-		self.numachip.mmcfg_raw_write(self.sci, bus, dev, fun, reg, val)
+		numachip.mmcfg_raw_write(self.sci, bus, dev, fun, reg, val)
 
 	def read(self, bus, dev, fun, reg):
-		return self.numachip.mmcfg_raw_read(self.sci, bus, dev, fun, reg)
+		return numachip.mmcfg_raw_read(self.sci, bus, dev, fun, reg)
 
-	def __init__(self, sci, numachip, oemn, lean):
+	def __init__(self, sci):
 		self.sci = sci
-		self.numachip = numachip
-		self.oemn = oemn
-		self.lean = lean
 		# assume NC is top HT
-		self.nc_ht = (self.numachip.mmcfg_raw_read(sci, 0, 0x18, 0, 0x60) >> 4) & 7
+		self.nc_ht = (numachip.mmcfg_raw_read(sci, 0, 0x18, 0, 0x60) >> 4) & 7
 		self.nbs = []
 
 		# assume NBs below
@@ -92,7 +87,7 @@ class Node:
 		self.errstr += msg
 
 	def ncensure(self, reg, mask, expect, bits=None):
-		val = self.numachip.csr_raw_read(self.sci, self.numachip.regs[reg]) & mask
+		val = numachip.csr_raw_read(self.sci, numachip.regs[reg]) & mask
 		if val != expect:
 			msg = '%s:%08x' % (reg, val)
 
@@ -109,29 +104,29 @@ class Node:
 
 	def nbensure(self, ht, reg, expect):
 		reg = Northbridge.regs[reg]
-		val = self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, reg >> 12, reg & 0xfff)
+		val = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, reg >> 12, reg & 0xfff)
 		if val != expect:
 			self.log(ht, '%s:%08x' % (reg, val))
 
 	def mces(self, ht):
 		statreg = Northbridge.regs['MC STATUS']
-		status = self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, statreg & 0xfff)
-		status |= self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, (statreg & 0xfff) + 4) << 32
+		status = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, statreg & 0xfff)
+		status |= numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, statreg >> 12, (statreg & 0xfff) + 4) << 32
 
 #		status = 0xdc4540004d080813
 		if not status & (1 << 63):
 			return
 
 		addrreg = Northbridge.regs['MC ADDR']
-		addr = self.numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, addrreg >> 12, addrreg & 0xfff)
-		addr |= self.numachip.mmcfg_raw_read(self.sci , 0, 0x18 + ht, addrreg >> 12, (addrreg & 0xfff) + 4) << 32
+		addr = numachip.mmcfg_raw_read(self.sci, 0, 0x18 + ht, addrreg >> 12, addrreg & 0xfff)
+		addr |= numachip.mmcfg_raw_read(self.sci , 0, 0x18 + ht, addrreg >> 12, (addrreg & 0xfff) + 4) << 32
 
 #		addr = 0x00000018076cc000
 		self.log(ht, self.nbs[ht].mce(status, addr))
 
 	def state(self):
 		try:
-			val = self.numachip.csr_raw_read(self.sci, self.numachip.regs['SEQ_INFO'])
+			val = numachip.csr_raw_read(self.sci, numachip.regs['SEQ_INFO'])
 		except (Numachip.TimeoutException, Numachip.HTErrorException, Numachip.BlockedException):
 			return
 
@@ -144,7 +139,7 @@ class Node:
 		try:
 			ht = self.nc_ht
 
-			if not self.numachip.csr_raw_read(self.sci, self.numachip.regs['ATT_INDEX']):
+			if not numachip.csr_raw_read(self.sci, numachip.regs['ATT_INDEX']):
 				self.log(ht, 'rebooted')
 				return
 
@@ -156,7 +151,7 @@ class Node:
 			self.ncensure('MCTAG_INT_STATUS', 0x0000effc, 0x00000000, databahn_int_status)
 			self.ncensure('CDATA_INT_STATUS', 0x0000effc, 0x00000000, databahn_int_status)
 
-			if self.oemn.size_x:
+			if platform.oemn.size_x:
 				self.ncensure('HSSXA_STAT_1', 0xffffffff, 0x00000100)
 				self.ncensure('HSSXB_STAT_1', 0xffffffff, 0x00000100)
 				self.ncensure('PHYXA_ELOG', 0xffffffff, 0x00000000)
@@ -164,7 +159,7 @@ class Node:
 				self.ncensure('PHYXA_LINK_STAT', 0xffffffff, 0x00001fff)
 				self.ncensure('PHYXB_LINK_STAT', 0xffffffff, 0x00001fff)
 
-			if self.oemn.size_y:
+			if platform.oemn.size_y:
 				self.ncensure('HSSYA_STAT_1', 0xffffffff, 0x00000100)
 				self.ncensure('HSSYB_STAT_1', 0xffffffff, 0x00000100)
 				self.ncensure('PHYYA_ELOG', 0xffffffff, 0x00000000)
@@ -172,7 +167,7 @@ class Node:
 				self.ncensure('PHYYA_LINK_STAT', 0xffffffff, 0x00001fff)
 				self.ncensure('PHYYB_LINK_STAT', 0xffffffff, 0x00001fff)
 
-			if self.oemn.size_z:
+			if platform.oemn.size_z:
 				self.ncensure('HSSZA_STAT_1', 0xffffffff, 0x00000100)
 				self.ncensure('HSSZB_STAT_1', 0xffffffff, 0x00000100)
 				self.ncensure('PHYZA_ELOG', 0xffffffff, 0x00000000)
@@ -180,7 +175,7 @@ class Node:
 				self.ncensure('PHYZA_LINK_STAT', 0xffffffff, 0x00001fff)
 				self.ncensure('PHYZB_LINK_STAT', 0xffffffff, 0x00001fff)
 
-			if not self.lean:
+			if not options.lean:
 				for ht in range(self.nc_ht):
 					self.mces(ht)
 					self.nbensure(ht, 'DRAM HOT', 0x00000000)
@@ -239,7 +234,7 @@ class Platform:
 				self.size_z = 0
 				self.standalone = True
 
-			if verbose > 0:
+			if options.verbose > 0:
 				print 'ACPI: sig=%s len=%d rev=%d check=%d oemid=%s oemtableid=%s oemrev=%x creatorid=%s creatorrev=%d' % (self.acpi_sig[0:3], self.acpi_len, self.acpi_rev, self.acpi_checksum, self.acpi_oemid[0:5], self.acpi_oemtableid[0:7], self.acpi_oemrev, self.acpi_creatorid[0:3], self.acpi_creatorrev)
 				print 'data: numachip_rev=%d size=%d,%d,%d northbridges=%d neigh_ht=%d neigh_link=%d symmetric=%d renumbering=%d' % (self.numachip_rev, self.size_x, self.size_y, self.size_z, self.northbridges, self.neigh_ht, self.neigh_link, self.symmetric, self.renumbering)
 
@@ -513,16 +508,16 @@ class Numachip:
 
 	def csr_read(self, reg):
 		val = struct.unpack('>L', self.lcsr[reg:reg + 4])[0]
-		if verbose > 1:
+		if options.verbose > 1:
 			print 'csr_read  %03x = %08x' % (reg, val)
 		return val
 
 	def csr_write(self, reg, val):
-		if verbose > 1:
+		if options.verbose > 1:
 			print 'csr_write %03x = %08x' % (reg, val)
 		self.lcsr[reg:reg + 4] = struct.pack('>L', val)
 
-	def __init__(self, platform):
+	def __init__(self):
 		self.standalone = platform.oemn.standalone
 		p = platform.processor
 		mcfg_base = p.rdmsr(p.MCFG_BASE) & ~0x3f
