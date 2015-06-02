@@ -1,4 +1,4 @@
-# r8
+# r9
 
 import ctypes, os, subprocess, struct, mmap, time, sys, errno
 
@@ -227,7 +227,7 @@ class Platform:
 				assert self.acpi_len >= 41
 				self.standalone = False
 			except IOError as e:
-				if e.errno != 2:
+				if e.errno != errno.ENOENT:
 					raise
 				self.size_x = 2
 				self.size_y = 0
@@ -261,7 +261,7 @@ class Platform:
 			try:
 				self.fd = os.open('/dev/cpu/0/msr', os.O_RDWR)
 			except OSError as e:
-				if e.errno != 2:
+				if e.errno != errno.ENOENT:
 					raise
 
 				subprocess.call(('modprobe', 'msr'))
@@ -282,47 +282,6 @@ class Platform:
 		self.oemn = self.OEMN()
 		self.processor = self.Processor()
 		self.pci = self.PCI(self.processor)
-
-class Cpuset:
-	def __init__(self, nodesperserver, corespercpu):
-		self.nodesperserver = nodesperserver
-		self.corespercpu = corespercpu
-		self.used = []
-		if not os.path.isdir('/dev/cpuset'):
-			raise SystemExit('need to mount /dev/cpuset')
-
-		self.libc = ctypes.CDLL('libc.so.6')
-
-	def bind(self, name, server):
-		path = '/dev/cpuset/' + name
-#		print 'server=%d' % server
-
-		try:
-			os.mkdir(path)
-		except OSError as e:
-			if e.errno != errno.EEXIST:
-				raise e
-
-		with open(path + '/cpus', 'w') as f:
-			start = server * self.corespercpu * self.nodesperserver
-			end = (server + 1) * self.corespercpu * self.nodesperserver - 1
-#			print 'start=%d end=%d' % (start, end)
-			f.write('%d-%d' % (start, end))
-
-		with open(path + '/mems', 'w') as f:
-			start = server * self.nodesperserver
-			end = (server + 1) * self.nodesperserver - 1
-			f.write('%d-%d' % (start, end))
-
-		with open(path + '/tasks', 'w') as f:
-			pid = self.libc.syscall(186) # gettid
-			f.write('%d' % pid)
-
-		self.used.append(name)
-
-	def __del__(self):
-		for elem in self.used:
-			os.rmdir('/dev/cpuset/' + elem)
 
 class Northbridge:
 	regs = {
