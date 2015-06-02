@@ -1,49 +1,41 @@
 #!/usr/bin/python
 # NumaConnect checker r11
 
-import os, time, optparse, operator
-from nclib import Platform, Numachip, Node
+import os, time, optparse, operator, nclib
 
 if os.getuid():
 	raise SystemExit('error: please run as root')
 
 parser = optparse.OptionParser()
-parser.add_option('--verbose', dest='verbose', default=0, action='count', help='increase verbosity')
 parser.add_option('--once', dest='once', action='store_true', default=False, help='check once rather than periodically')
-parser.add_option('--lean', dest='lean', action='store_true', default=False, help='check numachip registers only')
 parser.add_option('--local', dest='local', action='store_true', default=False, help='check local registers only')
+# required in nclib
+parser.add_option('--verbose', dest='verbose', default=0, action='count', help='increase verbosity')
+parser.add_option('--lean', dest='lean', action='store_true', default=False, help='check numachip registers only')
 
-options, args = parser.parse_args()
-
-platform = Platform()
-numachip = Numachip(platform)
-
-colours = {
-	'default':  '\033[0m',
-	'warning':  '\033[33m', # yellow
-	'error':    '\033[31m', # red
-	'good':     '\033[32m', # green
-}
-
+nclib.options, args = parser.parse_args()
+nclib.platform = nclib.Platform()
+nclib.numachip = nclib.Numachip()
 nodes = []
 
 try:
-	for z in range(max(platform.oemn.size_z, 1)):
-		for y in range(max(platform.oemn.size_y, 1)):
-			for x in range(max(platform.oemn.size_x, 1)):
-				nodes.append(Node(x | y << 4 | z << 8, numachip, platform.oemn, options.lean))
+	for z in range(max(nclib.platform.oemn.size_z, 1)):
+		for y in range(max(nclib.platform.oemn.size_y, 1)):
+			for x in range(max(nclib.platform.oemn.size_x, 1)):
+				nodes.append(nclib.Node(x | y << 4 | z << 8))
 
-	logf = open('nc-check.log', 'a')
-except Numachip.BlockedException:
+except nclib.Numachip.BlockedException:
 	raise SystemError('error: fabric blocked; unable to determine geometry')
+
+logf = open('nc-check.log', 'a')
 
 try:
 	while True:
 		output = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-		if options.verbose > 0:
+		if nclib.options.verbose > 0:
 			output += ' ['
 
-		if options.verbose > 0:
+		if nclib.options.verbose > 0:
 			ptrs = {}
 			total = 0
 			for node in nodes:
@@ -68,13 +60,13 @@ try:
 		print output
 		print >>logf, output
 
-		if options.once:
+		if nclib.options.once:
 			break
 
 		time.sleep(3)
-except Numachip.TimeoutException:
+except nclib.Numachip.TimeoutException:
 	raise SystemError('error: fabric timeout')
-except Numachip.BlockedException:
+except nclib.Numachip.BlockedException:
 	raise SystemError('error: fabric blocked')
 except KeyboardInterrupt:
 	pass
