@@ -65,9 +65,8 @@ except nclib.Numachip.BlockedException:
 	raise SystemError('error: fabric blocked; unable to determine geometry')
 
 cores = os.sysconf('SC_NPROCESSORS_ONLN')
-args = ['./numaplace', '-c%d' % cores, '-t', '--']
+args = ['numaplace', '-c%d' % cores, '-t', '--']
 args.extend(workload)
-os.environ['LD_LIBRARY_PATH'] = os.getcwd()
 
 with open('%s.gnuplot' % prefix, 'w') as f:
 	print >>f, 'set terminal pdf'
