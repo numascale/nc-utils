@@ -1,0 +1,109 @@
+#!/usr/bin/python
+# NumaConnect tuning v1
+
+import os, time, optparse, nclib, subprocess
+
+def ratio(goal):
+	error = 10000000
+	calls = 0
+	delays = 0
+
+	for i in range(1, nclib.Numachip.UCODE_CALLS):
+		for j in range(1, nclib.Numachip.UCODE_DELAYS):
+			new_err = abs(goal - i*j)
+			if new_err >= error:
+				continue
+
+			calls = i
+			delays = j
+			error = new_err
+
+	return calls, delays
+
+def washdelay():
+	divisor = 4.
+
+	while True:
+		val = 32768
+		while val > 1:
+			val = int(val / (1 + divisor))
+			yield val
+
+		divisor /= 1.5
+
+if os.getuid():
+	raise SystemExit('error: please run as root')
+
+parser = optparse.OptionParser()
+parser.add_option('--once', dest='once', action='store_true', default=False, help='check once rather than periodically')
+parser.add_option('--local', dest='local', action='store_true', default=False, help='check local registers only')
+# required in nclib
+parser.add_option('--verbose', dest='verbose', default=0, action='count', help='increase verbosity')
+parser.add_option('--lean', dest='lean', action='store_true', default=False, help='check numachip registers only')
+
+nclib.pin(0) # needed to ensure correct raw access
+nclib.options, args = parser.parse_args()
+
+if len(args) < 2:
+	raise SystemExit('usage: nc-tune <system-name> <benchmark> [<arg> ...]')
+
+sysname = args[0]
+workload = args[1:]
+workloadleaf = workload[0].rsplit('/')[-1]
+prefix = '%s-%s' % (sysname, workloadleaf.translate(None, '.'))
+nclib.platform = nclib.Platform()
+nclib.numachip = nclib.Numachip()
+nodes = []
+
+try:
+	for z in range(max(nclib.platform.oemn.size_z, 1)):
+		for y in range(max(nclib.platform.oemn.size_y, 1)):
+			for x in range(max(nclib.platform.oemn.size_x, 1)):
+				nodes.append(nclib.Node(x | y << 4 | z << 8))
+
+except nclib.Numachip.BlockedException:
+	raise SystemError('error: fabric blocked; unable to determine geometry')
+
+cores = os.sysconf('SC_NPROCESSORS_ONLN')
+args = ['./numaplace', '-c%d' % cores, '-t', '--']
+args.extend(workload)
+os.environ['LD_LIBRARY_PATH'] = os.getcwd()
+
+with open('%s.gnuplot' % prefix, 'w') as f:
+	print >>f, 'set terminal pdf'
+	print >>f, 'set output "%s.pdf"' % prefix
+	print >>f, 'set xlabel "washdelay"'
+	print >>f, 'set ylabel "%s runtime (s)"' % workloadleaf
+	print >>f, 'set logscale x 2'
+	print >>f, 'set fit quiet'
+	print >>f, 'set fit logfile "/dev/null"'
+	print >>f, 'y=100; a=1000; f(x) = y + x / a'
+	print >>f, 'fit f(x) "%s.txt" via y, a' % prefix
+	print >>f, 'plot "%s.txt" with dots title "%s", f(x) notitle, y lc rgb "#d0ff00ff" notitle' % (prefix, sysname)
+
+logf = open('%s.txt' % prefix, 'a')
+done = []
+print 'run "gnuplot <%s.gnuplot" to generate %s.pdf' % (prefix, prefix)
+
+try:
+	for delay in washdelay():
+		calls, delays = ratio(delay)
+		actual = calls * delays
+		if actual in done:
+			continue
+		done.append(actual)
+
+		for node in nodes:
+			nclib.numachip.washdelay(node.sci, calls, delays)
+
+		start = time.time()
+		subprocess.check_call(args)
+		print >>logf, '%u %.2f' % (actual, time.time() - start)
+		logf.flush()
+
+except nclib.Numachip.TimeoutException:
+	raise SystemError('error: fabric timeout')
+except nclib.Numachip.BlockedException:
+	raise SystemError('error: fabric blocked')
+except KeyboardInterrupt:
+	pass
