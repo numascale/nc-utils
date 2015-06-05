@@ -12,9 +12,9 @@ check:
 	cppcheck --enable=all --inconclusive *.c *.c *.h
 
 upload: all
-	rsync $(TARGETS) resources:resources/numaplace
-	rsync $(TARGETS) nc-demo:/opt/bin
-	rsync $(TARGETS) build:common
+	rsync numaplace libnumaplace.so resources:resources/numaplace
+	rsync numaplace libnumaplace.so nc-demo:/opt/bin
+	rsync numaplace libnumaplace.so build:common
 
 numaplace: numaplace.c libnumaplace.c utils.h
 	$(CC) $(CFLAGS) -o $@ $< libnumaplace.c -lpthread -ldl -lnuma
