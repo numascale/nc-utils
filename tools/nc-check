@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# NumaConnect checker r11
+# NumaConnect checker r12
 
 import os, time, optparse, operator, nclib
 
@@ -13,6 +13,7 @@ parser.add_option('--local', dest='local', action='store_true', default=False, h
 parser.add_option('--verbose', dest='verbose', default=0, action='count', help='increase verbosity')
 parser.add_option('--lean', dest='lean', action='store_true', default=False, help='check numachip registers only')
 
+nclib.pin(0) # needed to ensure correct raw access
 nclib.options, args = parser.parse_args()
 nclib.platform = nclib.Platform()
 nclib.numachip = nclib.Numachip()
