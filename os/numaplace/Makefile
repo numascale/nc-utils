@@ -1,5 +1,5 @@
 TARGETS	:= numaplace libnumaplace.so numaplace-test
-CFLAGS	:= -std=gnu11 -Wall -Wextra -Wshadow -O3 -g -D_GNU_SOURCE
+CFLAGS	:= -std=gnu11 -Wall -Wextra -Wshadow -O3 -g -D_GNU_SOURCE -Wno-unused-parameter
 
 .PHONY: all
 all: $(TARGETS)

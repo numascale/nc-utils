@@ -25,6 +25,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/sysinfo.h>
 
 #define MAX_CORES 8192
 #define MAX_NUMA 1024
@@ -35,14 +36,15 @@
 
 #ifdef LEGACY
 static uint8_t stride = 1;
-static uint16_t cores;
 static uint8_t stride_alloc; // threshold for allocation in group of 'stride' bits
 #endif
+static uint16_t threads;
 static unsigned lastcore;
 static unsigned flags;
 static unsigned long occupied[MAX_CORES / BITS_PER_LONG];
 static pthread_key_t thread_key;
 static uint64_t stacksize = 8 << 20;
+static int (*xsched_setaffinity)(pid_t, size_t, cpu_set_t *);
 
 typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
 
@@ -163,7 +165,7 @@ void *mmap(void *addr, size_t length, int prot, int mflags, int fd, off_t offset
 
 	if (!xmmap) {
 		xmmap = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
-		assertf(xmmap, "dlsym failed");
+		assert(xmmap);
 	}
 
 	if (flags & FLAGS_DEBUG)
@@ -399,7 +401,7 @@ void bind_current(void)
 		CPU_ZERO_S(setsize, cpuset);
 		CPU_SET_S(info.core, setsize, cpuset);
 
-		assert(!sched_setaffinity(0, setsize, cpuset));
+		assert(!xsched_setaffinity(0, setsize, cpuset));
 
 		// pin stack
 		struct rlimit limit;
@@ -431,12 +433,97 @@ static __attribute__((constructor)) void init(void)
 	if (envstr)
 		stride = atoi(envstr);
 
-	cores = sysconf(_SC_NPROCESSORS_ONLN);
+	cores = get_nprocs_conf();
 #endif
 
 	envstr = getenv("OMP_STACKSIZE");
 	if (envstr)
 		stacksize = parseint(envstr);
+
+	envstr = getenv("NUMAPLACE_THREADS");
+	if (envstr)
+		threads = atoi(envstr);
+	else
+		// FIXME: check how many cores free
+		threads = get_nprocs_conf();
+
+	xsched_setaffinity = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_setaffinity");
+	assert(xsched_setaffinity);
+}
+
+int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *cpuset)
+{
+	static int (*xsched_getaffinity)(pid_t, size_t, cpu_set_t *);
+	if (!xsched_getaffinity) {
+		xsched_getaffinity = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_getaffinity");
+		assert(xsched_getaffinity);
+	}
+
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "sched_getaffinity: returning %u threads\n", threads);
+
+	if (pid && pid != getpid()) {
+		fprintf(stderr, "warning: returning affinity for non-local process\n");
+		return xsched_getaffinity(pid, cpusetsize, cpuset);
+	}
+
+	if (!cpuset)
+		return EFAULT;
+
+	if (cpusetsize < threads / 8)
+		return EINVAL;
+
+	CPU_ZERO_S(cpusetsize, cpuset);
+	for (unsigned i = 0; i < threads; i++)
+		CPU_SET_S(i, cpusetsize, cpuset);
+
+	return 0;
+}
+
+int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset)
+{
+	static int (*xpthread_getaffinity_np)(pthread_t, size_t, cpu_set_t *);
+	if (!xpthread_getaffinity_np) {
+		xpthread_getaffinity_np = (int (*)(pthread_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "pthread_getaffinity_np");
+		assert(xpthread_getaffinity_np);
+	}
+
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "pthread_getaffinity_np: returning %u threads\n", threads);
+
+	assert(thread);
+	if (thread != pthread_self()) {
+		fprintf(stderr, "warning: returning affinity for non-local thread\n");
+		return xpthread_getaffinity_np(thread, cpusetsize, cpuset);
+	}
+
+	if (!cpuset)
+		return EFAULT;
+
+	if (cpusetsize < threads / 8)
+		return EINVAL;
+
+	CPU_ZERO_S(cpusetsize, cpuset);
+	for (unsigned i = 0; i < threads; i++)
+		CPU_SET_S(i, cpusetsize, cpuset);
+
+	return 0;
+}
+
+int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
+{
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "sched_setaffinity: eliding\n");
+
+	return 0;
+}
+
+int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t *cpuset)
+{
+	if (flags & FLAGS_DEBUG)
+		fprintf(stderr, "pthread_setaffinity_np: eliding\n");
+
+	return 0;
 }
 
 static void *pthread_create_inner(struct thread_info *info)
@@ -450,15 +537,14 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 {
 	static bool key_created;
 	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *, void *(*) (void *), void *);
+	if (!xpthread_create) {
+		xpthread_create = (int (*)(pthread_t*, const pthread_attr_t*, void *(*)(void *), void *))dlsym(RTLD_NEXT, "pthread_create");
+		assert(xpthread_create);
+	}
 
 	if (!key_created) {
 		assert(!pthread_key_create(&thread_key, (void(*)(void *))core_deallocate));
 		key_created = 1;
-	}
-
-	if (!xpthread_create) {
-		xpthread_create = (int (*)(pthread_t*, const pthread_attr_t*, void *(*)(void *), void *))dlsym(RTLD_NEXT, "pthread_create");
-		assertf(xpthread_create, "dlsym failed");
 	}
 
 	if (flags & FLAGS_DEBUG)
@@ -515,7 +601,7 @@ void *malloc(size_t size)
 	static void *(*xmalloc)(size_t);
 	if (!xmalloc) {
 		xmalloc = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
-		assertf(xmalloc, "dlsym failed");
+		assert(xmalloc);
 	}
 	if (flags & FLAGS_DEBUG)
 		fprintf(stderr, "malloc(size=%zu)\n", size);
@@ -531,7 +617,7 @@ void pthread_exit(void *retval)
 	static void (*xpthread_exit)(void *);
 	if (!xpthread_exit) {
 		xpthread_exit = (void (*)(void *))dlsym(RTLD_NEXT, "pthread_exit");
-		assertf(xpthread_exit, "dlsym failed");
+		assert(xpthread_exit);
 	}
 
 	if (flags & FLAGS_DEBUG)
@@ -545,7 +631,7 @@ pid_t fork(void)
 	static pid_t (*xfork)(void);
 	if (!xfork) {
 		xfork = (pid_t (*)(void))dlsym(RTLD_NEXT, "fork");
-		assertf(xfork, "dlsym failed");
+		assert(xfork);
 	}
 
 	allocate();
@@ -561,7 +647,7 @@ pid_t vfork(void)
 	static pid_t (*xvfork)(void);
 	if (!xvfork) {
 		xvfork = (pid_t (*)(void))dlsym(RTLD_NEXT, "vfork");
-		assertf(xvfork, "dlsym failed");
+		assert(xvfork);
 	}
 
 	allocate();
@@ -588,7 +674,7 @@ void *memcpy(void *dest, const void *src, size_t n)
 	static void *(*xmemcpy)(void *, const void *, size_t);
 	if (!xmemcpy) {
 		xmemcpy = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memcpy");
-		assertf(xmemcpy, "dlsym failed");
+		assert(xmemcpy);
 	}
 
 	if (flags & FLAGS_DEBUG)
@@ -602,7 +688,7 @@ void *memmove(void *dest, const void *src, size_t n)
 	static void *(*xmemmove)(void *, const void *, size_t);
 	if (!xmemmove) {
 		xmemmove = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memmove");
-		assertf(xmemmove, "dlsym failed");
+		assert(xmemmove);
 	}
 
 	if (flags & FLAGS_DEBUG)
@@ -616,7 +702,7 @@ void *calloc(size_t nmemb, size_t size)
 	static void *(*xcalloc)(size_t, size_t);
 	if (!xcalloc) {
 		xcalloc = (void *(*)(size_t, size_t))dlsym(RTLD_NEXT, "calloc");
-		assertf(xcalloc, "dlsym failed");
+		assert(xcalloc);
 	}
 
 	if (flags & FLAGS_DEBUG)

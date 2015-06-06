@@ -9,13 +9,14 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/prctl.h>
+#include <sys/sysinfo.h>
 
 // FIXME: parse /proc/cmdline to check isolcpus param
 
 static void usage(const int code)
 {
 	fprintf(stderr, "usage: numaplace [-tvd] [-c <cores>] cmd [args ...]\n");
-	fprintf(stderr, "\t-c, --cores\t\tset number of OpenMP cores\n");
+	fprintf(stderr, "\t-c, --cores\t\tset number of cores advertised\n");
 	fprintf(stderr, "\t-t, --no-thp\t\tdisable Transparent Huge Pages\n");
 	fprintf(stderr, "\t-v, --verbose\t\tshow cores allocated\n");
 	fprintf(stderr, "\t-d, --debug\t\tshow internal information\n");
@@ -48,7 +49,7 @@ int main(int argc, char *argv[])
 
 		switch (c) {
 		case 'c':
-			assert(!setenv("OMP_NUM_THREADS", optarg, 1));
+			assert(!setenv("NUMAPLACE_THREADS", optarg, 1));
 			break;
 #ifdef FIXME
 		case 's':
