@@ -19,6 +19,7 @@ static void usage(const int code)
 	fprintf(stderr, "\t-t, --no-thp\t\tdisable Transparent Huge Pages\n");
 	fprintf(stderr, "\t-v, --verbose\t\tshow cores allocated\n");
 	fprintf(stderr, "\t-d, --debug\t\tshow internal information\n");
+	fprintf(stderr, "\t-p, --parent\t\tdon't pin parent task\n");
 	exit(code);
 }
 
@@ -37,10 +38,11 @@ int main(int argc, char *argv[])
 			{"no-thp",  no_argument,       0, 't'},
 			{"verbose", no_argument,       0, 'v'},
 			{"debug",   no_argument,       0, 'd'},
+			{"parent",  no_argument,       0, 'p'},
 			{0,         0,                 0, 0},
 		};
 
-		int c = getopt_long(argc, argv, "c:tvd", long_options, &option_index);
+		int c = getopt_long(argc, argv, "c:tvdp", long_options, &option_index);
 		if (c == -1)
 			break;
 
@@ -61,6 +63,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			flagval |= FLAGS_DEBUG;
+			break;
+		case 'p':
+			flagval |= FLAGS_PARENT;
 			break;
 		default:
 			usage(1);
@@ -99,7 +104,8 @@ int main(int argc, char *argv[])
 	// don't overwrite any existing variable
 	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
 
-	bind_current();
+	if (!(flagval & FLAGS_PARENT))
+		bind_current();
 
 	// warn when transparent huge pages are disabled
 	int fd = open("/sys/kernel/mm/transparent_hugepage/enabled", O_RDONLY);
