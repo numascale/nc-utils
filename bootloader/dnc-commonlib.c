@@ -1588,6 +1588,23 @@ static int ht_fabric_find_nc(bool *p_asic_mode)
 		*p_asic_mode = 0;
 	}
 
+	if (family >= 0x15) {
+		const char *reason = NULL;
+
+		val = cht_read_conf(0, FUNC4_LINK, 0x15c);
+		if ((val & (1 << 7)) == 0)
+			reason = "ApmMasterEn";
+		else if ((val & 3) != 1)
+			reason = "BoostSrc";
+		else if (((val >> 2) & 7) == 0)
+			reason = "NumBoostStates";
+		else if (rdmsr(MSR_HWCR) & (1 << 25))
+			reason = "CpbDis";
+
+		if (reason)
+			warning("Core Performance Boosting not enabled (%s); please check BIOS settings", reason);
+	}
+
 	/* Fam15h: Accesses to this register must first set F1x10C [DctCfgSel]=0;
 	   Accesses to this register with F1x10C [DctCfgSel]=1 are undefined;
 	   See erratum 505 */
