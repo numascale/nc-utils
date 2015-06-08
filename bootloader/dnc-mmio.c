@@ -93,7 +93,7 @@ public:
 		next = rdmsr(MSR_TOPMEM);
 
 		if (!disable_smm) {
-			warning("%dMB of MMIO32 space is reserved for MCFG as SMM is enabled", old_mcfg_len >> 20);
+			warning("0x%08llx:0x%08llx (%uMB) of MMIO32 space is reserved for MCFG as SMM is enabled", old_mcfg_base, old_mcfg_base + old_mcfg_len, old_mcfg_len >> 20);
 			exclude(old_mcfg_base, old_mcfg_base + old_mcfg_len);
 		}
 
@@ -180,31 +180,30 @@ out:
 
 		if (io) {
 			if ((*addr + len) > IO_LIMIT)
-				*addr = 0;
-			else
-				roundup(*addr, max(len, 16));
+				goto err;
+
+			roundup(*addr, max(len, 16));
 			return 0;
 		}
 
-		if ((!s64 || (s64 && !io_nonpref_high && !pref)) && io_limit && len > io_limit) {
-			assigned = 0;
-			warning("Not allocating large %lluMB MMIO32 range", len >> 20);
-			goto out;
-		}
+		if ((!s64 || (s64 && !io_nonpref_high && !pref))) {
+			if (io_limit && len >= io_limit)
+				goto err;
 
-		if (!s64 && (*addr + len) > MMIO32_LIMIT) {
-			assigned = 0;
-			warning("Out of MMIO32 address space when allocating SCI%03x %02x:%02x.%x BAR 0x%x with len %s", sci, bus, dev, fn, reg, pr_size(len));
-			goto out;
+			if ((*addr + len) > MMIO32_LIMIT)
+				goto err;
 		}
 
 		/* MMIO BARs are aligned from page size to their size */
 		*addr = roundup(*addr, max(len, 4096));
-
 		if (!s64) {
 			/* If space is allocated, move past and get parent to retry */
 			uint64_t skip = map32->overlap(*addr, len);
+			if (*addr + skip > MMIO32_LIMIT)
+				goto err;
+
 			if (skip) {
+				printf("Skipping reserved region of %lluMB\n", skip >> 20);
 				*addr += skip;
 				return 1;
 			}
@@ -213,14 +212,17 @@ out:
 		assigned = *addr;
 		*addr += len * max(vfs, 1); /* Allocate vfs times the space */
 
-	out:
 		printf("SCI%03x %02x:%02x.%x allocating %d-bit %s %s BAR 0x%x at 0x%llx\n",
 			sci, bus, dev, fn, s64 ? 64 : 32, pref ? "P" : "NP", pr_size(len), reg, assigned);
+	done:
 		dnc_write_conf(sci, bus, dev, fn, reg, assigned);
 		if (s64)
 			dnc_write_conf(sci, bus, dev, fn, reg + 4, assigned >> 32);
-
 		return 0;
+	err:
+		warning("Unable to allocate SCI%03x %02x:%02x.%x BAR 0x%x with len %s", sci, bus, dev, fn, reg, pr_size(len));
+		assigned = 0;
+		goto done;
 	}
 };
 
@@ -342,7 +344,7 @@ public:
 	/* Set BAR addresses; return 1 if ran into an exclusion zone; caller will retry */
 	bool allocate(void) {
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
-		assert(map32->next < MMIO32_LIMIT);
+
 		io_cur = roundup(io_cur, 1 << 12);
 
 		uint32_t io_start = io_cur, mmio32_start = map32->next;
@@ -370,7 +372,7 @@ public:
 
 		/* Align start of bridge windows */
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
-		assert(map32->next < MMIO32_LIMIT);
+
 		mmio64_cur = roundup(mmio64_cur, MMIO64_GRAN);
 		io_cur = roundup(io_cur, 1 << 12);
 
@@ -518,7 +520,7 @@ void setup_mmio(void) {
 	while (c < containers.limit) {
 		do {
 			map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
-			assert(map32->next < MMIO32_LIMIT);
+
 			/* Retry until allocation succeeds */
 			(*c)->node->mmio32_base = map32->next;
 			(*c)->node->mmio64_base = mmio64_cur;
@@ -527,7 +529,6 @@ void setup_mmio(void) {
 
 		io_cur = roundup(io_cur, 1 << NC_ATT_IO_GRAN);
 		map32->next = roundup(map32->next, 1 << NC_ATT_MMIO32_GRAN);
-		assert(map32->next < MMIO32_LIMIT);
 
 		mmio64_cur = roundup(mmio64_cur, (uint64_t)SCC_ATT_GRAN << DRAM_MAP_SHIFT);
 		/* Address Numachip extended MMIO mask constraint */
