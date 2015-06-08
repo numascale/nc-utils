@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'c':
 			assert(!setenv("NUMAPLACE_THREADS", optarg, 1));
+			assert(!setenv("OMP_NUM_THREADS", optarg, 1));
 			break;
 #ifdef FIXME
 		case 's':
