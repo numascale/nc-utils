@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 
 	assert(!setenv("LD_PRELOAD", path2, 1));
 	// don't overwrite any existing variable
-	assert(!setenv("OMP_WAIT_POLICY", "active", 0));
+	assert(!setenv("OMP_WAIT_POLICY", "ACTIVE", 0));
 
 	if (!(flagval & FLAGS_PARENT))
 		bind_current();
