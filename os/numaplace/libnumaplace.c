@@ -44,7 +44,6 @@ static unsigned flags;
 static unsigned long occupied[MAX_CORES / BITS_PER_LONG];
 static pthread_key_t thread_key;
 static uint64_t stacksize = 8 << 20;
-static int (*xsched_setaffinity)(pid_t, size_t, cpu_set_t *);
 
 typedef const unsigned long __attribute__((__may_alias__)) long_alias_t;
 
@@ -256,22 +255,7 @@ static bool lock_core_outer(const unsigned core, struct thread_info *info)
 
 static bool core_allocate(struct thread_info *info)
 {
-#ifdef TEST
-	// search local NUMA node for available cores
-	static struct bitmask *local = NULL;
-	if (!local) {
-		local = numa_allocate_cpumask();
-		assert(local);
-	}
-
-	const int node = numa_node_of_cpu(lastcore);
-	assert(!numa_node_to_cpus(node, local));
-
-	for (unsigned i = 0; i < local->size; i++)
-		if (numa_bitmask_isbitset(local, i) && lock_core_outer(i, info))
-			return 1;
-#endif
-	// next, search NUMA nodes in sequence
+	// search NUMA nodes in sequence
 	char buf[MAX_NUMA * 4]; // each NUMA distance is max 3 chars plus space each
 
 	const int node = numa_node_of_cpu(lastcore);
@@ -379,7 +363,7 @@ static void core_deallocate(struct thread_info *info)
 	assert(!close(info->fd)); // unbind lock
 	clear_bit(info->core, occupied);
 
-	if (flags & FLAGS_VERBOSE)
+	if (unlikely(flags & FLAGS_VERBOSE))
 		printf("core %u deallocate\n", info->core);
 
 	free(info);
@@ -393,7 +377,7 @@ void bind_current(void)
 
 	struct thread_info info;
 	if (core_allocate(&info)) {
-		if (flags & FLAGS_VERBOSE)
+		if (unlikely(flags & FLAGS_VERBOSE))
 			printf("init core %u\n", info.core);
 
 		const size_t setsize = CPU_ALLOC_SIZE(info.core + 1);
@@ -401,7 +385,7 @@ void bind_current(void)
 		CPU_ZERO_S(setsize, cpuset);
 		CPU_SET_S(info.core, setsize, cpuset);
 
-		assert(!xsched_setaffinity(0, setsize, cpuset));
+		assert(!sched_setaffinity(0, setsize, cpuset));
 
 		// pin stack
 		struct rlimit limit;
@@ -422,6 +406,7 @@ void bind_current(void)
 	}
 }
 
+// warning: the constructor gets called after eg pthread_getaffinity_np
 static __attribute__((constructor)) void init(void)
 {
 	char *envstr = getenv("NUMAPLACE_FLAGS");
@@ -432,34 +417,35 @@ static __attribute__((constructor)) void init(void)
 	envstr = getenv("NUMAPLACE_STRIDE");
 	if (envstr)
 		stride = atoi(envstr);
-
-	cores = get_nprocs_conf();
 #endif
 
 	envstr = getenv("OMP_STACKSIZE");
 	if (envstr)
 		stacksize = parseint(envstr);
+}
 
-	envstr = getenv("NUMAPLACE_THREADS");
+static void init_threads(void)
+{
+	char *envstr = getenv("NUMAPLACE_THREADS");
 	if (envstr)
 		threads = atoi(envstr);
 	else
 		// FIXME: check how many cores free
 		threads = get_nprocs_conf();
-
-	xsched_setaffinity = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_setaffinity");
-	assert(xsched_setaffinity);
 }
 
 int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *cpuset)
 {
 	static int (*xsched_getaffinity)(pid_t, size_t, cpu_set_t *);
-	if (!xsched_getaffinity) {
+	if (unlikely(!xsched_getaffinity)) {
 		xsched_getaffinity = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_getaffinity");
 		assert(xsched_getaffinity);
 	}
 
-	if (flags & FLAGS_DEBUG)
+	if (unlikely(!threads))
+		init_threads();
+
+	if (unlikely(flags & FLAGS_DEBUG))
 		fprintf(stderr, "sched_getaffinity: returning %u threads\n", threads);
 
 	if (pid && pid != getpid()) {
@@ -483,15 +469,17 @@ int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *cpuset)
 int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset)
 {
 	static int (*xpthread_getaffinity_np)(pthread_t, size_t, cpu_set_t *);
-	if (!xpthread_getaffinity_np) {
+	if (unlikely(!xpthread_getaffinity_np)) {
 		xpthread_getaffinity_np = (int (*)(pthread_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "pthread_getaffinity_np");
 		assert(xpthread_getaffinity_np);
 	}
 
-	if (flags & FLAGS_DEBUG)
+	if (unlikely(!threads))
+		init_threads();
+
+	if (unlikely(flags & FLAGS_DEBUG))
 		fprintf(stderr, "pthread_getaffinity_np: returning %u threads\n", threads);
 
-	assert(thread);
 	if (thread != pthread_self()) {
 		fprintf(stderr, "warning: returning affinity for non-local thread\n");
 		return xpthread_getaffinity_np(thread, cpusetsize, cpuset);
@@ -510,22 +498,6 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
 	return 0;
 }
 
-int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
-{
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "sched_setaffinity: eliding\n");
-
-	return 0;
-}
-
-int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t *cpuset)
-{
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "pthread_setaffinity_np: eliding\n");
-
-	return 0;
-}
-
 static void *pthread_create_inner(struct thread_info *info)
 {
 	assert(!pthread_setspecific(thread_key, info));
@@ -537,7 +509,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 {
 	static bool key_created;
 	static int (*xpthread_create)(pthread_t *, const pthread_attr_t *, void *(*) (void *), void *);
-	if (!xpthread_create) {
+	if (unlikely(!xpthread_create)) {
 		xpthread_create = (int (*)(pthread_t*, const pthread_attr_t*, void *(*)(void *), void *))dlsym(RTLD_NEXT, "pthread_create");
 		assert(xpthread_create);
 	}
@@ -547,7 +519,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		key_created = 1;
 	}
 
-	if (flags & FLAGS_DEBUG)
+	if (unlikely(flags & FLAGS_DEBUG))
 		fprintf(stderr, "pthread_create(thread=%p attr=%p start_routine=%p arg=%p\n",
 			thread, attr, start_routine, arg);
 
@@ -594,120 +566,3 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	return xpthread_create(thread, &attr2, (void *(*)(void *))pthread_create_inner, info);
 }
-
-#ifdef DEV
-void *malloc(size_t size)
-{
-	static void *(*xmalloc)(size_t);
-	if (!xmalloc) {
-		xmalloc = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
-		assert(xmalloc);
-	}
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "malloc(size=%zu)\n", size);
-
-	const size_t gran = min(max(sizeof(long), roundup_nextpow2(size)), THP_ALIGN_THRESH);
-	void *ret;
-	assert(!posix_memalign(&ret, gran, size));
-	return ret;
-}
-
-void pthread_exit(void *retval)
-{
-	static void (*xpthread_exit)(void *);
-	if (!xpthread_exit) {
-		xpthread_exit = (void (*)(void *))dlsym(RTLD_NEXT, "pthread_exit");
-		assert(xpthread_exit);
-	}
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "pthread_exit(retval=%p)\n", retval);
-
-	xpthread_exit(retval);
-}
-
-pid_t fork(void)
-{
-	static pid_t (*xfork)(void);
-	if (!xfork) {
-		xfork = (pid_t (*)(void))dlsym(RTLD_NEXT, "fork");
-		assert(xfork);
-	}
-
-	allocate();
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "fork()\n");
-
-	return xfork();
-}
-
-pid_t vfork(void)
-{
-	static pid_t (*xvfork)(void);
-	if (!xvfork) {
-		xvfork = (pid_t (*)(void))dlsym(RTLD_NEXT, "vfork");
-		assert(xvfork);
-	}
-
-	allocate();
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "vfork()\n");
-
-	return xvfork();
-}
-
-int clone(int (*fn)(void *), void *child_stack, int flags, void *arg, ...)
-{
-	allocate();
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "clone(fn=%p child_stack=%p flags=%d arg=%p)\n",
-			fn, child_stack, flags, arg);
-
-	return xclone(fn, child_stack, flags, arg, ...);
-}
-
-void *memcpy(void *dest, const void *src, size_t n)
-{
-	static void *(*xmemcpy)(void *, const void *, size_t);
-	if (!xmemcpy) {
-		xmemcpy = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memcpy");
-		assert(xmemcpy);
-	}
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "memcpy(dest=%p src=%p size=%zu)\n", dest, src, n);
-
-	return xmemcpy(dest, src, n);
-}
-
-void *memmove(void *dest, const void *src, size_t n)
-{
-	static void *(*xmemmove)(void *, const void *, size_t);
-	if (!xmemmove) {
-		xmemmove = (void *(*)(void *, const void *, size_t))dlsym(RTLD_NEXT, "memmove");
-		assert(xmemmove);
-	}
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "memmove(dest=%p src=%p size=%zu)\n", dest, src, n);
-
-	return xmemmove(dest, src, n);
-}
-
-void *calloc(size_t nmemb, size_t size)
-{
-	static void *(*xcalloc)(size_t, size_t);
-	if (!xcalloc) {
-		xcalloc = (void *(*)(size_t, size_t))dlsym(RTLD_NEXT, "calloc");
-		assert(xcalloc);
-	}
-
-	if (flags & FLAGS_DEBUG)
-		fprintf(stderr, "calloc(nmemb=%zu size=%zu)\n", nmemb, size);
-
-	return xcalloc(nmemb, size);
-}
-#endif
