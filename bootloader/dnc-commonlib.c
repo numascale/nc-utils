@@ -2775,7 +2775,7 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 			if (disable_c1e) {
 				static bool printed = 0;
 				if (!printed) {
-					warning("Disabling C1E sleep state; this may cause hangs");
+					printf("Disabling C1E sleep state\n");
 					printed = 1;
 				}
 				cht_write_conf(i, FUNC3_MISC, 0xd4, val & ~(1 << 13));
