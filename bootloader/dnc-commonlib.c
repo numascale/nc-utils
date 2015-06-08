@@ -62,7 +62,6 @@ int force_probefilteroff = 0;
 bool pf_cstate6 = 0;
 bool handover_acpi = 0;
 bool disable_smm = 0;
-bool disable_c1e = 0;
 int renumber_bsp = -1;
 int forwarding_mode = 3; /* 0=store-and-forward, 1-2=intermediate, 3=full cut-through */
 int sync_interval = 1; /* bit[8]=disable prescaler, bit[7:0] sync_interval value */
@@ -2094,7 +2093,6 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"pf.cstate6",      &parse_bool,   &pf_cstate6},      /* Enable C-state 6 (allowing boosting) */
 		{"handover-acpi",   &parse_bool,   &handover_acpi},   /* Workaround Linux not being able to handover ACPI */
 		{"disable-smm",     &parse_bool,   &disable_smm},     /* Rewrite start of System Management Mode handler to return */
-		{"disable-c1e",     &parse_bool,   &disable_c1e},     /* Prevent C1E sleep state entry and LDTSTOP usage */
 		{"renumber-bsp",    &parse_int,    &renumber_bsp},
 		{"forwarding-mode", &parse_int,    &forwarding_mode},
 		{"sync-interval",   &parse_int,    &sync_interval},
@@ -2769,19 +2767,9 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 		val = cht_read_conf(i, FUNC3_MISC, 0x180);
 		cht_write_conf(i, FUNC3_MISC, 0x180, val | (1 << 2));
 
-		/* Disable C1E sleep mode in northbridge */
-		val = cht_read_conf(i, FUNC3_MISC, 0xd4);
-		if (val & (1 << 13)) {
-			if (disable_c1e) {
-				static bool printed = 0;
-				if (!printed) {
-					printf("Disabling C1E sleep state\n");
-					printed = 1;
-				}
-				cht_write_conf(i, FUNC3_MISC, 0xd4, val & ~(1 << 13));
-			} else
-				fatal("Please disable C1E support in the BIOS");
-		}
+		/* NumaChip can't handle C1E transitions */
+		if ((rdmsr(MSR_HWCR) & (1 << 12)) | rdmsr(MSR_INT_HALT))
+			fatal("Please disable C1E support in the BIOS");
 
 		/* ERRATA #N27: Disable Coherent Prefetch Probes (Query probes), as NumaChip don't handle them correctly and they are required to be disabled for Probe Filter */
 		val = cht_read_conf(i, FUNC2_DRAM, 0x1b0);
