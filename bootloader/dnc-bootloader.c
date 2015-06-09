@@ -2572,7 +2572,7 @@ static void probefilter_check(void)
 			if (en != pf) {
 				char buf[32];
 				snprintf(buf, sizeof(buf), "%s/%03x ", get_master_name(node->sci), node->sci);
-				strncat(msg, buf, sizeof(msg));
+				strncat(msg, buf, sizeof(buf));
 				break;
 			}
 		}
