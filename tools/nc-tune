@@ -64,8 +64,7 @@ try:
 except nclib.Numachip.BlockedException:
 	raise SystemError('error: fabric blocked; unable to determine geometry')
 
-cores = os.sysconf('SC_NPROCESSORS_ONLN')
-args = ['numaplace', '-c%d' % cores, '-t', '--']
+args = ['numaplace', '-t']
 args.extend(workload)
 
 with open('%s.gnuplot' % prefix, 'w') as f:
