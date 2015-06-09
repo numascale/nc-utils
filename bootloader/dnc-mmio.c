@@ -92,10 +92,9 @@ public:
 	Map(void) {
 		next = rdmsr(MSR_TOPMEM);
 
-		if (!disable_smm) {
-			warning("0x%08llx:0x%08llx (%uMB) of MMIO32 space is reserved for MCFG as SMM is enabled", old_mcfg_base, old_mcfg_base + old_mcfg_len, old_mcfg_len >> 20);
+		/* SMM may access previous config space */
+		if (!disable_smm)
 			exclude(old_mcfg_base, old_mcfg_base + old_mcfg_len);
-		}
 
 		/* Reserve IOAPIC, HPET and LAPICs in case e820 doesn't */
 		exclude(0xfec00000, 0xfeefffff);
