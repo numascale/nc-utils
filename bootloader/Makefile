@@ -21,6 +21,10 @@ all: dnc-bootloader.c32 test-routing gen-ucode
 upload: dnc-bootloader.c32
 	rsync -z dnc-bootloader.c32 build:/net/numastore/tftpboot/dnc-bootloader-$(USER).c32
 
+.PHONY: publish
+publish: dnc-bootloader.c32
+	rsync -z dnc-bootloader.c32 resources@resources:resources/bootloader/validating/dnc-bootloader-$(shell git describe).c32
+
 .PHONY: check
 check:
 	cppcheck -q --enable=all --inconclusive *.h *.c
