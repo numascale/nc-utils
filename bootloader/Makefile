@@ -2,7 +2,7 @@ IFACEPATH := ../interface
 IFACEDEPS := $(IFACEPATH)/numachip-defines.h $(IFACEPATH)/numachip-autodefs.h
 UCODEDEPS := $(IFACEPATH)/numachip-mseq.h
 CFLAGS    := -I$(IFACEPATH)
-COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -fno-inline -Os
+COPT      := -g -Wall -Wextra -Wno-unused-parameter -Wshadow -fno-inline -O3
 
 syslinux_version := 4.07
 syslinux_dir     := syslinux-$(syslinux_version)
@@ -164,7 +164,7 @@ test-slavenode.o: test-slavenode.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dn
 	dnc-route.h dnc-config.h
 	$(CXX) $(COPT) -c $< -o $@
 
-test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h \
+test-routing.o: test-routing.c $(IFACEDEPS) dnc-commonlib.h dnc-devices.h dnc-monitor.h dnc-escrow.h dnc-trace.h dnc-route.h dnc-route.c \
 	dnc-regs.h dnc-access.h dnc-fabric.h
 	$(CXX) $(COPT) -c $< -o $@
 
@@ -186,7 +186,7 @@ dnc-test-fabric.o: dnc-fabric.c dnc-fabric.h
 dnc-test-access.o: dnc-test-access.c dnc-access.h
 	$(CXX) $(COPT) -c $< -o $@
 
-dnc-test-route.o: dnc-route.c dnc-access.h
+dnc-test-route.o: dnc-route.c dnc-access.h dnc-route.h
 	$(CXX) $(COPT) -c $< -o $@
 
 dnc-test-config.o: dnc-config.c dnc-config.h
