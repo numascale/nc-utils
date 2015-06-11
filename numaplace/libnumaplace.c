@@ -360,7 +360,8 @@ static bool core_allocate2(struct thread_info *info)
 #endif
 static void core_deallocate(struct thread_info *info)
 {
-	assert(!close(info->fd)); // unbind lock
+	// FIXME: can fail
+	close(info->fd); // unbind lock
 	clear_bit(info->core, occupied);
 
 	if (unlikely(flags & FLAGS_VERBOSE))
