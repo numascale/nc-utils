@@ -44,8 +44,8 @@ extern "C" {
 #define WASHDELAY_Q      9750000ULL
 #define WASHDELAY_CALLS  248
 #define WASHDELAY_DELAYS 248
-#define WASHDELAY_MIN    64
-#define WASHDELAY_MAX    5000
+#define WASHDELAY_MIN    256
+#define WASHDELAY_MAX    16384
 
 static int zceil(const float num) {
     int inum = (int)num;
