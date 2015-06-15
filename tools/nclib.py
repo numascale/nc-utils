@@ -779,14 +779,14 @@ class Numachip:
 		self.lcsr.close()
 		self.mcfg.close()
 
-	def raw_entry_read(self):
-		# caller should set index and autoinc
+	def raw_entry_read(self, index):
+		self.csr_write(self.G0_RAW_INDEX, index)
 		lo = self.csr_read(self.G0_RAW_ENTRY_LO)
 		hi = self.csr_read(self.G0_RAW_ENTRY_HI)
 		return (lo << 32) | hi
 
-	def raw_entry_write(self, entry):
-		# caller should set index and autoinc
+	def raw_entry_write(self, index, entry):
+		self.csr_write(self.G0_RAW_INDEX, index)
 		self.csr_write(self.G0_RAW_ENTRY_LO, entry >> 32)
 		self.csr_write(self.G0_RAW_ENTRY_HI, entry & 0xffffffff)
 
@@ -798,11 +798,10 @@ class Numachip:
 
 		tries1 = 0
 		while True:
-			self.csr_write(self.G0_RAW_INDEX, 1 << 31)
-			self.raw_entry_write((0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
-			self.raw_entry_write((0x1f << 48) | addr)
-			self.raw_entry_write((val << 32) | val)
-			self.raw_entry_write((val << 32) | val)
+			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
+			self.raw_entry_write(1, (0x1f << 48) | addr)
+			self.raw_entry_write(2, (val << 32) | val)
+			self.raw_entry_write(3, (val << 32) | val)
 			self.csr_write(self.G0_RAW_CONTROL, 1 << 2) # start
 
 			tries2 = 0
@@ -823,8 +822,7 @@ class Numachip:
 			if rlen != 2 and rlen != 4:
 				raise Exception('write response length %d received' % rlen)
 
-			self.csr_write(self.G0_RAW_INDEX, 1 | (1 << 31))
-			val = (self.raw_entry_read() >> 44) & 0xf
+			val = (self.raw_entry_read(1) >> 44) & 0xf
 			if val == 0:
 				# RESP_NORMAL; write successful
 				break
@@ -845,9 +843,8 @@ class Numachip:
 
 		tries1 = 0
 		while True:
-			self.csr_write(self.G0_RAW_INDEX, 0 | (1 << 31))
-			self.raw_entry_write((0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
-			self.raw_entry_write((0x1f << 48) | addr)
+			self.raw_entry_write(0, (0x1f << 48) | ((sci & 0xffff) << 32) | (cmd << 16) | self.own)
+			self.raw_entry_write(1, (0x1f << 48) | addr)
 			self.csr_write(self.G0_RAW_CONTROL, 1 << 1) # start
 
 			tries2 = 0
@@ -871,8 +868,7 @@ class Numachip:
 				break
 			assert length == 2
 			# 'conflict' response is expected
-			self.csr_write(self.G0_RAW_INDEX, 1 | (1 << 31))
-			val = (self.raw_entry_read() >> 44) & 0xf
+			val = (self.raw_entry_read(1) >> 44) & 0xf
 
 			if val in (6, 7): # RESP_TYPE (HT Error or NXA bit set), RESP_ADDRESS (address decode error or NXA)
 				raise self.HTErrorException()
@@ -886,17 +882,14 @@ class Numachip:
 				raise self.BlockedException()
 
 		index = addr & 0xc
-		# raw index auto-incremented from above
 		if index == 0x0:
-			val = self.raw_entry_read() >> 32
+			val = self.raw_entry_read(2) >> 32
 		elif index == 0x4:
-			val = self.raw_entry_read() & 0xffffffff
+			val = self.raw_entry_read(2) & 0xffffffff
 		elif index == 0x8:
-			self.csr_write(self.G0_RAW_INDEX, 3)
-			val = self.raw_entry_read() >> 32
+			val = self.raw_entry_read(3) >> 32
 		elif index == 0xc:
-			self.csr_write(self.G0_RAW_INDEX, 3)
-			val = self.raw_entry_read() & 0xffffffff
+			val = self.raw_entry_read(3) & 0xffffffff
 
 		return val
 
