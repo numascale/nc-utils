@@ -1610,8 +1610,11 @@ static int ht_fabric_find_nc(void)
 	if (family >= 0x15)
 		cht_write_conf(0, FUNC1_MAPS, 0x10c, 0);
 
-	if (!(cht_read_conf(0, FUNC3_MISC, 0x58) & 0x1f))
-		warning("DRAM scrubbing not enabled in the BIOS\n");
+	if (!(cht_read_conf(0, FUNC3_MISC, 0x58) & 0x1f)) {
+		error("DRAM scrubbing not enabled in the BIOS\n");
+		printf("Press any key to continue");
+		wait_key();
+	}
 
 	if (ht_suppress) {
 		printf("Setting HT features to 0x%x...", ht_suppress);

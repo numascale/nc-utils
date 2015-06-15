@@ -259,12 +259,19 @@ void tally_local_node(void)
 
 			for (unsigned dimm = 0; dimm < 8; dimm++) {
 				uint32_t val = cht_read_conf(i, FUNC2_DRAM, 0x40 + dimm * 4);
-				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u; performance will be degraded", node->sci, i);
+				if (val & (1 << 2)) {
+					error("Failed DIMM detected on %03x#%u; performance will be degraded", node->sci, i);
+					printf("Press enter to continue");
+					wait_key();
+				}
 				en += val & 1;
 			}
 
-			if (!en)
-				warning("No DRAM present on %03x#%u DCT%u; performance will be degraded", node->sci, i, dct);
+			if (!en) {
+				error("No DRAM present on %03x#%u DCT%u; performance will be degraded", node->sci, i, dct);
+				printf("Press enter to continue");
+				wait_key();
+			}
 		}
 
 		uint32_t base = cht_read_conf(i, FUNC1_MAPS, 0x120);
@@ -419,12 +426,19 @@ static bool tally_remote_node(const uint16_t sci)
 
 			for (unsigned dimm = 0; dimm < 8; dimm++) {
 				uint32_t val = dnc_read_conf(node->sci, 0, 24 + i, FUNC2_DRAM, 0x40 + dimm * 4);
-				assertf(!(val & (1 << 2)), "Failed DIMM detected on %03x#%u", node->sci, i);
+				if (val & (1 << 2)) {
+					error("Failed DIMM detected on %03x#%u", node->sci, i);
+					printf("Press enter to continue");
+					wait_key();
+				}
 				en += val & 1;
 			}
 
-			if (!en)
-				warning("No DRAM present on %03x#%u DCT%u", node->sci, i, dct);
+			if (!en) {
+				error("No DRAM present on %03x#%u DCT%u", node->sci, i, dct);
+				printf("Press enter to continue");
+				wait_key();
+			}
 		}
 
 		uint32_t base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
