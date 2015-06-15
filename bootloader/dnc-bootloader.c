@@ -2599,7 +2599,7 @@ static void nc_start(void)
 	install_e820_handler();
 	load_existing_apic_map_early();
 
-	int rc = dnc_init_bootloader(dnc_card_type, &dnc_asic_mode);
+	int rc = dnc_init_bootloader();
 	if (rc == -2)
 		start_user_os(next_label);
 
@@ -2654,7 +2654,7 @@ static void nc_start(void)
 			       cfg_nodelist[i].osc);
 	}
 
-	adjust_oscillator(dnc_card_type, local_info->osc);
+	adjust_oscillator(local_info->osc);
 
 	if (test_manufacture) {
 		broadcast_error(0, "Manufacture test Init Caches");

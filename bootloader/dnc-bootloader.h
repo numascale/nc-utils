@@ -118,6 +118,8 @@ extern int orig_e820_len;
 extern uint64_t old_mcfg_base;
 extern uint32_t old_mcfg_len;
 extern uint64_t under_ht_base;
+extern char dnc_card_type[16];
+extern bool dnc_asic_mode;
 
 void set_cf8extcfg_enable(const int ht);
 void read_config_file(const char *filename);

@@ -214,8 +214,6 @@ struct kvm_port {
 	int port;
 };
 
-extern bool dnc_asic_mode;
-extern char dnc_card_type[16];
 extern const char *config_file_name;
 extern const char *next_label;
 extern const char *observer_label;
@@ -268,10 +266,10 @@ void disable_smi(void);
 void enable_smi(void);
 void critical_enter(void);
 void critical_leave(void);
-void adjust_oscillator(const char p_type[16], const uint32_t osc_setting);
+void adjust_oscillator(const uint32_t osc_setting);
 void check_numachip(const sci_t sci);
 void check(const node_info_t *node);
-checked int dnc_init_bootloader(char p_type[16], bool *p_asic_mode);
+checked int dnc_init_bootloader();
 checked bool dnc_check_fabric(const struct node_info *info);
 uint32_t dnc_check_mctr_status(const int cdata);
 void dnc_dram_initialise(void);

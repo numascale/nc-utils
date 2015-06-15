@@ -207,7 +207,7 @@ void mce_check(const sci_t sci, const ht_t ht)
 	}
 }
 
-static void read_spd_info(char p_type[16], const bool cdata, struct dimm_config *dimm)
+static void read_spd_info(const bool cdata, struct dimm_config *dimm)
 {
 	uint16_t spd_addr;
 	uint8_t addr_bits;
@@ -215,8 +215,8 @@ static void read_spd_info(char p_type[16], const bool cdata, struct dimm_config 
 	uint32_t *dataw = (uint32_t *)spd;
 
 	/* On N313025 and N323024, the SPD addresses are reversed */
-	if ((strncmp("N313025", p_type, 7) == 0) ||
-	    (strncmp("N323024", p_type, 7) == 0))
+	if ((strncmp("N313025", dnc_card_type, 7) == 0) ||
+	    (strncmp("N323024", dnc_card_type, 7) == 0))
 		spd_addr = cdata ? 0 : 1;
 	else
 		spd_addr = cdata ? 1 : 0;
@@ -1485,7 +1485,7 @@ static void disable_link(int node, int link)
 }
 #endif /* __i386 */
 
-static int ht_fabric_find_nc(bool *p_asic_mode)
+static int ht_fabric_find_nc(void)
 {
 #ifndef __i386
 	printf("(Only doing HT discovery and reconfig in 32-bit mode)\n");
@@ -1580,11 +1580,11 @@ static int ht_fabric_find_nc(bool *p_asic_mode)
 		val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
 		printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
 		ht_optimize_link(nc_ht, 1);
-		*p_asic_mode = 1;
+		dnc_asic_mode = 1;
 	} else {
 		printf("Doing link calibration of FPGA chip rev %d_%d\n", val >> 16, val & 0xffff);
 		ht_optimize_link(nc_ht, 0);
-		*p_asic_mode = 0;
+		dnc_asic_mode = 0;
 	}
 
 	if (family >= 0x15) {
@@ -1727,7 +1727,7 @@ static int ht_fabric_find_nc(bool *p_asic_mode)
 #endif
 }
 
-static int ht_fabric_fixup(bool *p_asic_mode)
+static int ht_fabric_fixup(void)
 {
 	uint32_t val;
 	uint8_t node;
@@ -1749,18 +1749,17 @@ static int ht_fabric_fixup(bool *p_asic_mode)
 			val = cht_read_conf(nc_ht, 0, H2S_CSR_F0_CLASS_CODE_REVISION_ID_REGISTER);
 			printf("Doing link calibration of ASIC chip rev %d\n", val & 0xffff);
 			ht_optimize_link(nc_ht, 1);
-			*p_asic_mode = 1;
+			dnc_asic_mode = 1;
 		} else {
 			printf("Doing link calibration of FPGA chip rev %d_%d\n", val >> 16, val & 0xffff);
 			ht_optimize_link(nc_ht, 0);
-			*p_asic_mode = 0;
+			dnc_asic_mode = 0;
 		}
 	} else {
-		nc_ht = ht_fabric_find_nc(p_asic_mode);
+		nc_ht = ht_fabric_find_nc();
 
 		if (nc_ht < 0) {
 			printf("NumaChip not found\n");
-			*p_asic_mode = -1;
 			return -1;
 		}
 
@@ -1923,7 +1922,7 @@ static uint32_t read_eeprom_dword(uint32_t addr)
 	return dnc_read_csr(0xfff0, H2S_CSR_G3_SPI_READ_WRITE_DATA);
 }
 
-static uint32_t identify_eeprom(char p_type[16])
+static uint32_t identify_eeprom(void)
 {
 	uint32_t reg;
 	int i;
@@ -1931,10 +1930,10 @@ static uint32_t identify_eeprom(char p_type[16])
 	/* Read print type */
 	for (i = 0; i < 4; i++) {
 		reg = read_eeprom_dword(0xffc0 + i * 4);
-		memcpy(&p_type[i * 4], &reg, 4);
+		memcpy(&dnc_card_type[i * 4], &reg, 4);
 	}
 
-	p_type[15] = '\0';
+	dnc_card_type[15] = '\0';
 	/* Read UUID */
 	return read_eeprom_dword(0xfffc);
 }
@@ -1948,22 +1947,22 @@ static void _pic_reset_ctrl(void)
 	udelay(2000000);
 }
 
-static bool _is_pic_present(const char p_type[16])
+static bool _is_pic_present(void)
 {
-	if ((strncmp("313001", p_type, 6) == 0) ||
-	    (strncmp("N313001", p_type, 7) == 0) ||
-	    (strncmp("N313002", p_type, 7) == 0) ||
-	    (strncmp("N313025", p_type, 7) == 0) ||
-	    (strncmp("N323011", p_type, 7) == 0) ||
-	    (strncmp("N323023", p_type, 7) == 0) ||
-	    (strncmp("N323024", p_type, 7) == 0)) {
+	if ((strncmp("313001", dnc_card_type, 6) == 0) ||
+	    (strncmp("N313001", dnc_card_type, 7) == 0) ||
+	    (strncmp("N313002", dnc_card_type, 7) == 0) ||
+	    (strncmp("N313025", dnc_card_type, 7) == 0) ||
+	    (strncmp("N323011", dnc_card_type, 7) == 0) ||
+	    (strncmp("N323023", dnc_card_type, 7) == 0) ||
+	    (strncmp("N323024", dnc_card_type, 7) == 0)) {
 		return 1;
 	}
 
 	return 0;
 }
 
-void adjust_oscillator(const char p_type[16], const uint32_t osc_setting)
+void adjust_oscillator(const uint32_t osc_setting)
 {
 	assertf(osc_setting <= 2, "Invalid oscillator setting %d", osc_setting);
 
@@ -1973,7 +1972,7 @@ void adjust_oscillator(const char p_type[16], const uint32_t osc_setting)
 	}
 
 	/* Check if adjusting the frequency is possible */
-	if (!_is_pic_present(p_type)) {
+	if (!_is_pic_present()) {
 		printf("Oscillator not set\n");
 		return;
 	}
@@ -2177,10 +2176,10 @@ void parse_cmdline(const int argc, const char *argv[])
 		dimmtest = 0;
 }
 
-static void perform_selftest(const bool asic_mode, const char p_type[16])
+static void perform_selftest(void)
 {
 	uint32_t val;
-	const uint16_t maxchunk = asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
+	const uint16_t maxchunk = dnc_asic_mode ? 16 : 1; /* On FPGA all these rams are reduced in size */
 	printf("Performing internal RAM self test...");
 
 	for (unsigned pass = 0; pass < 10; pass++) {
@@ -2195,7 +2194,7 @@ static void perform_selftest(const bool asic_mode, const char p_type[16])
 		}
 
 		/* MMIO32 ATT; skip on FPGA due to layout differences */
-		if (asic_mode) {
+		if (dnc_asic_mode) {
 			for (unsigned chunk = 0; chunk < maxchunk; chunk++) {
 				dnc_write_csr(0xfff0, H2S_CSR_G3_NC_ATT_MAP_SELECT, NC_ATT_MMIO32 | chunk);
 				for (unsigned i = 0; i < 256; i++)
@@ -2266,7 +2265,7 @@ static void perform_selftest(const bool asic_mode, const char p_type[16])
 
 	printf("done\n");
 
-	if (asic_mode && _is_pic_present(p_type)) {
+	if (dnc_asic_mode && _is_pic_present()) {
 again:
 		printf("Testing fabric phys...");
 		/* Trigger a HSS PLL reset */
@@ -2680,11 +2679,10 @@ void check(const node_info_t *node)
 	check_numachip(node->sci);
 }
 
-int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
+int dnc_init_bootloader()
 {
 	uint32_t val;
 	int i, ht_id;
-	bool asic_mode;
 
 	platform_quirks();
 
@@ -2692,7 +2690,7 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 	if (handover_acpi)
 		stop_acpi();
 
-	ht_id = ht_fabric_fixup(&asic_mode);
+	ht_id = ht_fabric_fixup();
 
 	/* Indicate immediate jump to next-label (-2) if init-only is also given */
 	if (disable_nc && init_only)
@@ -2707,7 +2705,7 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 
 	/* ====================== START ERRATA WORKAROUNDS ====================== */
 
-	if (asic_mode && workaround_hreq) {
+	if (dnc_asic_mode && workaround_hreq) {
 		/* Unknown ERRATA: Disable buffer 0-15 to ease some pressure */
 		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 		dnc_write_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL, (val & ~(0x1fUL)) | (1 << 4));
@@ -2725,7 +2723,7 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 	val = dnc_read_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL);
 	dnc_write_csr(0xfff0, H2S_CSR_G3_HPRB_CTRL, val | (1 << 1)); /* disableErrorResponse=1 */
 
-	if (asic_mode) {
+	if (dnc_asic_mode) {
 		val = dnc_read_csr(0xfff0, H2S_CSR_G3_HREQ_CTRL);
 		/* Unknown ERRATA: Disable the Early CData read. It causes data corruption */
 		val = (val & ~(3 << 6)) | (3 << 6);
@@ -2744,7 +2742,7 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 	/* ERRATA #N37: We have an RTL fix in SCC buffers to throttle the amount of local
 	 * memory requests to accept (bit[27:24] in MIB_IBC).
 	 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
-	uint32_t sreq_bufcnt = (asic_mode) ? 6 : 3;
+	uint32_t sreq_bufcnt = (dnc_asic_mode) ? 6 : 3;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
 	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (sreq_bufcnt << 24) | (1 << 6));
 
@@ -2804,20 +2802,19 @@ int dnc_init_bootloader(char p_type[16], bool *p_asic_mode)
 	}
 
 	/* ====================== END ERRATA WORKAROUNDS ====================== */
-	local_info->uuid = identify_eeprom(p_type);
-	printf("UUID: %08X, TYPE: %s\n", local_info->uuid, p_type);
+	local_info->uuid = identify_eeprom();
+	printf("UUID: %08X, TYPE: %s\n", local_info->uuid, dnc_card_type);
 
 	/* Read the SPD info from our DIMMs to see if they are supported */
 	for (i = 0; i < 2; i++)
-		read_spd_info(p_type, i, &dimms[i]);
+		read_spd_info(i, &dimms[i]);
 
-	perform_selftest(asic_mode, p_type);
+	perform_selftest();
 
 	/* If init-only parameter is given, stop here and return */
 	if (init_only)
 		return -2;
 
-	*p_asic_mode = asic_mode;
 	return ht_id;
 }
 
@@ -3462,7 +3459,7 @@ bool selftest_loopback(void)
 	bool status = false;
 	uint32_t val;
 
-	if (!_is_pic_present(dnc_card_type)) {
+	if (!_is_pic_present()) {
 		error("Oscillator can't be set");
 		return true;
 	}
@@ -3471,7 +3468,7 @@ bool selftest_loopback(void)
 		printf("Performing link loopback testing with oscillator setting %d.\n", osc);
 
 		local_info->osc = osc;
-		adjust_oscillator(dnc_card_type, osc);
+		adjust_oscillator(osc);
 
 		if (train_fabric(local_info) != RSP_PHY_TRAINED)
 			return true;
