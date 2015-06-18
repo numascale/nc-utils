@@ -18,6 +18,7 @@
 #include <numa.h>
 #include <numaif.h>
 #include <strings.h>
+#include <malloc.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/un.h>
@@ -358,8 +359,11 @@ static bool core_allocate2(struct thread_info *info)
 	}
 }
 #endif
-static void core_deallocate(struct thread_info *info)
+static void core_deallocate(struct thread_info *const info)
 {
+	if (flags & FLAGS_ALLOCATOR)
+		exit_heap();
+
 	// FIXME: can fail
 	close(info->fd); // unbind lock
 	clear_bit(info->core, occupied);

@@ -11,11 +11,17 @@
 #include <sys/prctl.h>
 #include <sys/sysinfo.h>
 
+// workaround for older glibc
+#ifndef PR_SET_THP_DISABLE
+#define PR_SET_THP_DISABLE 41
+#endif
+
 // FIXME: parse /proc/cmdline to check isolcpus param
 
 static void usage(const int code)
 {
 	fprintf(stderr, "usage: numaplace [-tvd] [-c <cores>] cmd [args ...]\n");
+	fprintf(stderr, "\t-a, --no-allocator\tdon't use NUMA aware memory allocation\n");
 	fprintf(stderr, "\t-c, --cores\t\tset number of cores advertised\n");
 	fprintf(stderr, "\t-t, --no-thp\t\tdisable Transparent Huge Pages\n");
 	fprintf(stderr, "\t-v, --verbose\t\tshow cores allocated\n");
@@ -26,12 +32,13 @@ static void usage(const int code)
 
 int main(int argc, char *argv[])
 {
-	unsigned flagval = 0;
+	unsigned flagval = FLAGS_ALLOCATOR;
 
 	while (1) {
 		int option_index = 0;
 
 		static const struct option long_options[] = {
+			{"no-allocator", no_argument,  0, 'a'},
 			{"cores",   required_argument, 0, 'c'},
 #ifdef FIXME // needs implementing in library
 			{"stride",  required_argument, 0, 's'},
@@ -48,6 +55,9 @@ int main(int argc, char *argv[])
 			break;
 
 		switch (c) {
+		case 'a':
+			flagval &= ~FLAGS_ALLOCATOR;
+			break;
 		case 'c':
 			assert(!setenv("OMP_NUM_THREADS", optarg, 1));
 			break;

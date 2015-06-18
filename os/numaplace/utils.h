@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
+#include <malloc.h>
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -35,9 +36,10 @@
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-#define FLAGS_VERBOSE (1 << 0)
-#define FLAGS_DEBUG   (1 << 1)
-#define FLAGS_PARENT  (1 << 2)
+#define FLAGS_VERBOSE   (1 << 0)
+#define FLAGS_DEBUG     (1 << 1)
+#define FLAGS_PARENT    (1 << 2)
+#define FLAGS_ALLOCATOR (1 << 3)
 
 #define assertf(cond, format, args...) do { if (!(cond)) { \
   fprintf(stderr, "Error: "); \
@@ -111,3 +113,4 @@ static inline uint64_t parseint(const char *str)
 }
 
 extern void bind_current(void);
+extern void exit_heap();
