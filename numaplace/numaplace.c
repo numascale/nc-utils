@@ -105,6 +105,10 @@ int main(int argc, char *argv[])
 	assert(!setenv("LD_PRELOAD", path2, 1));
 	// don't overwrite any existing variable
 	assert(!setenv("OMP_WAIT_POLICY", "ACTIVE", 0));
+	// prevent malloc reusing heap pages already faulted onto a non-local NUMA node
+	assert(!setenv("MALLOC_TRIM_THRESHOLD_", "134217728", 0));
+	assert(!setenv("MALLOC_TOP_PAD_", "33554432", 0));
+	assert(!setenv("MALLOC_MMAP_THRESHOLD_", "0", 0));
 
 	if (!(flagval & FLAGS_PARENT))
 		bind_current();
