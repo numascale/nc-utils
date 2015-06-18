@@ -443,7 +443,7 @@ int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *cpuset)
 		xsched_getaffinity = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_getaffinity");
 		assert(xsched_getaffinity);
 	}
-fprintf(stderr, "sched_getaffinity\n");
+
 	if (unlikely(!threads))
 		init_threads();
 
@@ -476,7 +476,6 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
 		assert(xpthread_getaffinity_np);
 	}
 
-fprintf(stderr, "pthread_getaffinity_np\n");
 	if (unlikely(!threads))
 		init_threads();
 
