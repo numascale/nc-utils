@@ -428,7 +428,7 @@ static __attribute__((constructor)) void init(void)
 
 static void init_threads(void)
 {
-	char *envstr = getenv("NUMAPLACE_THREADS");
+	char *envstr = getenv("OMP_NUM_THREADS");
 	if (envstr)
 		threads = atoi(envstr);
 	else
