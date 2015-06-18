@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 
 		switch (c) {
 		case 'c':
-			assert(!setenv("NUMAPLACE_THREADS", optarg, 1));
+			assert(!setenv("OMP_NUM_THREADS", optarg, 1));
 			break;
 #ifdef FIXME
 		case 's':
@@ -97,7 +97,6 @@ int main(int argc, char *argv[])
 
 	assertf(access(path2, R_OK) == 0, "%s nonexisting or unreadable", path2);
 
-	assert(!unsetenv("OMP_NUM_THREADS"));
 	assert(!unsetenv("OMP_PROC_BIND"));
 	assert(!unsetenv("GOMP_CPU_AFFINITY"));
 	assert(!unsetenv("KMP_AFFINITY"));
