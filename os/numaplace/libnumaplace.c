@@ -406,7 +406,7 @@ void bind_current(void)
 		assertf(!f, "mbind errno %d\n", errno);
 	}
 }
-
+#ifndef PARENT
 // warning: the constructor gets called after eg pthread_getaffinity_np
 static __attribute__((constructor)) void init(void)
 {
@@ -424,6 +424,7 @@ static __attribute__((constructor)) void init(void)
 	if (envstr)
 		stacksize = parseint(envstr);
 }
+#endif
 
 static void init_threads(void)
 {
