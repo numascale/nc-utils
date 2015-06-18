@@ -17,7 +17,7 @@ upload: all
 	rsync numaplace libnumaplace.so build:common
 
 numaplace: numaplace.c libnumaplace.c utils.h
-	$(CC) $(CFLAGS) -o $@ $< libnumaplace.c -lpthread -ldl -lnuma
+	$(CC) $(CFLAGS) -DPARENT -o $@ $< libnumaplace.c -lpthread -ldl -lnuma
 
 numaplace-test: numaplace-test.c utils.h
 	$(CC) $(CFLAGS) -o $@ $< -lpthread
