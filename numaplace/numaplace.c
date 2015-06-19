@@ -58,9 +58,17 @@ int main(int argc, char *argv[])
 		case 'a':
 			flagval &= ~FLAGS_ALLOCATOR;
 			break;
-		case 'c':
+		case 'c': {
+			// validate
+			char *end;
+			long val = strtol(optarg, &end, 10);
+			if (*end || val < 1) {
+				fprintf(stderr, "error: invalid number of cores '%s'\n", optarg);
+				usage(1);
+			}
 			assert(!setenv("OMP_NUM_THREADS", optarg, 1));
 			break;
+		}
 #ifdef FIXME
 		case 's':
 			assert(!setenv("NUMAPLACE_STRIDE", optarg, 1));
