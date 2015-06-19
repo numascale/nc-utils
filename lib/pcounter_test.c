@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-//
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-//
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-//
-// Copyright © 2008-2012
-// Numascale AS Oslo, Norway.
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2015 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <stdio.h>
 #include <errno.h>
@@ -38,7 +37,7 @@ nc_error_t count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) 
     nc_error_t retval = NUMACHIP_ERR_OK;
     uint32_t node=0;
     DEBUG_STATEMENT(uint32_t counter=0);
-  
+
     for(node=0; node<num_nodes; node++) {
 	numachip_fullstart_pcounter(cntxt[node],0,0x1,6, &retval);
 	if (retval != NUMACHIP_ERR_OK) return retval;
@@ -51,7 +50,7 @@ nc_error_t count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) 
 
 	DEBUG_STATEMENT(
 	    for (counter=0; counter<4; counter++) {
-	    
+
 		printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
 		       counter,
 		       numachip_get_pcounter_select(cntxt[node],counter,&retval),
@@ -62,11 +61,11 @@ nc_error_t count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) 
 	    }
 	)
     }
-    
+
     return retval;
 }
 nc_error_t counter_select(struct numachip_context *cntxt, uint32_t counterno,uint32_t val) {
-    
+
     /*Has counter already been selected?*/
     /*Are parameters valid?*/
     nc_error_t retval = NUMACHIP_ERR_OK;
@@ -89,7 +88,7 @@ nc_error_t counter_mask(struct numachip_context *cntxt, uint32_t counterno, uint
 
 nc_error_t counter_clear(struct numachip_context *cntxt, uint32_t counterno) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    
+
     numachip_clear_pcounter(cntxt,counterno,&retval);
     if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip clear pcounter failed  %s\n", numachip_strerror(retval));
     return retval;
@@ -98,7 +97,7 @@ nc_error_t counter_clear(struct numachip_context *cntxt, uint32_t counterno) {
 
 nc_error_t counter_restart(struct numachip_context *cntxt, uint32_t counterno) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    
+
     numachip_restart_pcounter(cntxt,counterno,&retval);
     if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip restart pcounter failed  %s\n", numachip_strerror(retval));
     return retval;
@@ -107,28 +106,28 @@ nc_error_t counter_restart(struct numachip_context *cntxt, uint32_t counterno) {
 
 nc_error_t counter_stop(struct numachip_context *cntxt, uint32_t counterno) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    
+
     numachip_stop_pcounter(cntxt,counterno, &retval);
     if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip stop pcounter failed  %s\n", numachip_strerror(retval));
     return retval;
 
-    
+
 
 }
 
 nc_error_t counter_start(struct numachip_context *cntxt, uint32_t counterno, uint32_t event, uint32_t mask) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    
+
     numachip_fullstart_pcounter(cntxt,counterno,event,mask,&retval);
     if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip start pcounter failed  %s\n", numachip_strerror(retval));
     return retval;
 
-    
+
 
 }
 uint64_t counter_read(struct numachip_context *cntxt,uint32_t counterno) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    
+
     uint64_t counterval= numachip_get_pcounter(cntxt,counterno,&retval);
     if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip read pcounter failed  %s\n", numachip_strerror(retval));
 
@@ -138,18 +137,18 @@ uint64_t counter_read(struct numachip_context *cntxt,uint32_t counterno) {
 
 nc_error_t counter_start_all(struct numachip_context **cntxt, uint32_t num_nodes, uint32_t counterno, uint32_t event, uint32_t mask) {
     nc_error_t retval = NUMACHIP_ERR_OK;
-    
+
     numachip_all_start_pcounter(cntxt,num_nodes,counterno,event,mask,&retval);
     if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip all start pcounter failed  %s\n", numachip_strerror(retval));
     return retval;
 
-    
+
 
 }
 nc_error_t counter_select_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno,uint32_t val) {
     uint32_t node=0;
     nc_error_t retval = NUMACHIP_ERR_OK;
-    
+
     for(node=0; node<num_nodes; node++) {
 	retval=counter_select(cntxt[node],counterno,val);
 	if (retval != NUMACHIP_ERR_OK)  return retval;
@@ -172,7 +171,7 @@ nc_error_t counter_clear_all(struct numachip_context **cntxt, uint32_t num_nodes
     for(node=0; node<num_nodes; node++) {
 	    DEBUG_STATEMENT(
 	    printf("node %d counter %d: \n",node, counterno));
-	    
+
 	retval=counter_clear(cntxt[node],counterno);
 	if (retval != NUMACHIP_ERR_OK)  return retval;
     }
@@ -199,7 +198,7 @@ nc_error_t counter_stop_all(struct numachip_context **cntxt, uint32_t num_nodes,
     return retval;
 }
 void counter_print_all(struct numachip_context **cntxt, uint32_t num_nodes,uint32_t counterno) {
-    
+
     uint32_t node=0;
     for(node=0; node<num_nodes; node++) {
 	printf("Reading counter node %d counterno %d = %lld \n",
@@ -222,14 +221,14 @@ nc_error_t count_api_stop(struct numachip_context **cntxt, uint32_t num_nodes) {
 	    return retval;
 	}
 
-	
-	
+
+
 	DEBUG_STATEMENT(
 	for (counter=0; counter<4; counter++) {
 	    printf("node %d counter %d: 0x%llx (%lld) \n",node, counter,numachip_get_pcounter(cntxt[node],counter,&retval), numachip_get_pcounter(cntxt[node],counter,&retval));
 	    if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
 	})
-	
+
     }
     return retval;
 }
@@ -246,20 +245,20 @@ void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) {
 	    if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed for node %d retval = 0x%x", node, retval);
 	}
     }
-    
+
     /** SELECT COUNTER **/
     for(node=0; node<num_nodes; node++) {
 	numachip_select_pcounter(cntxt[node],0,0x1, &retval);
 	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
 	numachip_select_pcounter(cntxt[node],1,0x1, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);    
+	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
 	numachip_select_pcounter(cntxt[node],2,0x6, &retval);
 	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
 	numachip_select_pcounter(cntxt[node],3,0x6, &retval);
 	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
     }
-    
-    
+
+
     /** Apply Mask **/
     for(node=0; node<num_nodes; node++) {
 	numachip_mask_pcounter(cntxt[node],0,6, &retval);
@@ -269,11 +268,11 @@ void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) {
 	numachip_mask_pcounter(cntxt[node],2,3, &retval);
 	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
 	numachip_mask_pcounter(cntxt[node],3,2, &retval);
-	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);    
+	if (retval != NUMACHIP_ERR_OK) fprintf(stderr,"Numachip user API failed retval = 0x%x", retval);
 
 	DEBUG_STATEMENT(
 	for (counter=0; counter<4; counter++) {
-	    
+
 	    printf("%d: select is 0x%x mask 0x%x value 0x%llx (%lld) \n",
 		   counter,
 		   numachip_get_pcounter_select(cntxt[node],counter,&retval),
@@ -284,14 +283,14 @@ void count_api_start(struct numachip_context **cntxt, uint32_t num_nodes) {
 	}
 	)
     }
-    
-	
+
+
 }
 
 #endif
 void count_api_read_rcache(struct numachip_context *cntxt,
 			   uint32_t misscounter,
-			   uint32_t hitcounter, 			   
+			   uint32_t hitcounter,
 			   double *missrate,
 			   double *hitrate,
 			   uint64_t *total,
@@ -309,7 +308,7 @@ void count_api_read_rcache(struct numachip_context *cntxt,
 
     if (*total==0) {
 	*missrate=0;
-	*hitrate=100;	
+	*hitrate=100;
 	DEBUG_STATEMENT(printf("NO hits or miss in remote cache\n"));
     } else if (miss==0) {
 	*missrate=0;
@@ -327,7 +326,7 @@ void count_api_read_rcache(struct numachip_context *cntxt,
 }
 void count_api_read_rcache2(struct numachip_context *cntxt,
 			   uint32_t misscounter,
-			   uint32_t hitcounter, 
+			   uint32_t hitcounter,
 			   double *missrate,
 			   double *hitrate,
 			   uint64_t *total,
@@ -347,7 +346,7 @@ void count_api_read_rcache2(struct numachip_context *cntxt,
 
     if (*total==0) {
 	*missrate=0;
-	*hitrate=100;	
+	*hitrate=100;
 	DEBUG_STATEMENT(printf("NO hits or miss in remote cache\n"));
     } else if (*miss==0) {
 	*missrate=0;
