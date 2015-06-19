@@ -1,20 +1,19 @@
-// $Id:$
-// This source code including any derived information including but
-// not limited by net-lists, fpga bit-streams, and object files is the
-// confidential and proprietary property of
-//
-// Numascale AS
-// Enebakkveien 302A
-// NO-1188 Oslo
-// Norway
-//
-// Any unauthorized use, reproduction or transfer of the information
-// provided herein is strictly prohibited.
-//
-// Copyright © 2008-2012
-// Numascale AS Oslo, Norway.
-// All Rights Reserved.
-//
+/*
+ * Copyright (C) 2008-2015 Numascale AS, support@numascale.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef __NUMACHIP_PCOUNTER_TEST_H
 #define __NUMACHIP_PCOUNTER_TEST_H
@@ -144,7 +143,7 @@ nc_error_t counter_mask_all(struct numachip_context **cntxt,
 /**
  * For an array of numachips do
  * counter_clear
- * 
+ *
  */
 nc_error_t counter_clear_all(struct numachip_context **cntxt,
 			     uint32_t num_nodes,
@@ -153,7 +152,7 @@ nc_error_t counter_clear_all(struct numachip_context **cntxt,
 /**
  * For an array of numachips do
  * counter_restart
- * 
+ *
  */
 nc_error_t counter_restart_all(struct numachip_context **cntxt,
 			       uint32_t num_nodes,
@@ -162,7 +161,7 @@ nc_error_t counter_restart_all(struct numachip_context **cntxt,
 /**
  * For an array of numachips do
  * counter_stop
- * 
+ *
  */
 nc_error_t counter_stop_all(struct numachip_context **cntxt,
 			    uint32_t num_nodes,
@@ -171,7 +170,7 @@ nc_error_t counter_stop_all(struct numachip_context **cntxt,
 /**
  * For an array of numachips do
  * - print the counter_read result to stdout.
- * 
+ *
  */
 void counter_print_all(struct numachip_context **cntxt,
 		       uint32_t num_nodes,
@@ -180,7 +179,7 @@ void counter_print_all(struct numachip_context **cntxt,
 /**
  * For an array of numachips do
  * counter_start
- * 
+ *
  */
 nc_error_t counter_start_all(struct numachip_context **cntxt,
 			     uint32_t num_nodes,
@@ -200,7 +199,7 @@ nc_error_t counter_start_all(struct numachip_context **cntxt,
  * Select = 6, MCTag Mask: 3 - CTag cache hit
  * Counter 3, source 6 and mask 2
  * Select = 6, MCTag Mask: 2 - CTag cache miss
- * 
+ *
  */
 nc_error_t count_api_start(struct numachip_context **cntxt, uint32_t num_nodes);
 
@@ -215,7 +214,7 @@ nc_error_t count_api_start(struct numachip_context **cntxt, uint32_t num_nodes);
  * Select = 6, MCTag Mask: 3 - CTag cache hit
  * Counter 3, source 6 and mask 2
  * Select = 6, MCTag Mask: 2 - CTag cache miss
- * 
+ *
  */
 nc_error_t count_api_stop(struct numachip_context **cntxt, uint32_t num_nodes);
 
@@ -232,7 +231,7 @@ nc_error_t count_api_stop(struct numachip_context **cntxt, uint32_t num_nodes);
  */
 void count_api_read_rcache(struct numachip_context *cntxt,
 			   uint32_t misscounter,
-			   uint32_t hitcounter, 
+			   uint32_t hitcounter,
 			   double *missrate,
 			   double *hitrate,
 			   uint64_t *total,
@@ -253,7 +252,7 @@ void count_api_read_rcache(struct numachip_context *cntxt,
  */
 void count_api_read_rcache2(struct numachip_context *cntxt,
 			   uint32_t misscounter,
-			   uint32_t hitcounter, 
+			   uint32_t hitcounter,
 			   double *missrate,
 			   double *hitrate,
 			   uint64_t *total,
