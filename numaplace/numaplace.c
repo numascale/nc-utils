@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "version.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,17 +41,18 @@ int main(int argc, char *argv[])
 		static const struct option long_options[] = {
 			{"no-allocator", no_argument,  0, 'a'},
 			{"cores",   required_argument, 0, 'c'},
+			{"debug",   no_argument,       0, 'd'},
+			{"parent",  no_argument,       0, 'p'},
 #ifdef FIXME // needs implementing in library
 			{"stride",  required_argument, 0, 's'},
 #endif
 			{"no-thp",  no_argument,       0, 't'},
 			{"verbose", no_argument,       0, 'v'},
-			{"debug",   no_argument,       0, 'd'},
-			{"parent",  no_argument,       0, 'p'},
+			{"verson",  no_argument,       0, 'V'},
 			{0,         0,                 0, 0},
 		};
 
-		int c = getopt_long(argc, argv, "+c:tvdp", long_options, &option_index);
+		int c = getopt_long(argc, argv, "+ac:dptvV", long_options, &option_index);
 		if (c == -1)
 			break;
 
@@ -69,10 +71,24 @@ int main(int argc, char *argv[])
 			assert(!setenv("OMP_NUM_THREADS", optarg, 1));
 			break;
 		}
+		case 'd':
+			flagval |= FLAGS_DEBUG;
+			break;
+		case 'p':
+			flagval |= FLAGS_PARENT;
+			break;
 #ifdef FIXME
-		case 's':
+		case 's': {
+			// validate
+			char *end;
+			long val = strtol(optarg, &end, 10);
+			if (*end || val < 1) {
+				fprintf(stderr, "error: invalid stride '%s'\n", optarg);
+				usage(1);
+			}
 			assert(!setenv("NUMAPLACE_STRIDE", optarg, 1));
 			break;
+		}
 #endif
 		case 't':
 			assert(!prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0));
@@ -80,12 +96,9 @@ int main(int argc, char *argv[])
 		case 'v':
 			flagval |= FLAGS_VERBOSE;
 			break;
-		case 'd':
-			flagval |= FLAGS_DEBUG;
-			break;
-		case 'p':
-			flagval |= FLAGS_PARENT;
-			break;
+		case 'V':
+			printf("numaplace " VER "\n");
+			exit(0);
 		default:
 			usage(1);
 		}
