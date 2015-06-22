@@ -30,7 +30,7 @@
 
 #define MAX_CORES 8192
 #define MAX_NUMA 1024
-#define THP_SIZE (1 << 20)
+#define THP_SIZE (2 << 20)
 #define BITS_PER_LONG (sizeof(long) * 8)
 #define BITOP_WORD(nr)      ((nr) / BITS_PER_LONG)
 #define STACKNAME "[stack]"
