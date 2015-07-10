@@ -35,6 +35,7 @@
 #define roundup(x, n) (((x) + ((n) - 1)) & (~((n) - 1)))
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
+#define cpu_relax() asm volatile("pause" ::: "memory")
 
 #define FLAGS_VERBOSE   (1 << 0)
 #define FLAGS_DEBUG     (1 << 1)

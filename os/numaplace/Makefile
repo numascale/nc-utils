@@ -22,10 +22,10 @@ version.h: Makefile numaplace.c libnumaplace.c utils.h
 	@echo \#define VER \"`git describe --always --dirty=+`\" >version.h
 
 numaplace: numaplace.c libnumaplace.c utils.h version.h
-	$(CC) $(CFLAGS) -DPARENT -o $@ $< ncalloc.c libnumaplace.c -lpthread -ldl -lnuma
+	$(CC) $(CFLAGS) -DPARENT -o $@ $< ncalloc.c libnumaplace.c -lpthread -ldl -lnuma -lrt
 
 numaplace-test: numaplace-test.c utils.h
 	$(CC) $(CFLAGS) -o $@ $< -lpthread
 
 libnumaplace.so: libnumaplace.c ncalloc.c utils.h
-	$(CC) $(CFLAGS) -fPIC -shared -o $@ ncalloc.c $< -ldl -lnuma
+	$(CC) $(CFLAGS) -fPIC -shared -o $@ ncalloc.c $< -ldl -lnuma -lrt

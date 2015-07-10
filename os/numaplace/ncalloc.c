@@ -984,7 +984,8 @@ static void printstat()
 
 
 // library unload
-__attribute__((destructor)) static void unload(void)
+__attribute__((destructor))
+static void unload(void)
 {
 	if( __stat ) {
 		printstat();
