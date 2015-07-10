@@ -1,0 +1,13 @@
+- numaplaces uses the inherited affinity mask
+
+- numaplace maintains a shared memory segment of:
+ - structure lock
+ - instance structures with:
+  > pid of numaplace
+  > bitmask of allocated cores
+
+- the structure lock key is the holder's pid
+- at each invocation, it deallocates any stale instance structures via pid
+
+- updates are performed via atomic cmpxchg to prevent the need for locking
+ > and thus avoids hanging due to being killed before the lock is released
