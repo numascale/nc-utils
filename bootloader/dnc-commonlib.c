@@ -156,7 +156,7 @@ void udelay(const uint32_t usecs)
 void wait_key(void)
 {
 	char ch;
-	printf("... ( press any key to continue ) ... ");
+	printf("Press any key to continue");
 
 	while (fread(&ch, 1, 1, stdin) == 0)
 		;
@@ -1613,7 +1613,6 @@ static int ht_fabric_find_nc(void)
 
 	if (!(cht_read_conf(0, FUNC3_MISC, 0x58) & 0x1f)) {
 		error("DRAM scrubbing not enabled in the BIOS\n");
-		printf("Press any key to continue");
 		wait_key();
 	}
 
