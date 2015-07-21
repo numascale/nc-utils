@@ -87,6 +87,7 @@ uint64_t io_limit = 0;
 bool io_nonpref_high = 0;
 int downcore = 1;
 int washdelay = 0;
+static int scc_bufmask = 0;
 
 /* Non-options */
 int family = 0;
@@ -2121,6 +2122,7 @@ void parse_cmdline(const int argc, const char *argv[])
 		{"io.nonpref-high", &parse_bool,   &io_nonpref_high}, /* If non-prefetchable PCI BARs can be allocated in 64-bit prefetchable space */
 		{"downcore",        &parse_int,    &downcore},        /* Enable every nth core */
 		{"washdelay",       &parse_int,    &washdelay},
+		{"scc_bufmask",     &parse_int,    &scc_bufmask},
 	};
 
 	int errors = 0;
@@ -2747,7 +2749,7 @@ int dnc_init_bootloader()
 	 * Also disable the MIB timer completely (bit6) for now (debugging purposes) */
 	uint32_t sreq_bufcnt = (dnc_asic_mode) ? 6 : 3;
 	val = dnc_read_csr(0xfff0, H2S_CSR_G0_MIB_IBC);
-	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (sreq_bufcnt << 24) | (1 << 6));
+	dnc_write_csr(0xfff0, H2S_CSR_G0_MIB_IBC, (val & ~(0xf << 24)) | (sreq_bufcnt << 24) | (scc_bufmask << 8) | (1 << 6));
 
 	for (i = 0; i < ht_id; i++) {
 		/* Disable Northbridge WatchDog timer and MCE target/master abort for debugging */
