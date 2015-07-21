@@ -195,7 +195,7 @@ static void setstatistics(const size_t size)
 static void* map(size_t size, bool huge)
 {
 	int fd = -1;
-	int flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE;
+	int flags = MAP_ANONYMOUS | MAP_PRIVATE;
 	if( huge ) {
 		flags |= MAP_HUGETLB;
 	}
