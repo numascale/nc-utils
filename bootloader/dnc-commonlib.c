@@ -156,7 +156,7 @@ void udelay(const uint32_t usecs)
 void wait_key(void)
 {
 	char ch;
-	printf("Press any key to continue");
+	printf("Press enter to continue");
 
 	while (fread(&ch, 1, 1, stdin) == 0)
 		;
