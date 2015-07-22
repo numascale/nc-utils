@@ -252,9 +252,11 @@ void tally_local_node(void)
 	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
 		node->ht[i].size  = 0;
 
+		unsigned controllers = family >= 0x15 ? 2 : 1;
 		/* Check for failed DIMMs and no per-NUMA-node memory */
-		for (unsigned dct = 0; dct < 2; dct++) {
-			cht_write_conf(i, FUNC1_MAPS, 0x10c, dct);
+		for (unsigned dct = 0; dct < controllers; dct++) {
+			if (family >= 0x15)
+				cht_write_conf(i, FUNC1_MAPS, 0x10c, dct);
 			unsigned en = 0;
 
 			for (unsigned dimm = 0; dimm < 8; dimm++) {
@@ -267,7 +269,7 @@ void tally_local_node(void)
 			}
 
 			if (!en) {
-				error("No DRAM present on %03x#%u DCT%u; performance will be degraded", node->sci, i, dct);
+				error("No DRAM available on %03x#%u DCT%u; performance will be degraded", node->sci, i, dct);
 				wait_key();
 			}
 		}
@@ -275,7 +277,7 @@ void tally_local_node(void)
 		uint32_t base = cht_read_conf(i, FUNC1_MAPS, 0x120);
 		uint32_t limit = cht_read_conf(i, FUNC1_MAPS, 0x124);
 
-		assertf(limit & 0x1fffff, "No DRAM detected on %03x#%u", node->sci, i);
+		assertf(limit != 0x1fffff, "No DRAM available on %03x#%u", node->sci, i);
 
 		node->ht[i].size = ((limit & 0x1fffff) - (base & 0x1fffff) + 1) << (27 - DRAM_MAP_SHIFT);
 		node->node_mem += node->ht[i].size;
@@ -417,9 +419,12 @@ static bool tally_remote_node(const uint16_t sci)
 
 	/* Size HT nodes */
 	for (i = node->nb_ht_lo; i <= node->nb_ht_hi; i++) {
+		unsigned controllers = family >= 0x15 ? 2 : 1;
+
 		/* Check for failed DIMMs and no per-NUMA-node memory */
-		for (unsigned dct = 0; dct < 2; dct++) {
-			dnc_write_conf(node->sci, 0, 24 + i, FUNC1_MAPS, 0x10c, dct);
+		for (unsigned dct = 0; dct < controllers; dct++) {
+			if (family >= 0x15)
+				dnc_write_conf(node->sci, 0, 24 + i, FUNC1_MAPS, 0x10c, dct);
 			unsigned en = 0;
 
 			for (unsigned dimm = 0; dimm < 8; dimm++) {
@@ -432,7 +437,7 @@ static bool tally_remote_node(const uint16_t sci)
 			}
 
 			if (!en) {
-				error("No DRAM present on %03x#%u DCT%u", node->sci, i, dct);
+				error("No DRAM available on %03x#%u DCT%u", node->sci, i, dct);
 				wait_key();
 			}
 		}
@@ -440,7 +445,7 @@ static bool tally_remote_node(const uint16_t sci)
 		uint32_t base  = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x120);
 		uint32_t limit = dnc_read_conf(sci, 0, 24 + i, FUNC1_MAPS, 0x124);
 
-		assertf(limit & 0x1fffff, "No DRAM detected on %03x#%u", node->sci, i);
+		assertf(limit != 0x1fffff, "No DRAM available on %03x#%u", node->sci, i);
 
 		base = (base & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
 		limit = (limit & 0x1fffff) << (27 - DRAM_MAP_SHIFT);
