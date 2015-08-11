@@ -24,9 +24,10 @@ try:
 		for y in range(max(nclib.platform.oemn.size_y, 1)):
 			for x in range(max(nclib.platform.oemn.size_x, 1)):
 				nodes.append(nclib.Node(x | y << 4 | z << 8))
-
 except nclib.Numachip.BlockedException:
-	raise SystemError('error: fabric blocked; unable to determine geometry')
+	raise SystemExit('error: fabric blocked; unable to determine geometry')
+except nclib.Numachip.TimeoutException:
+	raise SystemExit('error: fabric timeout; unable to determine geometry')
 
 logf = open('nc-check.log', 'a')
 
@@ -66,8 +67,8 @@ try:
 
 		time.sleep(3)
 except nclib.Numachip.TimeoutException:
-	raise SystemError('error: fabric timeout')
+	raise SystemExit('error: fabric timeout')
 except nclib.Numachip.BlockedException:
-	raise SystemError('error: fabric blocked')
+	raise SystemExit('error: fabric blocked')
 except KeyboardInterrupt:
 	pass
