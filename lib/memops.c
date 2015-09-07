@@ -463,6 +463,8 @@ static inline int have_avx(void)
 }
 #endif
 
+void (*numachip_sge_copy)(struct numachip_sge *sg_list, size_t num_sge);
+
 static void _memops_lib_constructor(void)
 {
 	numachip_sge_copy = _numachip_sge_copy_nt;
