@@ -1,5 +1,5 @@
 CC      := gcc
-CFLAGS  := -O2 -D_GNU_SOURCE -Wall -g -I../../lib
+CFLAGS  := -O2 -D_GNU_SOURCE -Wall -g -I../../lib -I../../../legacy-firmware/interface
 LDFLAGS := -L../../lib -lnumachip_user
 
 TARGETS := nc_perf

@@ -1,5 +1,5 @@
 CC	:= gcc
-CFLAGS	:= -O2 -D_GNU_SOURCE -Wall -g
+CFLAGS	:= -O2 -D_GNU_SOURCE -Wall -g -I../../legacy-firmware/interface
 
 AR	:= ar
 ARFLAGS := cr

@@ -27,7 +27,7 @@
 
 #include "numachip_user.h"
 #include "pcounter_test.h"
-#include "../../../interface/numachip-defines.h"
+#include "numachip-defines.h"
 
 #define DEBUG_STATEMENT(x)
 

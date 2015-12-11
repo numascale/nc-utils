@@ -19,7 +19,7 @@
 #define __NUMACHIP_LIB_H
 
 #include "numachip_user.h"
-#include "../../interface/numachip-defines.h"
+#include "numachip-defines.h"
 
 #define NUMACHIP_CSR_BASE 0x3fff00000000ULL
 
