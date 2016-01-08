@@ -106,35 +106,37 @@ static int check_continous(struct ncbte_mem *mem)
 /**
  * ncbte_alloc_region() - Allocate and pin a user region of variable size
  * @context:	Current BTE context
+ * @ptr:	Pointer to user virtual address if buffer is pre-allocated, else NULL
  * @length:	Size of buffer
  * @flags:	Flags, use NCBTE_ALLOCATE_HUGEPAGE if huge pages are desired
- * @vaddrp:	Pointer to user virtual address if buffer is pre-allocated, else pointer to NULL
  * @regionp:	Pointer to region structure, allocated and initialized by function
  *
  * This function will allocate and pin a memory buffer of desired size if @vaddrp is not already
  * initialized with a value. If @vaddrp already points to a valid (and committed) buffer
  * address, it will only try to pin the memory.
  *
- * Return: 0 if successful, or -1 of error occured.
+ * Return: Virtual address of the buffer allocated (or as given by the @ptr argument) if
+ * successful, or NULL if error occured.
  */
-int ncbte_alloc_region(struct ncbte_context *context, size_t length, int flags, void **vaddrp, struct ncbte_region **regionp)
+void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length, int flags, struct ncbte_region **regionp)
 {
 	struct ncbte_region *region;
+	void *vaddr = ptr;
 
-	if (!context || !vaddrp || !regionp)
-		return -1;
+	if (!context || !regionp)
+		return NULL;
 
 	region = (struct ncbte_region *)malloc(sizeof(*region));
 	if (!region) {
 		fprintf(stderr,"malloc failed: %s\n", strerror(errno));
-		return -1;
+		return NULL;
 	}
 	memset(region, 0, sizeof(*region));
 
 	/* No region was given, allocate one */
-	if (!*vaddrp) {
+	if (!ptr) {
 		const size_t alignment = (flags & NCBTE_ALLOCATE_HUGEPAGE) ? HUGE_PAGE_SIZE : PAGE_SIZE;
-		if (posix_memalign(vaddrp, alignment, length) != 0) {
+		if (posix_memalign(&vaddr, alignment, length) != 0) {
 			fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
 			goto err;
 		}
@@ -142,15 +144,15 @@ int ncbte_alloc_region(struct ncbte_context *context, size_t length, int flags, 
 		region->allocated = 1;
 
 		if (flags & NCBTE_ALLOCATE_HUGEPAGE)
-			(void)madvise(*vaddrp, length, MADV_HUGEPAGE);
+			(void)madvise(vaddr, length, MADV_HUGEPAGE);
 
-		memset(*vaddrp, 0, length);
-	} else if ((__u64)(*vaddrp) & (PAGE_SIZE-1)) {
-		fprintf(stderr, "virtual address not page aligned %p\n", *vaddrp);
-		return -1;
+		memset(vaddr, 0, length);
+	} else if ((__u64)ptr & (PAGE_SIZE-1)) {
+		fprintf(stderr, "virtual address not page aligned %p\n", ptr);
+		goto err;
 	}
 
-	region->mem.addr = (__u64)*vaddrp;
+	region->mem.addr = (__u64)vaddr;
 	region->mem.size = (__u64)length;
 	region->mem.nr_pages = DIV_ROUND_UP(length, PAGE_SIZE);
 	region->mem.phys_addr = (__u64 *)malloc(region->mem.nr_pages*sizeof(__u64));
@@ -168,7 +170,7 @@ int ncbte_alloc_region(struct ncbte_context *context, size_t length, int flags, 
 
 	*regionp = region;
 
-	return 0;
+	return vaddr;
 
 err:
 	if (region->mem.phys_addr != 0)
@@ -177,7 +179,7 @@ err:
 		free((void *)region->mem.addr);
 	free(region);
 
-	return -1;
+	return NULL;
 }
 
 /**
@@ -230,7 +232,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 				 struct ncbte_region *local_region, off_t local_offset,
 				 struct ncbte_region *remote_region, off_t remote_offset,
 				 size_t length, btce_direction_t direction,
-				 struct ncbte_completion **UNUSED(completionp))
+				 struct ncbte_completion **completionp)
 {
 	const __u32 max_btce_size = 256*1024;
 	__u64 local_addr, remote_addr;
@@ -282,6 +284,10 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 		commit_btce(context->bte_io, i, &btce);
 	}
 	_mm_sfence();
+
+	/* TODO: add proper per-transfer completion mechanisms */
+	if (completionp)
+		*completionp = NULL;
 
 	return 0;
 }

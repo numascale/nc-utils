@@ -38,18 +38,19 @@ struct ncbte_completion;
 /**
  * ncbte_alloc_region() - Allocate and pin a user region of variable size
  * @context:	Current BTE context
+ * @ptr:	Pointer to user virtual address if buffer is pre-allocated, else NULL
  * @length:	Size of buffer
  * @flags:	Flags, use NCBTE_ALLOCATE_HUGEPAGE if huge pages are desired
- * @vaddrp:	Pointer to user virtual address if buffer is pre-allocated, else pointer to NULL
  * @regionp:	Pointer to region structure, allocated and initialized by function
  *
  * This function will allocate and pin a memory buffer of desired size if @vaddrp is not already
  * initialized with a value. If @vaddrp already points to a valid (and committed) buffer
  * address, it will only try to pin the memory.
  *
- * Return: 0 if successful, or -1 of error occured.
+ * Return: Virtual address of the buffer allocated (or as given by the @ptr argument) if
+ * successful, or NULL if error occured.
  */
-int ncbte_alloc_region(struct ncbte_context *context, size_t length, int flags, void **vaddrp, struct ncbte_region **regionp);
+void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length, int flags, struct ncbte_region **regionp);
 
 /**
  * ncbte_free_region() - Unpin and free a user region
@@ -61,7 +62,7 @@ int ncbte_alloc_region(struct ncbte_context *context, size_t length, int flags, 
  * it is the callers responsibility to free that memory, it will still be unpinned
  * by this function however and the resources tied to the region structure freed.
  *
- * Return: 0 if successful, or -1 of error occured.
+ * Return: 0 if successful, or -1 if error occured.
  */
 int ncbte_free_region(struct ncbte_context *context, struct ncbte_region *region);
 
