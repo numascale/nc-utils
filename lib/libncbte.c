@@ -234,9 +234,9 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 				 size_t length, btce_direction_t direction,
 				 struct ncbte_completion **completionp)
 {
-	const __u32 max_btce_size = 256*1024;
+	const __u32 max_btce_dwords = (1<<16);
 	__u64 local_addr, remote_addr;
-	__u32 l;
+	__u32 ndwords;
 	int i, num_btce;
 
 	if (!context || !local_region || !remote_region)
@@ -259,27 +259,25 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 		return -1;
 	}
 
-	l = length;
+	ndwords = length>>2;
 	local_addr = local_region->mem.phys_addr[0] + local_offset;
 	remote_addr = remote_region->mem.phys_addr[0] + remote_offset;
-	num_btce = DIV_ROUND_UP(length, max_btce_size);
+	num_btce = DIV_ROUND_UP(ndwords, max_btce_dwords);
 
-	for (i=0; i<num_btce && l > 0; i++) {
+	for (i=0; i<num_btce && ndwords > 0; i++) {
 		btce_t btce;
+		__u32 curr_dwords = (ndwords > max_btce_dwords) ? max_btce_dwords : ndwords;
 		btce.m128 = _mm_setzero_si128();
 		btce.s.valid = 1;
 		btce.s.direction = direction;
 		btce.s.move = 0;
-		if (l > max_btce_size)
-			btce.s.dw_cnt = (max_btce_size >> 2) - 1; // # dwords
-		else
-			btce.s.dw_cnt = (l >> 2) - 1;
+		btce.s.dw_cnt = curr_dwords - 1;
 		btce.s.remote_addr = remote_addr >> 2; // dword-aligned
 		btce.s.local_addr = local_addr >> 2; // dword-aligned
 
-		remote_addr += btce.s.dw_cnt<<2;
-		local_addr += btce.s.dw_cnt<<2;
-		l -= btce.s.dw_cnt<<2;
+		remote_addr += curr_dwords<<2;
+		local_addr += curr_dwords<<2;
+		ndwords -= curr_dwords;
 
 		commit_btce(context->bte_io, i, &btce);
 	}
