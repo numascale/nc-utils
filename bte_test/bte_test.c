@@ -91,7 +91,8 @@ int main(int argc, char **argv)
 	// Allocate local buffer
 	bind_node(local_node);
 
-	if (ncbte_alloc_region(context, SIZE, NCBTE_ALLOCATE_HUGEPAGE, &local_buf, &local_region) < 0)
+	local_buf = ncbte_alloc_region(context, NULL, SIZE, NCBTE_ALLOCATE_HUGEPAGE, &local_region);
+	if (!local_buf)
 		exit(-1);
 
 	printf("Local test buffer allocated @ %016"PRIx64"\n", user_to_phys(local_buf));
@@ -99,7 +100,8 @@ int main(int argc, char **argv)
 	// Allocate remote buffer
 	bind_node(remote_node);
 
-	if (ncbte_alloc_region(context, SIZE, NCBTE_ALLOCATE_HUGEPAGE, &remote_buf, &remote_region) < 0)
+	remote_buf = ncbte_alloc_region(context, NULL, SIZE, NCBTE_ALLOCATE_HUGEPAGE, &remote_region);
+	if (!remote_buf)
 		exit(-1);
 
 	printf("Remote test buffer allocated @ %016"PRIx64"\n", user_to_phys(remote_buf));
