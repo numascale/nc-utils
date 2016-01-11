@@ -261,7 +261,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 
 	l = length;
 	local_addr = local_region->mem.phys_addr[0] + local_offset;
-	remote_addr = local_region->mem.phys_addr[0] + remote_offset;
+	remote_addr = remote_region->mem.phys_addr[0] + remote_offset;
 	num_btce = DIV_ROUND_UP(length, max_btce_size);
 
 	for (i=0; i<num_btce && l > 0; i++) {
