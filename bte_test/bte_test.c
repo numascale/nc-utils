@@ -67,7 +67,7 @@ static void bind_node(long node)
     numa_bitmask_free(nodemask);
 }
 
-#define SIZE 2*1024*1024
+#define SIZE ((1*1024*1024)+28)
 
 int main(int argc, char **argv)
 {
@@ -91,18 +91,20 @@ int main(int argc, char **argv)
 	// Allocate local buffer
 	bind_node(local_node);
 
-	local_buf = ncbte_alloc_region(context, NULL, SIZE, NCBTE_ALLOCATE_HUGEPAGE, &local_region);
+	local_buf = ncbte_alloc_region(context, NULL, 2*1024*1024, NCBTE_ALLOCATE_HUGEPAGE, &local_region);
 	if (!local_buf)
 		exit(-1);
+	memset(local_buf, 0xaa, SIZE);
 
 	printf("Local test buffer allocated @ %016"PRIx64"\n", user_to_phys(local_buf));
 
 	// Allocate remote buffer
 	bind_node(remote_node);
 
-	remote_buf = ncbte_alloc_region(context, NULL, SIZE, NCBTE_ALLOCATE_HUGEPAGE, &remote_region);
+	remote_buf = ncbte_alloc_region(context, NULL, 2*1024*1024, NCBTE_ALLOCATE_HUGEPAGE, &remote_region);
 	if (!remote_buf)
 		exit(-1);
+	memset(remote_buf, 0x55, SIZE);
 
 	printf("Remote test buffer allocated @ %016"PRIx64"\n", user_to_phys(remote_buf));
 

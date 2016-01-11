@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -30,6 +32,12 @@
 
 #include "libncbte.h"
 #include "ncbte_io.h"
+
+#ifdef DEBUG
+#define DEBUG_STATEMENT(x) x
+#else
+#define DEBUG_STATEMENT(x)
+#endif
 
 #ifdef UNUSED
 #elif defined(__GNUC__)
@@ -228,6 +236,8 @@ static inline void commit_btce(void *bte_io, int btce_num, const btce_t *btcep)
 	_mm_store_si128((__m128i *)((__u64)bte_io+(btce_num&3)*sizeof(btce_t)), btcep->m128);
 }
 
+#define WORKAROUND_ALIGN_BUG 1
+
 static int ncbte_transfer_region(struct ncbte_context *context,
 				 struct ncbte_region *local_region, off_t local_offset,
 				 struct ncbte_region *remote_region, off_t remote_offset,
@@ -237,6 +247,9 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 	const __u32 max_btce_dwords = (1<<16);
 	__u64 local_addr, remote_addr;
 	__u32 ndwords;
+#ifdef WORKAROUND_ALIGN_BUG
+	__u32 rest;
+#endif
 	int i, num_btce;
 
 	if (!context || !local_region || !remote_region)
@@ -260,6 +273,11 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 	}
 
 	ndwords = length>>2;
+#ifdef WORKAROUND_ALIGN_BUG
+	// Align bulk transfer to 64 bytes (16 dwords) because of known BTE issue
+	rest = ndwords & 0xf;
+	ndwords -= rest;
+#endif
 	local_addr = local_region->mem.phys_addr[0] + local_offset;
 	remote_addr = remote_region->mem.phys_addr[0] + remote_offset;
 	num_btce = DIV_ROUND_UP(ndwords, max_btce_dwords);
@@ -275,12 +293,43 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 		btce.s.remote_addr = remote_addr >> 2; // dword-aligned
 		btce.s.local_addr = local_addr >> 2; // dword-aligned
 
+		DEBUG_STATEMENT(printf("full btce: remote %016"PRIx64", local %016"PRIx64", dw_cnt %x\n",
+				       (uint64_t)remote_addr, (uint64_t)local_addr, curr_dwords));
+
 		remote_addr += curr_dwords<<2;
 		local_addr += curr_dwords<<2;
 		ndwords -= curr_dwords;
 
 		commit_btce(context->bte_io, i, &btce);
 	}
+#ifdef WORKAROUND_ALIGN_BUG
+	if (rest) {
+		/* Transfer the rest using up to 16-byte blocks */
+		ndwords = rest;
+		num_btce = DIV_ROUND_UP(ndwords, 4);
+		DEBUG_STATEMENT(printf("rest = %x, num_btce = %x\n", rest, num_btce));
+		for (i=0; i<num_btce && ndwords > 0; i++) {
+			btce_t btce;
+			__u32 curr_dwords = (ndwords > 4) ? 4 : ndwords;
+			btce.m128 = _mm_setzero_si128();
+			btce.s.valid = 1;
+			btce.s.direction = direction;
+			btce.s.move = 0;
+			btce.s.dw_cnt = curr_dwords - 1;
+			btce.s.remote_addr = remote_addr >> 2; // dword-aligned
+			btce.s.local_addr = local_addr >> 2; // dword-aligned
+
+			DEBUG_STATEMENT(printf("partial btce: remote %016"PRIx64", local %016"PRIx64", dw_cnt %x\n",
+					       (uint64_t)remote_addr, (uint64_t)local_addr, curr_dwords));
+
+			remote_addr += curr_dwords<<2;
+			local_addr += curr_dwords<<2;
+			ndwords -= curr_dwords;
+
+			commit_btce(context->bte_io, i, &btce);
+		}
+	}
+#endif
 	_mm_sfence();
 
 	/* TODO: add proper per-transfer completion mechanisms */
