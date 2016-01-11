@@ -302,6 +302,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 
 		commit_btce(context->bte_io, i, &btce);
 	}
+	_mm_sfence();
 #ifdef WORKAROUND_ALIGN_BUG
 	if (rest) {
 		/* Transfer the rest using up to 16-byte blocks */
@@ -329,8 +330,8 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 			commit_btce(context->bte_io, i, &btce);
 		}
 	}
-#endif
 	_mm_sfence();
+#endif
 
 	/* TODO: add proper per-transfer completion mechanisms */
 	if (completionp)
