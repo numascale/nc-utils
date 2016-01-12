@@ -39,6 +39,10 @@
 #define DEBUG_STATEMENT(x)
 #endif
 
+#ifndef MIN
+#define MIN(a,b) ((a < b) ? a : b)
+#endif
+
 #ifdef UNUSED
 #elif defined(__GNUC__)
 # define UNUSED(x) UNUSED_ ## x __attribute__((unused))
@@ -101,7 +105,7 @@ typedef union {
 static int check_continous(struct ncbte_mem *mem)
 {
 	__u64 start_phys_addr = mem->phys_addr[0];
-	int page;
+	unsigned page;
 	for (page = 0; page < mem->nr_pages; page++) {
 		__u64 expected_phys_addr = start_phys_addr + page*PAGE_SIZE;
 		__u64 current_phys_addr = mem->phys_addr[page];
@@ -221,12 +225,37 @@ int ncbte_free_region(struct ncbte_context *context, struct ncbte_region *region
 	return 0;
 }
 
-static inline __u64 get_completion_status(void *bte_io)
+static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t offset, size_t *lengthp)
+{
+	unsigned page;
+
+	if (region->is_continous) {
+		*lengthp = region->mem.size - offset;
+		return region->mem.phys_addr[0] + offset;
+	}
+
+	*lengthp = 0;
+
+	for (page = 0; page < region->mem.nr_pages && offset > 0; page++) {
+		if (offset <= PAGE_SIZE-4)
+			break;
+		offset -= PAGE_SIZE;
+	}
+
+	/* offset out of range */
+	if (page == region->mem.nr_pages)
+		return 0;
+
+	*lengthp = PAGE_SIZE - offset;
+	return region->mem.phys_addr[page] + offset;
+}
+
+static inline __u64 _get_completion_status(void *bte_io)
 {
 	return *(__u64 *)((__u64)bte_io + NC2_BTCE_COMPLETION);
 }
 
-static inline __u64 get_head_tail_status(void *bte_io)
+static inline __u64 _get_head_tail_status(void *bte_io)
 {
 	return *(__u64 *)((__u64)bte_io + NC2_BTCE_HEADTAIL);
 }
@@ -243,12 +272,19 @@ static inline __u64 get_head_tail_status(void *bte_io)
 		btce.s.dw_cnt = ndwords - 1;				\
 		btce.s.remote_addr = remote_addr >> 2;			\
 		btce.s.local_addr = local_addr >> 2;			\
-		DEBUG_STATEMENT(printf("btce: remote %016"PRIx64", local %016"PRIx64", dw_cnt %x\n", \
+		DEBUG_STATEMENT(printf("btce "#curr": remote %016"PRIx64", local %016"PRIx64", dw_cnt %x\n", \
 				       (uint64_t)remote_addr, (uint64_t)local_addr, ndwords)); \
 		remote_addr += ndwords<<2;				\
 		local_addr += ndwords<<2;				\
 		(curr) -= ndwords;					\
-		_mm_store_si128((__m128i *)btce_addr, btce.m128);	\
+		_mm_store_si128((__m128i *)btce_addr, btce.m128);       \
+	} while(0)
+
+#define UPDATE_LENGTH_OFFSET(x)			\
+	do {					\
+		length -= (x)<<2;		\
+		local_offset += (x)<<2;		\
+		remote_offset += (x)<<2;	\
 	} while(0)
 
 static int ncbte_transfer_region(struct ncbte_context *context,
@@ -258,70 +294,74 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 				 struct ncbte_completion **completionp)
 {
 	const __u32 max_btce_dwords = (1<<16);
-	__u64 local_addr, remote_addr;
-	__u32 bulk, head, tail;
-	int i, num_btce;
 
 	if (!context || !local_region || !remote_region)
 		return -1;
 
 	if (((local_offset+length) > local_region->mem.size) ||
 	    ((remote_offset+length) > remote_region->mem.size) ||
-	    BTCE_ALIGN_CHECK(local_offset) ||
+	    ((local_offset & 0x3f) != (remote_offset & 0x3f)) ||
 	    BTCE_ALIGN_CHECK(local_offset) ||
 	    BTCE_ALIGN_CHECK(length))
 		return -1;
 
-	if (!local_region->is_continous) {
-		fprintf(stderr, "local region is not physically continous, not yet supported!\n");
-		return -1;
-	}
+	do {
+		__u64 local_addr, remote_addr;
+		size_t local_length, remote_length;
+		__u32 head, bulk, tail;
+		unsigned i, num_btce;
 
-	if (!remote_region->is_continous) {
-		fprintf(stderr, "to region is not physically continous, not yet supported!\n");
-		return -1;
-	}
+		local_addr = _get_region_phys_addr(local_region, local_offset, &local_length);
+		remote_addr = _get_region_phys_addr(remote_region, remote_offset, &remote_length);
+		if ((local_length == 0) || (remote_length == 0)) {
+			fprintf(stderr, "local or remote region segment size is not supported!\n");
+			return -1;
+		}
 
-	bulk = length>>2;
-	local_addr = local_region->mem.phys_addr[0] + local_offset;
-	remote_addr = remote_region->mem.phys_addr[0] + remote_offset;
-	if ((local_addr & 0x3f) != (remote_addr & 0x3f)) {
-		fprintf(stderr, "local and remote address does not have compatible alignment!\n");
-		return -1;
-	}
+		bulk = MIN(MIN(local_length, remote_length), length) >>2;
 
-	/* Head alignment */
-	head = (local_addr & 0x3f) >> 2;
-	if (head) {
-		head = 0x10 - head; /* Align up to next 64b block */
-		bulk -= head;
-		num_btce = DIV_ROUND_UP(head, 4);
-		DEBUG_STATEMENT(printf("head = %x, num_btce = %x\n", head, num_btce));
-		for (i=0; i<num_btce && head > 0; i++)
-			SETUP_BTCE(i, head, 4);
-		_mm_sfence();
-	}
+		DEBUG_STATEMENT(printf("bulk %d, loffset %"PRIx64", roffset %"PRIx64", llength %"PRIx64", rlength %"PRIx64", length %"PRIx64"\n",
+				       bulk, (uint64_t)local_offset, (uint64_t)remote_offset,
+				       (uint64_t)local_length, (uint64_t)remote_length, length));
 
-	/* Shave off the tail before we do bulk */
-	tail = bulk & 0xf;
-	bulk -= tail;
+		/* Head alignment */
+		head = (local_addr & 0x3f) >> 2;
+		if (head) {
+			head = 0x10 - head; /* Align up to next 64b block */
+			bulk -= head;
+			UPDATE_LENGTH_OFFSET(head);
+			num_btce = DIV_ROUND_UP(head, 4);
+			DEBUG_STATEMENT(printf("head = %x, num_btce = %x\n", head, num_btce));
+			for (i=0; i<num_btce && head > 0; i++)
+				SETUP_BTCE(i, head, 4);
+			_mm_sfence();
+		}
 
-	/* Do bulk transfer in as long blocks as we can (64b aligned) */
-	if (bulk) {
-		num_btce = DIV_ROUND_UP(bulk, max_btce_dwords);
-		for (i=0; i<num_btce && bulk > 0; i++)
-			SETUP_BTCE(i, bulk, max_btce_dwords);
-		_mm_sfence();
-	}
+		/* Shave off the tail before we do bulk */
+		tail = bulk & 0xf;
+		bulk -= tail;
 
-	/* Tail alignment */
-	if (tail) {
-		num_btce = DIV_ROUND_UP(tail, 4);
-		DEBUG_STATEMENT(printf("tail = %x, num_btce = %x\n", tail, num_btce));
-		for (i=0; i<num_btce && tail > 0; i++)
-			SETUP_BTCE(i, tail, 4);
-		_mm_sfence();
-	}
+		/* Do bulk transfer in as long blocks as we can (64b aligned) */
+		if (bulk) {
+			UPDATE_LENGTH_OFFSET(bulk);
+			num_btce = DIV_ROUND_UP(bulk, max_btce_dwords);
+			for (i=0; i<num_btce && bulk > 0; i++)
+				SETUP_BTCE(i, bulk, max_btce_dwords);
+			_mm_sfence();
+		}
+
+		/* Tail alignment */
+		if (tail) {
+			UPDATE_LENGTH_OFFSET(tail);
+			num_btce = DIV_ROUND_UP(tail, 4);
+			DEBUG_STATEMENT(printf("tail = %x, num_btce = %x\n", tail, num_btce));
+			for (i=0; i<num_btce && tail > 0; i++)
+				SETUP_BTCE(i, tail, 4);
+			_mm_sfence();
+		}
+
+
+	} while (length > 0);
 
 	/* TODO: add proper per-transfer completion mechanisms */
 	if (completionp)
@@ -352,7 +392,7 @@ int ncbte_read_region(struct ncbte_context *context,
 
 int ncbte_check_completion(struct ncbte_context *context, struct ncbte_completion *UNUSED(completion))
 {
-	__u64 comp = get_completion_status(context->bte_io);
+	__u64 comp = _get_completion_status(context->bte_io);
 	if (comp == 0xffffffffffffffffULL)
 		return 1;
 	return 0;
@@ -361,7 +401,7 @@ int ncbte_check_completion(struct ncbte_context *context, struct ncbte_completio
 void ncbte_wait_completion(struct ncbte_context *context, struct ncbte_completion *UNUSED(completion))
 {
 	for (;;) {
-		__u64 comp = get_completion_status(context->bte_io);
+		__u64 comp = _get_completion_status(context->bte_io);
 		if (comp == 0xffffffffffffffffULL) break;
 		asm volatile("pause" ::: "memory");
 	}
