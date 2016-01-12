@@ -68,6 +68,7 @@ static void bind_node(long node)
 }
 
 #define SIZE ((1*1024*1024)+28)
+#define OFFSET 4
 
 int main(int argc, char **argv)
 {
@@ -112,7 +113,7 @@ int main(int argc, char **argv)
 	bind_node(local_node);
 
 	double t = gtod();
-	if (ncbte_write_region(context, local_region, 0, remote_region, 0, SIZE, NULL) < 0)
+	if (ncbte_write_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, NULL) < 0)
 		exit(-1);
 	ncbte_wait_completion(context, NULL);
 	t = gtod() - t;
@@ -120,7 +121,7 @@ int main(int argc, char **argv)
 	printf("Remote Write transferred %d bytes in %5.3f usec, %5.3f MByte/sec\n", SIZE, t, (double)SIZE/t);
 
 	t = gtod();
-	if (ncbte_read_region(context, local_region, 0, remote_region, 0, SIZE, NULL) < 0)
+	if (ncbte_read_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, NULL) < 0)
 		exit(-1);
 	ncbte_wait_completion(context, NULL);
 	t = gtod() - t;
@@ -128,7 +129,7 @@ int main(int argc, char **argv)
 	printf("Remote Read transferred %d bytes in %5.3f usec, %5.3f MByte/sec\n", SIZE, t, (double)SIZE/t);
 
 	printf("Verifying data : ");
-	if (memcmp(local_buf, remote_buf, SIZE) != 0)
+	if (memcmp(local_buf+OFFSET, remote_buf+OFFSET, SIZE) != 0)
 		printf("ERROR!\n");
 	else
 		printf("OK!\n");
