@@ -231,12 +231,25 @@ static inline __u64 get_head_tail_status(void *bte_io)
 	return *(__u64 *)((__u64)bte_io + NC2_BTCE_HEADTAIL);
 }
 
-static inline void commit_btce(void *bte_io, int btce_num, const btce_t *btcep)
-{
-	_mm_store_si128((__m128i *)((__u64)bte_io+(btce_num&3)*sizeof(btce_t)), btcep->m128);
-}
-
-#define WORKAROUND_ALIGN_BUG 1
+#define SETUP_BTCE(iter, curr, lim)					\
+	do {								\
+		btce_t btce;						\
+		__u32 ndwords = ((curr) > (lim)) ? (lim) : (curr);	\
+		__u64 btce_addr = (__u64)context->bte_io+((iter)*sizeof(btce_t)); \
+		btce.m128 = _mm_setzero_si128();			\
+		btce.s.valid = 1;					\
+		btce.s.direction = direction;				\
+		btce.s.move = 0;					\
+		btce.s.dw_cnt = ndwords - 1;				\
+		btce.s.remote_addr = remote_addr >> 2;			\
+		btce.s.local_addr = local_addr >> 2;			\
+		DEBUG_STATEMENT(printf("btce: remote %016"PRIx64", local %016"PRIx64", dw_cnt %x\n", \
+				       (uint64_t)remote_addr, (uint64_t)local_addr, ndwords)); \
+		remote_addr += ndwords<<2;				\
+		local_addr += ndwords<<2;				\
+		(curr) -= ndwords;					\
+		_mm_store_si128((__m128i *)btce_addr, btce.m128);	\
+	} while(0)
 
 static int ncbte_transfer_region(struct ncbte_context *context,
 				 struct ncbte_region *local_region, off_t local_offset,
@@ -246,10 +259,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 {
 	const __u32 max_btce_dwords = (1<<16);
 	__u64 local_addr, remote_addr;
-	__u32 ndwords;
-#ifdef WORKAROUND_ALIGN_BUG
-	__u32 rest;
-#endif
+	__u32 bulk, head, tail;
 	int i, num_btce;
 
 	if (!context || !local_region || !remote_region)
@@ -272,66 +282,46 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 		return -1;
 	}
 
-	ndwords = length>>2;
-#ifdef WORKAROUND_ALIGN_BUG
-	// Align bulk transfer to 64 bytes (16 dwords) because of known BTE issue
-	rest = ndwords & 0xf;
-	ndwords -= rest;
-#endif
+	bulk = length>>2;
 	local_addr = local_region->mem.phys_addr[0] + local_offset;
 	remote_addr = remote_region->mem.phys_addr[0] + remote_offset;
-	num_btce = DIV_ROUND_UP(ndwords, max_btce_dwords);
-
-	for (i=0; i<num_btce && ndwords > 0; i++) {
-		btce_t btce;
-		__u32 curr_dwords = (ndwords > max_btce_dwords) ? max_btce_dwords : ndwords;
-		btce.m128 = _mm_setzero_si128();
-		btce.s.valid = 1;
-		btce.s.direction = direction;
-		btce.s.move = 0;
-		btce.s.dw_cnt = curr_dwords - 1;
-		btce.s.remote_addr = remote_addr >> 2; // dword-aligned
-		btce.s.local_addr = local_addr >> 2; // dword-aligned
-
-		DEBUG_STATEMENT(printf("full btce: remote %016"PRIx64", local %016"PRIx64", dw_cnt %x\n",
-				       (uint64_t)remote_addr, (uint64_t)local_addr, curr_dwords));
-
-		remote_addr += curr_dwords<<2;
-		local_addr += curr_dwords<<2;
-		ndwords -= curr_dwords;
-
-		commit_btce(context->bte_io, i, &btce);
+	if ((local_addr & 0x3f) != (remote_addr & 0x3f)) {
+		fprintf(stderr, "local and remote address does not have compatible alignment!\n");
+		return -1;
 	}
-	_mm_sfence();
-#ifdef WORKAROUND_ALIGN_BUG
-	if (rest) {
-		/* Transfer the rest using up to 16-byte blocks */
-		ndwords = rest;
-		num_btce = DIV_ROUND_UP(ndwords, 4);
-		DEBUG_STATEMENT(printf("rest = %x, num_btce = %x\n", rest, num_btce));
-		for (i=0; i<num_btce && ndwords > 0; i++) {
-			btce_t btce;
-			__u32 curr_dwords = (ndwords > 4) ? 4 : ndwords;
-			btce.m128 = _mm_setzero_si128();
-			btce.s.valid = 1;
-			btce.s.direction = direction;
-			btce.s.move = 0;
-			btce.s.dw_cnt = curr_dwords - 1;
-			btce.s.remote_addr = remote_addr >> 2; // dword-aligned
-			btce.s.local_addr = local_addr >> 2; // dword-aligned
 
-			DEBUG_STATEMENT(printf("partial btce: remote %016"PRIx64", local %016"PRIx64", dw_cnt %x\n",
-					       (uint64_t)remote_addr, (uint64_t)local_addr, curr_dwords));
-
-			remote_addr += curr_dwords<<2;
-			local_addr += curr_dwords<<2;
-			ndwords -= curr_dwords;
-
-			commit_btce(context->bte_io, i, &btce);
-		}
+	/* Head alignment */
+	head = (local_addr & 0x3f) >> 2;
+	if (head) {
+		head = 0x10 - head; /* Align up to next 64b block */
+		bulk -= head;
+		num_btce = DIV_ROUND_UP(head, 4);
+		DEBUG_STATEMENT(printf("head = %x, num_btce = %x\n", head, num_btce));
+		for (i=0; i<num_btce && head > 0; i++)
+			SETUP_BTCE(i, head, 4);
+		_mm_sfence();
 	}
-	_mm_sfence();
-#endif
+
+	/* Shave off the tail before we do bulk */
+	tail = bulk & 0xf;
+	bulk -= tail;
+
+	/* Do bulk transfer in as long blocks as we can (64b aligned) */
+	if (bulk) {
+		num_btce = DIV_ROUND_UP(bulk, max_btce_dwords);
+		for (i=0; i<num_btce && bulk > 0; i++)
+			SETUP_BTCE(i, bulk, max_btce_dwords);
+		_mm_sfence();
+	}
+
+	/* Tail alignment */
+	if (tail) {
+		num_btce = DIV_ROUND_UP(tail, 4);
+		DEBUG_STATEMENT(printf("tail = %x, num_btce = %x\n", tail, num_btce));
+		for (i=0; i<num_btce && tail > 0; i++)
+			SETUP_BTCE(i, tail, 4);
+		_mm_sfence();
+	}
 
 	/* TODO: add proper per-transfer completion mechanisms */
 	if (completionp)
