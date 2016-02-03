@@ -82,6 +82,7 @@ void *memset_movnti(void *s, int c, size_t n)
 int main(int argc, char **argv)
 {
 	struct ncbte_context *context;
+	struct ncbte_completion *comp;
 	struct ncbte_region *local_region;
 	struct ncbte_region *remote_region;
 	void *local_buf = NULL, *remote_buf = NULL;
@@ -108,6 +109,11 @@ int main(int argc, char **argv)
 
 //		printf("Local test buffer allocated @ %016"PRIx64"\n", user_to_phys(local_buf));
 
+	// Allocate completion object
+	comp = ncbte_alloc_completion(context, 0);
+	if (!comp)
+		exit(-1);
+
 	// Allocate remote buffer
 	bind_node(remote_node);
 
@@ -123,16 +129,16 @@ int main(int argc, char **argv)
 
 	for (;;) {
 		double t = gtod();
-		if (ncbte_write_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, NULL) < 0)
+		if (ncbte_write_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, comp) < 0)
 		exit(-1);
-		ncbte_wait_completion(context, NULL);
+		ncbte_wait_completion(context, comp);
 		t = gtod() - t;
 		printf("write %d->%d %7.3f MByte/sec, ", local_node, remote_node, (double)SIZE/t);
 
 		t = gtod();
-		if (ncbte_read_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, NULL) < 0)
+		if (ncbte_read_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, comp) < 0)
 			exit(-1);
-		ncbte_wait_completion(context, NULL);
+		ncbte_wait_completion(context, comp);
 		t = gtod() - t;
 		printf("read %d->%d %5.3f MByte/sec\n", remote_node, local_node, (double)SIZE/t);
 	}

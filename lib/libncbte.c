@@ -66,18 +66,21 @@
 
 #define BTCE_ALIGN_CHECK(x) ((x) & 3)
 
-#define NC2_BTCE_COMPLETION 0x10000
-#define NC2_BTCE_HEADTAIL   0x10400
-
 struct ncbte_context {
-	int      devfd;
-	void    *bte_io;
+	int   devfd;
+	void *bte_io;
 };
 
 struct ncbte_region {
-	struct ncbte_mem      mem;
-	int                   allocated;
-	int                   is_continous;
+	struct ncbte_mem mem;
+	int              allocated;
+	int              is_continous;
+};
+
+struct ncbte_completion {
+	__u64  queue_num;
+	__u64  fence_paddr;
+	__u32 *fence;
 };
 
 typedef enum {
@@ -95,7 +98,8 @@ typedef union {
 		__u64 local_addr:46;
 		__u64 remote_addr:46;
 		__u64 dw_cnt:16;
-		__u64 unused:17;
+		__u64 unused:16;
+		__u64 fence:1;
 		__u64 move:1;
 		__u64 direction:1;
 		__u64 valid:1;
@@ -250,25 +254,14 @@ static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t off
 	return region->mem.phys_addr[page] + offset;
 }
 
-static inline __u64 _get_completion_status(void *bte_io)
-{
-	return *(__u64 *)((__u64)bte_io + NC2_BTCE_COMPLETION);
-}
-
-static inline __u64 _get_head_tail_status(void *bte_io)
-{
-	return *(__u64 *)((__u64)bte_io + NC2_BTCE_HEADTAIL);
-}
-
 #define SETUP_BTCE(iter, curr, lim)					\
 	do {								\
 		btce_t btce;						\
 		__u32 ndwords = ((curr) > (lim)) ? (lim) : (curr);	\
-		__u64 btce_addr = (__u64)context->bte_io+((iter)*sizeof(btce_t)); \
+		__u64 btce_addr = (__u64)context->bte_io+comp_offset+((iter)*sizeof(btce_t)); \
 		btce.m128 = _mm_setzero_si128();			\
 		btce.s.valid = 1;					\
 		btce.s.direction = direction;				\
-		btce.s.move = 0;					\
 		btce.s.dw_cnt = ndwords - 1;				\
 		btce.s.remote_addr = remote_addr >> 2;			\
 		btce.s.local_addr = local_addr >> 2;			\
@@ -291,9 +284,10 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 				 struct ncbte_region *local_region, off_t local_offset,
 				 struct ncbte_region *remote_region, off_t remote_offset,
 				 size_t length, btce_direction_t direction,
-				 struct ncbte_completion **completionp)
+				 struct ncbte_completion *completion)
 {
 	const __u32 max_btce_dwords = (1<<16);
+	const __u64 comp_offset = (completion) ? (completion->queue_num << 12) : 0;
 
 	if (!context || !local_region || !remote_region)
 		return -1;
@@ -359,50 +353,167 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 				SETUP_BTCE(i, tail, 4);
 			_mm_sfence();
 		}
-
-
 	} while (length > 0);
 
-	/* TODO: add proper per-transfer completion mechanisms */
-	if (completionp)
-		*completionp = NULL;
+	if (completion && completion->fence) {
+		btce_t btce;
+		__u64 btce_addr = (__u64)context->bte_io+comp_offset;
+		*completion->fence = -1;
+		btce.m128 = _mm_setzero_si128();
+		btce.s.valid = 1;
+		btce.s.fence = 1;
+		btce.s.local_addr = completion->fence_paddr >> 2;
+		DEBUG_STATEMENT(printf("btce fence: addr %016"PRIx64"\n",
+				       (uint64_t)local_addr, ndwords));
+		_mm_store_si128((__m128i *)btce_addr, btce.m128);
+		_mm_sfence();
+	}
 
 	return 0;
 }
 
+/**
+ * ncbte_write_region() - Read from local region and write to remote region
+ * @context:		Current BTE context
+ * @local_region:	Pointer to local region structure as returned by ncbte_alloc_region()
+ * @local_offset:	Offset into the local region where transfer should start
+ * @remote_region:	Pointer to remote region structure as returned by ncbte_alloc_region()
+ * @remote_offset:	Offset into the remote region where transfer should start
+ * @length:		Length of the transfer
+ * @completion:		Optional pointer to completion structure as returned by ncbte_alloc_completion()
+ *
+ * This function will start a BTE transfer that reads from the local_region and writes to
+ * the remote_region. If a @completion pointer is provided, this object will be signalled
+ * upon succesful transfer.
+ *
+ * Return: 0 if successful, or -1 if error occured.
+ */
 int ncbte_write_region(struct ncbte_context *context,
 		       struct ncbte_region *local_region, off_t local_offset,
 		       struct ncbte_region *remote_region, off_t remote_offset,
 		       size_t length,
-		       struct ncbte_completion **completionp)
+		       struct ncbte_completion *completion)
 {
 	return ncbte_transfer_region(context, local_region, local_offset,
-				     remote_region, remote_offset, length, REM_WRITE, completionp);
+				     remote_region, remote_offset, length, REM_WRITE, completion);
 }
 
+/**
+ * ncbte_read_region() - Read from remote region and write to local region
+ * @context:		Current BTE context
+ * @local_region:	Pointer to local region structure as returned by ncbte_alloc_region()
+ * @local_offset:	Offset into the local region where transfer should start
+ * @remote_region:	Pointer to remote region structure as returned by ncbte_alloc_region()
+ * @remote_offset:	Offset into the remote region where transfer should start
+ * @length:		Length of the transfer
+ * @completion:		Optional pointer to completion structure as returned by ncbte_alloc_completion()
+ *
+ * This function will start a BTE transfer that reads from the remote_region and writes to
+ * the local_region. If a @completion pointer is provided, this object will be signalled
+ * upon succesful transfer.
+ *
+ * Return: 0 if successful, or -1 if error occured.
+ */
 int ncbte_read_region(struct ncbte_context *context,
 		      struct ncbte_region *local_region, off_t local_offset,
 		      struct ncbte_region *remote_region, off_t remote_offset,
 		      size_t length,
-		      struct ncbte_completion **completionp)
+		      struct ncbte_completion *completion)
 {
 	return ncbte_transfer_region(context, local_region, local_offset,
-				     remote_region, remote_offset, length, REM_READ, completionp);
+				     remote_region, remote_offset, length, REM_READ, completion);
 }
 
-int ncbte_check_completion(struct ncbte_context *context, struct ncbte_completion *UNUSED(completion))
+/**
+ * ncbte_alloc_completion() - Allocate a completion object
+ * @context:	Current BTE context
+ * @flags:	Length of the transfer
+ *
+ * This function will allocate a completion object that can be used in read/write
+ * transfers and later in ncbte_check_completion() and ncbte_wait_completion().
+ *
+ * Return: Pointer to the completion object if successful, or NULL if error occured.
+ */
+struct ncbte_completion *ncbte_alloc_completion(struct ncbte_context *context, int UNUSED(flags))
 {
-	__u64 comp = _get_completion_status(context->bte_io);
-	if (comp == 0xffffffffffffffffULL)
-		return 1;
+	struct ncbte_completion *completion;
+
+	if (!context)
+		return NULL;
+
+	completion = (struct ncbte_completion *)malloc(sizeof(*completion));
+	if (!completion) {
+		fprintf(stderr,"malloc failed: %s\n", strerror(errno));
+		return NULL;
+	}
+	memset(completion, 0, sizeof(*completion));
+
+
+	return completion;
+}
+
+/**
+ * ncbte_free_completion() - Free a completion object
+ * @context:	Current BTE context
+ * @completion:	Pointer to completion structure as returned by ncbte_alloc_completion()
+ *
+ * This function will free a completion structure allocated by a previous call to
+ * ncbte_alloc_region(). If the completion object has pending transactions, this call
+ * will block until they complete or are interrupted.
+ *
+ * Return: 0 if successful, or -1 if error occured.
+ */
+int ncbte_free_completion(struct ncbte_context *context, struct ncbte_completion *completion)
+{
+	if (!context || !completion)
+		return -1;
+
+	free(completion);
+
 	return 0;
 }
 
-void ncbte_wait_completion(struct ncbte_context *context, struct ncbte_completion *UNUSED(completion))
+static inline __u64 _get_completion_status(void *bte_io, __u64 qword)
+{
+	return *(__u64 *)((__u64)bte_io + (qword<<3));
+}
+
+/**
+ * ncbte_check_completion() - Check a completion object for completion event
+ * @context:	Current BTE context
+ * @completion:	Pointer to completion structure as returned by ncbte_alloc_completion()
+ *
+ * This function will check completion structure for pending events.
+ *
+ * Return: 1 if no pending events, 0 if there still are pending events, or -1 if errors.
+ */
+int ncbte_check_completion(struct ncbte_context *context, struct ncbte_completion *completion)
+{
+	if (!context || !completion)
+		return -1;
+
+	if (!completion->fence) {
+		__u64 comp = _get_completion_status(context->bte_io, completion->queue_num >> 6);
+		if (comp & (1ULL << (completion->queue_num & 63)))
+			return 1;
+		return 0;
+	}
+	else
+		return *completion->fence == 0;
+}
+
+/**
+ * ncbte_wait_completion() - Wait for completion evetns on a completion object
+ * @context:	Current BTE context
+ * @completion:	Pointer to completion structure as returned by ncbte_alloc_completion()
+ *
+ * This function will check a completion structure for pending events and wait until
+ * all pending events complete.
+ */
+void ncbte_wait_completion(struct ncbte_context *context, struct ncbte_completion *completion)
 {
 	for (;;) {
-		__u64 comp = _get_completion_status(context->bte_io);
-		if (comp == 0xffffffffffffffffULL) break;
+		if (ncbte_check_completion(context, completion)) break;
 		asm volatile("pause" ::: "memory");
 	}
 }
