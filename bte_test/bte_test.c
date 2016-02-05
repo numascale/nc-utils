@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	// Allocate local buffer
 	bind_node(local_node);
 
-	local_buf = ncbte_alloc_region(context, NULL, ALLOC_SIZE, 0/*NCBTE_ALLOCATE_HUGEPAGE*/, &local_region);
+	local_buf = ncbte_alloc_region(context, NULL, ALLOC_SIZE, NCBTE_ALLOCATE_HUGEPAGE, &local_region);
 	if (!local_buf)
 		exit(-1);
 	memset_movnti(local_buf, 0xaa, ALLOC_SIZE);
@@ -117,14 +117,14 @@ int main(int argc, char **argv)
 //		printf("Local test buffer allocated @ %016"PRIx64"\n", user_to_phys(local_buf));
 
 	// Allocate completion object
-	comp = ncbte_alloc_completion(context, NCBTE_COMPLETION_FENCE);
+	comp = ncbte_alloc_completion(context, 0);
 	if (!comp)
 		exit(-1);
 
 	// Allocate remote buffer
 	bind_node(remote_node);
 
-	remote_buf = ncbte_alloc_region(context, NULL, ALLOC_SIZE, 0/*NCBTE_ALLOCATE_HUGEPAGE*/, &remote_region);
+	remote_buf = ncbte_alloc_region(context, NULL, ALLOC_SIZE, NCBTE_ALLOCATE_HUGEPAGE, &remote_region);
 	if (!remote_buf)
 		exit(-1);
 	memset_movnti(remote_buf, 0x55, ALLOC_SIZE);

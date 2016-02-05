@@ -24,14 +24,18 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pci/pci.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <emmintrin.h>
+#include <numa.h>
 
 #include "libncbte.h"
 #include "ncbte_io.h"
+#include "ncutils_lock.h"
+#include "ncutils_atomic.h"
 
 #ifdef DEBUG
 #define DEBUG_STATEMENT(x) x
@@ -60,6 +64,10 @@
 #define PAGE_SIZE 4096
 #endif
 
+#ifndef CACHE_LINE_SIZE
+#define CACHE_LINE_SIZE 64
+#endif
+
 #ifndef DIV_ROUND_UP
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 #endif
@@ -67,8 +75,13 @@
 #define BTCE_ALIGN_CHECK(x) ((x) & 3)
 
 struct ncbte_context {
-	int   devfd;
-	void *bte_io;
+	void                 *bte_io;
+	struct ncbte_region **comp_regions;
+	__u64                *comp_queues;
+	TicketLock_t          comp_lock;
+	int                   devfd;
+	int                   num_chips;
+	int                   numa_per_chip;
 };
 
 struct ncbte_region {
@@ -77,9 +90,10 @@ struct ncbte_region {
 };
 
 struct ncbte_completion {
-	__u64  queue_num;
-	__u64  fence_paddr;
-	__u32 *fence;
+	__u64           fence_paddr;
+	volatile __u32 *fence;
+	int             queue_num;
+	int             chip_no;
 };
 
 typedef enum {
@@ -104,6 +118,23 @@ typedef union {
 		__u64 valid:1;
 	} __attribute__ ((packed)) s;
 } __attribute__ ((packed, aligned(16))) btce_t;
+
+static inline __u64 rdtscp(__u32* id)
+{
+	__u32 lo, hi, aux;
+	__asm__ __volatile__ (".byte 0x0f,0x01,0xf9" : "=a" (lo), "=d" (hi), "=c" (aux));
+	*id = aux;
+	return (__u64)hi << 32 | lo;
+}
+
+static int get_current_chip(struct ncbte_context *context, int *core)
+{
+	__u32 cpuid;
+	(void)rdtscp(&cpuid);
+	if (core)
+		*core = cpuid & 0xfff;
+	return (cpuid >> 12) / context->numa_per_chip;
+}
 
 /**
  * ncbte_alloc_region() - Allocate and pin a user region of variable size
@@ -276,7 +307,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 				 struct ncbte_completion *completion)
 {
 	const __u32 max_btce_dwords = (1<<16);
-	const __u64 comp_offset = (completion) ? (completion->queue_num << 12) : 0;
+	const __u64 comp_offset = (completion) ? ((__u64)completion->queue_num << 12) : 0ULL;
 	unsigned num_descriptors = 0;
 
 	if (!context || !local_region || !remote_region)
@@ -345,7 +376,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 		}
 	} while (length > 0);
 
-	if (completion && completion->fence) {
+	if (completion) {
 		btce_t btce;
 		__u64 btce_addr = (__u64)context->bte_io+comp_offset;
 		*completion->fence = -1;
@@ -417,6 +448,19 @@ int ncbte_read_region(struct ncbte_context *context,
 				     remote_region, remote_offset, length, REM_READ, completion);
 }
 
+static inline int _get_available_queue(struct ncbte_context *context, int chip_no)
+{
+	unsigned i;
+
+	for (i = 0; i < 64; i++) {
+		if (!atomic_bit_test_set(&context->comp_queues[chip_no], i))
+			break;
+	}
+
+	return (i < 64) ? i : -1;
+}
+
+
 /**
  * ncbte_alloc_completion() - Allocate a completion object
  * @context:	Current BTE context
@@ -430,6 +474,8 @@ int ncbte_read_region(struct ncbte_context *context,
 struct ncbte_completion *ncbte_alloc_completion(struct ncbte_context *context, int UNUSED(flags))
 {
 	struct ncbte_completion *completion;
+	struct ncbte_region *comp_region;
+	int chip_no, core;
 
 	if (!context)
 		return NULL;
@@ -441,8 +487,33 @@ struct ncbte_completion *ncbte_alloc_completion(struct ncbte_context *context, i
 	}
 	memset(completion, 0, sizeof(*completion));
 
+	completion->chip_no = chip_no = get_current_chip(context, &core);
+	completion->queue_num = _get_available_queue(context, chip_no);
+	if (completion->queue_num < 0) {
+		fprintf(stderr,"no available completion queues %"PRIx64"\n", (uint64_t)context->comp_queues[chip_no]);
+		goto err;
+	}
+
+	QTicketAcquire(&context->comp_lock);
+	comp_region = context->comp_regions[chip_no];
+	if (!comp_region) {
+		if (ncbte_alloc_region(context, NULL, PAGE_SIZE, 0, &comp_region) == NULL) {
+			QTicketRelease(&context->comp_lock);
+			goto err;
+		}
+		context->comp_regions[chip_no] = comp_region;
+	}
+	QTicketRelease(&context->comp_lock);
+
+	completion->fence = (__u32 *)(comp_region->mem.addr + completion->queue_num*CACHE_LINE_SIZE);
+	completion->fence_paddr = comp_region->mem.phys_addr[0] + completion->queue_num*CACHE_LINE_SIZE;
 
 	return completion;
+
+err:
+	free(completion);
+
+	return NULL;
 }
 
 /**
@@ -461,14 +532,11 @@ int ncbte_free_completion(struct ncbte_context *context, struct ncbte_completion
 	if (!context || !completion)
 		return -1;
 
+	atomic_bit_clear(&context->comp_queues[completion->chip_no], completion->queue_num);
+
 	free(completion);
 
 	return 0;
-}
-
-static inline __u64 _get_completion_status(void *bte_io, __u64 qword)
-{
-	return *(__u64 *)((__u64)bte_io + (qword<<3));
 }
 
 /**
@@ -485,14 +553,10 @@ int ncbte_check_completion(struct ncbte_context *context, struct ncbte_completio
 	if (!context || !completion)
 		return -1;
 
-	if (!completion->fence) {
-		__u64 comp = _get_completion_status(context->bte_io, completion->queue_num >> 6);
-		if (comp & (1ULL << (completion->queue_num & 63)))
-			return 1;
-		return 0;
-	}
-	else
-		return *completion->fence == 0;
+	if (completion->chip_no != get_current_chip(context, NULL))
+		return -1;
+
+	return *completion->fence == 0;
 }
 
 /**
@@ -505,10 +569,42 @@ int ncbte_check_completion(struct ncbte_context *context, struct ncbte_completio
  */
 void ncbte_wait_completion(struct ncbte_context *context, struct ncbte_completion *completion)
 {
+	if (!context || !completion)
+		return;
+
+	if (completion->chip_no != get_current_chip(context, NULL))
+		return;
+
 	for (;;) {
-		if (ncbte_check_completion(context, completion)) break;
+		if (*completion->fence == 0) break;
 		asm volatile("pause" ::: "memory");
 	}
+}
+
+#define NUMASCALE_VENDOR_ID 0x1B47
+#define NUMACHIP2_DEVICE_ID  0x0700
+
+static int get_numachips(void)
+{
+	struct pci_access *pacc;
+	struct pci_filter our_filter = { -1, -1, -1, -1, NUMASCALE_VENDOR_ID, NUMACHIP2_DEVICE_ID };
+	struct pci_dev *device;
+	int num_numachips = 0;
+
+	pacc = pci_alloc();
+	if (pacc == NULL)
+		return -1;
+
+	pci_init(pacc);
+	pci_scan_bus(pacc);
+
+	for (device = pacc->devices; device; device = device->next) {
+		if (pci_filter_match(&our_filter, device))
+			num_numachips++;
+	}
+
+	pci_cleanup(pacc);
+	return num_numachips;
 }
 
 /**
@@ -518,18 +614,43 @@ struct ncbte_context *ncbte_open(int UNUSED(flags))
 {
 	const char *devname = "/dev/"NCBTE_DEVNAME;
 	struct ncbte_context *context;
+	int num_numa_nodes;
 
 	context = (struct ncbte_context *)malloc(sizeof(*context));
 	if (!context) {
 		fprintf(stderr,"malloc failed: %s\n", strerror(errno));
 		return NULL;
 	}
+	memset(context, 0, sizeof(*context));
 
 	context->devfd = open(devname, O_RDWR);
 	if (context->devfd < 0) {
 		fprintf(stderr, "Unable to open %s: %s\n", devname, strerror(errno));
 		goto err;
 	}
+
+	num_numa_nodes = numa_num_configured_nodes();
+	context->num_chips = get_numachips();
+	context->numa_per_chip = num_numa_nodes / context->num_chips;
+	if ((num_numa_nodes % context->num_chips) != 0) {
+		fprintf(stderr, "Uneven number of NUMA nodes per NumaChip (%d / %d)\n",
+			num_numa_nodes, context->num_chips);
+		goto err;
+	}
+
+	context->comp_regions = (struct ncbte_region **)malloc(context->num_chips * sizeof(*context->comp_regions));
+	if (!context->comp_regions) {
+		fprintf(stderr,"malloc failed: %s\n", strerror(errno));
+		goto err;
+	}
+	memset(context->comp_regions, 0, context->num_chips * sizeof(*context->comp_regions));
+
+	context->comp_queues = (__u64 *)malloc(context->num_chips * sizeof(*context->comp_queues));
+	if (!context->comp_queues) {
+		fprintf(stderr,"malloc failed: %s\n", strerror(errno));
+		goto err;
+	}
+	memset(context->comp_queues, 0, context->num_chips * sizeof(*context->comp_queues));
 
 	context->bte_io = (char *)mmap(NULL, NCBTE_MAX_MMAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, context->devfd, 0);
 	if (context->bte_io == MAP_FAILED) {
@@ -540,6 +661,11 @@ struct ncbte_context *ncbte_open(int UNUSED(flags))
 	return context;
 
 err:
+
+	if (context->comp_queues)
+		free(context->comp_queues);
+	if (context->comp_regions)
+		free(context->comp_regions);
 	if (context->devfd >= 0)
 		close(context->devfd);
 
@@ -553,6 +679,22 @@ err:
  */
 int ncbte_close(struct ncbte_context *context)
 {
+	int i;
+
+	QTicketAcquire(&context->comp_lock);
+	for (i=0; i<context->num_chips; i++) {
+		if (context->comp_regions[i]) {
+			if (ncbte_free_region(context, context->comp_regions[i]) < 0) {
+				QTicketRelease(&context->comp_lock);
+				return -1;
+			}
+			context->comp_regions[i] = NULL;
+		}
+	}
+	free(context->comp_regions);
+	free(context->comp_queues);
+	QTicketRelease(&context->comp_lock);
+
 	munmap(context->bte_io, NCBTE_MAX_MMAP_SIZE);
 	close(context->devfd);
 

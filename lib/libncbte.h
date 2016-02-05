@@ -30,7 +30,6 @@
 BEGIN_C_DECLS
 
 #define NCBTE_ALLOCATE_HUGEPAGE 0x1
-#define NCBTE_COMPLETION_FENCE  0x1
 
 struct ncbte_context;
 struct ncbte_region;
