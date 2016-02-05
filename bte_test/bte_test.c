@@ -76,7 +76,8 @@ void *memset_movnti(void *s, int c, size_t n)
 	return s;
 }
 
-#define SIZE ((1*1024*1024)+28)
+#define ALLOC_SIZE (100*1024*1024)
+#define TRANS_SIZE ((90*1024*1024)+28)
 #define OFFSET 4
 
 int main(int argc, char **argv)
@@ -95,6 +96,12 @@ int main(int argc, char **argv)
 	int local_node = strtol(argv[1], NULL, 0);
 	int remote_node = strtol(argv[2], NULL, 0);
 
+	if (local_node > numa_max_node() ||
+	    remote_node > numa_max_node()) {
+		printf("Invalid node number specified\n");
+		exit(1);
+	}
+
 	context = ncbte_open(0);
 	if (!context)
 		exit(-1);
@@ -102,48 +109,48 @@ int main(int argc, char **argv)
 	// Allocate local buffer
 	bind_node(local_node);
 
-	local_buf = ncbte_alloc_region(context, NULL, 2*1024*1024, NCBTE_ALLOCATE_HUGEPAGE, &local_region);
+	local_buf = ncbte_alloc_region(context, NULL, ALLOC_SIZE, 0/*NCBTE_ALLOCATE_HUGEPAGE*/, &local_region);
 	if (!local_buf)
 		exit(-1);
-	memset_movnti(local_buf, 0xaa, SIZE);
+	memset_movnti(local_buf, 0xaa, ALLOC_SIZE);
 
 //		printf("Local test buffer allocated @ %016"PRIx64"\n", user_to_phys(local_buf));
 
 	// Allocate completion object
-	comp = ncbte_alloc_completion(context, 0);
+	comp = ncbte_alloc_completion(context, NCBTE_COMPLETION_FENCE);
 	if (!comp)
 		exit(-1);
 
 	// Allocate remote buffer
 	bind_node(remote_node);
 
-	remote_buf = ncbte_alloc_region(context, NULL, 2*1024*1024, NCBTE_ALLOCATE_HUGEPAGE, &remote_region);
+	remote_buf = ncbte_alloc_region(context, NULL, ALLOC_SIZE, 0/*NCBTE_ALLOCATE_HUGEPAGE*/, &remote_region);
 	if (!remote_buf)
 		exit(-1);
-	memset_movnti(remote_buf, 0x55, SIZE);
+	memset_movnti(remote_buf, 0x55, ALLOC_SIZE);
 
 //		printf("Remote test buffer allocated @ %016"PRIx64"\n", user_to_phys(remote_buf));
 
 	// Jump back to local core
 	bind_node(local_node);
 
-	for (;;) {
+//	for (;;) {
 		double t = gtod();
-		if (ncbte_write_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, comp) < 0)
+		if (ncbte_write_region(context, local_region, OFFSET, remote_region, OFFSET, TRANS_SIZE, comp) < 0)
 		exit(-1);
 		ncbte_wait_completion(context, comp);
 		t = gtod() - t;
-		printf("write %d->%d %7.3f MByte/sec, ", local_node, remote_node, (double)SIZE/t);
+		printf("write %d->%d %7.3f MByte/sec, ", local_node, remote_node, (double)TRANS_SIZE/t);
 
 		t = gtod();
-		if (ncbte_read_region(context, local_region, OFFSET, remote_region, OFFSET, SIZE, comp) < 0)
+		if (ncbte_read_region(context, local_region, OFFSET, remote_region, OFFSET, TRANS_SIZE, comp) < 0)
 			exit(-1);
 		ncbte_wait_completion(context, comp);
 		t = gtod() - t;
-		printf("read %d->%d %5.3f MByte/sec\n", remote_node, local_node, (double)SIZE/t);
-	}
+		printf("read %d->%d %5.3f MByte/sec\n", remote_node, local_node, (double)TRANS_SIZE/t);
+//	}
 
-	if (memcmp(local_buf+OFFSET, remote_buf+OFFSET, SIZE) != 0)
+	if (memcmp(local_buf+OFFSET, remote_buf+OFFSET, TRANS_SIZE) != 0)
 		printf("ERROR!\n");
 	else
 		printf("OK!\n");
