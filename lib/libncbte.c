@@ -119,6 +119,16 @@ typedef union {
 	} __attribute__ ((packed)) s;
 } __attribute__ ((packed, aligned(16))) btce_t;
 
+#if defined(USE_SCHED_GETCPU)
+#include <sched.h>
+static int get_current_chip(struct ncbte_context *context)
+{
+	int numa_node = numa_node_of_cpu(sched_getcpu());
+	if (numa_node < 0)
+		return -1;
+	return numa_node / context->numa_per_chip;
+}
+#else
 static inline __u64 rdtscp(__u32* id)
 {
 	__u32 lo, hi, aux;
@@ -127,14 +137,13 @@ static inline __u64 rdtscp(__u32* id)
 	return (__u64)hi << 32 | lo;
 }
 
-static int get_current_chip(struct ncbte_context *context, int *core)
+static int get_current_chip(struct ncbte_context *context)
 {
 	__u32 cpuid;
 	(void)rdtscp(&cpuid);
-	if (core)
-		*core = cpuid & 0xfff;
 	return (cpuid >> 12) / context->numa_per_chip;
 }
+#endif
 
 /**
  * ncbte_alloc_region() - Allocate and pin a user region of variable size
@@ -475,7 +484,7 @@ struct ncbte_completion *ncbte_alloc_completion(struct ncbte_context *context, i
 {
 	struct ncbte_completion *completion;
 	struct ncbte_region *comp_region;
-	int chip_no, core;
+	int chip_no;
 
 	if (!context)
 		return NULL;
@@ -487,7 +496,12 @@ struct ncbte_completion *ncbte_alloc_completion(struct ncbte_context *context, i
 	}
 	memset(completion, 0, sizeof(*completion));
 
-	completion->chip_no = chip_no = get_current_chip(context, &core);
+	completion->chip_no = chip_no = get_current_chip(context);
+	if (chip_no < 0) {
+		fprintf(stderr,"unable to determine current cpu\n");
+		goto err;
+	}
+
 	completion->queue_num = _get_available_queue(context, chip_no);
 	if (completion->queue_num < 0) {
 		fprintf(stderr,"no available completion queues %"PRIx64"\n", (uint64_t)context->comp_queues[chip_no]);
@@ -553,7 +567,7 @@ int ncbte_check_completion(struct ncbte_context *context, struct ncbte_completio
 	if (!context || !completion)
 		return -1;
 
-	if (completion->chip_no != get_current_chip(context, NULL))
+	if (completion->chip_no != get_current_chip(context))
 		return -1;
 
 	return *completion->fence == 0;
@@ -572,7 +586,7 @@ void ncbte_wait_completion(struct ncbte_context *context, struct ncbte_completio
 	if (!context || !completion)
 		return;
 
-	if (completion->chip_no != get_current_chip(context, NULL))
+	if (completion->chip_no != get_current_chip(context))
 		return;
 
 	for (;;) {
