@@ -277,24 +277,35 @@
 					  : "m" (*mem), "r" (1UL << (bit))); \
 	} while (0)
 
+#define atomic_bit_clear(mem, bit)					\
+	do {								\
+		if (sizeof (*mem) == 1)					\
+			__asm __volatile (LOCK_PREFIX "andb %b2, %0"	\
+					  : "=m" (*mem)			\
+					  : "m" (*mem), "iq" (~(1L << (bit)))); \
+		else if (sizeof (*mem) == 2)				\
+			__asm __volatile (LOCK_PREFIX "andw %w2, %0"	\
+					  : "=m" (*mem)			\
+					  : "m" (*mem), "ir" (~(1L << (bit)))); \
+		else if (sizeof (*mem) == 4)				\
+			__asm __volatile (LOCK_PREFIX "andl %2, %0"	\
+					  : "=m" (*mem)			\
+					  : "m" (*mem), "ir" (~(1L << (bit)))); \
+		else if (__builtin_constant_p (bit) && (bit) < 32)	\
+			__asm __volatile (LOCK_PREFIX "andq %2, %0"	\
+					  : "=m" (*mem)			\
+					  : "m" (*mem), "i" (~(1L << (bit)))); \
+		else							\
+			__asm __volatile (LOCK_PREFIX "andq %q2, %0"	\
+					  : "=m" (*mem)			\
+					  : "m" (*mem), "r" (~(1UL << (bit)))); \
+	} while (0)
+
 #define atomic_bit_test_set(mem, bit)                                   \
 	({ unsigned char __result;					\
-		if (sizeof (*mem) == 1)					\
-			__asm __volatile (LOCK_PREFIX "btsb %3, %1; setc %0" \
-					  : "=q" (__result), "=m" (*mem) \
-					  : "m" (*mem), "iq" (bit));	\
-		else if (sizeof (*mem) == 2)				\
-			__asm __volatile (LOCK_PREFIX "btsw %3, %1; setc %0" \
-					  : "=q" (__result), "=m" (*mem) \
-					  : "m" (*mem), "ir" (bit));	\
-		else if (sizeof (*mem) == 4)				\
-			__asm __volatile (LOCK_PREFIX "btsl %3, %1; setc %0" \
-					  : "=q" (__result), "=m" (*mem) \
-					  : "m" (*mem), "ir" (bit));	\
-		else							\
-			__asm __volatile (LOCK_PREFIX " btsq %3, %1; setc %0" \
-					  : "=q" (__result), "=m" (*mem) \
-					  : "m" (*mem), "ir" (bit));	\
+		__asm __volatile (LOCK_PREFIX "bts %3, %1; setc %0"	\
+				  : "=q" (__result), "=m" (*mem)	\
+				  : "m" (*mem), "ir" (bit));		\
 		__result; })
 
 #endif
