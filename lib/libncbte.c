@@ -74,7 +74,6 @@ struct ncbte_context {
 struct ncbte_region {
 	struct ncbte_mem mem;
 	int              allocated;
-	int              is_continous;
 };
 
 struct ncbte_completion {
@@ -105,19 +104,6 @@ typedef union {
 		__u64 valid:1;
 	} __attribute__ ((packed)) s;
 } __attribute__ ((packed, aligned(16))) btce_t;
-
-static int check_continous(struct ncbte_mem *mem)
-{
-	__u64 start_phys_addr = mem->phys_addr[0];
-	unsigned page;
-	for (page = 0; page < mem->nr_pages; page++) {
-		__u64 expected_phys_addr = start_phys_addr + page*PAGE_SIZE;
-		__u64 current_phys_addr = mem->phys_addr[page];
-		if (current_phys_addr != expected_phys_addr)
-			return 0;
-	}
-	return 1;
-}
 
 /**
  * ncbte_alloc_region() - Allocate and pin a user region of variable size
@@ -182,8 +168,6 @@ void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length
 		goto err;
 	}
 
-	region->is_continous = check_continous(&region->mem);
-
 	*regionp = region;
 
 	return vaddr;
@@ -231,12 +215,8 @@ int ncbte_free_region(struct ncbte_context *context, struct ncbte_region *region
 
 static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t offset, size_t *lengthp)
 {
+	__u64 start_phys_addr, expected_phys_addr;
 	unsigned page;
-
-	if (region->is_continous) {
-		*lengthp = region->mem.size - offset;
-		return region->mem.phys_addr[0] + offset;
-	}
 
 	*lengthp = 0;
 
@@ -250,8 +230,16 @@ static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t off
 	if (page == region->mem.nr_pages)
 		return 0;
 
+	start_phys_addr = region->mem.phys_addr[page];
 	*lengthp = PAGE_SIZE - offset;
-	return region->mem.phys_addr[page] + offset;
+	for (page++, expected_phys_addr = start_phys_addr + PAGE_SIZE; page < region->mem.nr_pages; page++) {
+		if (region->mem.phys_addr[page] != expected_phys_addr)
+			break;
+		expected_phys_addr += PAGE_SIZE;
+		*lengthp += PAGE_SIZE;
+	}
+
+	return start_phys_addr + offset;
 }
 
 #define SETUP_BTCE(iter, curr, lim)					\
@@ -270,6 +258,7 @@ static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t off
 		remote_addr += ndwords<<2;				\
 		local_addr += ndwords<<2;				\
 		(curr) -= ndwords;					\
+		num_descriptors++;					\
 		_mm_store_si128((__m128i *)btce_addr, btce.m128);       \
 	} while(0)
 
@@ -288,6 +277,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 {
 	const __u32 max_btce_dwords = (1<<16);
 	const __u64 comp_offset = (completion) ? (completion->queue_num << 12) : 0;
+	unsigned num_descriptors = 0;
 
 	if (!context || !local_region || !remote_region)
 		return -1;
@@ -365,9 +355,12 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 		btce.s.local_addr = completion->fence_paddr >> 2;
 		DEBUG_STATEMENT(printf("btce fence: addr %016"PRIx64"\n",
 				       (uint64_t)local_addr, ndwords));
+		num_descriptors++;
 		_mm_store_si128((__m128i *)btce_addr, btce.m128);
 		_mm_sfence();
 	}
+
+	DEBUG_STATEMENT(printf("submitted %d descriptors\n", num_descriptors));
 
 	return 0;
 }
