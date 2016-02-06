@@ -186,9 +186,10 @@ void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length
 
 		region->allocated = 1;
 
+#if defined(MADV_HUGEPAGE)
 		if (flags & NCBTE_ALLOCATE_HUGEPAGE)
 			(void)madvise(vaddr, length, MADV_HUGEPAGE);
-
+#endif
 		memset(vaddr, 0, length);
 	} else if ((__u64)ptr & (PAGE_SIZE-1)) {
 		fprintf(stderr, "virtual address not page aligned %p\n", ptr);
