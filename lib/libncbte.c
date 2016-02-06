@@ -98,8 +98,10 @@ struct ncbte_completion {
 
 typedef enum {
 	REM_WRITE = 0,
-	REM_READ  = 1
-} btce_direction_t;
+	REM_MOVE  = 1,
+	REM_READ  = 2,
+	REM_CLEAR = 3
+} btce_op_t;
 
 typedef union {
 	__m128i m128;
@@ -113,8 +115,7 @@ typedef union {
 		__u64 dw_cnt:16;
 		__u64 unused:16;
 		__u64 fence:1;
-		__u64 move:1;
-		__u64 direction:1;
+		__u64 op:2;
 		__u64 valid:1;
 	} __attribute__ ((packed)) s;
 } __attribute__ ((packed, aligned(16))) btce_t;
@@ -258,6 +259,12 @@ static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t off
 	__u64 start_phys_addr, expected_phys_addr;
 	unsigned page;
 
+	/* special case when region is NULL */
+	if (!region) {
+		*lengthp = SIZE_MAX;
+		return 0;
+	}
+
 	*lengthp = 0;
 
 	for (page = 0; page < region->mem.nr_pages && offset > 0; page++) {
@@ -289,7 +296,7 @@ static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t off
 		__u64 btce_addr = (__u64)context->bte_io+comp_offset+((iter)*sizeof(btce_t)); \
 		btce.m128 = _mm_setzero_si128();			\
 		btce.s.valid = 1;					\
-		btce.s.direction = direction;				\
+		btce.s.op = op;						\
 		btce.s.dw_cnt = ndwords - 1;				\
 		btce.s.remote_addr = remote_addr >> 2;			\
 		btce.s.local_addr = local_addr >> 2;			\
@@ -312,22 +319,12 @@ static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t off
 static int ncbte_transfer_region(struct ncbte_context *context,
 				 struct ncbte_region *local_region, off_t local_offset,
 				 struct ncbte_region *remote_region, off_t remote_offset,
-				 size_t length, btce_direction_t direction,
+				 size_t length, btce_op_t op,
 				 struct ncbte_completion *completion)
 {
 	const __u32 max_btce_dwords = (1<<16);
 	const __u64 comp_offset = (completion) ? ((__u64)completion->queue_num << 12) : 0ULL;
 	unsigned num_descriptors = 0;
-
-	if (!context || !local_region || !remote_region)
-		return -1;
-
-	if (((local_offset+length) > local_region->mem.size) ||
-	    ((remote_offset+length) > remote_region->mem.size) ||
-	    ((local_offset & 0x3f) != (remote_offset & 0x3f)) ||
-	    BTCE_ALIGN_CHECK(local_offset) ||
-	    BTCE_ALIGN_CHECK(length))
-		return -1;
 
 	do {
 		__u64 local_addr, remote_addr;
@@ -427,6 +424,16 @@ int ncbte_write_region(struct ncbte_context *context,
 		       size_t length,
 		       struct ncbte_completion *completion)
 {
+	if (!context || !local_region || !remote_region)
+		return -1;
+
+	if (((local_offset+length) > local_region->mem.size) ||
+	    ((remote_offset+length) > remote_region->mem.size) ||
+	    ((local_offset & 0x3f) != (remote_offset & 0x3f)) ||
+	    BTCE_ALIGN_CHECK(local_offset) ||
+	    BTCE_ALIGN_CHECK(length))
+		return -1;
+
 	return ncbte_transfer_region(context, local_region, local_offset,
 				     remote_region, remote_offset, length, REM_WRITE, completion);
 }
@@ -453,8 +460,48 @@ int ncbte_read_region(struct ncbte_context *context,
 		      size_t length,
 		      struct ncbte_completion *completion)
 {
+	if (!context || !local_region || !remote_region)
+		return -1;
+
+	if (((local_offset+length) > local_region->mem.size) ||
+	    ((remote_offset+length) > remote_region->mem.size) ||
+	    ((local_offset & 0x3f) != (remote_offset & 0x3f)) ||
+	    BTCE_ALIGN_CHECK(local_offset) ||
+	    BTCE_ALIGN_CHECK(length))
+		return -1;
+
 	return ncbte_transfer_region(context, local_region, local_offset,
 				     remote_region, remote_offset, length, REM_READ, completion);
+}
+
+/**
+ * ncbte_clear_region() - Clear a remote region
+ * @context:		Current BTE context
+ * @remote_region:	Pointer to remote region structure as returned by ncbte_alloc_region()
+ * @remote_offset:	Offset into the remote region where transfer should start
+ * @length:		Length of the transfer
+ * @completion:		Optional pointer to completion structure as returned by ncbte_alloc_completion()
+ *
+ * This function will start a BTE transfer that clears the remote_region. If a @completion
+ * pointer is provided, this object will be signalled upon succesful transfer.
+ *
+ * Return: 0 if successful, or -1 if error occured.
+ */
+int ncbte_clear_region(struct ncbte_context *context,
+		       struct ncbte_region *remote_region, off_t remote_offset,
+		       size_t length,
+		       struct ncbte_completion *completion)
+{
+	if (!context || !remote_region)
+		return -1;
+
+	if (((remote_offset+length) > remote_region->mem.size) ||
+	    (remote_offset & 0x3f) ||
+	    (length & 0x3f))
+		return -1;
+
+	return ncbte_transfer_region(context, NULL, 0,
+				     remote_region, remote_offset, length, REM_CLEAR, completion);
 }
 
 static inline int _get_available_queue(struct ncbte_context *context, int chip_no)

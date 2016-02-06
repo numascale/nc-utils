@@ -111,6 +111,24 @@ int ncbte_read_region(struct ncbte_context *context,
 		      struct ncbte_completion *completion);
 
 /**
+ * ncbte_clear_region() - Clear a remote region
+ * @context:		Current BTE context
+ * @remote_region:	Pointer to remote region structure as returned by ncbte_alloc_region()
+ * @remote_offset:	Offset into the remote region where transfer should start
+ * @length:		Length of the transfer
+ * @completion:		Optional pointer to completion structure as returned by ncbte_alloc_completion()
+ *
+ * This function will start a BTE transfer that clears the remote_region. If a @completion
+ * pointer is provided, this object will be signalled upon succesful transfer.
+ *
+ * Return: 0 if successful, or -1 if error occured.
+ */
+int ncbte_clear_region(struct ncbte_context *context,
+		       struct ncbte_region *remote_region, off_t remote_offset,
+		       size_t length,
+		       struct ncbte_completion *completion);
+
+/**
  * ncbte_alloc_completion() - Allocate a completion object
  * @context:	Current BTE context
  * @flags:	Length of the transfer

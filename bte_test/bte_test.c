@@ -77,8 +77,8 @@ void *memset_movnti(void *s, int c, size_t n)
 }
 
 #define ALLOC_SIZE (100*1024*1024)
-#define TRANS_SIZE ((90*1024*1024)+28)
-#define OFFSET 4
+#define TRANS_SIZE ((90*1024*1024)+0)
+#define OFFSET 0
 
 int main(int argc, char **argv)
 {
@@ -135,7 +135,16 @@ int main(int argc, char **argv)
 	bind_node(local_node);
 
 //	for (;;) {
-		double t = gtod();
+		double t;
+/*
+		t = gtod();
+		if (ncbte_clear_region(context, remote_region, 0, ALLOC_SIZE, comp) < 0)
+			exit(-1);
+		ncbte_wait_completion(context, comp);
+		t = gtod() - t;
+		printf("clear %d->%d %7.3f MByte/sec, ", local_node, remote_node, (double)ALLOC_SIZE/t);
+*/
+		t = gtod();
 		if (ncbte_write_region(context, local_region, OFFSET, remote_region, OFFSET, TRANS_SIZE, comp) < 0)
 		exit(-1);
 		ncbte_wait_completion(context, comp);
@@ -147,7 +156,7 @@ int main(int argc, char **argv)
 			exit(-1);
 		ncbte_wait_completion(context, comp);
 		t = gtod() - t;
-		printf("read %d->%d %5.3f MByte/sec\n", remote_node, local_node, (double)TRANS_SIZE/t);
+		printf("read %d->%d %7.3f MByte/sec\n", remote_node, local_node, (double)TRANS_SIZE/t);
 //	}
 
 	if (memcmp(local_buf+OFFSET, remote_buf+OFFSET, TRANS_SIZE) != 0)
