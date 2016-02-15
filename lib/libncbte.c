@@ -716,7 +716,7 @@ struct ncbte_context *ncbte_open(int UNUSED(flags))
 	}
 	memset(context->comp_queues, 0, context->num_chips * sizeof(*context->comp_queues));
 
-	context->bte_io = (char *)mmap(NULL, NCBTE_MAX_MMAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, context->devfd, 0);
+	context->bte_io = (char *)mmap(NULL, NCBTE_MMAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, context->devfd, 0);
 	if (context->bte_io == MAP_FAILED) {
 		fprintf(stderr, "Mmap failed: %s\n", strerror(errno));
 		goto err;
@@ -759,7 +759,7 @@ int ncbte_close(struct ncbte_context *context)
 	free(context->comp_queues);
 	QTicketRelease(&context->comp_lock);
 
-	munmap(context->bte_io, NCBTE_MAX_MMAP_SIZE);
+	munmap(context->bte_io, NCBTE_MMAP_SIZE);
 	close(context->devfd);
 
 	free(context);

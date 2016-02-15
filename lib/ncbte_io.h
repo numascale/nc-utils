@@ -19,7 +19,7 @@
 
 #define NCBTE_DEVNAME		"ncbte"
 #define NCBTE_IOC_CODE		0xca
-#define NCBTE_MAX_MMAP_SIZE	0x200000
+#define NCBTE_MMAP_SIZE		0x200000
 
 /**
  * struct ncbte_region - Memory pinning/unpinning information
