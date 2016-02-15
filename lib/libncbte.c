@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sched.h>
 #include <pci/pci.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -121,7 +122,6 @@ typedef union {
 } __attribute__ ((packed, aligned(16))) btce_t;
 
 #if defined(USE_SCHED_GETCPU)
-#include <sched.h>
 static int get_current_chip(struct ncbte_context *context)
 {
 	int numa_node = numa_node_of_cpu(sched_getcpu());
@@ -179,8 +179,10 @@ void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length
 	/* No region was given, allocate one */
 	if (!ptr) {
 		const size_t alignment = (flags & NCBTE_ALLOCATE_HUGEPAGE) ? HUGE_PAGE_SIZE : PAGE_SIZE;
-		if (posix_memalign(&vaddr, alignment, length) != 0) {
-			fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
+		length = ((length + alignment - 1) / alignment) * alignment;
+		vaddr = mmap(NULL, length, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		if (vaddr == NULL) {
+			fprintf(stderr, "mmap failed: %s\n", strerror(errno));
 			goto err;
 		}
 
@@ -218,7 +220,7 @@ err:
 	if (region->mem.phys_addr != 0)
 		free((void *)region->mem.phys_addr);
 	if (region->allocated && (region->mem.addr != 0))
-		free((void *)region->mem.addr);
+		munmap((void *)region->mem.addr, (size_t)region->mem.size);
 	free(region);
 
 	return NULL;
@@ -249,7 +251,7 @@ int ncbte_free_region(struct ncbte_context *context, struct ncbte_region *region
 	if (region->mem.phys_addr != 0)
 		free((void *)region->mem.phys_addr);
 	if (region->allocated && (region->mem.addr != 0))
-		free((void *)region->mem.addr);
+		munmap((void *)region->mem.addr, (size_t)region->mem.size);
 	free(region);
 
 	return 0;
