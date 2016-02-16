@@ -113,11 +113,11 @@ typedef union {
 	struct {
 		__u64 local_addr:46;
 		__u64 remote_addr:46;
-		__u64 dw_cnt:16;
-		__u64 unused:16;
+		__u64 dw_cnt:19;
+		__u64 unused1:13;
 		__u64 fence:1;
 		__u64 op:2;
-		__u64 valid:1;
+		__u64 unused2:1;
 	} __attribute__ ((packed)) s;
 } __attribute__ ((packed, aligned(16))) btce_t;
 
@@ -298,7 +298,6 @@ static inline __u64 _get_region_phys_addr(struct ncbte_region *region, off_t off
 		__u32 ndwords = ((curr) > (lim)) ? (lim) : (curr);	\
 		__u64 btce_addr = (__u64)context->bte_io+comp_offset+((iter)*sizeof(btce_t)); \
 		btce.m128 = _mm_setzero_si128();			\
-		btce.s.valid = 1;					\
 		btce.s.op = op;						\
 		btce.s.dw_cnt = ndwords - 1;				\
 		btce.s.remote_addr = remote_addr >> 2;			\
@@ -325,7 +324,7 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 				 size_t length, btce_op_t op,
 				 struct ncbte_completion *completion)
 {
-	const __u32 max_btce_dwords = (1<<16);
+	const __u32 max_btce_dwords = (1<<19);
 	const __u64 comp_offset = (completion) ? ((__u64)completion->queue_num << 12) : 0ULL;
 	unsigned num_descriptors = 0;
 
@@ -390,7 +389,6 @@ static int ncbte_transfer_region(struct ncbte_context *context,
 		__u64 btce_addr = (__u64)context->bte_io+comp_offset;
 		*completion->fence = -1;
 		btce.m128 = _mm_setzero_si128();
-		btce.s.valid = 1;
 		btce.s.fence = 1;
 		btce.s.local_addr = completion->fence_paddr >> 2;
 		DEBUG_STATEMENT(printf("btce fence: addr %016"PRIx64"\n",
