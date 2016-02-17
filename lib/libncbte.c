@@ -32,6 +32,7 @@
 #include <sys/ioctl.h>
 #include <emmintrin.h>
 #include <numa.h>
+#include <numaif.h>
 
 #include "libncbte.h"
 #include "ncbte_io.h"
@@ -63,6 +64,7 @@
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#define PAGE_MASK (PAGE_SIZE-1)
 #endif
 
 #ifndef CACHE_LINE_SIZE
@@ -146,6 +148,41 @@ static int get_current_chip(struct ncbte_context *context)
 }
 #endif
 
+static int check_numa_node(void *ptr, size_t length, int numa_node)
+{
+	unsigned nr_pages = DIV_ROUND_UP(length, PAGE_SIZE);
+	void **pages = alloca(nr_pages * sizeof(void *));
+	int *status = alloca(nr_pages * sizeof(int));
+	unsigned page;
+
+	if (!pages || !status) {
+		fprintf(stderr, "alloca for %d pages failed\n", nr_pages);
+		return -1;
+	}
+
+	for (page = 0; page < nr_pages; page++)
+		pages[page] = (void *)((unsigned long)ptr + page*PAGE_SIZE);
+
+	if (move_pages(0, nr_pages, pages, NULL, status, 0) < 0) {
+		fprintf(stderr, "error in move_pages\n");
+		return -1;
+	}
+
+	for (page = 0; page < nr_pages; page++) {
+		if (status[page] < 0) {
+			fprintf(stderr, "page %d (%p): %s\n", page, pages[page], strerror(-status[page]));
+			return -1;
+		}
+		if (status[page] != numa_node) {
+			fprintf(stderr, "page %d (%p, %d) not on numa node %d\n",
+				page, pages[page], status[page], numa_node);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * ncbte_alloc_region() - Allocate and pin a user region of variable size
  * @context:	Current BTE context
@@ -164,10 +201,17 @@ static int get_current_chip(struct ncbte_context *context)
 void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length, int flags, struct ncbte_region **regionp)
 {
 	struct ncbte_region *region;
+	int numa_node;
 	void *vaddr = ptr;
 
 	if (!context || !regionp)
 		return NULL;
+
+	numa_node = numa_node_of_cpu(sched_getcpu());
+	if (numa_node < 0) {
+		fprintf(stderr, "unable to determine current NUMA node\n");
+		return NULL;
+	}
 
 	region = (struct ncbte_region *)malloc(sizeof(*region));
 	if (!region) {
@@ -180,9 +224,10 @@ void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length
 	if (!ptr) {
 		const size_t alignment = (flags & NCBTE_ALLOCATE_HUGEPAGE) ? HUGE_PAGE_SIZE : PAGE_SIZE;
 		length = ((length + alignment - 1) / alignment) * alignment;
-		vaddr = mmap(NULL, length, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		numa_set_bind_policy(1); // set strict bind policy
+		vaddr = numa_alloc_onnode(length, numa_node);
 		if (vaddr == NULL) {
-			fprintf(stderr, "mmap failed: %s\n", strerror(errno));
+			fprintf(stderr, "numa_alloc_onnode failed: %s\n", strerror(errno));
 			goto err;
 		}
 
@@ -192,10 +237,15 @@ void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length
 		if (flags & NCBTE_ALLOCATE_HUGEPAGE)
 			(void)madvise(vaddr, length, MADV_HUGEPAGE);
 #endif
-		memset(vaddr, 0, length);
-	} else if ((__u64)ptr & (PAGE_SIZE-1)) {
-		fprintf(stderr, "virtual address not page aligned %p\n", ptr);
-		goto err;
+		memset(vaddr, 0, length); // commit all pages
+	} else {
+		if ((__u64)ptr & PAGE_MASK) {
+			fprintf(stderr, "virtual address not page aligned %p\n", ptr);
+			goto err;
+		}
+
+		if (check_numa_node(vaddr, length, numa_node) < 0)
+			goto err;
 	}
 
 	region->mem.addr = (__u64)vaddr;
@@ -220,7 +270,8 @@ err:
 	if (region->mem.phys_addr != 0)
 		free((void *)region->mem.phys_addr);
 	if (region->allocated && (region->mem.addr != 0))
-		munmap((void *)region->mem.addr, (size_t)region->mem.size);
+		numa_free((void *)region->mem.addr, (size_t)region->mem.size);
+
 	free(region);
 
 	return NULL;
@@ -251,7 +302,7 @@ int ncbte_free_region(struct ncbte_context *context, struct ncbte_region *region
 	if (region->mem.phys_addr != 0)
 		free((void *)region->mem.phys_addr);
 	if (region->allocated && (region->mem.addr != 0))
-		munmap((void *)region->mem.addr, (size_t)region->mem.size);
+		numa_free((void *)region->mem.addr, (size_t)region->mem.size);
 	free(region);
 
 	return 0;
