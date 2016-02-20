@@ -688,10 +688,9 @@ void ncbte_wait_completion(struct ncbte_context *context, struct ncbte_completio
 	if (completion->chip_no != get_current_chip(context))
 		return;
 
-	for (;;) {
-		if (*completion->fence == 0) break;
-		asm volatile("pause" ::: "memory");
-	}
+	asm volatile("monitor" :: "a" (completion->fence), "c" (0), "d" (0));
+	while (*completion->fence != 0)
+		asm volatile("mwait" :: "a" (0xf), "c" (0));
 }
 
 #define NUMASCALE_VENDOR_ID 0x1B47
