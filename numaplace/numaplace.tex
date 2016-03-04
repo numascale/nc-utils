@@ -1,0 +1,191 @@
+% build with:
+% sudo apt-get install latex-beamer
+% pdflatex -halt-on-error -file-line-error-style numaplace.tex
+
+\documentclass{beamer}
+\usepackage{alltt}
+\usepackage{hyperref}
+\begin{document}
+\title{Application behaviour and Numaplace}
+\author{Daniel J Blueman}
+\institute{Principal Software Engineer, Numascale}
+\date{\today}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\begin{frame}{Introduction}
+\begin{itemize}
+\item Exclusive goals
+	\begin{itemize}
+	\item Want desktop-like \textcolor{blue}{flexibility} and \textcolor{blue}{freedom} on larger systems
+	\item Want all the \textcolor{blue}{performance}
+	\end{itemize}
+
+\vspace{6pt}
+
+\item Large-SMP systems have much higher scheduling overhead
+	\begin{itemize}
+	\item scheduling decision complexity is exponential with core count
+	\item takes away some* performance
+	\end{itemize}
+
+\vspace{6pt}
+
+\item * Depends on how much sleeping on semaphores vs compute-bound the workload is
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Existing approach}
+\begin{itemize}
+\item Manipulate environment
+	\begin{itemize}
+	\item Look! Cores 64 to 191 are free
+	\begin{verbatim}
+$ export OMP_NUM_THREADS=128
+$ export OMP_PLACES={64-191}
+$ export OMP_PROC_BIND=true
+$ ./benchmark
+	\end{verbatim}
+	\end{itemize}
+
+\vspace{6pt}
+
+\item Caveats
+\vspace{4pt}
+	\begin{itemize}
+	\item Wait, it's running slow now
+		\begin{itemize}
+		\item Someone else is running on those cores
+		\end{itemize}
+\vspace{4pt}
+	\item How can I tell which cores are available?
+		\begin{itemize}
+		\item No robust mechanism. Don't even think about htop...
+		\end{itemize}
+	\end{itemize}
+\vspace{4pt}
+	\item OMP\_PLACES what?
+	\begin{itemize}
+	\item Sorry, needs OpenMP 4.0
+	\end{itemize}
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Making life easier}
+\begin{itemize}
+\item Abstracts guesswork of cores
+	\begin{itemize}
+	\item so you don't have to
+	\end{itemize}
+
+\vspace{4pt}
+\item Gives desktop-like scheduling latency
+\vspace{4pt}
+\item Transparent to OpenMP or pthreads application
+\vspace{4pt}
+\item Automatically isolates applications from each other
+\vspace{4pt}
+\item Detects NUMA topology and optimises core placement
+\item Published at:
+	\begin{itemize}
+	\item \url{https://resources.numascale.com/numaplace/}
+	\end{itemize}
+\item Source at:
+	\begin{itemize}
+	\item \url{https://github.com/numascale/nc-utils/tree/master/os/numaplace}
+	\end{itemize}
+
+\item WIP to integrate into numactl package, so is OOB
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Options}
+\begin{verbatim}
+usage: numaplace [-atvVdp] [-c <cores>] cmd [args ...]
+        -a, --no-allocator      don't use NUMA aware memory allocation
+        -c, --cores             set number of cores advertised
+        -d, --debug             show internal information
+        -p, --parent            don't pin parent task
+        -t, --no-thp            disable Transparent Huge Pages
+        -v, --verbose           show cores allocated
+        -V, --version           show version
+\end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{Example}
+\begin{verbatim}
+$ numaplace --cores 64 ./cg.C.x
+ NAS Parallel Benchmarks (NPB3.3-OMP) - CG Benchmark
+...
+ Number of available threads:    64
+...
+       75       0.90260466198027E-15    28.9736055928455
+ Benchmark completed
+ VERIFICATION SUCCESSFUL
+...
+ Mop/s total     =                   903.41
+\end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{Improvements}
+\begin{itemize}
+\item Wait, but only 903 MFLOPS?
+\item Maybe the application doesn't interact well with transparent hugepages...
+\end{itemize}
+
+\begin{verbatim}
+$ numaplace --cores 64 --no-thp ./cg.C.x
+ NAS Parallel Benchmarks (NPB3.3-OMP) - CG Benchmark
+...
+ Number of available threads:    64
+...
+       75       0.90260466198027E-15    28.9736055928455
+ Benchmark completed
+ VERIFICATION SUCCESSFUL
+...
+ Mop/s total     =                  3230.63
+\end{verbatim}
+
+\begin{itemize}
+\item 3.2 GFLOPS...much better!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Roadmap}
+\begin{itemize}
+\item Stride allocation
+	\begin{itemize}
+	\item Prevents FPU sharing
+	\item May give more per-thread memory bandwidth
+	\end{itemize}
+
+\vspace{4pt}
+
+\item Automatic core count
+	\begin{itemize}
+	\item Will check how many cores aren't used
+	\item Configurable default limit
+		\begin{itemize}
+		\item so multiple users can share a system effectively
+		\end{itemize}
+	\end{itemize}
+
+\item Transparent-hugepage blacklist
+	\begin{itemize}
+	\item Disables THP for applications which are known to behave poorly
+	\end{itemize}
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Thankyou}
+\begin{itemize}
+\item Do drop me a note at \href{mailto:daniel@numascale.com}{daniel@numascale.com}
+\vspace{8pt}
+\item Feedback, issues or requests welcome
+\end{itemize}
+\end{frame}
+\end{document}
