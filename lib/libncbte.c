@@ -88,8 +88,9 @@ struct ncbte_context {
 };
 
 struct ncbte_region {
-	struct ncbte_mem mem;
-	int              allocated;
+	struct ncbte_mem  mem;
+	struct bitmask   *bmp;
+	int               allocated;
 };
 
 struct ncbte_completion {
@@ -148,7 +149,7 @@ static int get_current_chip(struct ncbte_context *context)
 }
 #endif
 
-static int check_numa_node(void *ptr, size_t length, int numa_node)
+static int check_numa_mask(void *ptr, size_t length, struct bitmask *bmp)
 {
 	unsigned nr_pages = DIV_ROUND_UP(length, PAGE_SIZE);
 	void **pages = alloca(nr_pages * sizeof(void *));
@@ -173,14 +174,40 @@ static int check_numa_node(void *ptr, size_t length, int numa_node)
 			fprintf(stderr, "page %d (%p): %s\n", page, pages[page], strerror(-status[page]));
 			return -1;
 		}
-		if (status[page] != numa_node) {
-			fprintf(stderr, "page %d (%p, %d) not on numa node %d\n",
-				page, pages[page], status[page], numa_node);
+		if (!numa_bitmask_isbitset(bmp, status[page])) {
+			fprintf(stderr, "page %d (%p, %d) not within current numa mask\n",
+				page, pages[page], status[page]);
 			return -1;
 		}
 	}
 
 	return 0;
+}
+
+static int set_current_chip_mask(struct ncbte_context *context, struct bitmask *bmp)
+{
+	int chip_no = get_current_chip(context);
+	int per_chip = context->numa_per_chip;
+	int nd;
+
+	if (chip_no < 0)
+		return -1;
+
+	for (nd = (chip_no * per_chip); nd <  (chip_no * per_chip) + per_chip; nd++)
+		numa_bitmask_setbit(bmp, nd);
+
+	return 0;
+}
+
+static void *alloc_on_mask(size_t size, struct bitmask *bmp)
+{
+	void *mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	if (mem == MAP_FAILED)
+		mem = NULL;
+	else
+		if (mbind(mem, size, MPOL_BIND, bmp->maskp, bmp->size + 1, 0) < 0)
+			fprintf(stderr, "mbind failed : %s\n", strerror(errno));
+	return mem;
 }
 
 /**
@@ -201,17 +228,10 @@ static int check_numa_node(void *ptr, size_t length, int numa_node)
 void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length, int flags, struct ncbte_region **regionp)
 {
 	struct ncbte_region *region;
-	int numa_node;
 	void *vaddr = ptr;
 
 	if (!context || !regionp)
 		return NULL;
-
-	numa_node = numa_node_of_cpu(sched_getcpu());
-	if (numa_node < 0) {
-		fprintf(stderr, "unable to determine current NUMA node\n");
-		return NULL;
-	}
 
 	region = (struct ncbte_region *)malloc(sizeof(*region));
 	if (!region) {
@@ -220,12 +240,22 @@ void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length
 	}
 	memset(region, 0, sizeof(*region));
 
+	region->bmp = numa_allocate_nodemask();
+	if (!region->bmp) {
+		fprintf(stderr,"numa_allocate_nodemask failed\n");
+		goto err;
+	}
+
+	if (set_current_chip_mask(context, region->bmp) < 0) {
+		fprintf(stderr,"unable to get current chip mask\n");
+		goto err;
+	}
+
 	/* No region was given, allocate one */
 	if (!ptr) {
 		const size_t alignment = (flags & NCBTE_ALLOCATE_HUGEPAGE) ? HUGE_PAGE_SIZE : PAGE_SIZE;
 		length = ((length + alignment - 1) / alignment) * alignment;
-		numa_set_bind_policy(1); // set strict bind policy
-		vaddr = numa_alloc_onnode(length, numa_node);
+		vaddr = alloc_on_mask(length, region->bmp);
 		if (vaddr == NULL) {
 			fprintf(stderr, "numa_alloc_onnode failed: %s\n", strerror(errno));
 			goto err;
@@ -244,7 +274,7 @@ void *ncbte_alloc_region(struct ncbte_context *context, void *ptr, size_t length
 			goto err;
 		}
 
-		if (check_numa_node(vaddr, length, numa_node) < 0)
+		if (check_numa_mask(vaddr, length, region->bmp) < 0)
 			goto err;
 	}
 
@@ -270,7 +300,9 @@ err:
 	if (region->mem.phys_addr != 0)
 		free((void *)region->mem.phys_addr);
 	if (region->allocated && (region->mem.addr != 0))
-		numa_free((void *)region->mem.addr, (size_t)region->mem.size);
+		munmap((void *)region->mem.addr, (size_t)region->mem.size);
+	if (region->bmp != 0)
+		numa_bitmask_free(region->bmp);
 
 	free(region);
 
@@ -302,7 +334,10 @@ int ncbte_free_region(struct ncbte_context *context, struct ncbte_region *region
 	if (region->mem.phys_addr != 0)
 		free((void *)region->mem.phys_addr);
 	if (region->allocated && (region->mem.addr != 0))
-		numa_free((void *)region->mem.addr, (size_t)region->mem.size);
+		munmap((void *)region->mem.addr, (size_t)region->mem.size);
+	if (region->bmp != 0)
+		numa_bitmask_free(region->bmp);
+
 	free(region);
 
 	return 0;
