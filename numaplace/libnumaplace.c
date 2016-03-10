@@ -456,6 +456,7 @@ static void context_allocate(void)
 		// skip unuallocated
 		if (!table->contexts[i].pid) {
 			i++;
+			assert(i < CONTEXTS);
 			continue;
 		}
 
@@ -517,11 +518,12 @@ static void init(void)
 	if (envstr)
 		stacksize = parseint(envstr);
 
-	int fd = shm_open("numaplace", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	int fd = shm_open("/numaplace", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 	assert(fd != -1);
 	assert(ftruncate(fd, SHM_LEN) != -1);
 	table = mmap(NULL, SHM_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	assert(table != MAP_FAILED);
+	assert(!table->allocated); // documented to be zeroed for the first consumer
 	context_allocate();
 }
 #endif
