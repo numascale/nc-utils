@@ -29,6 +29,8 @@
 static double _cycletime = 0.0;
 static int _initialized = 0;
 
+#if defined(__linux__)
+
 #define PROC_CPUINFO "/proc/cpuinfo"
 #define PROC_LINE_SZ 1024
 
@@ -80,10 +82,11 @@ _getcpufreq(int cpu)
 	}
 	return 0.0;
 }
+#endif
 
 static void _tsc_init(void)
 {
-/*
+#if !defined(__linux__)
 	double t;
 	uint64_t s1, s2;
 	struct timeval tp;
@@ -98,9 +101,10 @@ static void _tsc_init(void)
 	i = gettimeofday(&tp,&tzp);
 	t = ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6) - t;
 	_cycletime = (t / (double)(s2 - s1));
-*/
+#else
 	_cycletime = 1 / (_getcpufreq(0) * 1e6);
 	_initialized = 1;
+#endif
 }
 
 double tsc_getsecs(void)
