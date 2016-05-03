@@ -1,3 +1,4 @@
+/* -*- Mode: C; c-basic-offset:8 ; indent-tabs-mode:t ; -*- */
 /*
  * Copyright (C) 2008-2015 Numascale AS, support@numascale.com
  *
