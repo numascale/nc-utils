@@ -1,5 +1,6 @@
 TARGETS	:= numaplace libnumaplace.so numaplace-test
-CFLAGS	:= -std=gnu99 -Wall -Wextra -Wshadow -O3 -g -D_GNU_SOURCE -Wno-unused-parameter -ftls-model=initial-exec -fomit-frame-pointer
+CFLAGS	:= -std=gnu99 -Wall -Wextra -Wshadow -O3 -ggdb3 -D_GNU_SOURCE -Wno-unused-parameter -ftls-model=initial-exec -fomit-frame-pointer
+CXXFLAGS := -Wall -Wextra -O3 -g
 
 .PHONY: all
 all: $(TARGETS) numaplace.pdf
@@ -26,8 +27,11 @@ upload: all
 version.h: Makefile numaplace.c libnumaplace.c utils.h
 	@echo \#define VER \"`git describe --always --dirty=+`\" >version.h
 
-numaplace: numaplace.c libnumaplace.c utils.h version.h
-	$(CC) $(CFLAGS) -DPARENT -o $@ $< ncalloc.c libnumaplace.c -lpthread -ldl -lnuma -lrt
+#numaplace: numaplace.c libnumaplace.c utils.h version.h
+#	$(CC) $(CFLAGS) -DPARENT -o $@ $< ncalloc.c libnumaplace.c -lpthread -ldl -lnuma -lrt
+
+numaplace: numaplace.cc
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
 numaplace.pdf: numaplace.tex
 	pdflatex -halt-on-error -file-line-error-style numaplace.tex

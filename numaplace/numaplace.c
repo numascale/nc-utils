@@ -21,14 +21,14 @@
 
 static void usage(const int code)
 {
-	fprintf(stderr, "usage: numaplace [-atvVdp] [-c <cores>] cmd [args ...]\n");
-	fprintf(stderr, "\t-a, --no-allocator\tdon't use NUMA aware memory allocation\n");
-	fprintf(stderr, "\t-c, --cores\t\tset number of cores advertised\n");
-	fprintf(stderr, "\t-d, --debug\t\tshow internal information\n");
-	fprintf(stderr, "\t-p, --parent\t\tdon't pin parent task\n");
-	fprintf(stderr, "\t-t, --no-thp\t\tdisable Transparent Huge Pages\n");
-	fprintf(stderr, "\t-v, --verbose\t\tshow cores allocated\n");
-	fprintf(stderr, "\t-V, --version\t\tshow version\n");
+	fprintf(stderr, "usage: numaplace [-atvVdp] [-c <cores>] cmd [args ...]\n" \
+		"\t-a, --no-allocator\tdon't use NUMA aware memory allocation\n" \
+		"\t-c, --cores\t\tset number of cores advertised\n" \
+		"\t-d, --debug\t\tshow internal information\n" \
+		"\t-p, --parent\t\tdon't pin parent task\n" \
+		"\t-t, --no-thp\t\tdisable Transparent Huge Pages\n" \
+		"\t-v, --verbose\t\tshow cores allocated\n" \
+		"\t-V, --version\t\tshow version\n");
 	exit(code);
 }
 
