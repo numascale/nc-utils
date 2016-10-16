@@ -19,7 +19,6 @@
 #define VER "0.9"
 #define MAXNODES 1024 // limited by kernel
 #define MAXCORES 8192
-#define RELEASE_AGENT "/bin/rmdir"
 #define xassert(expr) ((expr) ? (void)(0) : error(__STRING(expr), __FILE__, __LINE__))
 #define sysassert(expr) ((expr) ? (void)(0) : syserror(__STRING(expr), __FILE__, __LINE__))
 
