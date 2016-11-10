@@ -44,7 +44,7 @@ try:
 	while True:
 		output = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
 		if nclib.options.verbose > 0:
-			output += ' ['
+			output += ' useq:'
 
 		if nclib.options.verbose > 0:
 			ptrs = {}
@@ -59,8 +59,7 @@ try:
 					total += 1
 
 			for key, val in sorted(ptrs.items(), key=operator.itemgetter(1), reverse=True):
-				output += '%2u%%@%03x' % (val * 100 / total, key),
-			output += ']'
+				output += ' %2u%%@%03x' % ((val * 100 / total), key)
 
 		errors = 0
 		for node in nodes:
